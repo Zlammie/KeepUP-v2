@@ -1,0 +1,251 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Simple CRM</title>
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet"/>
+  <link rel="stylesheet" href="styles/nav.css">
+</head>
+<body class="container mt-5">
+  <div id="top-bar"></div>
+  <div id="side-bar"></div>
+  <h1>Simple CRM</h1>
+
+  <form id="contactForm">
+    <div class="mb-3">
+      <label>Contact Type</label>
+      <select id="lead-type" class="form-control">
+        <option value="contact">Lead</option>
+        <option value="realtor">Realtor</option>
+        <option value="lender">Lender</option>
+      </select>
+    </div>
+    <div class="mb-3">
+      <label>First Name</label>
+      <input type="text" class="form-control" id="firstName" required />
+    </div>
+    <div class="mb-3">
+      <label>Last Name</label>
+      <input type="text" class="form-control" id="lastName" required />
+    </div>
+    <div class="mb-3">
+      <label>Email</label>
+      <input type="email" class="form-control" id="email" required />
+    </div>
+    <div class="mb-3">
+      <label>Phone</label>
+      <input type="text" class="form-control" id="phone" required />
+    </div>
+    <div class="mb-3">
+      <label>Visit Date</label>
+      <input type="text" class="form-control" id="visit-date" />
+    </div>
+    <div class="realtor-fields d-none">
+      <div class="mb-3">
+        <label>Brokerage</label>
+        <input type="text" class="form-control" id="brokerage" />
+      </div>
+    </div>
+
+  <div class="lender-fields d-none">
+    <div class="mb-3">
+      <label>Lender Brokerage</label>
+      <input type="text" class="form-control" id="lenderBrokerage" />
+    </div>
+    <div class="mb-3">
+      <label>Lending Officer First Name</label>
+      <input type="text" class="form-control" id="lenderFirstName" />
+    </div>
+    <div class="mb-3">
+      <label>Lending Officer Last Name</label>
+      <input type="text" class="form-control" id="lenderLastName" />
+    </div>
+    <div class="mb-3">
+      <label>Lender Email</label>
+      <input type="email" class="form-control" id="lenderEmail" />
+    </div>
+    <div class="mb-3">
+      <label>Lender Phone</label>
+      <input type="text" class="form-control" id="lenderPhone" />
+    </div>
+  </div>
+
+<div>
+  <button type="submit" class="btn btn-primary">Save Contact</button>
+</div>
+    
+  </form>
+
+<script>
+  // Load navbars
+ fetch('/nav.html')
+  .then(res => res.text())
+  .then(html => {
+    const container = document.getElementById('side-bar');
+    container.innerHTML = html;
+
+    const currentPath = window.location.pathname.split('/').pop();
+
+    const pathGroupMap = {
+      'contacts': ['contacts.html', 'contact-details.html', 'add-lead.html'],
+      'realtors': ['realtors.html', 'realtor-view.html'],
+      'lenders': ['lender.html', 'lender-view.html']
+    };
+
+    const navLinks = container.querySelectorAll('.nav-items-container a');
+
+    navLinks.forEach(link => {
+      const href = link.getAttribute('href');
+
+      for (const [section, pages] of Object.entries(pathGroupMap)) {
+        if (pages.includes(currentPath) && href.includes(section)) {
+          link.closest('li').classList.add('active');
+        }
+      }
+    });
+  })
+ fetch('/top-nav-contacts.html')
+  .then(res => res.text())
+  .then(html => {
+    const container = document.getElementById('top-bar');
+    container.innerHTML = html;
+
+    // Apply active class based on current page
+    const currentPath = window.location.pathname.split('/').pop();
+    const links = container.querySelectorAll('.top-nav-link');
+
+    links.forEach(link => {
+      const href = link.getAttribute('href');
+      if (href === currentPath) {
+        link.classList.add('active');
+      }
+    });
+  })
+  .catch(err => console.error('Failed to load top nav:', err));
+
+  document.addEventListener('DOMContentLoaded', () => {
+    const leadTypeSelect = document.getElementById('lead-type');
+    const contactForm = document.getElementById('contactForm');
+
+    function updateFieldVisibility() {
+      const type = leadTypeSelect.value;
+
+      const realtorFields = document.querySelector('.realtor-fields');
+      const lenderFields = document.querySelector('.lender-fields');
+
+      const visitDateField = document.getElementById('visit-date').closest('.mb-3');
+      const firstNameField = document.getElementById('firstName').closest('.mb-3');
+      const lastNameField = document.getElementById('lastName').closest('.mb-3');
+      const emailField = document.getElementById('email').closest('.mb-3');
+      const phoneField = document.getElementById('phone').closest('.mb-3');
+
+      const firstNameInput = document.getElementById('firstName');
+      const lastNameInput = document.getElementById('lastName');
+      const emailInput = document.getElementById('email');
+      const phoneInput = document.getElementById('phone');
+
+      const lenderFirstInput = document.getElementById('lenderFirstName');
+      const lenderLastInput = document.getElementById('lenderLastName');
+
+      // Reset visibility and required
+      realtorFields.classList.add('d-none');
+      lenderFields.classList.add('d-none');
+      visitDateField.classList.remove('d-none');
+      firstNameField.classList.remove('d-none');
+      lastNameField.classList.remove('d-none');
+      emailField.classList.remove('d-none');
+      phoneField.classList.remove('d-none');
+
+      firstNameInput.required = true;
+      lastNameInput.required = true;
+      emailInput.required = true;
+      phoneInput.required = true;
+      lenderFirstInput.required = false;
+      lenderLastInput.required = false;
+
+      if (type === 'realtor') {
+        realtorFields.classList.remove('d-none');
+      } else if (type === 'lender') {
+        lenderFields.classList.remove('d-none');
+        visitDateField.classList.add('d-none');
+        firstNameField.classList.add('d-none');
+        lastNameField.classList.add('d-none');
+        emailField.classList.add('d-none');
+        phoneField.classList.add('d-none');
+
+        firstNameInput.required = false;
+        lastNameInput.required = false;
+        emailInput.required = false;
+        phoneInput.required = false;
+        lenderFirstInput.required = true;
+        lenderLastInput.required = true;
+      }
+    }
+
+    leadTypeSelect.addEventListener('change', updateFieldVisibility);
+
+    // Initial visibility set
+    updateFieldVisibility();
+
+    // Handle form submission manually
+    contactForm.addEventListener('submit', async (e) => {
+      e.preventDefault();
+
+      const type = leadTypeSelect.value;
+
+      const payload = {
+        firstName: document.getElementById('firstName').value,
+        lastName: document.getElementById('lastName').value,
+        email: document.getElementById('email').value,
+        phone: document.getElementById('phone').value,
+        visitDate: document.getElementById('visit-date').value
+      };
+
+      if (type === 'realtor') {
+        payload.brokerage = document.getElementById('brokerage').value;
+      } else if (type === 'lender') {
+        payload.lenderBrokerage = document.getElementById('lenderBrokerage').value;
+        payload.firstName = document.getElementById('lenderFirstName').value;
+        payload.lastName = document.getElementById('lenderLastName').value;
+        payload.email = document.getElementById('lenderEmail').value;
+        payload.phone = document.getElementById('lenderPhone').value;
+        delete payload.visitDate;
+      }
+
+      const endpoint = type === 'realtor'
+        ? '/api/realtors'
+        : type === 'lender'
+          ? '/api/lenders'
+          : '/api/contacts';
+
+      try {
+        const res = await fetch(endpoint, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(payload)
+        });
+
+        if (!res.ok) {
+          console.error(`Failed to save ${type}`);
+        } else {
+          console.log(`Successfully saved ${type}`);
+          alert(`${type.charAt(0).toUpperCase() + type.slice(1)} saved successfully`);
+
+          // ✅ Clear the form
+          contactForm.reset();
+
+          // Reapply visibility logic based on lead type (to keep correct fields visible)
+          updateFieldVisibility();
+        }
+      } catch (err) {
+        console.error('Form save error:', err);
+      }
+    });
+  });
+</script>
+
+
+
+</body>
+</html>

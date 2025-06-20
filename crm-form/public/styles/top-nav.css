@@ -1,0 +1,73 @@
+.header-wrapper {
+  background-color: #001B2E;
+  position: fixed;
+  top: 60px;
+  left: 0;
+  right: 0;
+  height: 45px;
+  z-index: 998; /* slightly behind .header */
+}
+
+.header {
+  position: fixed;
+  top: 60px; /* directly below the global top bar */
+  left: 0;
+  right: 0;
+  height: 45px;
+  background-color: #0E79B2;
+  display: flex;
+  align-items: center;
+  margin-left: 150px; /* if you're using a 220px side nav */
+  z-index: 999;
+  border-bottom: 1px solid #0E79B2;
+  border-top-left-radius: 2rem;
+}
+
+.header-items{
+  margin-left: 25px;
+}
+
+.header-items ul {
+  list-style: none;
+  display: flex;
+  gap: 2rem;
+  margin: 0;
+  padding: 0;
+}
+
+.header-items li {
+  display: flex;
+  align-items: center;
+  color: white;
+}
+
+.header-items li img {
+  height: 18px;
+  margin-right: 6px;
+}
+
+.header-items a {
+  color: white;
+  text-decoration: none;
+  font-weight: 500;
+}
+
+.top-nav-link {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 0.5rem 1rem;
+  color: white;
+  text-decoration: none;
+  border-radius: 6px;
+  transition: background-color 0.2s;
+}
+
+.top-nav-link:hover {
+  background-color: #186b9d;
+}
+
+.top-nav-link.active {
+  background-color: #145d85;
+  color: #00d4ff;
+}

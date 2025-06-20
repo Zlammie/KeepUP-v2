@@ -1,0 +1,57 @@
+.form-group{
+  display: flex;
+  flex-direction: column;
+  margin-bottom: 1rem;
+}
+
+label {
+  margin-left: .5rem;
+  margin-bottom: 0.25rem;
+  margin-top: .5rem;
+  font-weight: 500;
+}
+input{
+  margin-left: 0.75rem;
+  margin-right: 0.75rem;
+ 
+}
+
+.main-cont{
+  display: inline-flex;         /* inline keeps it only as wide as content */
+  flex-direction: column;
+  background-color: darkgray;
+  align-self: flex-start;       /* optional: prevent child flex alignment from stretching */
+  width: fit-content;  
+  width: 350px;  
+  border-radius: 12px;      /* ensures width is based on content */
+}
+
+
+.realtor-info-cont{
+  background-color: lightgrey;
+  display: flex;
+  flex-direction: column;
+  margin: 15px 25px 15px 25px;
+  border-radius: 12px;
+}
+
+.related-contacts table {
+  width: 100%;
+  border-collapse: collapse;
+  margin-top: 1em;
+}
+
+.related-contacts th, .related-contacts td {
+  border: 1px solid #ccc;
+  padding: 8px;
+  text-align: left;
+}
+
+.related-contacts th {
+  background-color: #f0f0f0;
+}
+
+.related-contacts a {
+  color: black !important;
+  text-decoration: none; /* optional: removes underline */
+}

@@ -1,0 +1,342 @@
+/*General CSS */
+
+body {
+  background-color: #f5f7fa;
+  font-family: 'Segoe UI', sans-serif;
+  color: #333;
+  font-size: 15px;
+}
+
+.form-group{
+  display: flex;
+  flex-direction: column;
+  margin-bottom: .5rem;
+}
+label {
+  margin-left: .5rem;
+  margin-top: .5rem;
+  font-weight: 600;
+  font-size: 0.85rem;
+  color: #555;
+  border-bottom: 1px solid silver;
+}
+input,
+select {
+  font-size: 1rem;
+  padding: 0.6rem 0.75rem;
+  border-radius: 6px;
+  border: 1px solid #ccc;
+  background-color: #fff;
+  transition: all 0.2s;
+}
+
+input:focus,
+select:focus {
+  border-color: #0E79B2;
+  outline: none;
+  box-shadow: 0 0 0 2px rgba(14, 121, 178, 0.1);
+}
+
+.horizontal-cont{
+  display: flex;
+  flex-direction: row;
+  align-items: flex-start;
+}
+
+.deal-info,
+.comm-info,
+.cus-info-container,
+.realtor-container,
+.lender-cont {
+  background-color: #fff;
+  border-radius: 12px;
+  padding: 1.25rem;
+  margin: 15px 8px;
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.04);
+}
+
+
+/* Top Container CSS */
+.top-container {
+  background-color: #e2e6ea;
+  border-radius: 12px;
+  margin-left: 25px;
+  padding: 1.5rem;
+  
+  box-shadow: 0 1px 4px rgba(0,0,0,0.08);
+}
+.bottom-cont{
+  display: flex;
+  flex-direction: row;
+}
+
+.main-cont {
+  width: 360px;
+  background-color: #e2e6ea;
+  border-radius: 12px;
+  padding: 1rem;
+  box-shadow: 0 4px 12px rgba(0,0,0,0.06);
+}
+
+.disc-cont{
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+}
+
+.contact-summary-box {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  background-color: #fefefe;
+  border-radius: 12px;
+  padding: 1rem 1.25rem;
+  box-shadow: 0 2px 6px rgba(0,0,0,0.05);
+  margin-bottom: 1rem;
+  font-size: 1rem;
+  font-weight: 500;
+}
+
+.contact-name {
+  color: #333;
+  font-size: xx-large;
+  margin-right: 100px;
+}
+
+.status-badge {
+  display: inline-block;
+  padding: 0.4rem 0.75rem;
+  border-radius: 999px;
+  font-size: 0.85rem;
+  font-weight: 600;
+  text-transform: capitalize;
+  margin-top: 0.25rem;
+  color: white;
+  width: 250px;
+  text-align: center;
+}
+
+/* Status colors */
+.status-badge.invite           { background-color: #6c757d; } /* Gray */
+.status-badge.submitted        { background-color: #17a2b8; } /* Teal */
+.status-badge.missing          { background-color: #ffc107; } /* Yellow */
+.status-badge.approved         { background-color: #28a745; } /* Green */
+.status-badge.cannot-qualify   { background-color: #dc3545; } /* Red */
+
+
+
+
+.comm-info select {
+  height: 120px;
+  padding: 15px;
+  border: 1px solid #ccc;
+  border-radius: 8px;
+  font-size: 14px;
+  background-color: #f9f9f9;
+  overflow-y: auto;
+}
+
+select:focus {
+  border-color: #007bff;
+  outline: none;
+  background-color: #fff;
+  max-width: 150px;
+}
+
+.lotLineUp{
+  background-color: white;
+  margin-left: 15px;
+  margin-right: 15px;
+}
+
+.status-cont{
+  padding-top: 0.75rem;
+}
+.status-cont select {
+  -webkit-appearance: none;  /* Remove default styling on WebKit */
+  -moz-appearance: none;     /* Remove default styling on Firefox */
+  appearance: none;          /* Remove default styling */
+
+  width: 100%;
+  padding: 0.5rem;
+  text-align: center;
+  text-align-last: center;  /* For select element text centering */
+  border: 1px solid #ccc;
+  background-color: white;
+  background-image: none;    /* Hide default arrow in some browsers */
+}
+
+
+
+#status {
+  background-color: white; /* Default white for dropdown */
+  color: black;
+  transition: background-color 0.2s ease-in-out;
+}
+
+
+.comm-info select {
+  height: 120px;
+  padding: 8px;
+  border: 1px solid #ccc;
+  border-radius: 8px;
+  font-size: 14px;
+  background-color: #f9f9f9;
+  overflow-y: auto;
+}
+
+select:focus {
+  border-color: #007bff;
+  outline: none;
+  background-color: #fff;
+}
+
+.com-left-cont{
+  display: flex;
+  flex-direction: row;
+}
+
+.floor-plan-cont{
+  margin-left: 15px;
+  width: 150px;
+}
+
+.all-status-cont{
+  width: 450px;
+}
+
+.facing-cont{
+  width: 150px;
+}
+
+.lender-contact-box {
+  background-color: #fafafa;
+  padding: 1rem;
+  border-radius: 8px;
+  font-size: 0.95rem;
+  box-shadow: 0 2px 8px rgba(0,0,0,0.08);
+}
+
+.lender-status-badge {
+  display: inline-block;
+  padding: 0.3rem 0.6rem;
+  border-radius: 999px;
+  font-size: 0.75rem;
+  font-weight: 600;
+  color: white;
+  text-transform: capitalize;
+  margin-top: 0.25rem;
+}
+
+/* Status-specific colors */
+.lender-status-badge.invite           { background-color: #6c757d; }
+.lender-status-badge.submitted        { background-color: #17a2b8; }
+.lender-status-badge.submitted-docs   { background-color: #20c997; }
+.lender-status-badge.missing-docs     { background-color: #ffc107; color: #212529; }
+.lender-status-badge.approved         { background-color: #28a745; }
+.lender-status-badge.cannot-qualify   { background-color: #dc3545; }
+
+.deal-info::before {
+  content: '';
+  display: block;
+  height: 4px;
+  width: 100%;
+  background: #0E79B2;
+  border-top-left-radius: 12px;
+  border-top-right-radius: 12px;
+  margin-bottom: 0.5rem;
+}
+
+/* Comment Section */
+
+.top-comment-cont{
+  display: flex;
+  flex-direction: column;
+}
+.comment-section {
+
+
+  margin-top: 2rem;
+  margin-left: 25px;
+  margin-right: 25px;
+  padding: 1.25rem;
+  background-color: #fff;
+  border-radius: 12px;
+  box-shadow: 0 2px 6px rgba(0,0,0,0.05);
+}
+
+.comment-form {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+}
+
+#comment-text {
+  min-height: 80px;
+  font-size: 1rem;
+  padding: 0.75rem;
+  border-radius: 8px;
+  border: 1px solid #ccc;
+  resize: vertical;
+}
+
+#comment-type {
+  width: 150px;
+  padding: 0.5rem;
+  border-radius: 6px;
+  border: 1px solid #ccc;
+}
+
+#save-comment {
+  align-self: flex-start;
+  background-color: #0E79B2;
+  color: white;
+  border: none;
+  padding: 0.6rem 1.25rem;
+  border-radius: 6px;
+  cursor: pointer;
+  transition: background-color 0.2s;
+}
+#save-comment:hover {
+  background-color: #095d8a;
+}
+
+.comment-type-nav {
+  display: flex;
+  gap: 0.5rem;
+  margin-bottom: 0.75rem;
+}
+
+.comment-type-nav button {
+  background-color: #f1f1f1;
+  border: 1px solid #ccc;
+  border-radius: 8px;
+  padding: 0.5rem;
+  cursor: pointer;
+  transition: background-color 0.2s ease;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 48px;
+  height: 48px;
+}
+
+.comment-type-nav button:hover {
+  background-color: #e2e6ea;
+}
+
+.comment-type-nav button.active {
+  background-color: #0E79B2;
+  border-color: #0E79B2;
+}
+
+.comment-type-nav button img {
+  width: 24px;
+  height: 24px;
+  pointer-events: none;
+  filter: brightness(0) saturate(100%); /* Force icon to black */
+  transition: filter 0.2s ease;
+}
+.comment-type-nav button.active img {
+  filter: grayscale(0%) brightness(0) invert(1); /* makes icon white */
+}

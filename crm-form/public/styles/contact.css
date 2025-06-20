@@ -1,0 +1,71 @@
+.modal-overlay {
+  position: fixed;
+  top: 0; left: 0; right: 0; bottom: 0;
+  background: rgba(0,0,0,0.5);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 1000;
+}
+
+.modal-content {
+  background: white;
+  padding: 1.5rem;
+  border-radius: 8px;
+  width: 400px;
+  box-shadow: 0 4px 12px rgba(0,0,0,0.2);
+}
+
+.status-badge {
+  display: inline-block;
+  padding: 0.4rem 0.75rem;
+  border-radius: 999px;
+  font-size: 0.75rem;
+  font-weight: 600;
+  text-transform: capitalize;
+  color: white;
+}
+
+.status-badge.new { background-color: #0E79B2; }
+.status-badge.purchased { background-color: #28a745; }
+.status-badge.closed { background-color: mediumseagreen; }
+.status-badge.not-interested { background-color: salmon; }
+.status-badge.deal-lost { background-color: crimson; }
+/* Add others as needed */
+
+.comment-type-nav {
+  display: flex;
+  gap: 0.5rem;
+  margin-bottom: 1rem;
+  justify-content: center;
+}
+
+.comment-type-nav button {
+  background-color: #f1f1f1;
+  border: 1px solid #ccc;
+  border-radius: 8px;
+  padding: 0.5rem;
+  cursor: pointer;
+  transition: background-color 0.2s ease;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 48px;
+  height: 48px;
+}
+
+.comment-type-nav button img {
+  width: 24px;
+  height: 24px;
+  filter: brightness(0); /* makes SVG icons black */
+  pointer-events: none;
+}
+
+.comment-type-nav button.active {
+  background-color: #0E79B2;
+  border-color: #0E79B2;
+}
+
+.comment-type-nav button.active img {
+  filter: invert(1) brightness(1.5); /* white icons on active */
+}
