@@ -13,31 +13,41 @@ const lotViewRoutes = require('./routes/lotViewRoutes');
 
 const app = express();
 
-// ✅ Static and body parsers (must come BEFORE any routes)
-app.use(express.static(path.join(__dirname, 'public')));
+// ✅ Static file serving (NEW structure)
+app.use('/assets', express.static(path.join(__dirname, '../client/assets'))); // serve CSS, JS, icons, etc.
+app.use(express.static(path.join(__dirname, '../client/views/pages'))); // serve HTML pages
+app.use(express.static(path.join(__dirname, '../client/views/components'))); // serve nav, partials
+
+// ✅ Body parsing middleware
 app.use(bodyParser.urlencoded({ extended: true }));
 app.use(bodyParser.json());
 
-// ✅ MongoDB
+// ✅ MongoDB connection
 mongoose.connect(process.env.MONGO_URI, {
   useNewUrlParser: true,
   useUnifiedTopology: true,
 });
 
-// ✅ API Routes (now in correct order)
+// ✅ API Routes
 app.use('/api/realtors', realtorRoutes);
 app.use('/api/contacts', contactRoutes);
 app.use('/api/communities', communityRoutes);
 app.use('/api/lenders', lenderRoutes);
-app.use('/api/comments', commentRoutes); // ✅ moved after bodyParser
-app.use('/api', require('./routes/lotViewRoutes'));
+app.use('/api/comments', commentRoutes);
+app.use('/api', lotViewRoutes); // cleaner import
 
-// Catch-all for undefined API routes
+// ✅ Serve default frontend page at root
+app.get('/', (req, res) => {
+  res.sendFile(path.join(__dirname, '../client/views/pages/contacts.html'));
+});
+
+// ✅ Catch-all 404 (keep this LAST)
 app.use((req, res) => {
   res.status(404).json({ error: 'Route not found' });
 });
 
-// Start server
-app.listen(process.env.PORT, () => {
-  console.log(`Server running on http://localhost:${process.env.PORT}`);
+// ✅ Start server
+const PORT = process.env.PORT || 3000;
+app.listen(PORT, () => {
+  console.log(`Server running on http://localhost:${PORT}`);
 });
