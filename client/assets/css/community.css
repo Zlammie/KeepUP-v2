@@ -1,0 +1,173 @@
+/* Container sections */
+.section {
+  background-color: #f9f9f9;      /* light gray background */
+  border: 1px solid #ddd;         /* subtle border */
+  border-radius: 0.5rem;          /* rounded corners */
+  padding: 1rem;                  /* internal spacing */
+  margin-bottom: 1.5rem;          /* space between sections */
+}
+
+/* Section headings */
+.section h2 {
+  font-size: 1.25rem;
+  margin-bottom: 0.75rem;
+  color: #333;
+  border-bottom: 2px solid #ccc;
+  padding-bottom: 0.25rem;
+}
+
+/* Individual fields */
+.field {
+  display: flex;
+  align-items: center;
+  margin-bottom: 0.75rem;
+}
+
+/* Field labels */
+.field label {
+  flex: 0 0 140px;       /* fixed width */
+  font-weight: 600;
+  color: #555;
+}
+
+/* Value containers */
+.field .value {
+  flex: 1;
+  padding: 0.5rem;
+  border: 1px solid #ccc;
+  border-radius: 0.25rem;
+  background-color: #fff;
+  min-height: 1.5em;
+}
+
+/* Read-only values (no border/background) */
+.field .value.readonly {
+  border: none;
+  background: transparent;
+  padding: 0;
+}
+
+/* Page title */
+#lotTitle {
+  font-size: 2rem;
+  margin: 1rem 0;
+  color: #222;
+}
+
+/* === Section 1 grid === */
+.general-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  grid-template-areas:
+    "job-area lot-area"
+    "address-area address-area"
+    "plan-area schedule-area";
+  gap: 1rem 2rem;
+}
+
+/* map wrappers to grid areas */
+.job-area     { grid-area: job-area; }
+.lot-area     { grid-area: lot-area; }
+.address-area { grid-area: address-area; }
+.plan-area    { grid-area: plan-area; }
+.schedule-area{ grid-area: schedule-area; }
+
+/* tighten up the Plan & Schedule headers */
+.plan-area h3,
+.schedule-area h3 {
+  font-size: 1.1rem;
+  margin: 1rem 0 0.5rem;
+  color: #444;
+  border-bottom: 1px solid #ccc;
+  padding-bottom: 0.25rem;
+}
+.details-container {
+  display: grid;
+  grid-template-columns: 2fr 1fr;
+  gap: 2rem;
+}
+.left-column,
+.side-column {
+  display: flex;
+  flex-direction: column;
+}
+.info-box {
+  background-color: #f9f9f9;
+  border: 1px solid #ddd;
+  border-radius: 0.5rem;
+  padding: 1rem;
+}
+.info-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 1rem;
+}
+.info-grid h3 {
+  margin-top: 1rem;
+  margin-bottom: 0.5rem;
+  font-size: 1.1rem;
+  color: #444;
+  border-bottom: 1px solid #ccc;
+  padding-bottom: 0.25rem;
+}
+.walks-section,
+.finance-section {
+  margin: 2rem 0;
+  background-color: #f9f9f9;
+  border: 1px solid #ddd;
+  border-radius: 0.5rem;
+  padding: 1rem;
+}
+.walks-section h2,
+.finance-section h2 {
+  margin-bottom: 1rem;
+  font-size: 1.25rem;
+  border-bottom: 1px solid #ccc;
+  padding-bottom: 0.5rem;
+}
+
+.status-section {
+  margin-bottom: 1rem; /* reduced bottom spacing */
+}
+.status-bar {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  grid-template-rows: auto auto;
+  grid-template-areas:
+    "general general general general"
+    "building walk lender closing";
+  gap: 0.75rem;
+}
+.status-general     { grid-area: general; }
+.status-building    { grid-area: building; }
+.status-walk        { grid-area: walk; }
+.status-lender      { grid-area: lender; }
+.status-closing     { grid-area: closing; }
+
+.status-section .value {
+  background-color: #f0f0f0;
+  border: 1px solid #ccc;
+  border-radius: 0.25rem;
+  padding: 0.5rem;
+}
+.walk-details {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 0.5rem;
+  margin-top: 0.5rem;
+}
+.walk-details .field.small {
+  display: flex;
+  flex-direction: column;
+}
+.status-bar label {
+  font-weight: 600;
+  margin-bottom: 0.25rem;
+  display: block;
+}
+.status-building .sub-label,
+.status-closing .sub-label {
+  margin-top: 0.25rem;
+  font-size: 0.9rem;
+  color: #666;
+}

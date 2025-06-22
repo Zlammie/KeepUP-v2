@@ -14,15 +14,17 @@ document.addEventListener('DOMContentLoaded', async () => {
   tableBody.innerHTML = '';
 
   lots.forEach(lot => {
+    const link = `address-details.html?communityId=${communityId}&lotId=${lot._id}`;
     const row = document.createElement('tr');
     row.dataset.lotId = lot._id;              // store lotId for saves
 
     row.innerHTML = `
-      <td contenteditable="true" data-field="jobNumber">${lot.jobNumber || ''}</td>
-      <td contenteditable="true" data-field="lotBlockPhase">
-        ${lot.lot} / ${lot.block} / ${lot.phase}
-      </td>
-      <td contenteditable="true" data-field="address">${lot.address || ''}</td>
+          <td><a href="${link}">${lot.jobNumber}</a></td>
+      <td><a href="${link}">${lot.lot}/${lot.block}/${lot.phase}</a></td>
+      <td><a href="${link}">${lot.address}</a></td>
+      <td contenteditable="true" data-field="floorPlan">${lot.floorPlan || ''}</td>
+      <td contenteditable="true" data-field="elevation">${lot.elevation || ''}</td>
+      <td contenteditable="true" data-field="status">${lot.status || ''}</td>
       <td contenteditable="true" data-field="floorPlan">${lot.floorPlan || ''}</td>
       <td contenteditable="true" data-field="elevation">${lot.elevation || ''}</td>
       <td contenteditable="true" data-field="status">${lot.status || ''}</td>

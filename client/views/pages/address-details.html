@@ -1,0 +1,209 @@
+<!-- address-details.html: layout update: Finance below Purchase & Realtor, to right of Walks & Close -->
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Lot Details</title>
+  <link rel="stylesheet" href="/assets/css/community.css">
+</head>
+<body data-community-id="" data-lot-id="">
+  <div id="top-bar"></div>
+  <div id="side-bar"></div>
+
+  <h1 id="lotTitle">Loading…</h1>
+
+    <!-- Status Bar -->
+    <section class="section status-section">
+    <div class="status-bar">
+      <div class="status-general">
+        <label>General Status</label>
+        <div id="generalStatusValue" class="value readonly"></div>
+      </div>
+      <div class="status-building">
+        <label>Building Status</label>
+        <div id="buildingStatusValue" class="value readonly"></div>
+        <label class="sub-label">Start Date</label>
+        <div id="startDateValue" class="value readonly"></div>
+      </div>
+      <div class="status-walk">
+        <label>Walk Status</label>
+        <div id="walkStatusValue" class="value readonly"></div>
+        <div class="walk-details">
+          <div class="field small">
+            <label>1st Walk</label>
+            <div id="firstWalkValue" class="value readonly"></div>
+          </div>
+          <div class="field small">
+            <label>Final Sign Off</label>
+            <div id="finalSignOffValue" class="value readonly"></div>
+          </div>
+        </div>
+      </div>
+      <div class="status-lender">
+        <label>Lender Status</label>
+        <div id="lenderStatusValue" class="value readonly"></div>
+      </div>
+      <div class="status-closing">
+        <label>Closing Status</label>
+        <div id="closingStatusValue" class="value readonly"></div>
+        <label class="sub-label">Closing Date</label>
+        <div id="closingDateValue" class="value readonly"></div>
+      </div>
+    </div>
+  </section>
+
+  <div class="details-container">
+    <!-- Left Column: General Info + Walks & Close -->
+    <div class="left-column">
+      <section class="section general-section" id="section1">
+        <h2>General Info</h2>
+        <div class="general-grid">
+          <div class="field job-area">
+            <label for="jobNumber">Job Number</label>
+            <div id="jobNumberValue" class="value" contenteditable="true"></div>
+          </div>
+          <div class="field lot-area">
+            <label for="lotBlockPhase">Lot / Block / Phase</label>
+            <div id="lotBlockPhaseValue" class="value" contenteditable="true"></div>
+          </div>
+          <div class="field address-area">
+            <label for="address">Address</label>
+            <div id="addressValue" class="value" contenteditable="true"></div>
+          </div>
+          <div class="plan-area">
+            <h3>Plan Details</h3>
+            <div class="field">
+              <label for="floorPlan">Floor Plan</label>
+              <div id="floorPlanValue" class="value" contenteditable="true"></div>
+            </div>
+            <div class="field">
+              <label for="elevation">Elevation</label>
+              <div id="elevationValue" class="value" contenteditable="true"></div>
+            </div>
+            <div class="field">
+              <label for="status">Buidling Status</label>
+              <div id="statusValue" class="value" contenteditable="true"></div>
+            </div>
+          </div>
+          <div class="schedule-area">
+            <h3>Schedule</h3>
+            <div class="field">
+              <label for="releaseDate">Release Date</label>
+              <div id="releaseDateValue" class="value" contenteditable="true"></div>
+            </div>
+            <div class="field">
+              <label for="expectedCompletionDate">Expected Completion</label>
+              <div id="expectedCompletionDateValue" class="value" contenteditable="true"></div>
+            </div>
+            <div class="field">
+              <label for="closeMonth">Close Month</label>
+              <div id="closeMonthValue" class="value" contenteditable="true"></div>
+            </div>
+          </div>
+        </div>
+      </section>
+      <!-- Section 4: Walks & Close directly below General -->
+      <section class="section walks-section" id="walks-close">
+        <h2>Walks &amp; Close</h2>
+        <div class="field">
+          <label for="thirdParty">3rd Party</label>
+          <div id="thirdPartyValue" class="value" contenteditable="true"></div>
+        </div>
+        <div class="field">
+          <label for="firstWalk">1st Walk</label>
+          <div id="firstWalkValue" class="value" contenteditable="true"></div>
+        </div>
+        <div class="field">
+          <label for="finalSignOff">Final Sign Off</label>
+          <div id="finalSignOffValue" class="value" contenteditable="true"></div>
+        </div>
+      </section>
+    </div>
+
+    <!-- Right Column: Purchase & Realtor + Finance -->
+    <div class="side-column">
+      <aside class="section info-box" id="purchaser-realtor-box">
+        <h2>Purchaser &amp; Realtor Info</h2>
+        <div class="info-grid">
+          <!-- Purchaser Column -->
+          <div class="purchaser-col">
+            <h3>Purchaser Info</h3>
+            <div class="field">
+              <label>Purchaser</label>
+              <div id="purchaserValue" class="value readonly"></div>
+            </div>
+            <div class="field">
+              <label>Phone</label>
+              <div id="purchaserPhoneValue" class="value readonly"></div>
+            </div>
+            <div class="field">
+              <label>Email</label>
+              <div id="purchaserEmailValue" class="value readonly"></div>
+            </div>
+          </div>
+          <!-- Realtor Column -->
+          <div class="realtor-col">
+            <h3>Realtor Info</h3>
+            <div class="field">
+              <label>Name</label>
+              <div id="realtorNameValue" class="value readonly"></div>
+            </div>
+            <div class="field">
+              <label>Phone</label>
+              <div id="realtorPhoneValue" class="value readonly"></div>
+            </div>
+            <div class="field">
+              <label>Email</label>
+              <div id="realtorEmailValue" class="value readonly"></div>
+            </div>
+          </div>
+        </div>
+      </aside>
+      <!-- Section 5: Finance under Purchase & Realtor Info -->
+      <section class="section finance-section" id="section5">
+        <h2>Finance</h2>
+        <div class="field">
+            <label>Name</label>
+            <div id="lenderNameFinance" class="value readonly"></div>
+            </div>
+            <div class="field">
+              <label>Phone</label>
+              <div id="lenderPhoneFinance" class="value readonly"></div>
+            </div>
+          <div class="field">
+            <label>Email</label>
+            <div id="lenderEmailFinance" class="value readonly"></div>
+        </div>
+        <div class="field">
+          <label for="closeDateTime">Close Date &amp; Time</label>
+          <div id="closeDateTimeValue" class="value" contenteditable="true"></div>
+        </div>
+        <div class="field">
+          <label for="listPrice">List Price</label>
+          <div id="listPriceValue" class="value" contenteditable="true"></div>
+        </div>
+        <div class="field">
+          <label for="salesPrice">Sales Price</label>
+          <div id="salesPriceValue" class="value" contenteditable="true"></div>
+        </div>
+      </section>
+    </div>
+  </div>
+
+   <script>
+    // Load navs
+    fetch('/nav.html').then(res => res.text()).then(data => {
+      document.getElementById('side-bar').innerHTML = data;
+    });
+
+    fetch('/top-nav-community.html').then(res => res.text()).then(data => {
+      document.getElementById('top-bar').innerHTML = data;
+    });
+
+    
+  </script>
+
+  <script src="/assets/js/addressDetails.js"></script>
+
+</body>
+</html>
