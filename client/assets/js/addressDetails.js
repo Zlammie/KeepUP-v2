@@ -15,27 +15,41 @@ document.addEventListener("DOMContentLoaded", async () => {
     if (!res.ok) throw new Error(`Server returned ${res.status}`);
     const lot = await res.json();
 
-    // 2️⃣ Populate title & general info
+    // 2️⃣ Populate title & static fields
     document.getElementById("lotTitle").textContent =
       `Lot ${lot.jobNumber} – ${lot.address}`;
-    document.getElementById("jobNumberValue").textContent     = lot.jobNumber   || '';
-    document.getElementById("lotBlockPhaseValue").textContent = `${lot.lot} / ${lot.block} / ${lot.phase}`;
-    document.getElementById("addressValue").textContent       = lot.address     || '';
-    document.getElementById("floorPlanValue").textContent      = lot.floorPlan   || '';
-    document.getElementById("elevationValue").textContent      = lot.elevation   || '';
-    document.getElementById("statusValue").textContent         = lot.status      || '';
+    document.getElementById("jobNumberValue").textContent = lot.jobNumber || '';
+    document.getElementById("lotBlockPhaseValue").textContent =
+      `${lot.lot} / ${lot.block} / ${lot.phase}`;
+    document.getElementById("addressValue").textContent = lot.address || '';
 
-    // 3️⃣ Schedule
-    document.getElementById("releaseDateValue").textContent            = lot.releaseDate            || '';
-    document.getElementById("expectedCompletionDateValue").textContent = lot.expectedCompletionDate || '';
-    document.getElementById("closeMonthValue").textContent             = lot.closeMonth             || '';
-    document.getElementById("thirdPartyValue").textContent             = lot.thirdParty             || '';
+    // 3️⃣ Populate dynamic controls
+    // Floor Plan select
+    const fpSelect = document.getElementById("floorPlanSelect");
+    const fpRes = await fetch('/api/floorplans');
+    if (fpRes.ok) {
+      const plans = await fpRes.json();
+      plans.forEach(p => {
+        const opt = document.createElement('option');
+        opt.value = p._id;
+        opt.textContent = `${p.planNumber} – ${p.name}`;
+        fpSelect.appendChild(opt);
+      });
+      if (lot.floorPlan && lot.floorPlan._id) fpSelect.value = lot.floorPlan._id;
+    }
 
-    // 4️⃣ Walks & Close
+    // Elevation, status, dates
+    document.getElementById("elevationInput").value          = lot.elevation || '';
+    document.getElementById("buildingStatusSelect").value    = lot.status    || 'Not-Started';
+    document.getElementById("releaseDateInput").value        = lot.releaseDate            || '';
+    document.getElementById("expectedCompletionInput").value = lot.expectedCompletionDate || '';
+    document.getElementById("closeMonthInput").value         = lot.closeMonth             || '';
+
+    // 4️⃣ Populate walks & close
     document.getElementById("firstWalkValue").textContent    = lot.firstWalk    || '';
     document.getElementById("finalSignOffValue").textContent = lot.finalSignOff || '';
 
-    // 5️⃣ Purchaser -> Contact
+    // 5️⃣ Purchaser/Contact
     let purchaserContact = null;
     if (lot.purchaser) {
       const cRes = await fetch(`/api/contacts/${lot.purchaser._id}`);
@@ -48,10 +62,10 @@ document.addEventListener("DOMContentLoaded", async () => {
       document.getElementById("purchaserEmailValue").textContent = purchaserContact.email    || '';
     }
 
-    // 6️⃣ Realtor -> via contact.realtor
+    // 6️⃣ Realtor
     let realtor = null;
     if (purchaserContact?.realtor) {
-      const raw       = purchaserContact.realtor;
+      const raw = purchaserContact.realtor;
       const realtorId = typeof raw === 'object' ? raw._id : raw;
       console.log(`Fetching realtor: ${realtorId}`);
       const rRes = await fetch(`/api/realtors/${realtorId}`);
@@ -64,26 +78,58 @@ document.addEventListener("DOMContentLoaded", async () => {
       document.getElementById("realtorEmailValue").textContent = realtor.email || '';
     }
 
-    // 7️⃣ Lender -> from Purchaser contact
+    // 7️⃣ Lender (from purchaserContact, later)
     let lenderObj = null;
-    let lenderId;
-    if (purchaserContact) {
-      // contact may have 'lender' field or 'lenders' array
-      const raw = purchaserContact.lender ?? (Array.isArray(purchaserContact.lenders) ? purchaserContact.lenders[0] : null);
-      if (raw) {
-        lenderId = typeof raw === 'object' ? raw._id : raw;
-        console.log(`Fetching lender: ${lenderId}`);
+      if (purchaserContact?.primaryLender) {
+        const raw = purchaserContact.primaryLender;
+        const lenderId = typeof raw === 'object' ? raw._id : raw;
+        console.log(`Fetching primary lender: ${lenderId}`);
         const lRes = await fetch(`/api/lenders/${lenderId}`);
-        if (lRes.ok) lenderObj = await lRes.json();
-        else console.error(`Lender fetch failed: ${lRes.status}`);
+        if (lRes.ok) {
+          lenderObj = await lRes.json();
+        } else {
+          console.error(`Primary lender fetch failed: ${lRes.status}`);
+        }
       }
-    }
-    if (lenderObj) {
-      document.getElementById("lenderNameFinance").textContent  =
-        lenderObj.name || `${lenderObj.firstName || ''} ${lenderObj.lastName || ''}`.trim();
-      document.getElementById("lenderPhoneFinance").textContent = lenderObj.phone || '';
-      document.getElementById("lenderEmailFinance").textContent = lenderObj.email || '';
-    }
+
+      if (lenderObj) {
+        document.getElementById("lenderNameFinance").textContent  =
+          lenderObj.name || `${lenderObj.firstName || ''} ${lenderObj.lastName || ''}`.trim();
+        document.getElementById("lenderPhoneFinance").textContent = lenderObj.phone || '';
+        document.getElementById("lenderEmailFinance").textContent = lenderObj.email || '';
+      }
+    // ... same logic as before when ready ...
+
+    // 8️⃣ Auto-save handlers
+    const autoSaveMap = [
+      { id: 'floorPlanSelect', key: 'floorPlan' },
+      { id: 'elevationInput', key: 'elevation' },
+      { id: 'buildingStatusSelect', key: 'status' },
+      { id: 'releaseDateInput', key: 'releaseDate' },
+      { id: 'expectedCompletionInput', key: 'expectedCompletionDate' },
+      { id: 'closeMonthInput', key: 'closeMonth' }
+    ];
+    autoSaveMap.forEach(({id, key}) => {
+      const el = document.getElementById(id);
+      if (!el) return;
+      const eventType = el.tagName === 'SELECT' ? 'change' : 'blur';
+      el.addEventListener(eventType, async (evt) => {
+        const payload = { [key]: evt.target.value };
+        try {
+          const saveRes = await fetch(
+            `/api/communities/${commId}/lots/${lotId}`,
+            {
+              method: 'PUT',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify(payload)
+            }
+          );
+          if (!saveRes.ok) throw new Error(`Save failed: ${saveRes.status}`);
+        } catch (err) {
+          console.error('Auto-save error for', key, err);
+        }
+      });
+    });
 
   } catch (err) {
     console.error("Failed to load lot details:", err);

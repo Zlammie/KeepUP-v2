@@ -163,6 +163,28 @@ router.patch('/:contactId/lenders/:entryId', async (req, res) => {
   }
 });
 
+router.put('/:contactId/lenders/:lenderId/primary', async (req, res) => {
+  try {
+    const { contactId, lenderId } = req.params;
+    const contact = await Contact.findById(contactId);
+    if (!contact) return res.status(404).json({ error: 'Contact not found' });
+
+    // Ensure exactly one isPrimary
+    contact.lenders.forEach(link => {
+      link.isPrimary = (link._id.toString() === lenderId);
+    });
+
+    await contact.save();
+    // re-populate so front end sees lender details
+    await contact.populate('lenders.lender');
+    res.json(contact);
+  } catch (err) {
+    console.error('Failed to set primary lender:', err);
+    res.status(500).json({ error: 'Could not set primary lender' });
+  }
+});
+
+
 // DELETE one lender from a contact's lenders array
 router.delete('/:contactId/lenders/:lenderLinkId', async (req, res) => {
   try {

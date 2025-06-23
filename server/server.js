@@ -10,6 +10,7 @@ const communityRoutes = require('./routes/communityRoutes');
 const lenderRoutes = require('./routes/lenderRoutes');
 const commentRoutes = require('./routes/commentsRoutes');
 const lotViewRoutes = require('./routes/lotViewRoutes');
+const floorPlanRoutes  = require('./routes/floorPlanRoutes');
 
 const app = express();
 
@@ -34,6 +35,7 @@ app.use('/api/contacts', contactRoutes);
 app.use('/api/communities', communityRoutes);
 app.use('/api/lenders', lenderRoutes);
 app.use('/api/comments', commentRoutes);
+app.use('/api/floorplans', floorPlanRoutes);
 app.use('/api', lotViewRoutes); // cleaner import
 
 // ✅ Serve default frontend page at root

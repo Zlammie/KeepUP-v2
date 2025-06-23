@@ -155,15 +155,39 @@ async function loadContact() {
     }
 
   const lenderList = document.getElementById('lender-list-container');
-  if (lenderList) {
+ if (lenderList) {
     lenderList.innerHTML = ''; // clear before re-render
     if (Array.isArray(contact.lenders)) {
       contact.lenders.forEach((entry, idx) => {
         const card = createLenderCard(entry, idx);
         lenderList.appendChild(card);
       });
+      setupPrimaryLenderRadios();
     }
   }
+
+  function setupPrimaryLenderRadios() {
+  document
+    .querySelectorAll('input[name="primaryLender"]')
+    .forEach(radio => {
+      radio.addEventListener('change', async e => {
+        const lenderId = e.target.value;
+        const contactId = window.contactId; // from your loader
+
+        try {
+          await fetch(
+            `/api/contacts/${contactId}/lenders/${lenderId}/primary`,
+            { method: 'PUT' }
+          );
+          // reload the contact so the UI (and the isPrimary flags) refresh
+          reloadContactWithParams();
+        } catch (err) {
+          console.error('Failed to set primary lender', err);
+          alert('Could not update primary lender.');
+        }
+      });
+    });
+}
 
   // Populate realtor
   if (contact.realtor?._id) {
@@ -256,16 +280,25 @@ function createLenderCard(entry, index) {
     <div>Email: ${lender.email || '—'}</div>
     <div>Phone: ${lender.phone || '—'}</div>
     <div>Brokerage: ${lender.brokerage || lender.lenderBrokerage || '—'}</div>
+    <label style="display:block; margin:0.5em 0;">
+      <input
+        type="radio"
+        name="primaryLender"
+        value="${entry._id}"
+        ${entry.isPrimary ? 'checked' : ''}
+        />
+        Primary
+    </label>
 
     <label>Status:
       <select class="lender-status">
         <option value="">-- Select Status --</option>
-        <option value="Invite">Invite</option>
-        <option value="Submitted Application">Submitted Application</option>
-        <option value="Submitted Docs">Submitted Docs</option>
-        <option value="Missing Docs">Missing Docs</option>
-        <option value="Approved">Approved</option>
-        <option value="Cannot Qualify">Cannot Qualify</option>
+        <option value="invite">Invite</option>
+        <option value="submittedApplication">Submitted Application</option>
+        <option value="subDocs">Submitted Docs</option>
+        <option value="missingDocs">Missing Docs</option>
+        <option value="approved">Approved</option>
+        <option value="cannotQualify">Cannot Qualify</option>
       </select>
     </label>
 
@@ -282,7 +315,7 @@ function createLenderCard(entry, index) {
   container.querySelector('.lender-approved-date').value = entry.approvedDate || '';
 
 container.querySelector('.save-lender-btn').addEventListener('click', async () => {
-  const status = container.querySelector('.lender-status').value.toLowerCase();
+  const status = container.querySelector('.lender-status').value;
   const inviteDate = container.querySelector('.lender-invite-date').value;
   const approvedDate = container.querySelector('.lender-approved-date').value;
 

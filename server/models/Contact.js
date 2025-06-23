@@ -36,9 +36,11 @@ const contactSchema = new mongoose.Schema({
           'cannotQualify'
         ],
         lowercase: true,
+        default: 'invite'   // ← add this
       },
-      inviteDate: String,
-      approvedDate: String
+      inviteDate:  { type: Date, default: null },
+      approvedDate:{ type: Date, default: null },
+      isPrimary: { type: Boolean, default: false }
     }
   ],
   comments: [{ type: mongoose.Schema.Types.ObjectId, ref: 'Comment' }]
