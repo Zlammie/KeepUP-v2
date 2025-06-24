@@ -8,7 +8,11 @@ const LotSchema = new mongoose.Schema({
   block: String,
   phase: String,
   address: String,
-  floorPlan: String,
+  floorPlan: {
+    type: mongoose.Schema.Types.ObjectId,
+    ref: 'FloorPlan',
+    default: null
+  },
   elevation: String,
   status: String,
   purchaser: {

@@ -195,7 +195,9 @@ router.delete('/:contactId/lenders/:lenderLinkId', async (req, res) => {
       { new: true }
     )
       .populate('realtor')
-      .populate('lenders.lender');
+      .populate({
+        path: 'lenders.lender',     // populate the lender subdoc
+      });
 
     if (!updated) return res.status(404).json({ error: 'Contact not found' });
     res.json(updated);

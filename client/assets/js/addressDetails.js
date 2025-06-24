@@ -23,27 +23,38 @@ document.addEventListener("DOMContentLoaded", async () => {
       `${lot.lot} / ${lot.block} / ${lot.phase}`;
     document.getElementById("addressValue").textContent = lot.address || '';
 
-    // 3️⃣ Populate dynamic controls
-    // Floor Plan select
+   
+   // 3️⃣ Populate form controls instead of legacy <div>s
     const fpSelect = document.getElementById("floorPlanSelect");
-    const fpRes = await fetch('/api/floorplans');
-    if (fpRes.ok) {
-      const plans = await fpRes.json();
-      plans.forEach(p => {
-        const opt = document.createElement('option');
-        opt.value = p._id;
-        opt.textContent = `${p.planNumber} – ${p.name}`;
-        fpSelect.appendChild(opt);
-      });
-      if (lot.floorPlan && lot.floorPlan._id) fpSelect.value = lot.floorPlan._id;
+    if (fpSelect) {
+      fpSelect.innerHTML = '<option value="" disabled selected>— Select Floor Plan —</option>';
+      const fpRes = await fetch('/api/floorplans');
+      if (fpRes.ok) {
+        (await fpRes.json()).forEach(p => {
+          const opt = document.createElement('option');
+          opt.value = p._id;
+          opt.textContent = `${p.planNumber} – ${p.name}`;
+          fpSelect.appendChild(opt);
+        });
+        if (lot.floorPlan && lot.floorPlan._id) fpSelect.value = lot.floorPlan._id;
+        if (lot.floorPlan) fpSelect.value = lot.floorPlan;
+      }
     }
 
-    // Elevation, status, dates
-    document.getElementById("elevationInput").value          = lot.elevation || '';
-    document.getElementById("buildingStatusSelect").value    = lot.status    || 'Not-Started';
-    document.getElementById("releaseDateInput").value        = lot.releaseDate            || '';
-    document.getElementById("expectedCompletionInput").value = lot.expectedCompletionDate || '';
-    document.getElementById("closeMonthInput").value         = lot.closeMonth             || '';
+    const elevIn = document.getElementById("elevationInput");
+    if (elevIn) elevIn.value = lot.elevation || '';
+
+    const bsSel = document.getElementById("buildingStatusSelect");
+    if (bsSel) bsSel.value = lot.status || 'Not-Started';
+
+    const rdIn = document.getElementById("releaseDateInput");
+    if (rdIn) rdIn.value = lot.releaseDate || '';
+
+    const ecIn = document.getElementById("expectedCompletionInput");
+    if (ecIn) ecIn.value = lot.expectedCompletionDate || '';
+
+    const cmIn = document.getElementById("closeMonthInput");
+    if (cmIn) cmIn.value = lot.closeMonth || '';
 
     // 4️⃣ Populate walks & close
     document.getElementById("firstWalkValue").textContent    = lot.firstWalk    || '';
@@ -61,6 +72,8 @@ document.addEventListener("DOMContentLoaded", async () => {
       document.getElementById("purchaserPhoneValue").textContent = purchaserContact.phone    || '';
       document.getElementById("purchaserEmailValue").textContent = purchaserContact.email    || '';
     }
+    console.log('PURCHASER CONTACT:', purchaserContact);
+    console.log('primaryLender field:', purchaserContact.primaryLender);
 
     // 6️⃣ Realtor
     let realtor = null;
@@ -79,24 +92,16 @@ document.addEventListener("DOMContentLoaded", async () => {
     }
 
     // 7️⃣ Lender (from purchaserContact, later)
-    let lenderObj = null;
-      if (purchaserContact?.primaryLender) {
-        const raw = purchaserContact.primaryLender;
-        const lenderId = typeof raw === 'object' ? raw._id : raw;
-        console.log(`Fetching primary lender: ${lenderId}`);
-        const lRes = await fetch(`/api/lenders/${lenderId}`);
-        if (lRes.ok) {
-          lenderObj = await lRes.json();
-        } else {
-          console.error(`Primary lender fetch failed: ${lRes.status}`);
-        }
+    let primaryEntry = null;
+      if (purchaserContact?.lenders?.length) {
+        primaryEntry = purchaserContact.lenders.find(e => e.isPrimary);
       }
-
-      if (lenderObj) {
+      if (primaryEntry?.lender) {
+        const L = primaryEntry.lender;
         document.getElementById("lenderNameFinance").textContent  =
-          lenderObj.name || `${lenderObj.firstName || ''} ${lenderObj.lastName || ''}`.trim();
-        document.getElementById("lenderPhoneFinance").textContent = lenderObj.phone || '';
-        document.getElementById("lenderEmailFinance").textContent = lenderObj.email || '';
+          L.name || `${L.firstName} ${L.lastName}`;
+        document.getElementById("lenderPhoneFinance").textContent = L.phone || '';
+        document.getElementById("lenderEmailFinance").textContent = L.email || '';
       }
     // ... same logic as before when ready ...
 
@@ -114,6 +119,7 @@ document.addEventListener("DOMContentLoaded", async () => {
       if (!el) return;
       const eventType = el.tagName === 'SELECT' ? 'change' : 'blur';
       el.addEventListener(eventType, async (evt) => {
+        console.log('▶ auto-saving', key, '→', evt.target.value);
         const payload = { [key]: evt.target.value };
         try {
           const saveRes = await fetch(
