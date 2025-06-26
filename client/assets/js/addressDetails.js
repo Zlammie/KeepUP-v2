@@ -23,7 +23,14 @@ document.addEventListener("DOMContentLoaded", async () => {
       `${lot.lot} / ${lot.block} / ${lot.phase}`;
     document.getElementById("addressValue").textContent = lot.address || '';
 
-   
+   function formatDateTime(value) {
+    if (!value) return '';
+    const d = new Date(value);
+    const datePart = d.toLocaleDateString();  
+    // hour:minute only, no seconds
+    const timePart = d.toLocaleTimeString([], { hour: 'numeric', minute: 'numeric' });
+    return `${datePart} ${timePart}`;
+  }
    // 3️⃣ Populate form controls instead of legacy <div>s
     const fpSelect = document.getElementById("floorPlanSelect");
     if (fpSelect) {
@@ -44,8 +51,44 @@ document.addEventListener("DOMContentLoaded", async () => {
     const elevIn = document.getElementById("elevationInput");
     if (elevIn) elevIn.value = lot.elevation || '';
 
-    const bsSel = document.getElementById("buildingStatusSelect");
-    if (bsSel) bsSel.value = lot.status || 'Not-Started';
+    const buildingSelect = document.getElementById("buildingStatusSelect");
+      function updateBuildingSelectStyle(val) {
+        // remove any old classes
+        Object.values(buildingClasses).forEach(c => buildingSelect.classList.remove(c));
+        // add the new one
+        buildingSelect.classList.add(buildingClasses[val]);
+      }
+
+      const buildingLabels = {
+        'Not-Started':        'Not Started',
+        'Under-Construction': 'Under Construction',
+        'Finished':           'Finished'
+      };
+      const buildingClasses = {
+        'Not-Started':        'not-started',
+        'Under-Construction': 'under-construction',
+        'Finished':           'finished'
+      };
+
+      // initial styling:
+      updateBuildingSelectStyle(buildingSelect.value);
+
+      // when the user changes it, re-style + auto-save + update badge
+      buildingSelect.addEventListener("change", async (e) => {
+        const newVal = e.target.value;
+        updateBuildingSelectStyle(newVal);
+
+        // 1) auto-save (you may already have this via autoSaveMap)
+        await fetch(`/api/communities/${commId}/lots/${lotId}`, {
+          method: "PUT",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ status: newVal })
+        });
+
+        // 2) update the top‐bar badge
+        const badgeEl = document.getElementById("buildingStatusValue");
+        badgeEl.innerHTML = `<span class="status-badge ${buildingClasses[newVal]}">${buildingLabels[newVal]}</span>`;
+      });
 
     const rdIn = document.getElementById("releaseDateInput");
     if (rdIn) rdIn.value = lot.releaseDate || '';
@@ -78,10 +121,53 @@ document.addEventListener("DOMContentLoaded", async () => {
     }
 
       const walkStatusSelect = document.getElementById("walkStatusSelect");
+
+      const walkStatusLabels = {
+        waitingOnBuilder:       'Waiting on Builder',
+        datesSentToPurchaser:   'Dates Sent to Purchaser',
+        datesConfirmed:         'Dates Confirmed',
+        thirdPartyComplete:     '3rd Party Complete',
+        firstWalkComplete:      '1st Walk Complete',
+        finalSignOffComplete:   'Final Sign Off Complete'
+      };
+
+      // Walk‐status maps:
+      const walkStatusClasses = {
+        waitingOnBuilder:       'waiting-on-builder',
+        datesSentToPurchaser:   'dates-sent-to-purchaser',
+        datesConfirmed:         'dates-confirmed',
+        thirdPartyComplete:     'third-party-complete',
+        firstWalkComplete:      'first-walk-complete',
+        finalSignOffComplete:   'final-sign-off-complete'
+      };
     
         if (walkStatusSelect) {
       walkStatusSelect.value = lot.walkStatus || 'waitingOnBuilder';
     }
+
+          // helper to restyle the select
+      function updateWalkSelectStyle(val) {
+        Object.values(walkStatusClasses).forEach(c => walkStatusSelect.classList.remove(c));
+        walkStatusSelect.classList.add(walkStatusClasses[val]);
+      }
+      // initial tint:
+      updateWalkSelectStyle(walkStatusSelect.value);
+
+      // on change: auto-save, update badge + tint
+      walkStatusSelect.addEventListener("change", async e => {
+        const newVal = e.target.value;
+        updateWalkSelectStyle(newVal);
+
+        await fetch(`/api/communities/${commId}/lots/${lotId}`, {
+          method: "PUT",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ walkStatus: newVal })
+        });
+
+        // refresh top-bar badge
+        document.getElementById("walkStatusValue").innerHTML =
+          `<span class="status-badge ${walkStatusClasses[newVal]}">${walkStatusLabels[newVal]}</span>`;
+      });
 
     // 5️⃣ Purchaser/Contact
     let purchaserContact = null;
@@ -126,6 +212,20 @@ document.addEventListener("DOMContentLoaded", async () => {
         document.getElementById("lenderPhoneFinance").textContent = L.phone || '';
         document.getElementById("lenderEmailFinance").textContent = L.email || '';
       }
+
+            // ── Closing‐Status maps ──
+      const closingStatusLabels = {
+        notLocked:    'Not Locked',
+        locked:       'Locked',
+        underwriting: 'Underwriting',
+        clearToClose: 'Clear to Close'
+      };
+      const closingStatusClasses = {
+        notLocked:    'not-locked',
+        locked:       'locked',
+        underwriting: 'underwriting',
+        clearToClose: 'clear-to-close'
+      };
       const closingStatusSelect = document.getElementById("closingStatusSelect");
 const closingDateInput     = document.getElementById("closingDateTimeInput");
 
@@ -134,6 +234,40 @@ if (primaryEntry) {
   if (closingStatusSelect) {
     closingStatusSelect.value = primaryEntry.closingStatus || "notLocked";
   }
+  // helper to tint the <select>
+function updateClosingSelectStyle(val) {
+  Object.values(closingStatusClasses).forEach(c =>
+    closingStatusSelect.classList.remove(c)
+  );
+  closingStatusSelect.classList.add(closingStatusClasses[val]);
+}
+// initial tint
+updateClosingSelectStyle(closingStatusSelect.value);
+
+// on change: tint + auto‐save + update top‐bar badge
+closingStatusSelect.addEventListener("change", async e => {
+  const newVal = e.target.value;
+  updateClosingSelectStyle(newVal);
+
+  // auto‐save back to the Contact
+  await fetch(`/api/contacts/${purchaserContact._id}`, {
+    method: "PUT",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({
+      lenders: purchaserContact.lenders.map(l =>
+        l.isPrimary
+          ? { ...l, closingStatus: newVal }
+          : l
+      )
+    })
+  });
+
+  // update top‐bar badge
+  const badgeEl = document.getElementById("closingStatusValue");
+  badgeEl.innerHTML = `<span class="status-badge ${closingStatusClasses[newVal]}">
+    ${closingStatusLabels[newVal]}
+  </span>`;
+});
   // populate closingDateTime
   if (closingDateInput && primaryEntry.closingDateTime) {
     closingDateInput.value = new Date(primaryEntry.closingDateTime)
@@ -197,26 +331,21 @@ const lenderStatusLabels = {
   approved:             'Approved',
   cannotQualify:        'Cannot Qualify'
 };
-
-const closingStatusLabels = {
-  notLocked:    'Not Locked',
-  locked:       'Locked',
-  underwriting: 'Underwriting',
-  clearToClose: 'Clear to Close'
-};
-
-const walkStatusLabels = {
-  waitingOnBuilder:       'Waiting on Builder',
-  datesSentToPurchaser:   'Dates Sent to Purchaser',
-  datesConfirmed:         'Dates Confirmed',
-  thirdPartyComplete:     '3rd Party Complete',
-  firstWalkComplete:      '1st Walk Complete',
-  finalSignOffComplete:   'Final Sign Off Complete'
-};
+ const lenderStatusClasses = {
+    invite:               'invite',
+    submittedApplication: 'submitted',
+    submittedDocs:        'submitted',
+    missingDocs:          'missing',
+    approved:             'approved',
+    cannotQualify:        'cannot-qualify'
+  };
 
 // Building Status  ← from lot.status
-document.getElementById("buildingStatusValue").textContent =
-  lot.status || '';
+const rawBuilding = lot.status || "Not-Started";
+const bLabel   = buildingLabels[rawBuilding];
+const bClass   = buildingClasses[rawBuilding];
+document.getElementById("buildingStatusValue").innerHTML =
+  `<span class="status-badge ${bClass}">${bLabel}</span>`;
 
 // Start Date  ← from lot.releaseDate
 document.getElementById("startDateValue").textContent =
@@ -224,8 +353,8 @@ document.getElementById("startDateValue").textContent =
 
   // 3rd Party
 if (lot.thirdParty) {
-  document.getElementById("thirdPartyStatusValue").textContent =
-    new Date(lot.thirdParty).toLocaleString();
+   document.getElementById("thirdPartyStatusValue").textContent =
+       formatDateTime(lot.thirdParty);
 } else {
   document.getElementById("thirdPartyStatusValue").textContent = '';
 }
@@ -233,7 +362,7 @@ if (lot.thirdParty) {
 // 1st Walk
 if (lot.firstWalk) {
   document.getElementById("firstWalkStatusValue").textContent =
-    new Date(lot.firstWalk).toLocaleString();
+    formatDateTime(lot.firstWalk);
 } else {
   document.getElementById("firstWalkStatusValue").textContent = '';
 }
@@ -241,7 +370,7 @@ if (lot.firstWalk) {
 // Final Sign Off
 if (lot.finalSignOff) {
   document.getElementById("finalSignOffStatusValue").textContent =
-    new Date(lot.finalSignOff).toLocaleString();
+    formatDateTime(lot.finalSignOff);
 } else {
   document.getElementById("finalSignOffStatusValue").textContent = '';
 }
@@ -251,27 +380,40 @@ document.getElementById("walkStatusValue").textContent =
   lot.walkStatus
     ? (walkStatusLabels[lot.walkStatus] || lot.walkStatus)
     : '';
-
+    const rawWalk = lot.walkStatus || 'waitingOnBuilder';
+    const wLabel = walkStatusLabels[rawWalk];
+    const wClass = walkStatusClasses[rawWalk];
+    document.getElementById("walkStatusValue").innerHTML =
+      `<span class="status-badge ${wClass}">${wLabel}</span>`;
 
 // Lender Status  ← from contact’s primary lender entry
 if (primaryEntry) {
-  const rawLS = primaryEntry.status || '';
-  document.getElementById("lenderStatusValue").textContent =
-    lenderStatusLabels[rawLS] || rawLS.charAt(0).toUpperCase() + rawLS.slice(1);
+  const raw = primaryEntry.status || 'invite';
+  const label   = lenderStatusLabels[raw];
+  const cssCls  = lenderStatusClasses[raw];
+  document.getElementById("lenderStatusValue").innerHTML =
+    `<span class="status-badge ${cssCls}">${label}</span>`;
 }
+
+  
 
 // Closing Status  ← from contact’s closingStatus
 if (primaryEntry) {
   const rawCS = primaryEntry.closingStatus || '';
-  document.getElementById("closingStatusValue").textContent =
+  {
+  const raw = primaryEntry.closingStatus || "notLocked";
+  const lbl = closingStatusLabels[raw];
+  const cls = closingStatusClasses[raw];
+  document.getElementById("closingStatusValue").innerHTML =
+    `<span class="status-badge ${cls}">${lbl}</span>`;
+}
     closingStatusLabels[rawCS] || rawCS.charAt(0).toUpperCase() + rawCS.slice(1);
 }
 
 // Closing Date  ← formatted closingDateTime
 if (primaryEntry?.closingDateTime) {
   document.getElementById("closingDateValue").textContent =
-    new Date(primaryEntry.closingDateTime)
-      .toLocaleString();
+   formatDateTime(primaryEntry.closingDateTime);
 }
 
     // 8️⃣ Auto-save handlers

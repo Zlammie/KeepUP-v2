@@ -72,6 +72,7 @@
 .plan-area    { grid-area: plan-area; }
 .schedule-area{ grid-area: schedule-area; }
 
+
 /* tighten up the Plan & Schedule headers */
 .plan-area h3,
 .schedule-area h3 {
@@ -81,16 +82,7 @@
   border-bottom: 1px solid #ccc;
   padding-bottom: 0.25rem;
 }
-.details-container {
-  display: grid;
-  grid-template-columns: 2fr 1fr;
-  gap: 2rem;
-}
-.left-column,
-.side-column {
-  display: flex;
-  flex-direction: column;
-}
+
 .info-box {
   background-color: #f9f9f9;
   border: 1px solid #ddd;
@@ -100,7 +92,12 @@
 .info-grid {
   display: grid;
   grid-template-columns: 1fr 1fr;
-  gap: 1rem;
+  gap: .5rem;
+}
+/* Force the lender block to sit below and span both columns */
+.info-grid .lender-col {
+  grid-column: 1 / -1;   /* from first to last track */
+  margin-top: 0.5rem;    /* optional spacing above the lender section */
 }
 .info-grid h3 {
   margin-top: 1rem;
@@ -127,8 +124,11 @@
 }
 
 .status-section {
-  margin: 0 0 0.3rem; /* tighten bottom gap */
-  padding: 0.5rem;
+  background: #fafafa;
+  border: 1px solid #ddd;
+  border-radius: 6px;
+  padding: 0.6rem;
+  margin-bottom: 1rem;
 }
 
 .status-general     { grid-area: general; }
@@ -222,23 +222,26 @@
 
 /* 4) Labels and sub-labels */
 .status-bar label {
-  margin-bottom: 0.15rem;
-  font-size: 0.9rem;
-  line-height: 1.2;
+  font-size: 0.85rem;
+  font-weight: 600;
+  color: #444;
+  margin-bottom: 0.2rem;
 }
 .status-bar .sub-label {
-  margin: 0.2rem 0 0.15rem;
-  font-size: 0.8rem;
-  color: #555;
+  font-size: 0.75rem;
+  color: #666;
+  margin-top: 0.3rem;
 }
 
 /* 5) Values (read-only divs and inputs) */
 .status-bar .value {
-  padding: 0.2rem 0.35rem;
-  font-size: 0.85rem;
-  line-height: 1.2;
-  min-height: 1.6rem;
-  box-sizing: border-box;
+  background: #f0f0f0;
+  border-radius: 3px;
+  padding: 0.3rem 0.5rem;
+  font-size: 0.9rem;
+  font-weight: 500;
+  color: #222;
+  flex: none;
 }
 
 /* 6) Walk-details: three inputs in one row */
@@ -275,4 +278,177 @@
 }
 .status-walk #walkStatusValue {
   margin-bottom: 0.15rem;
+}
+
+.info-walk-wrapper {
+  display: grid;
+  grid-template-columns: 2fr 1fr 1fr;  /* General Info twice as wide as Walks */
+  gap: 1rem;                       /* space between them */
+  margin-bottom: 1rem;            /* give some breathing room below */
+}
+
+/* if you need them to be exactly equal: */
+/* grid-template-columns: repeat(2, 1fr); */
+
+/* ensure each section resets any full-width margin */
+.info-walk-wrapper .section {
+  margin: 0;
+}
+
+.walks-header {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+.walks-header h2 {
+  margin: 0;
+}
+
+#purchaser-realtor-box {
+  grid-column: 3;    /* explicitly place it in the third column */
+  width: 100%;       /* fill that column’s width */
+  box-sizing: border-box;
+}
+
+.status-general .value {
+  height: 0.8rem;
+  padding: 0;
+  background: #ddd;
+  border-radius: 4px;
+  overflow: hidden;
+  position: relative;
+}
+
+/* Status-badge base style */
+.status-badge {
+  display: inline-block;
+  padding: 0.2em 0.4em;
+  border-radius: 0.25rem;
+  color: white;
+  font-size: 0.85rem;
+  font-weight: 500;
+  line-height: 1;
+  text-transform: none;
+}
+
+/* ── Building Status Badges (top status‐bar) ── */
+.status-bar .status-building .status-lender .status-badge {
+  display: inline-block;
+  padding: 0.2em 0.5em;
+  border-radius: 0.25rem;
+  color: #fff;
+  font-size: 0.85rem;
+  font-weight: 500;
+  text-transform: none;
+}
+/*BUILDING STATUS */
+
+.status-bar .status-building .status-badge.not-started {
+  background-color: #6c757d;  /* gray */
+}
+.status-bar .status-building .status-badge.under-construction {
+  background-color: #17a2b8;  /* teal */
+}
+.status-bar .status-building .status-badge.finished {
+  background-color: #28a745;  /* green */
+}
+
+/* ── Building Status Select (General Info) ── */
+#buildingStatusSelect.not-started {
+  background-color: #6c757d;
+  color: #fff;
+}
+#buildingStatusSelect.under-construction {
+  background-color: #17a2b8;
+  color: #fff;
+}
+#buildingStatusSelect.finished {
+  background-color: #28a745;
+  color: #fff;
+}
+
+/*WALK STATUS */
+.status-bar .status-walk .status-badge.waiting-on-builder {
+  background-color: #6c757d;  /* gray */
+}
+.status-bar .status-walk .status-badge.dates-sent-to-purchaser {
+  background-color: #17a2b8;  /* teal */
+}
+.status-bar .status-walk .status-badge.dates-confirmed {
+  background-color: #ffc107;  /* yellow */
+}
+.status-bar .status-walk .status-badge.third-party-complete {
+  background-color: #28a745;  /* green */
+}
+.status-bar .status-walk .status-badge.first-walk-complete {
+  background-color: #007bff;  /* blue */
+}
+.status-bar .status-walk .status-badge.final-sign-off-complete {
+  background-color: #6f42c1;  /* purple */
+}
+
+/* ── Walk Status Select tint (Walks & Close section) ── */
+#walkStatusSelect.waiting-on-builder {
+  background-color: #6c757d; color: #fff;
+}
+#walkStatusSelect.dates-sent-to-purchaser {
+  background-color: #17a2b8; color: #fff;
+}
+#walkStatusSelect.dates-confirmed {
+  background-color: #ffc107; color: #212529;
+}
+#walkStatusSelect.third-party-complete {
+  background-color: #28a745; color: #fff;
+}
+#walkStatusSelect.first-walk-complete {
+  background-color: #007bff; color: #fff;
+}
+#walkStatusSelect.final-sign-off-complete {
+  background-color: #6f42c1; color: #fff;
+}
+
+/* ── Closing Status Badges (top status‐bar) ── */
+.status-bar .status-closing .status-badge.not-locked {
+  background-color: #6c757d;  /* gray */
+}
+.status-bar .status-closing .status-badge.locked {
+  background-color: #007bff;  /* blue */
+}
+.status-bar .status-closing .status-badge.underwriting {
+  background-color: #ffc107;  /* yellow */
+  color: #212529;
+}
+.status-bar .status-closing .status-badge.clear-to-close {
+  background-color: #28a745;  /* green */
+}
+
+/* ── Closing Status Select tint (lender section) ── */
+#closingStatusSelect.not-locked {
+  background-color: #6c757d; color: #fff;
+}
+#closingStatusSelect.locked {
+  background-color: #007bff; color: #fff;
+}
+#closingStatusSelect.underwriting {
+  background-color: #ffc107; color: #212529;
+}
+#closingStatusSelect.clear-to-close {
+  background-color: #28a745; color: #fff;
+}
+/*LENDER STATUS TOP BAR */
+.status-bar .status-lender .status-badge.invite {
+  background-color: #6c757d;  /* Gray */
+}
+.status-bar .status-lender .status-badge.submitted {
+  background-color: #17a2b8;  /* Teal */
+}
+.status-bar .status-lender .status-badge.missing {
+  background-color: #ffc107;  /* Yellow */
+  color: #212529;
+}
+.status-bar .status-lender .status-badge.approved {
+  background-color: #28a745;  /* Green */
+}
+.status-bar .status-lender .status-badge.cannot-qualify {
+  background-color: #dc3545;  /* Red */
 }
