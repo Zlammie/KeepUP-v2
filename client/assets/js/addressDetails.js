@@ -57,8 +57,31 @@ document.addEventListener("DOMContentLoaded", async () => {
     if (cmIn) cmIn.value = lot.closeMonth || '';
 
     // 4️⃣ Populate walks & close
-    document.getElementById("firstWalkValue").textContent    = lot.firstWalk    || '';
-    document.getElementById("finalSignOffValue").textContent = lot.finalSignOff || '';
+   const thirdPartyIn   = document.getElementById("thirdPartyInput");
+    const firstWalkIn    = document.getElementById("firstWalkInput");
+    const finalSignIn    = document.getElementById("finalSignOffInput");
+
+    if (thirdPartyIn) {
+      thirdPartyIn.value = lot.thirdParty
+        ? new Date(lot.thirdParty).toISOString().slice(0,16)
+        : '';
+    }
+    if (firstWalkIn) {
+      firstWalkIn.value = lot.firstWalk
+        ? new Date(lot.firstWalk).toISOString().slice(0,16)
+        : '';
+    }
+    if (finalSignIn) {
+      finalSignIn.value = lot.finalSignOff
+        ? new Date(lot.finalSignOff).toISOString().slice(0,16)
+        : '';
+    }
+
+      const walkStatusSelect = document.getElementById("walkStatusSelect");
+    
+        if (walkStatusSelect) {
+      walkStatusSelect.value = lot.walkStatus || 'waitingOnBuilder';
+    }
 
     // 5️⃣ Purchaser/Contact
     let purchaserContact = null;
@@ -103,7 +126,153 @@ document.addEventListener("DOMContentLoaded", async () => {
         document.getElementById("lenderPhoneFinance").textContent = L.phone || '';
         document.getElementById("lenderEmailFinance").textContent = L.email || '';
       }
-    // ... same logic as before when ready ...
+      const closingStatusSelect = document.getElementById("closingStatusSelect");
+const closingDateInput     = document.getElementById("closingDateTimeInput");
+
+if (primaryEntry) {
+  // populate closingStatus
+  if (closingStatusSelect) {
+    closingStatusSelect.value = primaryEntry.closingStatus || "notLocked";
+  }
+  // populate closingDateTime
+  if (closingDateInput && primaryEntry.closingDateTime) {
+    closingDateInput.value = new Date(primaryEntry.closingDateTime)
+                              .toISOString().slice(0,16);
+  }
+}
+
+// when you change the closing status, auto-save it
+if (closingStatusSelect) {
+  closingStatusSelect.addEventListener("change", async e => {
+    const newVal = e.target.value;
+    try {
+      await fetch(`/api/contacts/${purchaserContact._id}`, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          lenders: purchaserContact.lenders.map(l =>
+            l.isPrimary
+              ? { ...l, closingStatus: newVal }
+              : l
+          )
+        })
+      });
+      console.log("Saved closingStatus:", newVal);
+    } catch (err) {
+      console.error("Failed to save closingStatus", err);
+    }
+  });
+}
+
+// when you blur the date-time picker, auto-save it
+if (closingDateInput) {
+  closingDateInput.addEventListener("blur", async e => {
+    const dt = e.target.value; // e.g. "2025-06-30T15:00"
+    try {
+      await fetch(`/api/contacts/${purchaserContact._id}`, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          lenders: purchaserContact.lenders.map(l =>
+            l.isPrimary
+              ? { ...l, closingDateTime: dt }
+              : l
+          )
+        })
+      });
+      console.log("Saved closingDateTime:", dt);
+    } catch (err) {
+      console.error("Failed to save closingDateTime", err);
+    }
+  });
+}
+    
+//Status Populate
+
+const lenderStatusLabels = {
+  invite:               'Invite',
+  submittedApplication: 'Submitted Application',
+  submittedDocs:        'Submitted Docs',
+  missingDocs:          'Missing Docs',
+  approved:             'Approved',
+  cannotQualify:        'Cannot Qualify'
+};
+
+const closingStatusLabels = {
+  notLocked:    'Not Locked',
+  locked:       'Locked',
+  underwriting: 'Underwriting',
+  clearToClose: 'Clear to Close'
+};
+
+const walkStatusLabels = {
+  waitingOnBuilder:       'Waiting on Builder',
+  datesSentToPurchaser:   'Dates Sent to Purchaser',
+  datesConfirmed:         'Dates Confirmed',
+  thirdPartyComplete:     '3rd Party Complete',
+  firstWalkComplete:      '1st Walk Complete',
+  finalSignOffComplete:   'Final Sign Off Complete'
+};
+
+// Building Status  ← from lot.status
+document.getElementById("buildingStatusValue").textContent =
+  lot.status || '';
+
+// Start Date  ← from lot.releaseDate
+document.getElementById("startDateValue").textContent =
+  lot.releaseDate || '';
+
+  // 3rd Party
+if (lot.thirdParty) {
+  document.getElementById("thirdPartyStatusValue").textContent =
+    new Date(lot.thirdParty).toLocaleString();
+} else {
+  document.getElementById("thirdPartyStatusValue").textContent = '';
+}
+
+// 1st Walk
+if (lot.firstWalk) {
+  document.getElementById("firstWalkStatusValue").textContent =
+    new Date(lot.firstWalk).toLocaleString();
+} else {
+  document.getElementById("firstWalkStatusValue").textContent = '';
+}
+
+// Final Sign Off
+if (lot.finalSignOff) {
+  document.getElementById("finalSignOffStatusValue").textContent =
+    new Date(lot.finalSignOff).toLocaleString();
+} else {
+  document.getElementById("finalSignOffStatusValue").textContent = '';
+}
+
+// Walk Status ← from lot.walkStatus
+document.getElementById("walkStatusValue").textContent =
+  lot.walkStatus
+    ? (walkStatusLabels[lot.walkStatus] || lot.walkStatus)
+    : '';
+
+
+// Lender Status  ← from contact’s primary lender entry
+if (primaryEntry) {
+  const rawLS = primaryEntry.status || '';
+  document.getElementById("lenderStatusValue").textContent =
+    lenderStatusLabels[rawLS] || rawLS.charAt(0).toUpperCase() + rawLS.slice(1);
+}
+
+// Closing Status  ← from contact’s closingStatus
+if (primaryEntry) {
+  const rawCS = primaryEntry.closingStatus || '';
+  document.getElementById("closingStatusValue").textContent =
+    closingStatusLabels[rawCS] || rawCS.charAt(0).toUpperCase() + rawCS.slice(1);
+}
+
+// Closing Date  ← formatted closingDateTime
+if (primaryEntry?.closingDateTime) {
+  document.getElementById("closingDateValue").textContent =
+    new Date(primaryEntry.closingDateTime)
+      .toLocaleString();
+}
 
     // 8️⃣ Auto-save handlers
     const autoSaveMap = [
@@ -112,7 +281,11 @@ document.addEventListener("DOMContentLoaded", async () => {
       { id: 'buildingStatusSelect', key: 'status' },
       { id: 'releaseDateInput', key: 'releaseDate' },
       { id: 'expectedCompletionInput', key: 'expectedCompletionDate' },
-      { id: 'closeMonthInput', key: 'closeMonth' }
+      { id: 'closeMonthInput', key: 'closeMonth' },
+      { id: 'thirdPartyInput',       key: 'thirdParty'          },
+      { id: 'firstWalkInput',        key: 'firstWalk'           },
+      { id: 'finalSignOffInput',     key: 'finalSignOff'        },
+       { id: 'walkStatusSelect', key: 'walkStatus' },
     ];
     autoSaveMap.forEach(({id, key}) => {
       const el = document.getElementById(id);

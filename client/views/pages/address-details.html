@@ -13,7 +13,7 @@
   <h1 id="lotTitle">Loading…</h1>
 
   <!-- Status Bar -->
-  <section class="section status-section">
+<section class="section status-section">
     <div class="status-bar">
       <div class="status-general">
         <label>General Status</label>
@@ -30,12 +30,16 @@
         <div id="walkStatusValue" class="value readonly"></div>
         <div class="walk-details">
           <div class="field small">
+            <label>3rd Party</label>
+            <div id="thirdPartyStatusValue" class="value readonly"></div>
+          </div>
+          <div class="field small">
             <label>1st Walk</label>
-            <div id="firstWalkValue" class="value readonly"></div>
+            <div id="firstWalkStatusValue" class="value readonly"></div>
           </div>
           <div class="field small">
             <label>Final Sign Off</label>
-            <div id="finalSignOffValue" class="value readonly"></div>
+            <div id="finalSignOffStatusValue" class="value readonly"></div>
           </div>
         </div>
       </div>
@@ -105,15 +109,45 @@
       </section>
 
       <section class="section walks-section" id="walks-close">
-        <h2>Walks & Close</h2>
-        <div class="field">
-          <label for="firstWalkValue">1st Walk</label>
-          <div id="firstWalkValue" class="value readonly"></div>
+        <div class="walks-header" style="display:flex; align-items:center; gap:1rem;">
+          <h2>Walks & Close</h2>
+          <div class="field inline">
+            <label for="walkStatusSelect">Walk Status</label>
+            <select id="walkStatusSelect" class="value">
+              <option value="waitingOnBuilder">Waiting on Builder</option>
+              <option value="datesSentToPurchaser">Dates Sent to Purchaser</option>
+              <option value="datesConfirmed">Dates Confirmed</option>
+              <option value="thirdPartyComplete">3rd Party Complete</option>
+              <option value="firstWalkComplete">1st Walk Complete</option>
+              <option value="finalSignOffComplete">Final Sign Off Complete</option>
+            </select>
+          </div>
         </div>
-        <div class="field">
-          <label for="finalSignOffValue">Final Sign Off</label>
-          <div id="finalSignOffValue" class="value readonly"></div>
-        </div>
+
+          <div class="field">
+              <label for="thirdPartyInput">3rd Party</label>
+            <input
+              id="thirdPartyInput"
+              type="datetime-local"
+              class="value"    
+              />
+          </div>
+          <div class="field">
+            <label for="firstWalkInput">1st Walk</label>
+            <input
+                id="firstWalkInput"
+                type="datetime-local"
+                class="value"
+              />
+          </div>
+          <div class="field">
+              <label for="finalSignOffInput">Final Sign Off</label>
+              <input
+                id="finalSignOffInput"
+                type="datetime-local"
+                class="value"
+              />
+      </div>
       </section>
     </div>
 
@@ -163,10 +197,28 @@
           <div class="field">
             <label>Phone</label>
             <div id="lenderPhoneFinance" class="value readonly"></div>
+
           </div>
           <div class="field">
             <label>Email</label>
             <div id="lenderEmailFinance" class="value readonly"></div>
+          </div>
+          <div class="field">
+            <label for="closingStatusSelect">Closing Status</label>
+            <select id="closingStatusSelect" class="value">
+              <option value="notLocked">Not Locked</option>
+              <option value="locked">Locked</option>
+              <option value="underwriting">Underwriting</option>
+              <option value="clearToClose">Clear to Close</option>
+            </select>
+          </div>
+          <div class="field">
+            <label for="closingDateTimeInput">Closing Date & Time</label>
+            <input
+              id="closingDateTimeInput"
+              type="datetime-local"
+              class="value"
+            />
           </div>
         </div>
       </div>

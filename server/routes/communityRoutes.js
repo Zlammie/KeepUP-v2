@@ -112,6 +112,38 @@ router.get('/:id/lots/:lotId', async (req, res) => {
   }
 });
 
+router.put(
+  '/:communityId/lots/:lotId',
+  async (req, res) => {
+    const { communityId, lotId } = req.params;
+    const updates = req.body;    // e.g. { walkStatus: 'datesSentToPurchaser' }
+
+    // Build a $set that targets lots.$.<field>
+    const setObj = Object.entries(updates).reduce((acc, [k,v]) => {
+      acc[`lots.$.${k}`] = v;
+      return acc;
+    }, {});
+
+    try {
+      const community = await Community.findOneAndUpdate(
+        { _id: communityId, 'lots._id': lotId },
+        { $set: setObj },
+        { new: true }    // return the updated document
+      );
+      if (!community) {
+        return res.status(404).json({ error: 'Community or Lot not found' });
+      }
+
+      // Extract just the updated lot
+      const updatedLot = community.lots.id(lotId);
+      return res.json(updatedLot);
+    } catch (err) {
+      console.error('Error updating lot:', err);
+      return res.status(500).json({ error: err.message });
+    }
+  }
+);
+// --- End generic update ---
 
 router.put(
   '/:communityId/lots/:lotId/purchaser',
@@ -143,6 +175,8 @@ router.put(
     }
   }
 );
+
+
 
 
 module.exports = router;

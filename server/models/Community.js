@@ -25,13 +25,26 @@ const LotSchema = new mongoose.Schema({
   releaseDate: String,
   expectedCompletionDate: String,
   closeMonth: String,
-  thirdParty: String,
-  firstWalk: String,
-  finalSignOff: String,
+  walkStatus: {
+  type: String,
+  enum: [
+    'waitingOnBuilder',
+    'datesSentToPurchaser',
+    'datesConfirmed',
+    'thirdPartyComplete',
+    'firstWalkComplete',
+    'finalSignOffComplete'
+  ],
+  default: 'waitingOnBuilder'
+},
+  thirdParty:      { type: Date, default: null },
+  firstWalk:       { type: Date, default: null },
+  finalSignOff:    { type: Date, default: null },
   lender: String,
   closeDateTime: String,
   listPrice: String,
-  salesPrice: String
+  salesPrice: String,
+  
 }); // disable _id for subdocuments if not needed
 
 const CommunitySchema = new mongoose.Schema({

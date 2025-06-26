@@ -127,28 +127,27 @@
 }
 
 .status-section {
-  margin-bottom: 1rem; /* reduced bottom spacing */
+  margin: 0 0 0.3rem; /* tighten bottom gap */
+  padding: 0.5rem;
 }
-.status-bar {
-  display: grid;
-  grid-template-columns: repeat(4, 1fr);
-  grid-template-rows: auto auto;
-  grid-template-areas:
-    "general general general general"
-    "building walk lender closing";
-  gap: 0.75rem;
-}
+
 .status-general     { grid-area: general; }
 .status-building    { grid-area: building; }
 .status-walk        { grid-area: walk; }
 .status-lender      { grid-area: lender; }
 .status-closing     { grid-area: closing; }
 
+
+
+
+
+
 .status-section .value {
   background-color: #f0f0f0;
   border: 1px solid #ccc;
   border-radius: 0.25rem;
-  padding: 0.5rem;
+  padding: 0.25rem;
+  font-size: 0.85rem;
 }
 .walk-details {
   display: grid;
@@ -160,14 +159,120 @@
   display: flex;
   flex-direction: column;
 }
-.status-bar label {
-  font-weight: 600;
-  margin-bottom: 0.25rem;
-  display: block;
-}
+
 .status-building .sub-label,
 .status-closing .sub-label {
   margin-top: 0.25rem;
   font-size: 0.9rem;
   color: #666;
+}
+
+
+
+
+
+/* ensure your sub-labels stay a bit smaller */
+.status-closing .sub-label,
+.status-building .sub-label {
+  margin-top: 0.25rem;
+  font-size: 0.8rem;
+  color: #666;
+}
+
+/* if your walk-details are too tall, make them two columns: */
+.walk-details {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 0.5rem;
+  margin-top: 0.5rem;
+}
+
+
+.status-bar .field.small {
+  margin-bottom: 0;
+}
+
+/* 1) Make the whole box tighter */
+.status-section {
+  padding: 0.5rem;          /* shrink outer padding */
+  margin-bottom: 0.5rem;    /* less space below */
+}
+.status-section h2 {
+  margin: 0 0 0.3rem;       /* less underneath the title */
+  padding-bottom: 0.15rem;
+  font-size: 1rem;
+}
+
+/* 2) Tighten the grid */
+.status-bar {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  grid-template-rows: auto auto;
+  grid-template-areas:
+    "general general general general"
+    "building walk lender closing";
+  gap: 0.4rem;              /* smaller gaps */
+}
+
+/* 3) Compact each “card” */
+.status-bar > div {
+  padding: 0.3rem 0.4rem;
+  border-radius: 0.25rem;
+}
+
+/* 4) Labels and sub-labels */
+.status-bar label {
+  margin-bottom: 0.15rem;
+  font-size: 0.9rem;
+  line-height: 1.2;
+}
+.status-bar .sub-label {
+  margin: 0.2rem 0 0.15rem;
+  font-size: 0.8rem;
+  color: #555;
+}
+
+/* 5) Values (read-only divs and inputs) */
+.status-bar .value {
+  padding: 0.2rem 0.35rem;
+  font-size: 0.85rem;
+  line-height: 1.2;
+  min-height: 1.6rem;
+  box-sizing: border-box;
+}
+
+/* 6) Walk-details: three inputs in one row */
+.status-walk .walk-details {
+  display: flex;
+   margin-top: 0;       /* remove the gap above the dates */
+  gap: 0.25rem;        /* keep a little breathing room between each */
+}
+.status-walk .walk-details .field.small {
+ 
+  display: flex;
+  flex-direction: column;    /* stack label over value */
+  align-items: flex-start;   /* left-align both */
+  margin-bottom: 0;
+}
+.status-walk .walk-details .field.small label {
+  flex: none;                /* kill the flex:0 0 140px */
+  margin-bottom: 0.15rem;    /* small gap to the date */
+  width: auto;               /* allow natural width */
+}
+.status-walk .walk-details .field.small .value {
+  align-self: stretch;
+  /* keep your padding/height as before */
+  height: 1.8rem;
+  padding: 0.2rem 0.3rem;
+  margin-bottom: 0;          /* no extra bottom gap */
+}
+.status-walk .walk-details .value {
+  height: 1.8rem;
+  padding: 0.2rem 0.3rem;
+}
+.status-walk > label {
+  margin-bottom: 0.15rem;
+}
+.status-walk #walkStatusValue {
+  margin-bottom: 0.15rem;
 }

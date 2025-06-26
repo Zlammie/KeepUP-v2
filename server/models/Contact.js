@@ -40,7 +40,17 @@ const contactSchema = new mongoose.Schema({
       },
       inviteDate:  { type: Date, default: null },
       approvedDate:{ type: Date, default: null },
-      isPrimary: { type: Boolean, default: false }
+      isPrimary: { type: Boolean, default: false },
+        closingStatus: {
+      type: String,
+      enum: ['notLocked','locked','underwriting','clearToClose'],
+      default: 'notLocked'
+    },
+    closingDateTime: {
+      type: Date,
+      default: null
+    }
+      
     }
   ],
   comments: [{ type: mongoose.Schema.Types.ObjectId, ref: 'Comment' }]
