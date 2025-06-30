@@ -31,6 +31,7 @@ document.addEventListener("DOMContentLoaded", async () => {
     const timePart = d.toLocaleTimeString([], { hour: 'numeric', minute: 'numeric' });
     return `${datePart} ${timePart}`;
   }
+  
    // 3️⃣ Populate form controls instead of legacy <div>s
     const fpSelect = document.getElementById("floorPlanSelect");
     if (fpSelect) {
@@ -181,8 +182,13 @@ document.addEventListener("DOMContentLoaded", async () => {
       document.getElementById("purchaserPhoneValue").textContent = purchaserContact.phone    || '';
       document.getElementById("purchaserEmailValue").textContent = purchaserContact.email    || '';
     }
-    console.log('PURCHASER CONTACT:', purchaserContact);
-    console.log('primaryLender field:', purchaserContact.primaryLender);
+    
+   console.log('PURCHASER CONTACT:', purchaserContact);
+      if (purchaserContact) {
+        console.log('primaryLender field:', purchaserContact.primaryLender);
+      } else {
+        console.log('No purchaser linked');
+      }
 
     // 6️⃣ Realtor
     let realtor = null;
@@ -205,6 +211,29 @@ document.addEventListener("DOMContentLoaded", async () => {
       if (purchaserContact?.lenders?.length) {
         primaryEntry = purchaserContact.lenders.find(e => e.isPrimary);
       }
+      { // ── Compute General Status ──
+        const rawBuilding     = lot.status || "Not-Started";
+        const hasPurchaser    = Boolean(purchaserContact);
+        const closingDateTime = primaryEntry?.closingDateTime;
+        let generalStatus    = "";
+
+        if (hasPurchaser && closingDateTime && new Date(closingDateTime) < new Date()) {
+          generalStatus = "Closed";
+        } else if (hasPurchaser) {
+          // sold but not closed
+          if (rawBuilding === "Not-Started")           generalStatus = "Not Started & Sold";
+          else if (rawBuilding === "Under-Construction") generalStatus = "Under Construction";
+          else if (rawBuilding === "Finished")           generalStatus = "Finished & Sold";
+        } else {
+          // available states
+          if (rawBuilding === "Not-Started")           generalStatus = "Not Started";
+          else if (rawBuilding === "Under-Construction") generalStatus = "Under Construction & Available";
+          else if (rawBuilding === "Finished")           generalStatus = "Finished & Available";
+        }
+
+        document.getElementById("generalStatusValue").textContent = generalStatus;
+      }
+
       if (primaryEntry?.lender) {
         const L = primaryEntry.lender;
         document.getElementById("lenderNameFinance").textContent  =
