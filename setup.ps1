@@ -11,9 +11,13 @@ if (!(Get-Command choco -ErrorAction SilentlyContinue)) {
   iex ((New-Object System.Net.WebClient).DownloadString('https://chocolatey.org/install.ps1'))
 }
 
-# 2) Install Node.js LTS & MongoDB if not already installed
-Write-Host "Installing Node.js LTS and MongoDB Community…"
-choco install nodejs-lts mongodb --yes
+# 2) Install Node.js LTS, MongoDB Server, MongoDB Tools, Python3, and build tools
+Write-Host "Installing Node.js LTS, MongoDB, MongoDB Tools, Python3 and build tools…"
+choco install nodejs-lts mongodb mongodb-tools python3 windows-build-tools --yes
+
+# 2a) Reload environment so npm/mongoimport/python are on the PATH
+Import-Module "$env:ChocolateyInstall\helpers\RefreshEnv.psm1"
+RefreshEnv
 
 # 3) Clone or update the repo
 $repoDir = "$env:USERPROFILE\KeepUP-v2"
