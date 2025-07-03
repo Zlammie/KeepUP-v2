@@ -7,10 +7,7 @@ let saveTimeout;
 
 // 2) Main auto‐save logic
 async function autoSaveContact() {
-  if (!window.allowAutoSave) {
-    console.log('[AutoSave] Skipped: waiting for lender to be linked');
-    return;
-  }
+
 
   clearTimeout(saveTimeout);
 
@@ -65,8 +62,9 @@ function setupAutoSaveListeners() {
     return;
   }
   const inputs = document.querySelectorAll(
-    '#contactForm input, #contactForm select, .realtor-container input'
+    '#contactForm input:not(.no-auto), #contactForm select:not(.no-auto), .realtor-container input'
   );
+
   inputs.forEach(input => input.addEventListener('change', autoSaveContact));
 }
 

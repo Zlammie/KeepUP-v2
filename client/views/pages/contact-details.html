@@ -10,7 +10,8 @@
 <body>
   <div id="top-bar"></div>
   <div id="side-bar"></div>
-
+<div class="page-wrapper">
+  <main class="contact-content">
   <form id="contactForm">
     <div class="horizontal-cont">
       <div class="main-cont">
@@ -82,11 +83,9 @@
               </select>
             </div>
             <div class="form-group">
-              <div>
+              <div class="option-group">
                 <label><input type="checkbox" id="investor"> Investor</label>
                 <label><input type="checkbox" id="renting"> Renting</label>
-              </div>
-              <div>
                 <label><input type="checkbox" id="ownSelling"> Own-Selling</label>
                 <label><input type="checkbox" id="ownNotSelling"> Own-Not Selling</label>
               </div>
@@ -168,70 +167,71 @@
 
     <!-- Top Container -->
     <div class="top-comment-cont">
-    <div class="top-container">
-      <div class="disc-cont">
-        <div id="contact-full-name" class="contact-name">Full Name</div>
-        <div id="contact-status-badge" class="contact-status status-badge">Status</div>
-      </div>
-      <div class="bottom-cont">
-        <div class="all-status-cont">
-          <!--upto 3 lenders here-->
-        </div>
-
+      <div class="top-container">
+          <div class="disc-cont">
+            <div id="contact-full-name" class="contact-name">Full Name</div>
+            <div id="contact-status-badge" class="contact-status status-badge">Status</div>
+          </div>
+        <div class="bottom-cont">
+          <div class="all-status-cont">
+            <!--upto 3 lenders here-->
+          </div>
         <div id="community-section">
-        <div class="com-left-cont">
-          <div class="lot-line-up">
-            <div class="form-group">
-              <label for="lotLineUp">Lot Line Up</label>
-              <input type="text" id="lotLineUp" />
+          <div class="com-left-cont">
+            <div class="lot-line-up">
+              <div class="form-group">
+                <label for="lotLineUp">Lot Line Up</label>
+                <input type="text" id="lotLineUp" />
+              </div>
+              <div class="form-group">
+                <label for="buyTime">Buy Time</label>
+                <input type="text" id="buyTime" />
+              </div>
+              <div class="form-group">
+                <label for="buyMonth">Buy Month</label>
+                <input type="text" id="buyMonth" />
+              </div>
             </div>
-            <div class="form-group">
-              <label for="buyTime">Buy Time</label>
-              <input type="text" id="buyTime" />
+            <div class="facing-cont">
+              <div class="form-group">
+                <div class="form-group">
+                  <label>Facing</label>
+                  <div class="option-group">
+                    <label><input type="checkbox" name="facing" value="North" /> North</label>
+                    <label><input type="checkbox" name="facing" value="South" /> South</label>
+                    <label><input type="checkbox" name="facing" value="East"  /> East</label>
+                    <label><input type="checkbox" name="facing" value="West"  /> West</label>
+                    <label><input type="checkbox" name="facing" value="Any"   /> Any</label>
+                  </div>
+                </div>
+              </div>
             </div>
-            <div class="form-group">
-              <label for="buyMonth">Buy Month</label>
-              <input type="text" id="buyMonth" />
-            </div>
-          </div>
-          <div class="facing-cont">
-            <div class="form-group">
-              <label for="regions">Facing</label>
-              <select id="regions" multiple>
-                <option value="North">North</option>
-                <option value="South">South</option>
-                <option value="East">East</option>
-                <option value="West">West</option>
-                <option value="Any">Any</option>
-              </select>
-            </div>
-          </div>
-          </div>
-          <div class="floor-plan-cont">
-            <div class="form-group">
-              <label for="floorplans">Floorplans</label>
-              <select id="floorplans" multiple>
-                <option value="FP1">FP1</option>
-                <option value="FP2">FP2</option>
-                <option value="FP3">FP3</option>
-                <option value="FP4">FP4</option>
-              </select>
+            <div class="floor-plan-cont">
+              <div class="form-group">
+                  <label>Floorplans</label>
+                  <div class="option-group">
+                    <label><input type="checkbox" name="floorplans" value="FP1" /> FP1</label>
+                    <label><input type="checkbox" name="floorplans" value="FP2" /> FP2</label>
+                    <label><input type="checkbox" name="floorplans" value="FP3" /> FP3</label>
+                    <label><input type="checkbox" name="floorplans" value="FP4" /> FP4</label>
+                  </div>
+              </div>
             </div>
           </div>
         </div>
-      <!--Purchaser Box-->
-     <div id="lot-link-container">
-        <div id="purchased-community-selector" style="display: none;">
-          <label for="lot-search">Search for Lot Address</label>
-          <input type="text" id="lot-search" placeholder="Start typing an address..." />
-          <div id="lot-search-results" class="search-results"></div>
-          <button id="link-lot-btn" disabled>Link Lot to Contact</button>
-        </div>
-      </div>
+                        <!--Purchaser Box-->
+            <div id="lot-link-container">
+                <div id="purchased-community-selector" style="display: none;">
+                  <label for="lot-search">Search for Lot Address</label>
+                  <input type="text" id="lot-search" placeholder="Start typing an address..." />
+                  <div id="lot-search-results" class="search-results"></div>
+                  <button id="link-lot-btn" disabled>Link Lot to Contact</button>
+                </div>
+            </div>
 
-    <!-- This will show the linked lot info once it's connected -->
-    <div id="linked-lot-display" style="display: none;"></div>
-      
+            <!-- This will show the linked lot info once it's connected -->
+            <div id="linked-lot-display" style="display: none;"></div>
+        
       </div>
     </div>
 
@@ -253,6 +253,17 @@
       </div>
   </form>
 </div>
+</div>
+</main>
+<aside id="todo-panel" class="todo-panel">
+    <header class="todo-header">
+      <button id="todo-toggle" class="todo-toggle">▸ Tasks</button>
+    </header>
+    <div class="todo-body">
+      <!-- Placeholder for future tasks -->
+      <p>No tasks yet.</p>
+    </div>
+  </aside>
 </div>
 
 
@@ -329,6 +340,19 @@
     // ✅ React to status dropdown change
     statusSelect.addEventListener('change', toggleUI);
   });
+
+  document.getElementById('todo-toggle').addEventListener('click', () => {
+  const panel = document.getElementById('todo-panel');
+  panel.classList.toggle('collapsed');
+
+  // flip the arrow
+  const btn = document.getElementById('todo-toggle');
+  if (panel.classList.contains('collapsed')) {
+    btn.textContent = '▸ Tasks';
+  } else {
+    btn.textContent = '▾ Tasks';
+  }
+});
 
 </script>
 

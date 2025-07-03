@@ -25,7 +25,10 @@ document.addEventListener('DOMContentLoaded', () => {
 
   // ✅ Finally call this
   setupLotSearch();
+
+  
 });
+
 });
 
 async function populateCommunityDropdown(selectedId) {
@@ -120,37 +123,63 @@ async function loadContact() {
     statusEl.style.backgroundColor = bgColor;
     statusEl.style.color = (rawStatus === 'cold' || rawStatus === 'negotiating') ? '#000' : '#fff';
   }
-  const statusBox = document.querySelector('.all-status-cont');
-    statusBox.innerHTML = ''; // Clear existing contents
+ const statusBox = document.querySelector('.all-status-cont');
+  statusBox.innerHTML = ''; // Clear existing cards
 
-    if (Array.isArray(contact.lenders) && contact.lenders.length > 0) {
-      contact.lenders.forEach(entry => {
-        const lender = entry.lender;
-        if (!lender) return;
+// Map raw enum keys → display labels
+const statusLabels = {
+  invite:         'Invite',
+  submittedapplication: 'Submitted App',
+  subdocs:        'Submitted Docs',
+  missingdocs:    'Missing Docs',
+  approved:       'Approved',
+  cannotqualify:  'Cannot Qualify'
+};
 
-        const displayDate =
-          entry.status === 'Approved' ? entry.approvedDate : entry.inviteDate;
+if (Array.isArray(contact.lenders) && contact.lenders.length > 0) {
+  contact.lenders.forEach(entry => {
+    const lender = entry.lender;
+    if (!lender) return;
 
-        const snippet = document.createElement('div');
-        snippet.className = 'lender-snippet';
-        snippet.style = `
-          background: #f9f9f9;
-          border: 1px solid #ccc;
-          padding: 8px;
-          margin-bottom: 0.5em;
-          border-radius: 6px;
-        `;
+    // 1) Normalize and map to human label
+    const rawStatus    = entry.status || 'invite';
+    const displayLabel = statusLabels[rawStatus] || rawStatus;
+    const statusClass  = rawStatus;  // for your CSS classes
 
-       const status = (entry.status || 'invite').toLowerCase().replace(/\s+/g, '-');
+    
+     // 2) Format the date as MM/DD/YYYY
+    const dateField = rawStatus === 'approved'
+    ? entry.approvedDate
+      : entry.inviteDate;
+    let displayDate = '—';
+    if (dateField) {
+      // strip off the time, split into [YYYY,MM,DD]
+      const [year, month, day] = dateField.split('T')[0].split('-');
+      displayDate = `${month}/${day}/${year}`;
+    }
 
-        snippet.innerHTML = `
-          <strong>${lender.firstName} ${lender.lastName}</strong><br/>
-          <span class="lender-status-badge ${status}">${entry.status}</span><br/>
-          ${entry.status === 'Approved' ? 'Approved' : 'Invited'}: 
-          <span>${displayDate || '—'}</span>
-        `;
+    // 3) Create and style the snippet
+    const snippet = document.createElement('div');
+    snippet.className = 'lender-snippet';
+    snippet.style = `
+      background: #f9f9f9;
+      border: 1px solid #ccc;
+      padding: 8px;
+      margin-bottom: 0.5em;
+      border-radius: 6px;
+    `;
 
-        statusBox.appendChild(snippet);
+    snippet.innerHTML = `
+      <strong>${lender.firstName} ${lender.lastName}</strong><br/>
+      <strong>${lender.brokerage || lender.lenderBrokerage || '—'}</strong><br/>
+      <span class="lender-status-badge ${statusClass}">
+        ${displayLabel}
+      </span><br/>
+      ${rawStatus === 'approved' ? 'Approved Date' : 'Invite Date'}:<br/>
+      <span>${displayDate}</span>
+    `;
+
+    statusBox.appendChild(snippet);
       });
     }
 
@@ -286,38 +315,59 @@ function createLenderCard(entry, index) {
         name="primaryLender"
         value="${entry._id}"
         ${entry.isPrimary ? 'checked' : ''}
+        class="no-auto"
         />
         Primary
     </label>
 
     <label>Status:
-      <select class="lender-status">
+      <select class="lender-status no-auto">
         <option value="">-- Select Status --</option>
         <option value="invite">Invite</option>
-        <option value="submittedApplication">Submitted Application</option>
-        <option value="subDocs">Submitted Docs</option>
-        <option value="missingDocs">Missing Docs</option>
+        <option value="submittedapplication">Submitted Application</option>
+        <option value="subdocs">Submitted Docs</option>
+        <option value="missingdocs">Missing Docs</option>
         <option value="approved">Approved</option>
-        <option value="cannotQualify">Cannot Qualify</option>
+        <option value="cannotqualify">Cannot Qualify</option>
       </select>
     </label>
 
-    <label>Invite Date: <input type="date" class="lender-invite-date" /></label>
-    <label>Approved Date: <input type="date" class="lender-approved-date" /></label>
+    <label>Invite Date: <input type="date" class="lender-invite-date no-auto" /></label>
+    <label>Approved Date: <input type="date" class="lender-approved-date no-auto" /></label>
 
    <button type="button" class="save-lender-btn">Save</button>
     <button type="button" class="remove-lender-btn" data-entry-id="${entry._id}" style="margin-left: 1em;">Remove</button>
   `;
+   // grab the controls into local variables
+  const statusSelect   = container.querySelector('.lender-status');
+  const inviteInput    = container.querySelector('.lender-invite-date');
+  const approvedInput  = container.querySelector('.lender-approved-date');
+  const primaryInput   = container.querySelector(`input[name="primaryLender"][value="${entry._id}"]`);
 
 
+   // populate status dropdown
   container.querySelector('.lender-status').value = entry.status || '';
-  container.querySelector('.lender-invite-date').value = entry.inviteDate || '';
-  container.querySelector('.lender-approved-date').value = entry.approvedDate || '';
+  statusSelect.value = entry.status || '';
+  // populate date inputs (YYYY-MM-DD only)
+  inviteInput.value   = entry.inviteDate   ? entry.inviteDate.split('T')[0]   : '';
+  approvedInput.value = entry.approvedDate ? entry.approvedDate.split('T')[0] : '';
+
+  if (entry.isPrimary) primaryInput.checked = true;
 
 container.querySelector('.save-lender-btn').addEventListener('click', async () => {
-  const status = container.querySelector('.lender-status').value;
-  const inviteDate = container.querySelector('.lender-invite-date').value;
-  const approvedDate = container.querySelector('.lender-approved-date').value;
+  // 1) Read the current UI values
+  const isPrimary   = primaryInput.checked;
+  const status      = statusSelect.value;
+  const inviteDate  = inviteInput.value;    // YYYY-MM-DD
+  const approvedDate= approvedInput.value;  // YYYY-MM-DD
+
+  // 2) Build your payload
+  const payload = { 
+    isPrimary,
+    status,
+    inviteDate,
+    approvedDate
+  };
 
   const contactId = getContactId();
   if (!contactId) {
@@ -326,38 +376,49 @@ container.querySelector('.save-lender-btn').addEventListener('click', async () =
   }
 
   try {
-    const res = await fetch(`/api/contacts/${contactId}/lenders/${entry._id}`, {
-      method: 'PATCH',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ status, inviteDate, approvedDate })
-    });
-
+    console.log('⏳ Saving lender payload:', payload);
+    // 3) Send it off
+    const res = await fetch(
+      `/api/contacts/${contactId}/lenders/${entry._id}`,
+      {
+        method:  'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body:    JSON.stringify(payload),
+      }
+    );
     if (!res.ok) throw new Error(await res.text());
+    const updatedEntry = await res.json();
+    console.log('✅ Server returned:', updatedEntry);
+
+    // 4) Update your in-memory entry so future edits start from the new state
+    entry.isPrimary    = updatedEntry.isPrimary;
+    entry.status       = updatedEntry.status;
+    entry.inviteDate   = updatedEntry.inviteDate;
+    entry.approvedDate = updatedEntry.approvedDate;
+    console.log('✅ Server returned:', updatedEntry);
 
     alert('Lender info updated!');
+    loadContact();
 
-    // ✅ Live update the summary box
+    // 5) Live‐update your summary snippet
     const statusBox = document.querySelector('.all-status-cont');
-    const snippets = statusBox.querySelectorAll('.lender-snippet');
-    const displayDate = status === 'Approved' ? approvedDate : inviteDate;
+    const snippets  = statusBox.querySelectorAll('.lender-snippet');
+    const displayDate = status === 'approved'
+      ? approvedDate
+      : inviteDate;
 
     if (snippets[index]) {
       snippets[index].innerHTML = `
         <strong>${lender.firstName} ${lender.lastName}</strong><br/>
-        Status: <span>${status || '—'}</span><br/>
-        ${status === 'Approved' ? 'Approved' : 'Invited'}: 
+        ${status.charAt(0).toUpperCase()+status.slice(1)}: 
         <span>${displayDate || '—'}</span>
       `;
-      
     }
-
   } catch (err) {
     console.error('Failed to update lender:', err);
     alert('Error saving lender data');
   }
 });
-
-
 
 
 container.querySelector('.remove-lender-btn').addEventListener('click', async () => {

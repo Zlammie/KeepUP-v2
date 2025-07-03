@@ -27,7 +27,7 @@ select {
   border-radius: 6px;
   border: 1px solid #ccc;
   background-color: #fff;
-  transition: all 0.2s;
+  transition: border-color 0.2s, background-color 0.2s, box-shadow 0.2s;
 }
 
 input:focus,
@@ -44,7 +44,6 @@ select:focus {
 }
 
 .deal-info,
-.comm-info,
 .cus-info-container,
 .realtor-container,
 .lender-cont {
@@ -68,7 +67,7 @@ select:focus {
 .bottom-cont{
   display: flex;
   flex-direction: row;
-}
+} 
 
 .main-cont {
   width: 360px;
@@ -96,6 +95,7 @@ select:focus {
   font-size: 1rem;
   font-weight: 500;
 }
+
 
 .contact-name {
   color: #333;
@@ -140,8 +140,17 @@ select:focus {
   border-color: #007bff;
   outline: none;
   background-color: #fff;
-  max-width: 150px;
+  
 }
+#source,
+#community-select,
+#status,
+#regions,
+#floorplans {
+ max-height: 2.5em;
+}
+
+
 
 .lotLineUp{
   background-color: white;
@@ -153,17 +162,15 @@ select:focus {
   padding-top: 0.75rem;
 }
 .status-cont select {
-  -webkit-appearance: none;  /* Remove default styling on WebKit */
-  -moz-appearance: none;     /* Remove default styling on Firefox */
-  appearance: none;          /* Remove default styling */
-
+  -webkit-appearance: none;
+  -moz-appearance: none;
+  appearance: none;
   width: 100%;
   padding: 0.5rem;
   text-align: center;
-  text-align-last: center;  /* For select element text centering */
-  border: 1px solid #ccc;
-  background-color: white;
-  background-image: none;    /* Hide default arrow in some browsers */
+  box-sizing: border-box;    /* include padding in height */
+  height: 2.5rem;            /* or whatever fixed height you prefer */
+  transition: background-color 0.2s ease-in-out;
 }
 
 
@@ -175,7 +182,7 @@ select:focus {
 }
 
 
-.comm-info select {
+.cus-info-container select {
   height: 120px;
   padding: 8px;
   border: 1px solid #ccc;
@@ -185,10 +192,20 @@ select:focus {
   overflow-y: auto;
 }
 
+.cus-info-container select[multiple]:focus {
+  max-width: 150px;
+}
+
 select:focus {
   border-color: #007bff;
   outline: none;
   background-color: #fff;
+}
+
+select[multiple] {
+  height: 120px;
+  box-sizing: border-box;
+  padding: 0.6rem;
 }
 
 .com-left-cont{
@@ -202,8 +219,45 @@ select:focus {
 }
 
 .all-status-cont{
-  width: 450px;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.75rem;
 }
+.all-status-cont .status-card {
+  background: #fff;
+  border: 1px solid #ddd;
+  border-radius: 6px;
+  box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+
+  padding: 0.6rem;
+  box-sizing: border-box;
+
+  max-width: 200px;       /* adjust to taste */
+  max-height: 120px;      /* adjust so cards are uniform */
+  overflow: hidden;
+}
+.all-status-cont .status-card .status-name {
+  font-weight: 600;
+  font-size: 0.95rem;
+  margin-bottom: 0.3rem;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+  overflow: hidden;
+}
+.all-status-cont .status-card .status-text {
+  font-size: 0.85rem;
+  margin-bottom: 0.4rem;
+}
+.all-status-cont .status-card .status-dates {
+  font-size: 0.75rem;
+  display: flex;
+  justify-content: space-between;
+}
+
 
 .facing-cont{
   width: 150px;
@@ -230,11 +284,11 @@ select:focus {
 
 /* Status-specific colors */
 .lender-status-badge.invite           { background-color: #6c757d; }
-.lender-status-badge.submitted        { background-color: #17a2b8; }
-.lender-status-badge.submitted-docs   { background-color: #20c997; }
-.lender-status-badge.missing-docs     { background-color: #ffc107; color: #212529; }
+.lender-status-badge.submittedapplication       { background-color: #17a2b8; }
+.lender-status-badge.submitteddocs   { background-color: #20c997; }
+.lender-status-badge.missingdocs     { background-color: #ffc107; color: #212529; }
 .lender-status-badge.approved         { background-color: #28a745; }
-.lender-status-badge.cannot-qualify   { background-color: #dc3545; }
+.lender-status-badge.cannotqualify   { background-color: #dc3545; }
 
 .deal-info::before {
   content: '';
@@ -339,4 +393,110 @@ select:focus {
 }
 .comment-type-nav button.active img {
   filter: grayscale(0%) brightness(0) invert(1); /* makes icon white */
+}
+
+.floor-plan-cont {
+  margin-left: 2.5rem;
+}
+
+.option-group {
+  display: grid;
+  grid-template-columns: repeat(2, max-content);
+  grid-auto-rows: auto;
+  gap: 0.75rem 1.5rem;       /* row-gap / column-gap */
+}
+
+/* make each label align nicely */
+.option-group label {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.3rem;              /* spacing between box and text */
+  font-size: 0.9rem;
+}
+
+/* span “Any” across both columns and center it */
+.option-group .any-option {
+  grid-column: 1 / -1;      /* span all 2 columns */
+  justify-self: center;     /* center the label in that space */
+}
+
+/* 1) Page layout */
+.page-wrapper {
+  display: flex;
+  align-items: flex-start;
+}
+/* main content flexes to fill remaining space */
+.contact-content {
+  flex: 1;
+  padding-right: 1rem;  /* space before sidebar */
+}
+
+/* 2) Sidebar basic styling */
+.todo-panel {
+  width: 320px;
+  max-width: 320px;
+  background: #f8f9fa;
+  border-left: 1px solid #ddd;
+  display: flex;
+  flex-direction: column;
+  transition: width 0.3s ease, padding 0.3s ease;
+  overflow: hidden;
+}
+
+/* header with toggle button */
+.todo-header {
+  padding: 0.5rem;
+  background: #e9ecef;
+  border-bottom: 1px solid #ccc;
+}
+.todo-toggle {
+  background: none;
+  border: none;
+  font-size: 1rem;
+  cursor: pointer;
+}
+
+/* body area */
+.todo-body {
+  padding: 0.75rem;
+  overflow-y: auto;
+  flex: 1;
+}
+
+/* 3) Collapsed state */
+.todo-panel.collapsed {
+  width: auto;               /* shrink to fit header */
+  min-width: fit-content;    /* ensure the button text isn’t clipped */
+  padding: 0;                
+  overflow: visible;         /* allow the header to show outside */
+}
+.todo-panel.collapsed .todo-body {
+  display: none;    /* only collapse the body */
+}
+/* make sure header always shows as flex so its button is clickable */
+.todo-panel .todo-header {
+  display: flex;
+  align-items: center;
+}
+
+
+
+.todo-panel.collapsed {
+  z-index: 10;
+}
+
+/* at the very end of contact-details.css */
+.bottom-cont > #community-section,
+.bottom-cont > #lot-link-container,
+.bottom-cont > #linked-lot-display {
+  flex: 1;               /* fill all available space */
+  min-width: 0;          /* allow flex-shrink to work correctly */
+}
+
+/* (optional) ensure their inner padding/width doesn’t overflow */
+.bottom-cont > #community-section > .com-left-cont,
+.bottom-cont > #lot-link-container > #purchased-community-selector,
+.bottom-cont > #linked-lot-display {
+  width: 100%;
+  box-sizing: border-box;
 }

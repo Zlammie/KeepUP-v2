@@ -156,7 +156,9 @@ router.patch('/:contactId/lenders/:entryId', async (req, res) => {
       return res.status(404).json({ error: 'Contact or lender entry not found' });
     }
 
-    res.json(contact);
+   const updatedEntry = contact.lenders.id(entryId);
+   return res.json(updatedEntry);
+   
   } catch (err) {
     console.error('Error updating lender info:', err);
     res.status(500).json({ error: 'Failed to update lender info' });
