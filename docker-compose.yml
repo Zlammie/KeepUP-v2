@@ -1,0 +1,22 @@
+# docker-compose.yml
+version: '3.8'
+
+services:
+  db:
+    image: mongo:6
+    ports:
+      - "27017:27017"
+    volumes:
+      - dbdata:/data/db
+
+  web:
+    build: .
+    ports:
+      - "3000:3000"
+    environment:
+      - MONGO_URI=mongodb://db:27017/keepup
+    depends_on:
+      - db
+
+volumes:
+  dbdata:
