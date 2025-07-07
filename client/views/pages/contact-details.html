@@ -82,15 +82,65 @@
                 <option value="walk-in-lead">Walk-In</option>
               </select>
             </div>
-            <div class="form-group">
-              <div class="option-group">
-                <label><input type="checkbox" id="investor"> Investor</label>
-                <label><input type="checkbox" id="renting"> Renting</label>
-                <label><input type="checkbox" id="ownSelling"> Own-Selling</label>
-                <label><input type="checkbox" id="ownNotSelling"> Own-Not Selling</label>
+          
+              <!-- ✱ NEW: collapsible panel toggle bar -->
+              <div id="more-info-panel" class="collapsed">
+                <div id="more-info-toggle">
+                  <div class="toggle-inner">
+                    <span class="triangle">▶</span>
+                    <span class="toggle-text">More Details</span>
+                  </div>
+                </div>
+                <div id="more-info-body">
+
+                  <!-- A: inputs group -->
+                  <div class="inputs-group">
+                    <div class="form-group">
+                      <label for="lotLineUp">Lot Line Up</label>
+                      <input type="text" id="lotLineUp" />
+                    </div>
+                    <div class="form-group">
+                      <label for="buyTime">Buy Time</label>
+                      <input type="text" id="buyTime" />
+                    </div>
+                    <div class="form-group">
+                      <label for="buyMonth">Buy Month</label>
+                      <input type="text" id="buyMonth" />
+                    </div>
+                  </div>
+
+                  <!-- B: floorplans group -->
+                  <div class="floorplans-group">
+                    <label for="floorplans">Floor Plans</label>
+                    <div id="floorplans-container" class="option-group no-auto">…</div>
+                  </div>
+
+                  <!-- C: facing group (spans both columns) -->
+                  <div class="facing-group">
+                    <label for="facing">Lot Facing</label>
+                    <div class="option-group no-auto">
+                      <label><input type="checkbox" name="facing" value="North" /> North</label>
+                      <label><input type="checkbox" name="facing" value="South" /> South</label>
+                      <label><input type="checkbox" name="facing" value="East"  /> East</label>
+                      <label><input type="checkbox" name="facing" value="West"  /> West</label>
+                      <label class="any-option"><input type="checkbox" name="facing" value="Any"   /> Any</label>
+                    </div>
+                  </div>
+
+                  <!-- D: living-condition group (also spans both) -->
+                  <div class="living-group">
+                    <label for="miscInfo">Living Condition</label>
+                    <div class="option-group no-auto">
+                      <label><input type="checkbox" id="investor"> Investor</label>
+                      <label><input type="checkbox" id="renting"> Renting</label>
+                      <label><input type="checkbox" id="own-selling"> Own &amp; Selling</label>
+                      <label><input type="checkbox" id="own-not-selling"> Own &amp; Not Selling</label>
+                    </div>
+                  </div>
+
+                </div>
               </div>
-            </div>
-      </div>
+          </div>
 
         <!-- Realtor Info -->
         <div class="realtor-container">
@@ -209,12 +259,9 @@
             <div class="floor-plan-cont">
               <div class="form-group">
                   <label>Floorplans</label>
-                  <div class="option-group">
-                    <label><input type="checkbox" name="floorplans" value="FP1" /> FP1</label>
-                    <label><input type="checkbox" name="floorplans" value="FP2" /> FP2</label>
-                    <label><input type="checkbox" name="floorplans" value="FP3" /> FP3</label>
-                    <label><input type="checkbox" name="floorplans" value="FP4" /> FP4</label>
-                  </div>
+                   <div id="floorplans-container" class="option-group no-auto">
+                      <!-- JS will inject one <label><input type="radio" …> per plan -->
+                    </div>
               </div>
             </div>
           </div>

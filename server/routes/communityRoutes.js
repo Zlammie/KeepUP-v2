@@ -93,6 +93,21 @@ router.get('/:id/lots', async (req, res) => {
   }
 });
 
+const FloorPlan = require('../models/FloorPlan'); // at the top, alongside Community
+
+// GET all floor plans for a specific community
+router.get('/:id/floorplans', async (req, res) => {
+  try {
+    const communityId = req.params.id;
+    // find all plans that include this community ID in their communities array
+    const plans = await FloorPlan.find({ communities: communityId });
+    res.json(plans);
+  } catch (err) {
+    console.error('Error fetching floor plans for community:', err);
+    res.status(500).json({ error: 'Server error' });
+  }
+});
+
 // GET /api/communities/:id/lots/:lotId
 router.get('/:id/lots/:lotId', async (req, res) => {
   try {

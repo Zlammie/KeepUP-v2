@@ -223,6 +223,39 @@ select[multiple] {
   flex-wrap: wrap;
   gap: 0.75rem;
 }
+
+.all-status-cont .lender-snippet {
+  box-sizing: border-box;
+  width: 125px;          /* fixed card width */
+  min-height: 105px;     /* ensure a uniform height */
+  padding: 0.75rem;      /* inner padding */
+  background: #f9f9f9;
+  border: 1px solid #ccc;
+  border-radius: 6px;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+}
+
+.lender-snippet .lender-status-badge {
+  display: block;
+  width: 100%;
+  padding: 0.25rem 0.5rem;
+  box-sizing: border-box;
+  text-align: center;
+  margin-bottom: 0.5rem;
+  border-radius: 4px;
+  font-weight: bold;
+}
+
+.lender-snippet > strong,
+.lender-snippet > div {
+  margin-bottom: 0.25rem;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
 .all-status-cont .status-card {
   background: #fff;
   border: 1px solid #ddd;
@@ -256,6 +289,46 @@ select[multiple] {
   font-size: 0.75rem;
   display: flex;
   justify-content: space-between;
+}
+
+.lender-snippet.placeholder {
+  background: #fafafa;
+  border: 1px dashed #ccc;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.lender-snippet.placeholder .placeholder-icon {
+  font-size: 2rem;
+  color: #bbb;
+  line-height: 1;
+}
+
+/* highlight the primary lender card */
+.lender-snippet.primary {
+  border: 2px solid gold;    /* thick gold border */
+  position: relative;        /* for positioning the label */
+}
+
+/* the “Primary” badge that cuts into the top border */
+.lender-snippet.primary::before {
+  content: 'Primary';
+  position: absolute;
+  border-radius: 5px;
+  top: -0.4rem;              /* pull it above the top edge */
+  left: 50%;
+  transform: translateX(-50%);
+  background: gold;          /* match your card background */
+  padding: 0 0.5rem;
+  font-size: 0.75rem;
+  font-weight: bold;
+  color: black;
+}
+
+/* optional: tighten the card’s interior now that border is thicker */
+.lender-snippet {
+  padding: 0.5rem;           /* a bit less so content stays aligned */
 }
 
 
@@ -499,4 +572,135 @@ select[multiple] {
 .bottom-cont > #linked-lot-display {
   width: 100%;
   box-sizing: border-box;
+}
+
+.cus-info-container {
+  position: relative; /* so panel can sit outside its right edge */
+  overflow: visible;
+}
+/* the sliding panel */
+#more-info-panel {
+  position: absolute;
+  top: 0;
+  left: 100%;             /* anchor to the right edge */
+  height: 100%;
+  display: flex;
+  align-items: center;
+  z-index: 10;
+}
+/* when open, slide into view */
+#more-info-panel.open {
+  transform: translateX(0);
+}
+
+#more-info-panel:not(.open) #more-info-body {
+  display: none;
+}
+
+/* toggle bar at the left edge of panel */
+#more-info-toggle {
+  position: relative;
+  width: 1.25rem;
+  height: 98%;
+  background: #e9ecef;
+  border-top:    1px solid #ccc;
+  border-right:  1px solid #ccc;
+  border-bottom: 1px solid #ccc;
+  border-bottom-right-radius: 12px;
+  border-top-right-radius: 12px;
+  cursor: pointer;
+  z-index: 20;
+ 
+}
+#more-info-toggle .toggle-inner {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  height: 100%;
+  padding: 4px 0; 
+}
+#more-info-toggle .toggle-text {
+  margin-top: 15px;                 /* kill any stray margin */
+  writing-mode: vertical-rl;
+  transform: rotate(180deg);      /* bottom→top direction */
+  white-space: nowrap;
+  font-weight: bold;
+  line-height: 1;
+
+}
+#more-info-toggle .triangle {
+  margin: 0;
+  transition: transform 0.3s ease;
+}
+/* rotate the triangle when open */
+#more-info-panel.open #more-info-toggle .triangle {
+  order: 0;
+  margin: 0;          /* no centering margin */
+  align-self: center; /* horizontally centered */
+  transform: rotate(90deg);
+  transition: transform 0.3s ease;
+}
+/* the inner scroll/body */
+#more-info-body {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  grid-gap: 1rem;
+  padding: 1rem;
+  width: 0;
+  overflow: hidden;
+  transition: width 0.3s ease;
+  background: #fff;
+  border-left: 1px solid #ccc;
+  box-shadow: -2px 0 6px rgba(0,0,0,0.1);
+  position: relative;
+  z-index: 5; 
+  border-top-right-radius: 12px;
+  border-bottom-right-radius: 12px;
+}
+/* A: inputs go in the left column */
+#more-info-body .inputs-group {
+  grid-column: 1 / 2;
+}
+#more-info-body .inputs-group .form-group input {
+  max-width: 180px;    /* make them a bit smaller */
+}
+#more-info-body .floorplans-group {
+  grid-column: 2 / 3;
+}
+#floorplans-container {
+  max-height: 200px;
+  overflow-y: auto;
+}
+#more-info-body .facing-group,
+#more-info-body .living-group {
+  grid-column: 1 / -1;
+  margin-top: 1rem;    /* separate from the row above */
+}
+
+/* tighten up the option-group inside them */
+#more-info-body .facing-group .option-group,
+#more-info-body .living-group .option-group {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.75rem;
+}
+
+/* optional: style those smaller checkboxes */
+#more-info-body .option-group label {
+  font-size: 0.9rem;
+  gap: 0.3rem;
+}
+
+/* hide comment section when panel is open */
+#more-info-panel.open ~ .comment-section {
+  display: none;
+}
+/* open state—pane body slides into view */
+#more-info-panel.open #more-info-body {
+  width: 700px;
+  
+}
+
+#more-info-panel.open .triangle {
+  transform: rotate(90deg);
 }

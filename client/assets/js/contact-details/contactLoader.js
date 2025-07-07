@@ -26,39 +26,41 @@ document.addEventListener('DOMContentLoaded', () => {
   // ✅ Finally call this
   setupLotSearch();
 
-  
+  });
 });
 
-});
+async function handleCommunityChange(e) {
+  const commId      = e.target.value;
+  const fpContainer = document.getElementById('floorplans-container');
+  fpContainer.innerHTML = '';  // clear old
 
-async function populateCommunityDropdown(selectedId) {
+  if (!commId) return;
+
   try {
-    const res = await fetch('/api/communities');
-    const communities = await res.json();
+    const res   = await fetch(`/api/communities/${commId}/floorplans`);
+    const plans = await res.json();
 
-    const select = document.getElementById('community-select');
-    if (!select) {
-      console.error('Dropdown element #community-select not found');
-      return;
-    }
+    plans.forEach(plan => {
+      const lbl = document.createElement('label');
+      lbl.style.display = 'block';
+      const cb = document.createElement('input');
+      cb.type    = 'checkbox';
+      cb.name    = 'floorplans';
+      cb.value   = plan._id;
+      cb.classList.add('no-auto');
 
-    select.innerHTML = '<option value="">-- Select Community --</option>';
-
-    communities.forEach(comm => {
-      const opt = document.createElement('option');
-      opt.value = comm._id;
-      opt.textContent = comm.name;
-      if (comm._id === selectedId) {
-        opt.selected = true;
-      }
-      select.appendChild(opt);
+      lbl.appendChild(cb);
+      lbl.insertAdjacentText('beforeend', ` ${plan.name} (${plan.planNumber})`);
+      fpContainer.appendChild(lbl);
     });
-
-    console.log('Community dropdown populated');
   } catch (err) {
-    console.error('Failed to load communities:', err);
+    console.error('Failed to load floor plans:', err);
   }
 }
+
+
+
+
 
 // Reusable safe reload
 function reloadContactWithParams() {
@@ -92,6 +94,55 @@ async function loadContact() {
   }
 
   const contact = await res.json();
+  const communitySelect = document.getElementById('community-select');
+  try {
+    const commRes = await fetch('/api/communities');
+    const comms   = await commRes.json();
+
+    // clear & add default
+    communitySelect.innerHTML = '<option value="">-- Select Community --</option>';
+    comms.forEach(c => {
+      const opt = document.createElement('option');
+      opt.value       = c._id;
+      opt.textContent = c.name;
+      communitySelect.appendChild(opt);
+    });
+
+    // pre-select saved community
+    const savedComm = contact.communityId?._id || contact.communityId || '';
+    communitySelect.value = savedComm;
+  } catch (err) {
+    console.error('Failed to load communities:', err);
+  }
+   communitySelect.addEventListener('change', handleCommunityChange);
+
+  const fpContainer = document.getElementById('floorplans-container');
+fpContainer.innerHTML = '';  // clear any old checkboxes
+
+if (contact.communityId) {
+  const commId = contact.communityId._id || contact.communityId;
+  const plansRes = await fetch(`/api/communities/${commId}/floorplans`);
+  const plans    = await plansRes.json();
+
+  plans.forEach(plan => {
+    const lbl = document.createElement('label');
+    lbl.style.display = 'block';
+    const cb = document.createElement('input');
+    cb.type  = 'checkbox';
+    cb.name  = 'floorplans';
+    cb.value = plan._id;
+    cb.classList.add('no-auto');
+
+    if (contact.floorplans?.includes(plan._id)) {
+      cb.checked = true;
+    }
+
+    lbl.appendChild(cb);
+    lbl.insertAdjacentText('beforeend', ` ${plan.name} (${plan.planNumber})`);
+    fpContainer.appendChild(lbl);
+  });
+}
+
 
   const fullName = `${contact.firstName || ''} ${contact.lastName || ''}`.trim();
   const nameEl = document.getElementById('contact-full-name');
@@ -123,65 +174,54 @@ async function loadContact() {
     statusEl.style.backgroundColor = bgColor;
     statusEl.style.color = (rawStatus === 'cold' || rawStatus === 'negotiating') ? '#000' : '#fff';
   }
- const statusBox = document.querySelector('.all-status-cont');
-  statusBox.innerHTML = ''; // Clear existing cards
+const statusBox = document.querySelector('.all-status-cont');
+statusBox.innerHTML = ''; // clear out old cards
 
-// Map raw enum keys → display labels
+// map enum → human labels
 const statusLabels = {
   invite:         'Invite',
-  submittedapplication: 'Submitted App',
-  subdocs:        'Submitted Docs',
-  missingdocs:    'Missing Docs',
+  subApplication: 'Submitted Application',
+  subDocs:        'Submitted Docs',
+  missingDocs:    'Missing Docs',
   approved:       'Approved',
-  cannotqualify:  'Cannot Qualify'
+  cannotQualify:  'Cannot Qualify'
 };
 
-if (Array.isArray(contact.lenders) && contact.lenders.length > 0) {
-  contact.lenders.forEach(entry => {
-    const lender = entry.lender;
-    if (!lender) return;
+const lenders = Array.isArray(contact.lenders) ? contact.lenders : [];
+const maxCards = 3;
 
-    // 1) Normalize and map to human label
-    const rawStatus    = entry.status || 'invite';
-    const displayLabel = statusLabels[rawStatus] || rawStatus;
-    const statusClass  = rawStatus;  // for your CSS classes
+for (let i = 0; i < maxCards; i++) {
+  if (i < lenders.length) {
+    // real lender
+    const entry     = lenders[i];
+    const lender    = entry.lender;
+    const rawStatus = entry.status || 'invite';
+    const label     = statusLabels[rawStatus] || rawStatus;
+    const dateField = rawStatus === 'approved' ? entry.approvedDate : entry.inviteDate;
+    const displayDate = dateField ? new Date(dateField).toLocaleDateString('en-US') : '—';
 
-    
-     // 2) Format the date as MM/DD/YYYY
-    const dateField = rawStatus === 'approved'
-    ? entry.approvedDate
-      : entry.inviteDate;
-    let displayDate = '—';
-    if (dateField) {
-      // strip off the time, split into [YYYY,MM,DD]
-      const [year, month, day] = dateField.split('T')[0].split('-');
-      displayDate = `${month}/${day}/${year}`;
-    }
-
-    // 3) Create and style the snippet
     const snippet = document.createElement('div');
     snippet.className = 'lender-snippet';
-    snippet.style = `
-      background: #f9f9f9;
-      border: 1px solid #ccc;
-      padding: 8px;
-      margin-bottom: 0.5em;
-      border-radius: 6px;
-    `;
-
+    if (entry.isPrimary) snippet.classList.add('primary');
     snippet.innerHTML = `
       <strong>${lender.firstName} ${lender.lastName}</strong><br/>
       <strong>${lender.brokerage || lender.lenderBrokerage || '—'}</strong><br/>
-      <span class="lender-status-badge ${statusClass}">
-        ${displayLabel}
+      <span class="lender-status-badge ${rawStatus}">
+        ${label}
       </span><br/>
-      ${rawStatus === 'approved' ? 'Approved Date' : 'Invite Date'}:<br/>
+      ${rawStatus === 'approved' ? 'Approved Date' : 'Invite Date'}:
       <span>${displayDate}</span>
     `;
-
     statusBox.appendChild(snippet);
-      });
-    }
+
+  } else {
+    // placeholder card
+    const ph = document.createElement('div');
+    ph.className = 'lender-snippet placeholder';
+    ph.innerHTML = `<div class="placeholder-icon">+</div>`;
+    statusBox.appendChild(ph);
+  }
+}
 
   const lenderList = document.getElementById('lender-list-container');
  if (lenderList) {
@@ -233,10 +273,6 @@ if (Array.isArray(contact.lenders) && contact.lenders.length > 0) {
   document.getElementById('source').value       = contact.source    || '';
   document.getElementById('investor').checked   = contact.investor  || false;
   document.getElementById('owner').value = contact.owner || '';
-  console.log('communityId from contact:', contact.communityId);
-  await populateCommunityDropdown(
-  contact.communityId?._id || contact.communityId || ''
-  );
   document.getElementById('visit-date').value   = contact.visitDate   || '';
   document.getElementById('lotLineUp').value    = contact.lotLineUp   || '';
 
@@ -447,3 +483,10 @@ container.querySelector('.remove-lender-btn').addEventListener('click', async ()
 
   return container;
 }
+
+// collapse/open the “More Details” panel
+const panel = document.getElementById('more-info-panel');
+const toggle = document.getElementById('more-info-toggle');
+toggle.addEventListener('click', () => {
+  panel.classList.toggle('open');
+});

@@ -22,6 +22,9 @@ async function autoSaveContact() {
       investor:    document.getElementById('investor').checked,
       owner:       document.getElementById('owner').value,
       communityId: document.getElementById('community-select').value,
+      floorplans: Array.from(
+       document.querySelectorAll('input[name="floorplans"]:checked')
+      ).map(cb => cb.value),
       visitDate:   document.getElementById('visit-date').value,
       lotLineUp:   document.getElementById('lotLineUp').value,
       realtor:     window.updatedContactRealtorId || null,
