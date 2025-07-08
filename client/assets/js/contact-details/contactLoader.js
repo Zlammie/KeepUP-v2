@@ -47,12 +47,14 @@ async function handleCommunityChange(e) {
       cb.type    = 'checkbox';
       cb.name    = 'floorplans';
       cb.value   = plan._id;
-      cb.classList.add('no-auto');
 
       lbl.appendChild(cb);
       lbl.insertAdjacentText('beforeend', ` ${plan.name} (${plan.planNumber})`);
       fpContainer.appendChild(lbl);
     });
+    if (window.setupAutoSaveListeners) {
+      window.setupAutoSaveListeners();
+    }
   } catch (err) {
     console.error('Failed to load floor plans:', err);
   }
@@ -275,6 +277,18 @@ for (let i = 0; i < maxCards; i++) {
   document.getElementById('owner').value = contact.owner || '';
   document.getElementById('visit-date').value   = contact.visitDate   || '';
   document.getElementById('lotLineUp').value    = contact.lotLineUp   || '';
+  document.getElementById('buyTime').value     = contact.buyTime  || '';
+  document.getElementById('buyMonth').value    = contact.buyMonth || '';
+  // Facing checkboxes
+  document.querySelectorAll('input[name="facing"]').forEach(cb => {
+    cb.checked = Array.isArray(contact.facing)
+                && contact.facing.includes(cb.value);
+  });
+  // Living condition checkboxes
+  document.getElementById('investor').checked     = contact.investor     || false;
+  document.getElementById('renting').checked      = contact.renting      || false;
+  document.getElementById('own-selling').checked  = contact.ownSelling   || false;
+  document.getElementById('own-not-selling').checked = contact.ownNotSelling || false;
 
   if (contact.linkedLot?.jobNumber) {
   const lot = contact.linkedLot;

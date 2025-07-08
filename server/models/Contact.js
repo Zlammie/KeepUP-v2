@@ -20,8 +20,17 @@ const contactSchema = new mongoose.Schema({
     block: String,
     phase: String
   },Date: String,
-  lotLineUp: String,
-  realtor: { type: mongoose.Schema.Types.ObjectId, ref: 'Realtor' },
+   lotLineUp: String,
+    buyTime:    { type: String,   default: '' },
+    buyMonth:   { type: String,   default: '' },
+    facing:     [String],                   // array of selected facings
+    renting:    { type: Boolean,  default: false },
+    ownSelling: { type: Boolean,  default: false },
+    ownNotSelling: { type: Boolean, default: false },
+    floorplans: [
+    { type: mongoose.Schema.Types.ObjectId, ref: 'FloorPlan' }
+      ],
+    realtor: { type: mongoose.Schema.Types.ObjectId, ref: 'Realtor' },
    lenders: [
     {
       lender: { type: mongoose.Schema.Types.ObjectId, ref: 'Lender' },

@@ -23,10 +23,18 @@ async function autoSaveContact() {
       owner:       document.getElementById('owner').value,
       communityId: document.getElementById('community-select').value,
       floorplans: Array.from(
-       document.querySelectorAll('input[name="floorplans"]:checked')
+      document.querySelectorAll('input[name="floorplans"]:checked')
       ).map(cb => cb.value),
       visitDate:   document.getElementById('visit-date').value,
       lotLineUp:   document.getElementById('lotLineUp').value,
+      buyTime:     document.getElementById('buyTime').value,
+      buyMonth:    document.getElementById('buyMonth').value,
+      facing:      Array.from(
+                      document.querySelectorAll('input[name="facing"]:checked')
+                    ).map(cb => cb.value),
+      renting:     document.getElementById('renting').checked,
+      ownSelling:  document.getElementById('own-selling').checked,
+      ownNotSelling: document.getElementById('own-not-selling').checked,
       realtor:     window.updatedContactRealtorId || null,
     };
 
