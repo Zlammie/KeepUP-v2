@@ -228,40 +228,28 @@
           </div>
         <div id="community-section">
           <div class="com-left-cont">
-            <div class="lot-line-up">
-              <div class="form-group">
-                <label for="lotLineUp">Lot Line Up</label>
-                <input type="text" id="lotLineUp" />
-              </div>
-              <div class="form-group">
-                <label for="buyTime">Buy Time</label>
-                <input type="text" id="buyTime" />
-              </div>
-              <div class="form-group">
-                <label for="buyMonth">Buy Month</label>
-                <input type="text" id="buyMonth" />
-              </div>
-            </div>
-            <div class="facing-cont">
-              <div class="form-group">
-                <div class="form-group">
-                  <label>Facing</label>
-                  <div class="option-group">
-                    <label><input type="checkbox" name="facing" value="North" /> North</label>
-                    <label><input type="checkbox" name="facing" value="South" /> South</label>
-                    <label><input type="checkbox" name="facing" value="East"  /> East</label>
-                    <label><input type="checkbox" name="facing" value="West"  /> West</label>
-                    <label><input type="checkbox" name="facing" value="Any"   /> Any</label>
+            <div id="community-summary">
+              <div class="lot-line-up-summary">
+                <strong>Lot Line Up:</strong> <span id="summary-lotLineUp">—</span><br/>
+                <div class="time-summary">
+                  <div class="time-item">
+                    <strong>Buy Time:</strong></br>
+                    <span id="summary-buyTime">—</span>
+                  </div>
+                  <div class="time-item">
+                    <strong>Buy Month:</strong>
+                    <span id="summary-buyMonth">—</span>
                   </div>
                 </div>
               </div>
-            </div>
-            <div class="floor-plan-cont">
-              <div class="form-group">
-                  <label>Floorplans</label>
-                   <div id="floorplans-container" class="option-group no-auto">
-                      <!-- JS will inject one <label><input type="radio" …> per plan -->
-                    </div>
+              <div class="facing-summary">
+                <strong>Facing:</strong> <span id="summary-facing">—</span>
+              </div>
+              <div class="floorplans-summary">
+                <strong>Floor Plans:</strong> <span id="summary-floorplans">—</span>
+              </div>
+              <div class="living-summary">
+                <strong>Living Condition:</strong> <span id="summary-living">—</span>
               </div>
             </div>
           </div>

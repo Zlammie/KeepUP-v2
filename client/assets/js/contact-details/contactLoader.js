@@ -25,7 +25,10 @@ document.addEventListener('DOMContentLoaded', () => {
 
   // ✅ Finally call this
   setupLotSearch();
-
+  updateTopBarSummary();
+    document
+      .querySelectorAll('#more-info-body input, #more-info-body select')
+     .forEach(el => el.addEventListener('change', updateTopBarSummary));
   });
 });
 
@@ -52,17 +55,28 @@ async function handleCommunityChange(e) {
       lbl.insertAdjacentText('beforeend', ` ${plan.name} (${plan.planNumber})`);
       fpContainer.appendChild(lbl);
     });
-    if (window.setupAutoSaveListeners) {
-      window.setupAutoSaveListeners();
-    }
+      // re-bind autosave for the new checkboxes
+      if (window.setupAutoSaveListeners) setupAutoSaveListeners();
+
+      // update the summary once
+      updateTopBarSummary();
+
+      // hook each new floorplan box to update the summary on change
+      document
+        .querySelectorAll('#floorplans-container input')
+        .forEach(cb => cb.addEventListener('change', updateTopBarSummary));
+            updateTopBarSummary();
+
+      // bind summary updates on the new floorplan checkboxes
+      document
+        .querySelectorAll('#floorplans-container input')
+        .forEach(cb => cb.addEventListener('change', updateTopBarSummary));
+    
   } catch (err) {
     console.error('Failed to load floor plans:', err);
   }
+  
 }
-
-
-
-
 
 // Reusable safe reload
 function reloadContactWithParams() {
@@ -79,6 +93,39 @@ function reloadContactWithParams() {
   window.location.href = `/contact-details.html?${currentParams.toString()}`;
 }
 window.reloadContactWithParams = reloadContactWithParams;
+
+function updateTopBarSummary() {
+  // 1) Text fields
+  document.getElementById('summary-lotLineUp').textContent =
+    document.getElementById('lotLineUp').value || '—';
+  document.getElementById('summary-buyTime').textContent =
+    document.getElementById('buyTime').value   || '—';
+  document.getElementById('summary-buyMonth').textContent =
+    document.getElementById('buyMonth').value  || '—';
+
+  // 2) Facing checkboxes
+  const facing = Array.from(
+    document.querySelectorAll('input[name="facing"]:checked')
+  ).map(cb => cb.value);
+  document.getElementById('summary-facing').textContent =
+    facing.length ? facing.join(', ') : '—';
+
+  // 3) Floor plans (read labels next to checked boxes)
+  const plans = Array.from(
+    document.querySelectorAll('#floorplans-container input:checked')
+  ).map(cb => cb.closest('label').innerText.trim());
+  document.getElementById('summary-floorplans').textContent =
+    plans.length ? plans.join(', ') : '—';
+
+  // 4) Living condition
+  const living = [];
+  if (document.getElementById('investor').checked)    living.push('Investor');
+  if (document.getElementById('renting').checked)     living.push('Renting');
+  if (document.getElementById('own-selling').checked) living.push('Own & Selling');
+  if (document.getElementById('own-not-selling').checked) living.push('Own & Not Selling');
+  document.getElementById('summary-living').textContent =
+    living.length ? living.join(', ') : '—';
+}
 
 async function loadContact() {
   const contactId = window.contactId;
@@ -133,7 +180,7 @@ if (contact.communityId) {
     cb.type  = 'checkbox';
     cb.name  = 'floorplans';
     cb.value = plan._id;
-    cb.classList.add('no-auto');
+    
 
     if (contact.floorplans?.includes(plan._id)) {
       cb.checked = true;
@@ -289,6 +336,8 @@ for (let i = 0; i < maxCards; i++) {
   document.getElementById('renting').checked      = contact.renting      || false;
   document.getElementById('own-selling').checked  = contact.ownSelling   || false;
   document.getElementById('own-not-selling').checked = contact.ownNotSelling || false;
+
+  
 
   if (contact.linkedLot?.jobNumber) {
   const lot = contact.linkedLot;

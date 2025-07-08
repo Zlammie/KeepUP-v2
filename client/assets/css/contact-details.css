@@ -704,3 +704,34 @@ select[multiple] {
 #more-info-panel.open .triangle {
   transform: rotate(90deg);
 }
+
+/* NEW ITEMS ADDED */
+#community-summary {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;               /* space between each row */
+  padding: 0.5rem;
+  margin-left: 15px;
+  width: 500px;       /* pick the width you want */
+  max-width: 100%;    /* so it never overflows its parent */
+  box-sizing: border-box;
+ 
+  background: #f9f9f9;
+  border-radius: 4px;
+}
+
+.time-summary {
+  display: flex;
+  gap: 1.5rem;               /* space between Buy Time & Buy Month */
+}
+
+.time-item {
+  flex: 1;
+}
+
+.facing-summary,
+.floorplans-summary,
+.living-summary {
+  /* you can tweak font-size, color, borders here */
+}
+
