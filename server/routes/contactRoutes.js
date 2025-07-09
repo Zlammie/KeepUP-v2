@@ -92,26 +92,29 @@ router.get('/:id', async (req, res) => {
 
 // Update a contact
 router.put('/:id', async (req, res) => {
-  try {
+
+    if (req.body.communityId === '') {
+    req.body.communityId = null;
+  }
+
     const updateData = { ...req.body };
-    console.log('[UPDATE]', updateData);
+  console.log('[UPDATE]', req.params.id, updateData);
 
-    if (Array.isArray(req.body.lenders) && req.body.lenders.length > 0) {
-      updateData.lenders = [req.body.lenders[0]];
-    }
-
-    const updated = await Contact.findByIdAndUpdate(req.params.id, updateData, {
-      new: true,
-      runValidators: true,
-    });
-
+  try {
+    const updated = await Contact.findByIdAndUpdate(
+      req.params.id,
+      updateData,
+      { new: true }
+    );
     if (!updated) {
       return res.status(404).json({ error: 'Contact not found' });
     }
-
-    res.json(updated);
+    return res.json(updated);
   } catch (err) {
-    res.status(400).json({ error: 'Failed to update contact', details: err.message });
+    console.error('Error updating contact:', err);
+    return res
+      .status(400)
+      .json({ error: 'Failed to update contact', details: err.message });
   }
 });
 
