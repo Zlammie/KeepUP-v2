@@ -732,6 +732,6 @@ select[multiple] {
 .facing-summary,
 .floorplans-summary,
 .living-summary {
-  /* you can tweak font-size, color, borders here */
+  color: black;
 }
 
