@@ -401,42 +401,72 @@ function createLenderCard(entry, index) {
 
   const container = document.createElement('div');
   container.className = 'lender-card';
-  container.style = 'border: 1px solid #ccc; padding: 10px; margin-bottom: 1em;';
 
-  container.innerHTML = `
+  const removeBtn = document.createElement('button');
+  removeBtn.type = 'button';
+  removeBtn.className = 'remove-lender-btn';
+  removeBtn.dataset.entryId = entry._id;
+  removeBtn.innerHTML = `
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24">
+      <polyline points="3 6 5 6 21 6"></polyline>
+      <path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"></path>
+      <path d="M10 11v6"></path>
+      <path d="M14 11v6"></path>
+      <path d="M9 6V4a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2"></path>
+    </svg>
+  `;
+  removeBtn.addEventListener('click', async () => {
+    if (!confirm('Remove this lender?')) return;
+    await fetch(`/api/contacts/${contactId}/lenders/${entry._id}`, { method: 'DELETE' });
+    loadContact(); // or however you refresh the list
+  });
+
+  // 3) Prepend it so it sits in the top-right
+  container.prepend(removeBtn);
+  
+
+ container.insertAdjacentHTML('beforeend',`
     <div><strong>${lender.firstName} ${lender.lastName}</strong></div>
     <div>Email: ${lender.email || '—'}</div>
     <div>Phone: ${lender.phone || '—'}</div>
     <div>Brokerage: ${lender.brokerage || lender.lenderBrokerage || '—'}</div>
-    <label style="display:block; margin:0.5em 0;">
+
+    <label class="primary-label">
       <input
         type="radio"
         name="primaryLender"
         value="${entry._id}"
         ${entry.isPrimary ? 'checked' : ''}
         class="no-auto"
-        />
-        Primary
+      />
+       <span>Primary Lender</span>
     </label>
 
-    <label>Status:
+   <label>Status:
       <select class="lender-status no-auto">
         <option value="">-- Select Status --</option>
-        <option value="invite">Invite</option>
-        <option value="submittedapplication">Submitted Application</option>
-        <option value="subdocs">Submitted Docs</option>
-        <option value="missingdocs">Missing Docs</option>
-        <option value="approved">Approved</option>
-        <option value="cannotqualify">Cannot Qualify</option>
+        <option${entry.status==='invite'?' selected':''} value="invite">Invite</option>
+        <option${entry.status==='submittedapplication'?' selected':''} value="submittedapplication">Submitted Application</option>
+        <option${entry.status==='subdocs'?' selected':''}         value="subdocs">Submitted Docs</option>
+        <option${entry.status==='missingdocs'?' selected':''}     value="missingdocs">Missing Docs</option>
+        <option${entry.status==='approved'?' selected':''}        value="approved">Approved</option>
+        <option${entry.status==='cannotqualify'?' selected':''}    value="cannotqualify">Cannot Qualify</option>
       </select>
     </label>
 
-    <label>Invite Date: <input type="date" class="lender-invite-date no-auto" /></label>
-    <label>Approved Date: <input type="date" class="lender-approved-date no-auto" /></label>
+    <label>Invite Date:
+      <input type="date" class="lender-invite-date no-auto"
+        value="${entry.inviteDate?.split('T')[0]||''}" />
+    </label>
+    <label>Approved Date:
+      <input type="date" class="lender-approved-date no-auto"
+        value="${entry.approvedDate?.split('T')[0]||''}" />
+    </label>
 
-   <button type="button" class="save-lender-btn">Save</button>
-    <button type="button" class="remove-lender-btn" data-entry-id="${entry._id}" style="margin-left: 1em;">Remove</button>
-  `;
+    <button type="button" class="save-lender-btn">Save</button>
+  `);
+
+  
    // grab the controls into local variables
   const statusSelect   = container.querySelector('.lender-status');
   const inviteInput    = container.querySelector('.lender-invite-date');

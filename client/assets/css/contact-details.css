@@ -602,7 +602,8 @@ select[multiple] {
   position: relative;
   width: 1.25rem;
   height: 98%;
-  background: #e9ecef;
+  background: #0E79B2;
+  color: white;
   border-top:    1px solid #ccc;
   border-right:  1px solid #ccc;
   border-bottom: 1px solid #ccc;
@@ -735,3 +736,138 @@ select[multiple] {
   color: black;
 }
 
+/* 1. Space above the section title */
+#linked-lenders-section {
+  margin-top: 2rem;
+  background: #fff;
+  padding: 1rem;
+  border-radius: 8px;
+  box-shadow: 0 1px 4px rgba(0,0,0,0.08);
+}
+
+/* 2. Grid layout for the cards */
+#lender-list-container {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+  gap: 1rem;
+  margin-top: 0.5rem;
+}
+
+/* 3. Card styling */
+.lender-card {
+  background: #fafafa;
+  border: 1px solid #ddd;
+  border-radius: 6px;
+  padding: 0.75rem;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  transition: transform 0.2s, box-shadow 0.2s;
+}
+.lender-card:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+}
+
+/* 4. Tidy up text inside */
+.lender-card strong {
+  display: block;
+  margin-bottom: 0.5rem;
+  font-size: 1rem;
+}
+.lender-card .lender-status-badge {
+  margin-bottom: 0.5rem;
+}
+.lender-card .lender-dates {
+  font-size: 0.85rem;
+  color: #555;
+}
+
+.lender-card.primary {
+  border: 2px solid gold;    /* thick gold border */
+  position: relative;        /* for positioning the label */
+}
+
+.lender-card { position: relative; }
+.remove-lender-btn {
+  position: absolute;
+  top: 0.5rem;
+  right: 0.5rem;
+  /* …icon color, hover states… */
+}
+
+.remove-lender-btn {
+  background: none;         /* remove default button background */
+  border: none;             /* remove default border */
+  padding: 0.25rem;         /* give a little click target */
+  cursor: pointer;          /* pointer on hover */
+  color: #888;              /* default icon color */
+  transition: color 0.2s ease;
+  display: flex;            /* center the SVG */
+  align-items: center;
+  justify-content: center;
+}
+
+/* ensure the SVG uses the button’s color and is properly sized */
+.remove-lender-btn svg {
+  width: 1.25rem;           /* 20px */
+  height: 1.25rem;          /* 20px */
+  stroke: currentColor;     /* stroke inherits button color */
+  stroke-width: 2;
+  fill: none;               /* no fill, just outline */
+}
+
+/* hover state: icon turns red */
+.remove-lender-btn:hover {
+  color: #e00;              /* bright red on hover */
+}
+
+/* (optional) remove the focus outline if you prefer a custom style */
+.remove-lender-btn:focus {
+  outline: none;
+}
+
+.primary-label {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  margin: 0.5em 0 1em;
+  padding: 0.25em 0.5em;
+  border: 1px solid #ccc;
+  border-radius: 4px;
+  cursor: pointer;
+  transition: background-color 0.2s, border-color 0.2s;
+}
+
+.primary-label input[type="radio"] {
+  /* use accent-color where supported */
+  accent-color: #007bff;
+  margin: 0;
+  width: 1rem;
+  height: 1rem;
+}
+
+.primary-label span {
+  font-size: 0.9rem;
+  color: #333;
+}
+
+/* when checked, highlight the whole pill */
+.primary-label input[type="radio"]:checked + span,
+.primary-label input[type="radio"]:checked ~ span {
+  font-weight: 600;
+  color: #fff;
+}
+
+.primary-label input[type="radio"]:checked ~ span,
+.primary-label input[type="radio"]:checked + span {
+  background-color: #007bff;
+  border-color: #007bff;
+  padding: 0.25em 0.5em;
+  border-radius: 4px;
+}
+
+/* hover effect */
+.primary-label:hover {
+  border-color: #007bff;
+}
