@@ -93,7 +93,7 @@ document.addEventListener('DOMContentLoaded', async () => {
             : (floorPlanMap[rawFP] || '');
         }
 
-        const link = `address-details.html?communityId=${communityId}&lotId=${lot._id}`;
+        const link = `/address-details?communityId=${communityId}&lotId=${lot._id}`;
         const row = document.createElement('tr');
         row.dataset.lotId = lot._id;
         row.innerHTML = `

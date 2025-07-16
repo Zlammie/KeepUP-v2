@@ -1,0 +1,49 @@
+#lender-list-container {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+  gap: 1rem;
+  margin-top: 0.5rem;
+}
+
+.lender-card {
+  background: #fafafa;
+  border: 1px solid #ddd;
+  border-radius: 6px;
+  padding: 0.75rem;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  transition: transform 0.2s, box-shadow 0.2s;
+}
+.lender-card:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+}
+.lender-card.primary {
+  border: 2px solid gold;    /* thick gold border */
+  position: relative;        /* for positioning the label */
+}
+
+.remove-lender-btn {
+  background: none;         /* remove default button background */
+  border: none;             /* remove default border */
+  padding: 0.25rem;         /* give a little click target */
+  cursor: pointer;          /* pointer on hover */
+  color: #888;              /* default icon color */
+  transition: color 0.2s ease;
+  display: flex;            /* center the SVG */
+  align-items: center;
+  justify-content: center;
+}
+/* hover state: icon turns red */
+.remove-lender-btn:hover {
+  color: #e00;              /* bright red on hover */
+}
+/* ensure the SVG uses the button’s color and is properly sized */
+.remove-lender-btn svg {
+  width: 1.25rem;           /* 20px */
+  height: 1.25rem;          /* 20px */
+  stroke: currentColor;     /* stroke inherits button color */
+  stroke-width: 2;
+  fill: none;               /* no fill, just outline */
+}

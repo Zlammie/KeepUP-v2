@@ -1,0 +1,39 @@
+/* 1. Base */
+@import "base/base.css";
+@import "base/reset.css";
+@import "base/typography.css";
+@import "base/variables.css";
+
+/* 2. Layout */
+@import "layout/grid.css";
+@import "layout/nav.css";
+@import "layout/top-nav.css";
+@import "layout/header.css";
+@import "layout/footer.css";
+
+/* 3. Components */
+@import "components/card.css";
+@import "components/button.css";
+@import "components/table.css";
+@import "components/form.css";
+@import "components/modal.css";
+@import "components/badge.css";       
+@import "components/comment-nav.css";
+@import "components/layout.css";
+@import "components/toggle.css";
+@import "components/comment.css";
+@import "components/lender-snippet.css";
+@import "components/section.css";
+
+/* 4. Utilities */
+@import "utilities/spacing.css";
+@import "utilities/helpers.css";
+
+/* 5. Pages */
+@import "pages/contact-details.css";
+@import "pages/realtor-details.css";
+@import "pages/address-details.css";
+@import "pages/contact.css";
+@import "pages/myCommunity.css";
+@import "pages/add-lead.css";
+@import "pages/lender-view.css";

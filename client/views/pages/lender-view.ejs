@@ -1,0 +1,161 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title>Lender Details</title>
+  <link rel="stylesheet" href="/assets/css/main.css">
+</head>
+<body>
+  <%- include('../partials/nav') %>
+  <%- include('../partials/top-nav-contacts') %>
+  <div class="main-content container mt-5">
+    <div class="details-top">
+      <div class="card lender-info-cont">
+        <form id="lenderForm">
+          <input type="hidden" id="lenderId" />
+          <div class="form-group">
+            <label>First Name</label>
+            <input type="text" id="lenderFirstName" data-field="firstName" />
+          </div>
+          <div class="form-group">
+            <label>Last Name</label>
+            <input type="text" id="lenderLastName" data-field="lastName" />
+          </div>
+          <div class="form-group">
+            <label>Email</label>
+            <input type="email" id="lenderEmail" data-field="email" />
+          </div>
+          <div class="form-group">
+            <label>Phone</label>
+            <input type="text" id="lenderPhone" data-field="phone" />
+          </div>
+          <div class="form-group">
+            <label>Company</label>
+            <input type="text" id="lenderCompany" data-field="company" />
+          </div>
+        </form>
+      </div>
+    </div>
+
+    <div class="linked-contacts">
+      <h2>Related Contacts</h2>
+      <table class="table linked-table">
+      <thead>
+        <tr>
+          <th>Name</th>
+          <th>Phone</th>
+          <th>Email</th>
+          <th>Community</th>
+          <th>Owner</th>
+          <th>Status</th>
+          <th>Invite Date</th>
+          <th>Approved Date</th>
+        </tr>
+      </thead>
+        <tbody id="relatedContactsBody" class="relatedContactBody"></tbody>
+      </table>
+    </div>
+  </div>
+
+<script>
+    
+  const params = new URLSearchParams(window.location.search);
+  const lenderId = params.get('id');
+
+  async function loadLender() {
+    const res = await fetch(`/api/lenders/${lenderId}`);
+    if (!res.ok) {
+      alert('Lender not found');
+      return;
+    }
+
+    const lender = await res.json();
+    document.getElementById('lenderFirstName').value = lender.firstName || '';
+    document.getElementById('lenderLastName').value = lender.lastName || '';
+    document.getElementById('lenderEmail').value = lender.email || '';
+    document.getElementById('lenderPhone').value = lender.phone || '';
+    document.getElementById('lenderCompany').value = lender.company || '';
+  }
+
+  function setupAutosave() {
+    const inputs = document.querySelectorAll('input[data-field]');
+    inputs.forEach(input => {
+      input.addEventListener('blur', async (e) => {
+        const field = e.target.dataset.field;
+        const value = e.target.value.trim();
+
+        await fetch(`/api/lenders/${lenderId}`, {
+          method: 'PUT',
+          headers: {
+            'Content-Type': 'application/json'
+          },
+          body: JSON.stringify({ [field]: value })
+        });
+      });
+    });
+  }
+
+  async function loadRelatedContacts() {
+    const res = await fetch(`/api/contacts/by-lender/${lenderId}`);
+    const tbody = document.getElementById('relatedContactsBody');
+    tbody.innerHTML = '';
+
+    if (!res.ok) {
+      tbody.innerHTML = '<tr><td colspan="5">Error loading related contacts.</td></tr>';
+      return;
+    }
+
+    const contacts = await res.json();
+    if (!contacts.length) {
+      tbody.innerHTML = '<tr><td colspan="5">No contacts linked to this lender.</td></tr>';
+      return;
+    }
+
+    const statusLabels = {
+      invite: 'Invite',
+      subApplication: 'Submitted Application',
+      subDocs: 'Submitted Docs',
+      missingDocs: 'Missing Docs',
+      approved: 'Approved',
+      cannotQualify: 'Cannot Qualify'
+    };
+
+    contacts.forEach(contact => {
+      const name = `${contact.firstName || ''} ${contact.lastName || ''}`.trim() || '(Unnamed)';
+      const phone = contact.phone || 'N/A';
+      const email = contact.email || 'N/A';
+      const communities = Array.isArray(contact.communities)
+        ? contact.communities.join(', ')
+        : contact.communities || 'N/A';
+      const owner = contact.owner || 'N/A';
+
+      // Find the lender entry that matches the current lenderId
+      const lenderInfo = (contact.lenders || []).find(l => l.lender && l.lender._id === lenderId);
+
+      const status = statusLabels[lenderInfo?.status] || lenderInfo?.status || 'N/A';
+      const inviteDate = lenderInfo?.inviteDate || 'N/A';
+      const approvedDate = lenderInfo?.approvedDate || 'N/A';
+
+      const row = document.createElement('tr');
+      row.innerHTML = `
+        <td><a href="/contact-details.html?id=${contact._id}">${name}</a></td>
+        <td>${phone}</td>
+        <td>${email}</td>
+        <td>${communities}</td>
+        <td>${owner}</td>
+        <td>${status}</td>
+        <td>${inviteDate}</td>
+        <td>${approvedDate}</td>
+      `;
+      tbody.appendChild(row);
+    });
+
+  }
+
+  loadLender().then(() => {
+    setupAutosave();
+    loadRelatedContacts();
+  });
+</script>
+</body>
+</html>

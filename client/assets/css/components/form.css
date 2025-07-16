@@ -1,0 +1,119 @@
+/* Realtor-details.ejs*/
+.form-group{
+  display: flex;
+  flex-direction: column;
+  margin-bottom: .5rem;
+}
+
+.form-group label {
+  margin: .5rem 0 .25rem .5rem;
+  font-weight: 600;
+  font-size: .85rem;
+  color: #555;
+  border-bottom: 1px solid silver;
+}
+.form-group input,
+.form-group select,
+.form-group textarea {
+  padding: 0.5rem;
+  border: 1px solid #ccc;
+  border-radius: 4px;
+  font-size: 1rem;
+  transition: border-color 0.2s;
+}
+.form-group input:focus,
+.form-group select:focus,
+.form-group textarea:focus {
+  border-color: #007bff;
+  outline: none;
+}
+
+.select-multiple {
+  height: 120px;
+  padding: 0.6rem;
+  box-sizing: border-box;
+}
+.select-standard {
+  -webkit-appearance: none;
+  -moz-appearance: none;
+  appearance: none;
+  width: 100%;
+  padding: 0.5rem;
+  box-sizing: border-box;
+  height: 2.5rem;
+  border: 1px solid #ccc;
+  border-radius: 4px;
+  transition: border-color 0.2s;
+}
+
+.select-center{
+  text-align: center;
+}
+
+
+/* Individual fields - address details */
+.field {
+  display: flex;
+  align-items: center;
+  margin-bottom: 0.75rem;
+}
+
+/* Field labels */
+.field label {
+  flex: 0 0 140px;       /* fixed width */
+  font-weight: 600;
+  color: #555;
+}
+
+/* Value containers */
+.field .value {
+  flex: 1;
+  padding: 0.5rem;
+  border: 1px solid #ccc;
+  border-radius: 0.25rem;
+  background-color: #fff;
+  min-height: 1.5em;
+}
+
+/* Read-only values (no border/background) */
+.field .value.readonly {
+  border: none;
+  background: transparent;
+  padding: 0;
+}
+
+.status-general .value {
+  height: 0.8rem;
+  padding: 0;
+  background: #ddd;
+  border-radius: 4px;
+  overflow: hidden;
+  position: relative;
+}
+.status-walk .walk-details .value {
+  height: 1.8rem;
+  padding: 0.2rem 0.3rem;
+}
+.status-walk .walk-details .field.small .value {
+  align-self: stretch;
+  /* keep your padding/height as before */
+  height: 1.8rem;
+  padding: 0.2rem 0.3rem;
+  margin-bottom: 0;          /* no extra bottom gap */
+}
+.status-bar .value {
+  background: #f0f0f0;
+  border-radius: 3px;
+  padding: 0.3rem 0.5rem;
+  font-size: 0.9rem;
+  font-weight: 500;
+  color: #222;
+  flex: none;
+}
+.status-section .value {
+  background-color: #f0f0f0;
+  border: 1px solid #ccc;
+  border-radius: 0.25rem;
+  padding: 0.25rem;
+  font-size: 0.85rem;
+}

@@ -1,0 +1,207 @@
+<!-- public/realtors-view.html -->
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title>Realtor Details</title>
+ <link rel="stylesheet" href="/assets/css/main.css">
+  
+</head>
+<body>
+  <%- include('../partials/nav') %>
+  <%- include('../partials/top-nav-contacts') %>
+  <div class="main-content container">
+    <div class="details-top">
+        <div class="card realtor-info-cont">
+          <form id="realtorForm">
+            <input type="hidden" id="realtorId" />
+            <div class="form-group">
+              <label>First Name</label>
+              <input type="text" id="realtorFirstName" data-field="firstName" />
+            </div>
+            <div class="form-group">
+              <label>Last Name</label>
+              <input type="text" id="realtorLastName" data-field="lastName" />
+            </div>
+            <div class="form-group">
+              <label>Email</label>
+              <input type="email" id="realtorEmail" data-field="email" />
+            </div>
+            <div class="form-group">
+              <label>Phone</label>
+              <input type="text" id="realtorPhone" data-field="phone" />
+            </div>
+            <div class="form-group">
+              <label>Brokerage</label>
+              <input type="text" id="realtorBrokerage" data-field="brokerage" />
+            </div>
+          </form>
+        </div>
+        <div class="purchased-table">
+          <h2>Purchased Contacts</h2>
+            <table class="table purchased-table">
+              <thead>
+                <tr>
+                  <th>Name</th>
+                  <th>Phone</th>
+                  <th>Email</th>
+                  <th>Communities</th>
+                  <th>Owner</th>
+                </tr>
+              </thead>
+              <tbody id="purchasedContactsBody"></tbody>
+            </table>
+        </div>
+    </div>
+      <div class="related-table">
+        <h2>Related Contacts</h2>
+            <table class="table related-table">
+              <thead>
+                <tr>
+                  <th>Name</th>
+                  <th>Phone</th>
+                  <th>Email</th>
+                  <th>Communities</th>
+                  <th>Owner</th>
+                </tr>
+              </thead>
+              <tbody id="relatedContactsBody" class="relatedContactBody"></tbody>
+              </table>
+       </div>
+  </div>
+<script>
+ 
+  const params = new URLSearchParams(window.location.search);
+  const realtorId = params.get('id');
+
+  async function loadRealtor() {
+    const res = await fetch(`/api/realtors/${realtorId}`);
+    if (!res.ok) {
+      alert('Realtor not found');
+      return;
+    }
+
+    const realtor = await res.json();
+
+    // Populate inputs
+    document.getElementById('realtorFirstName').value = realtor.firstName || '';
+    document.getElementById('realtorLastName').value = realtor.lastName || '';
+    document.getElementById('realtorEmail').value = realtor.email || '';
+    document.getElementById('realtorPhone').value = realtor.phone || '';
+    document.getElementById('realtorBrokerage').value = realtor.brokerage || '';
+  }
+
+  function setupAutosave() {
+    const inputs = document.querySelectorAll('input[data-field]');
+    inputs.forEach(input => {
+      input.addEventListener('blur', async (e) => {
+        const field = e.target.dataset.field;
+        const value = e.target.value.trim();
+
+        await fetch(`/api/realtors/${realtorId}`, {
+          method: 'PUT',
+          headers: {
+            'Content-Type': 'application/json'
+          },
+          body: JSON.stringify({ [field]: value })
+        });
+      });
+    });
+  }
+
+  async function loadRelatedContacts() {
+    const res = await fetch(`/api/contacts/by-realtor/${realtorId}`);
+    const tbody = document.getElementById('relatedContactsBody');
+    tbody.innerHTML = '';
+
+    if (!res.ok) {
+      const row = document.createElement('tr');
+      row.innerHTML = `<td colspan="5">Error loading related contacts.</td>`;
+      tbody.appendChild(row);
+      return;
+    }
+
+    const contacts = await res.json();
+
+    if (contacts.length === 0) {
+      const row = document.createElement('tr');
+      row.innerHTML = `<td colspan="5">No contacts linked to this realtor.</td>`;
+      tbody.appendChild(row);
+      return;
+    }
+
+    contacts.forEach(contact => {
+       console.log('Contact:', contact);
+      const hasName = contact.firstName || contact.lastName;
+      const name = hasName
+        ? `${contact.firstName || ''} ${contact.lastName || ''}`.trim()
+        : '(Unnamed Contact)';
+      const phone = contact.phone || 'N/A';
+      const email = contact.email || 'N/A';
+      const communities = Array.isArray(contact.communities)
+        ? contact.communities.join(', ')
+        : contact.communities || 'N/A';
+      const owner = contact.owner || 'N/A';
+
+      console.log('Rendered Name:', name);
+
+      const row = document.createElement('tr');
+      row.innerHTML = `
+        <td><a href="/contact-details.html?id=${contact._id}">${name}</a></td>
+        <td>${phone}</td>
+        <td>${email}</td>
+        <td>${communities}</td>
+        <td>${owner}</td>
+      `;
+      console.log('Row innerHTML:', row.innerHTML);
+      tbody.appendChild(row);
+    });
+  }
+
+  async function loadPurchasedContacts() {
+  const res = await fetch(`/api/contacts/by-realtor/${realtorId}`);
+  const tbody = document.getElementById('purchasedContactsBody');
+  tbody.innerHTML = '';
+
+  if (!res.ok) {
+    tbody.innerHTML = `<tr><td colspan="5">Error loading purchased contacts.</td></tr>`;
+    return;
+  }
+
+  const contacts = await res.json();
+  const purchased = contacts.filter(c => c.status === 'purchased');
+
+  if (purchased.length === 0) {
+    tbody.innerHTML = `<tr><td colspan="5">No purchased contacts.</td></tr>`;
+    return;
+  }
+
+  purchased.forEach(contact => {
+    const name = `${contact.firstName || ''} ${contact.lastName || ''}`.trim() || '(Unnamed)';
+    const phone = contact.phone || 'N/A';
+    const email = contact.email || 'N/A';
+    const communities = Array.isArray(contact.communities)
+      ? contact.communities.join(', ')
+      : contact.communities || 'N/A';
+    const owner = contact.owner || 'N/A';
+
+    const row = document.createElement('tr');
+    row.innerHTML = `
+      <td><a href="/contact-details.html?id=${contact._id}">${name}</a></td>
+      <td>${phone}</td>
+      <td>${email}</td>
+      <td>${communities}</td>
+      <td>${owner}</td>
+    `;
+    tbody.appendChild(row);
+  });
+}
+
+  loadRealtor().then(() => {
+    setupAutosave();
+    loadRelatedContacts();
+    loadPurchasedContacts();
+  });
+</script>
+</body>
+</html>

@@ -1,0 +1,5 @@
+.add-lead-wrapper {
+  max-width: 600px;
+  margin: 2rem auto;   /* vertical spacing + center */
+  padding: 0 1rem;     /* small side padding */
+}

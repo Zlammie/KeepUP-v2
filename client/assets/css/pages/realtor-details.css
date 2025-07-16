@@ -1,0 +1,57 @@
+/*
+label {
+ margin-left: .5rem;
+  margin-top: .5rem;
+  font-weight: 600;
+  font-size: 0.85rem;
+  color: #555;
+  border-bottom: 1px solid silver;
+}
+input{
+ font-size: 1rem;
+  padding: 0.6rem 0.75rem;
+  border-radius: 6px;
+  border: 1px solid #ccc;
+  background-color: #fff;
+  transition: border-color 0.2s, background-color 0.2s, box-shadow 0.2s;
+}
+input:focus {
+  border-color: #0E79B2;
+  outline: none;
+  box-shadow: 0 0 0 2px rgba(14, 121, 178, 0.1);
+}
+*/
+.main-cont{
+  display: inline-flex;         /* inline keeps it only as wide as content */
+  flex-direction: column;
+   background-color: #e2e6ea;
+  align-self: flex-start;       /* optional: prevent child flex alignment from stretching */
+  width: fit-content;  
+  width: 350px;  
+  border-radius: 12px;      /* ensures width is based on content */
+}
+
+
+.details-top {
+  display: flex;
+  align-items: flex-start;
+  flex-wrap: wrap;
+  gap: 1rem;
+  margin-bottom: 2rem; 
+}
+/* Make the card take up a fixed or flexible width */
+.details-top .realtor-info-cont {
+  flex: 0 0 300px;
+  max-width: 350px;     
+}
+
+/* Purchased table sits next to the card */
+.details-top .purchased-contacts {
+  flex: 1 1 auto;     /* base 400px, can grow */
+}
+
+/* Ensure the related-contacts block clears above floats (if any) */
+.related-contacts {
+  clear: both;
+  width: 100%;
+}

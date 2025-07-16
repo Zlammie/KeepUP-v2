@@ -12,12 +12,20 @@ const commentRoutes = require('./routes/commentsRoutes');
 const lotViewRoutes = require('./routes/lotViewRoutes');
 const floorPlanRoutes  = require('./routes/floorPlanRoutes');
 
+const Contact = require(path.join(__dirname, 'models', 'Contact'));
+const Realtor = require(path.join(__dirname, 'models', 'Realtor'));
+const Lender  = require(path.join(__dirname, 'models', 'lenderModel'));
+const Community = require(path.join(__dirname, 'models', 'Community'));
+
 const app = express();
 
 // ✅ Static file serving (NEW structure)
-app.use('/assets', express.static(path.join(__dirname, '../client/assets'))); // serve CSS, JS, icons, etc.
-app.use(express.static(path.join(__dirname, '../client/views/pages'))); // serve HTML pages
-app.use(express.static(path.join(__dirname, '../client/views/components'))); // serve nav, partials
+app.use('/assets', express.static(path.join(__dirname, '../client/assets'))); // CSS, JS, images, icons
+
+// ✅ View engine setup
+app.set('views', path.join(__dirname, '../client/views')); 
+app.set('view engine', 'ejs');
+ 
 
 // ✅ Body parsing middleware
 app.use(bodyParser.urlencoded({ extended: true }));
@@ -38,9 +46,154 @@ app.use('/api/comments', commentRoutes);
 app.use('/api/floorplans', floorPlanRoutes);
 app.use('/api', lotViewRoutes); // cleaner import
 
-// ✅ Serve default frontend page at root
+// ✅ Render EJS pages
 app.get('/', (req, res) => {
-  res.sendFile(path.join(__dirname, '../client/views/pages/contacts.html'));
+  res.render('pages/index', { active: 'home' });
+});
+
+// Add‐Lead page
+app.get('/add-lead', (req, res) => {
+  // any prep work here…
+  res.render('pages/add-lead', { active: 'add-lead' });
+});
+
+// Contacts list
+app.get('/contacts', async (req, res) => {
+  try {
+   const contacts = await Contact.find();
+    res.render('pages/contacts', { contacts, active: 'contacts' });
+  } catch (err) {
+    console.error(err);
+    res.status(500).send('Error loading contacts');
+  }
+});
+
+// Realtors list
+app.get('/realtors', async (req, res) => {
+  try {
+    const realtors = await Realtor.find();
+    res.render('pages/realtors', { realtors, active: 'realtors' });
+  } catch (err) {
+    console.error(err);
+    res.status(500).send('Error loading realtors');
+  }
+});
+
+// Lenders list
+app.get('/lenders', async (req, res) => {
+  try {
+    const lenders = await Lender.find();
+    res.render('pages/lenders', { lenders, active: 'lenders' });
+  } catch (err) {
+    console.error(err);
+    res.status(500).send('Error loading lenders');
+  }
+});
+
+// Community management page
+app.get('/community-management', (req, res) => {
+  // load any data you need here…
+  res.render('pages/community-management', { active: 'community' });
+});
+
+// View All Communities page
+app.get('/view-communities', async (req, res) => {
+  try {
+    const communities = await Community.find();
+    res.render('pages/view-communities', {
+      communities,
+      active: 'community'
+    });
+  } catch (err) {
+    console.error('Error loading view-communities:', err);
+    res.status(500).send('Error loading communities');
+  }
+});
+ // Add‐Floorplan page
+ app.get('/add-floorplan', (req, res) => {
+   res.render('pages/add-floorplan', { active: 'floor-plans' });
+ });
+ app.get('/view-lots', (req, res) => {
+  const communityId = req.query.communityId;
+  // You could optionally validate the ID here
+  res.render('pages/view-lots', {
+    communityId,
+    active: 'community'
+  });
+});
+app.get('/address-details', (req, res) => {
+  const { communityId, lotId } = req.query;
+  res.render('pages/address-details', { communityId, lotId, active: 'community' });
+});
+app.get('/contact-details', async (req, res) => {
+  try {
+    const id = req.query.id;
+    if (!mongoose.Types.ObjectId.isValid(id)) {
+      return res.status(400).send('Invalid contact ID');
+    }
+
+    const contact = await Contact
+      .findById(id)
+      .populate('realtor')   // if you store a realtor ObjectId
+      .populate('lenders');  // if you store lenders as ObjectId[]
+
+    if (!contact) {
+      return res.status(404).send('Contact not found');
+    }
+
+    res.render('pages/contact-details', {
+      contact,
+      active: 'contacts'
+    });
+  } catch (err) {
+    console.error('Error loading contact-details:', err);
+    res.status(500).send('Internal Server Error');
+  }
+});
+
+app.get('/realtor-details', async (req, res) => {
+  try {
+    const id = req.query.id;
+    const realtor = await Realtor.findById(id);
+    const contacts = await Contact.find({ realtor: id });
+    res.render('pages/realtor-details', {
+      realtor,
+      contacts,
+      active: 'realtors'
+    });
+  } catch (err) {
+    console.error(err);
+    res.status(500).send('Error loading realtor details');
+  }
+});
+app.get('/lender-view', async (req, res) => {
+  try {
+    const id = req.query.id;
+    // 1) Validate ID
+    if (!mongoose.Types.ObjectId.isValid(id)) {
+      return res.status(400).send('Invalid lender ID');
+    }
+
+    // 2) Load lender
+    const lender = await Lender.findById(id);
+    if (!lender) {
+      return res.status(404).send('Lender not found');
+    }
+
+    // 3) Load contacts linked to this lender
+    //    👇 adjust “linkedLender” to whatever your Contact schema uses
+    const contacts = await Contact.find({ linkedLender: id });
+
+    // 4) Render the view
+    res.render('pages/lender-view', {
+      lender,
+      contacts,
+      active: 'lenders'
+    });
+  } catch (err) {
+    console.error('💥 Error in /lender-view:', err);
+    res.status(500).send('Internal Server Error');
+  }
 });
 
 // ✅ Catch-all 404 (keep this LAST)

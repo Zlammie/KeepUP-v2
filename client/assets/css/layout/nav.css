@@ -1,0 +1,116 @@
+/* assets/css/layout/_navbar.css */
+/* Only navbar-specific and layout container rules */
+
+/* Horizontal top bar */
+.horizontalBar {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  background-color: #001B2E;
+  color: white;
+  padding: 0 1rem;
+  height: 60px;
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  z-index: 1000;
+}
+
+/* Spacing for main layout, moved from body padding-left/top */
+.main-layout {
+  display: flex;
+  margin-top: 60px; /* height of horizontalBar */
+}
+
+.logo {
+  height: 40px;
+}
+
+.search-bar {
+  width: 300px;
+  padding: 0.4rem 0.6rem;
+  border-radius: 4px;
+  border: none;
+  outline: none;
+}
+
+.top-btn {
+  background: none;
+  border: none;
+  color: white;
+  margin-left: 1rem;
+  cursor: pointer;
+  font-size: 14px;
+}
+
+/* Side nav */
+.nav-bar {
+  position: fixed;
+  top: 60px;            /* below horizontalBar */
+  left: 0;
+  bottom: 0;
+  width: 150px;
+  background-color: #001B2E;
+  color: white;
+  z-index: 1000;
+}
+
+.nav-items-container {
+  margin-top: 50px;
+}
+
+.nav-items-container ul {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+}
+
+.nav-items-container li {
+  display: flex;
+  align-items: center;
+  padding: 0.75rem 1rem;
+  transition: background-color 0.2s;
+}
+
+.nav-items-container li img {
+  height: 20px;
+  margin-right: 10px;
+}
+
+.nav-items-container a {
+  color: white;
+  text-decoration: none;
+}
+
+.nav-items-container li:hover {
+  background-color: #3a3a55;
+}
+
+.nav-items-container li.active,
+.nav-items-container li.active:hover {
+  background-color: #55557a;
+}
+
+.nav-items-container li.active a {
+  color: #00bfff;
+  font-weight: 600;
+}
+
+.main-content {
+  flex-grow: 1;
+  padding: 2rem;
+  background-color: #f4f4f4;
+  min-height: calc(100vh - 60px);
+}
+
+.nav-link {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 1rem;
+  border-radius: 8px;
+  text-decoration: none;
+  color: white;
+  transition: background-color 0.2s;
+}

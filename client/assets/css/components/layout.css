@@ -1,0 +1,10 @@
+.horizontal-cont,
+.disc-cont,
+.bottom-cont,
+.page-wrapper,
+.contact-content {
+  display: flex;
+}
+.horizontal-cont { flex-direction: row; align-items: flex-start; }
+.disc-cont      { flex-direction: row; align-items: center; }
+.bottom-cont    { flex-direction: row; }

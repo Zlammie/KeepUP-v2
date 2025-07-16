@@ -1,0 +1,84 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title>Saved Lenders</title>
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet" />
+  <link rel="stylesheet" href="/assets/css/main.css">
+</head>
+<body class="container mt-5">
+  <%- include('../partials/nav') %>
+  <%- include('../partials/top-nav-contacts') %>
+
+  <h1>Saved Lenders</h1>
+
+  <table class="table table-bordered" id="lendersTable">
+    <thead>
+      <tr>
+        <th></th>
+        <th>First Name</th>
+        <th>Last Name</th>
+        <th>Email</th>
+        <th>Phone</th>
+        <th>Company</th>
+      </tr>
+    </thead>
+    <tbody></tbody>
+  </table>
+
+<script>
+
+  async function loadLenders() {
+    const res = await fetch('/api/lenders');
+    const lenders = await res.json();
+
+    const tableBody = document.querySelector('#lendersTable tbody');
+    tableBody.innerHTML = '';
+
+    lenders.forEach(lender => {
+      const row = document.createElement('tr');
+      row.dataset.id = lender._id;
+
+      // View button cell
+      const viewBtnCell = document.createElement('td');
+      const viewBtn = document.createElement('button');
+      viewBtn.textContent = 'View';
+      viewBtn.classList.add('btn', 'btn-primary', 'btn-sm');
+      viewBtn.addEventListener('click', () => {
+        window.location.href = `/lender-view?id=${lender._id}`;
+      });
+      viewBtnCell.appendChild(viewBtn);
+      row.appendChild(viewBtnCell);
+
+      // Editable fields
+      ['firstName', 'lastName', 'email', 'phone', 'company'].forEach(field => {
+        const cell = document.createElement('td');
+        cell.textContent = lender[field] || '';
+        cell.contentEditable = true;
+        cell.dataset.field = field;
+
+        cell.addEventListener('blur', async (e) => {
+          const newValue = e.target.textContent.trim();
+          const id = row.dataset.id;
+          const field = e.target.dataset.field;
+
+          await fetch(`/api/lenders/${id}`, {
+            method: 'PUT',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ [field]: newValue })
+          });
+        });
+
+        row.appendChild(cell);
+      });
+
+      tableBody.appendChild(row);
+    });
+  }
+
+  // Initialize
+  loadLenders();
+</script>
+
+</body>
+</html>

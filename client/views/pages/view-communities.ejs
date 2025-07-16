@@ -1,0 +1,57 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title>Communities</title>
+  <link rel="stylesheet" href="/assets/css/main.css">
+</head>
+<body>
+ <%- include('../partials/nav') %>
+  <%- include('../partials/top-nav-community') %>
+
+  <h1>All Communities</h1>
+  <div class="table-container">
+    <table id="communitiesTable">
+      <thead>
+        <tr>
+          <th>Name</th>
+          <th>Lots Count</th>
+          <th>Actions</th>
+        </tr>
+      </thead>
+      <tbody id="communitiesTableBody">
+        <!-- populated by script -->
+      </tbody>
+    </table>
+  </div>
+
+  <script>
+
+    document.addEventListener('DOMContentLoaded', async () => {
+      try {
+        // 👉 your communityRoutes are already mounted at /api/communities :contentReference[oaicite:0]{index=0}
+        const res = await fetch('/api/communities');
+        if (!res.ok) throw new Error(`Server returned ${res.status}`);
+        const communities = await res.json();
+
+        const tbody = document.getElementById('communitiesTableBody');
+        communities.forEach(c => {
+          const row = document.createElement('tr');
+          row.innerHTML = `
+            <td>${c.name}</td>
+            <td>${(c.lots || []).length}</td>
+            <td>
+              <a href="/view-lots?communityId=${c._id}">
+                View Lots
+              </a>
+            </td>
+          `;
+          tbody.appendChild(row);
+        });
+      } catch (err) {
+        console.error('Failed to load communities:', err);
+      }
+    });
+  </script>
+</body>
+</html>

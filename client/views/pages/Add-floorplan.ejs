@@ -1,0 +1,107 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Add Floor Plan</title>
+  <link rel="stylesheet" href="/assets/css/main.css">
+</head>
+<body>
+  <%- include('../partials/nav') %>
+  <%- include('../partials/top-nav-community') %>
+  <main class="content">
+    <h1>Add a New Floor Plan</h1>
+    <form id="floorPlanForm">
+      <div class="field">
+        <label for="planNumber">Floor Plan #</label>
+        <input id="planNumber" name="planNumber" required />
+      </div>
+      <div class="field">
+        <label for="name">Floor Plan Name</label>
+        <input id="name" name="name" required />
+      </div>
+      <div class="field">
+        <label for="squareFeet">Square Feet</label>
+        <input id="squareFeet" name="squareFeet" type="number" min="0" required />
+      </div>
+      <div class="field">
+        <label for="beds">Beds</label>
+        <input id="beds" name="beds" type="number" min="0" required />
+      </div>
+      <div class="field">
+        <label for="baths">Baths</label>
+        <input id="baths" name="baths" type="number" step="0.5" min="0" required />
+      </div>
+      <div class="field">
+        <label for="garage">Garage Spaces</label>
+        <input id="garage" name="garage" type="number" min="0" required />
+      </div>
+      <div class="field">
+        <label for="communities">Communities</label>
+        <select id="communities" name="communities" multiple required>
+          <!-- Options will be populated via JS -->
+        </select>
+      </div>
+      <button type="submit">Create Floor Plan</button>
+      <div id="statusMsg" class="status"></div>
+    </form>
+  </main>
+
+  <script>
+    document.addEventListener('DOMContentLoaded', () => {
+    
+
+      // Populate communities dropdown
+      fetch('/api/communities')
+        .then(res => res.json())
+        .then(comms => {
+          const select = document.getElementById('communities');
+          comms.forEach(c => {
+            const opt = document.createElement('option');
+            opt.value = c._id;
+            opt.textContent = c.name;
+            select.appendChild(opt);
+          });
+        })
+        .catch(err => console.error('Failed to load communities:', err));
+
+      // Form submission logic
+      document.getElementById('floorPlanForm').addEventListener('submit', async e => {
+        e.preventDefault();
+        const data = {
+          planNumber: document.getElementById('planNumber').value.trim(),
+          name:       document.getElementById('name').value.trim(),
+          specs: {
+            squareFeet: +document.getElementById('squareFeet').value || 0,
+            beds:       +document.getElementById('beds').value       || 0,
+            baths:      +document.getElementById('baths').value      || 0,
+            garage:     +document.getElementById('garage').value     || 0
+          },
+          communities: Array.from(
+            document.getElementById('communities').selectedOptions,
+            opt => opt.value
+          )
+        };
+
+        try {
+          const res = await fetch('/api/floorplans', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(data)
+          });
+          if (!res.ok) {
+            const err = await res.json();
+            throw new Error(err.error || 'Unknown error');
+          }
+          const plan = await res.json();
+          document.getElementById('statusMsg').textContent =
+            `Created Floor Plan: ${plan.planNumber} — ${plan.name}`;
+          e.target.reset();
+        } catch (error) {
+          document.getElementById('statusMsg').textContent =
+            `Error: ${error.message}`;
+        }
+      });
+    });
+  </script>
+</body>
+</html>

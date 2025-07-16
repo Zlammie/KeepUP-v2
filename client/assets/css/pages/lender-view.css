@@ -1,0 +1,22 @@
+.details-top {
+  display: flex;
+  flex-wrap: wrap;      /* stacks on narrow screens */
+  gap: 1rem;
+  margin-bottom: 2rem;
+}
+
+.details-top .lender-info-cont {
+  /* lock card at about 300–350px */
+  flex: 0 0 300px;
+  max-width: 350px;
+}
+
+.details-top .linked-contacts {
+  /* take up the rest of the row */
+  flex: 1 1 auto;
+}
+
+/* ensure your table still gets the .table styles */
+.linked-contacts .table {
+  width: 100%;
+}

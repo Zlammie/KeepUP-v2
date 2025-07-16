@@ -1,0 +1,51 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title>View Lots</title>
+  <link rel="stylesheet" href="/assets/css/main.css">
+</head>
+<body data-community-id="<%= communityId %>">
+  <%- include('../partials/nav') %>
+  <%- include('../partials/top-nav-community') %>
+
+  <h1>Lots Overview</h1>
+
+  <div class="table-container">
+    <table id="lotsTable">
+      <thead>
+        <tr>
+          <th>Job #</th>
+          <th>Lot / Block / Phase</th>
+          <th>Address</th>
+          <th>Plan</th>
+          <th>Elv</th>
+          <th>Home Status</th>
+          <th>Purchaser</th>
+          <th>Phone</th>
+          <th>Email</th>
+          <th>Release Date</th>
+          <th>Expected Completion</th>
+          <th>Close Month</th>
+          <th>3rd Party</th>
+          <th>1st Walk</th>
+          <th>Final Sign Off</th>
+          <th>Lender</th>
+          <th>Close Date/Time</th>
+          <th>List Price</th>
+          <th>Sales Price</th>
+        </tr>
+      </thead>
+      <tbody id="lotsTableBody">
+        <!-- Populated by JS -->
+      </tbody>
+    </table>
+  </div>
+
+ 
+  <script>
+    
+  </script>
+   <script src="/assets/js/viewLots.js"></script>
+</body>
+</html>
