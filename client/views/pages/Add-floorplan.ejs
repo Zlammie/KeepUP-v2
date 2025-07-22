@@ -3,45 +3,46 @@
 <head>
   <meta charset="UTF-8">
   <title>Add Floor Plan</title>
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet"/>
   <link rel="stylesheet" href="/assets/css/main.css">
 </head>
 <body>
   <%- include('../partials/nav') %>
   <%- include('../partials/top-nav-community') %>
-  <main class="content">
+  <main class="add-lead-wrapper">
     <h1>Add a New Floor Plan</h1>
     <form id="floorPlanForm">
-      <div class="field">
+      <div class="mb-3">
         <label for="planNumber">Floor Plan #</label>
-        <input id="planNumber" name="planNumber" required />
+        <input id="planNumber" class="form-control" name="planNumber" required />
       </div>
-      <div class="field">
+      <div class="mb-3">
         <label for="name">Floor Plan Name</label>
-        <input id="name" name="name" required />
+        <input id="name" class="form-control" name="name" required />
       </div>
-      <div class="field">
+      <div class="mb-3">
         <label for="squareFeet">Square Feet</label>
-        <input id="squareFeet" name="squareFeet" type="number" min="0" required />
+        <input id="squareFeet" class="form-control" name="squareFeet" type="number" min="0" required />
       </div>
-      <div class="field">
+      <div class="mb-3">
         <label for="beds">Beds</label>
-        <input id="beds" name="beds" type="number" min="0" required />
+        <input id="beds" class="form-control" name="beds" type="number" min="0" required />
       </div>
-      <div class="field">
+      <div class="mb-3">
         <label for="baths">Baths</label>
-        <input id="baths" name="baths" type="number" step="0.5" min="0" required />
+        <input id="baths" class="form-control" name="baths" type="number" step="0.5" min="0" required />
       </div>
-      <div class="field">
+      <div class="mb-3">
         <label for="garage">Garage Spaces</label>
-        <input id="garage" name="garage" type="number" min="0" required />
+        <input id="garage" class="form-control" name="garage" type="number" min="0" required />
       </div>
-      <div class="field">
+      <div class="mb-3">
         <label for="communities">Communities</label>
-        <select id="communities" name="communities" multiple required>
+        <select id="communities" class="form-control" name="communities" multiple required>
           <!-- Options will be populated via JS -->
         </select>
       </div>
-      <button type="submit">Create Floor Plan</button>
+      <button type="submit" class="btn btn-primary">Create Floor Plan</button>
       <div id="statusMsg" class="status"></div>
     </form>
   </main>

@@ -6,11 +6,9 @@
   margin-left: 25px;
 }
 
-
 .main-cont {
   width: 360px;
 }
-
 
 .contact-summary-box {
   display: flex;
@@ -25,7 +23,6 @@
   font-size: xx-large;
   margin-right: 100px;
 }
-
 
 .lotLineUp{
   background-color: white;
@@ -169,8 +166,6 @@
   align-items: center;
 }
 
-
-
 .todo-panel.collapsed {
   z-index: 10;
 }
@@ -303,8 +298,6 @@
   color: #555;
 }
 
-
-
 .lender-card { position: relative; }
 .remove-lender-btn {
   position: absolute;
@@ -312,11 +305,6 @@
   right: 0.5rem;
   /* …icon color, hover states… */
 }
-
-
-
-
-
 
 /* (optional) remove the focus outline if you prefer a custom style */
 .remove-lender-btn:focus {

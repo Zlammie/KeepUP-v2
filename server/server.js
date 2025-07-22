@@ -11,11 +11,17 @@ const lenderRoutes = require('./routes/lenderRoutes');
 const commentRoutes = require('./routes/commentsRoutes');
 const lotViewRoutes = require('./routes/lotViewRoutes');
 const floorPlanRoutes  = require('./routes/floorPlanRoutes');
+const competitionRoutes = require('./routes/competitionRoutes')
 
 const Contact = require(path.join(__dirname, 'models', 'Contact'));
 const Realtor = require(path.join(__dirname, 'models', 'Realtor'));
 const Lender  = require(path.join(__dirname, 'models', 'lenderModel'));
 const Community = require(path.join(__dirname, 'models', 'Community'));
+const Competition = require(path.join(__dirname,'models', 'Competition'));
+const FloorPlanComp = require(path.join(__dirname, 'models', 'floorPlanComp'));
+const PriceRecord = require(path.join(__dirname, 'models', 'priceRecord'));
+const QuickMoveIn = require(path.join(__dirname, 'models', 'quickMoveIn'));
+const SalesRecord = require(path.join(__dirname,'models', 'salesRecord'));
 
 const app = express();
 
@@ -44,7 +50,8 @@ app.use('/api/communities', communityRoutes);
 app.use('/api/lenders', lenderRoutes);
 app.use('/api/comments', commentRoutes);
 app.use('/api/floorplans', floorPlanRoutes);
-app.use('/api', lotViewRoutes); // cleaner import
+app.use('/api', lotViewRoutes);
+app.use('/api/competitions', competitionRoutes);
 
 // ✅ Render EJS pages
 app.get('/', (req, res) => {
@@ -195,6 +202,318 @@ app.get('/lender-view', async (req, res) => {
     res.status(500).send('Internal Server Error');
   }
 });
+
+app.get('/competition-home', (req, res) => {
+  // if you’ve placed competition-home.ejs under client/views/pages:
+  res.render('pages/competition-home', {
+    active: 'competition'   // adjust this key to highlight the correct nav item
+  });
+});
+app.get('/add-competition', (req, res) => {
+  // if you’ve placed competition-home.ejs under client/views/pages:
+  res.render('pages/add-competition', {
+    active: 'add-competition'   // adjust this key to highlight the correct nav item
+  });
+});
+
+app.post('/add-competition', async (req, res, next) => {
+  try {
+    const { communityName, builderName, address, city, zip } = req.body;
+    await Competition.create({ communityName, builderName, address, city, zip });
+    res.redirect('/competition-home');
+  } catch (err) {
+    next(err);
+  }
+});
+
+app.get('/manage-competition', (req, res) => {
+  // if you’ve placed competition-home.ejs under client/views/pages:
+  res.render('pages/manage-competition', {
+    active: 'manage-competition'   // adjust this key to highlight the correct nav item
+  });
+});
+
+app.get('/api/competitions', async (req, res, next) => {
+  try {
+    const comps = await Competition.find().lean();
+    res.json(comps);
+  } catch (err) {
+    next(err);
+  }
+});
+app.get('/competition-details/:id', async (req, res, next) => {
+  try {
+    const comp = await Competition.findById(req.params.id).lean();
+    if (!comp) {
+      return res.status(404).send('Competition not found');
+    }
+    res.render('pages/competition-details', {
+      active: 'competition',
+      competition: comp
+    });
+  } catch (err) {
+    next(err);
+  }
+});
+app.post('/add-competition', async (req, res, next) => {
+  try {
+    const {
+      communityName,
+      builderName,
+      address,
+      city,
+      zip,
+      lotSize,
+      salesPerson,
+      salesPersonPhone,
+      salesPersonEmail,
+      schoolISD,
+      elementarySchool,
+      middleSchool,
+      HOA,
+      tax,
+      earnestAmount,
+      realtorCommission
+    } = req.body;
+
+    // Extract and normalize feeTypes (can be 'None', 'MUD', 'PID', or any combination)
+    let { feeTypes, mudFee, pidFee } = req.body;
+    if (!feeTypes) {
+      feeTypes = ['None'];
+    } else if (!Array.isArray(feeTypes)) {
+      feeTypes = [feeTypes];
+    }
+    // If "None" is selected, ignore any MUD/PID fees
+    if (feeTypes.includes('None')) {
+      feeTypes = ['None'];
+      mudFee = undefined;
+      pidFee = undefined;
+    }
+
+    await Competition.create({
+      communityName,
+      builderName,
+      address,
+      city,
+      zip,
+      lotSize,
+      salesPerson,
+      salesPersonPhone,
+      salesPersonEmail,
+      schoolISD,
+      elementarySchool,
+      middleSchool,
+      HOA: parseFloat(HOA),
+      tax: parseFloat(tax),
+      feeTypes,                                  // array of selected fee types
+      mudFee: feeTypes.includes('MUD') 
+              ? parseFloat(mudFee) 
+              : undefined,
+      pidFee: feeTypes.includes('PID') 
+              ? parseFloat(pidFee) 
+              : undefined,
+      earnestAmount: parseFloat(earnestAmount),
+      realtorCommission: parseFloat(realtorCommission)
+    });
+
+    res.redirect('/manage-competition');
+  } catch (err) {
+    next(err);
+  }
+});
+
+app.get('/update-competition/:id', async (req, res, next) => {
+  try {
+    const comp = await Competition.findById(req.params.id).lean();
+    if (!comp) return res.status(404).send('Competition not found');
+    res.render('pages/update-competition', {
+      active: 'competition',
+      competition: comp
+    });
+  } catch (err) {
+    next(err);
+  }
+});
+app.get('/update-competition/:id', async (req, res, next) => {
+  try {
+    const competition = await Competition.findById(req.params.id).lean();
+    if (!competition) return res.status(404).send('Not found');
+    res.render('pages/update-competition', { competition });
+  } catch (err) {
+    next(err);
+  }
+});
+
+app.get('/api/competitions/:id/floorplans', async (req, res, next) => {
+  try {
+   const fps = await FloorPlanComp.find({ competition: req.params.id }).lean();
+    res.json(fps);
+  } catch (err) {
+    next(err);
+  }
+});
+
+// POST new
+app.post('/api/competitions/:id/floorplans', async (req, res, next) => {
+  try {
+   const fp = await FloorPlanComp.create({
+      competition: req.params.id,
+      ...req.body
+    });
+    res.status(201).json(fp);
+  } catch (err) {
+    next(err);
+  }
+});
+
+// PUT update
+app.put('/api/competitions/:id/floorplans/:fpId', async (req, res, next) => {
+  try {
+  const fp = await FloorPlanComp.findByIdAndUpdate(
+      req.params.fpId,
+      req.body,
+      { new: true }
+    ).lean();
+    res.json(fp);
+  } catch (err) {
+    next(err);
+  }
+});
+
+app.get('/api/competitions/:id/price-records', async (req, res, next) => {
+  try {
+    const { month } = req.query; // e.g. ?month=2025-07
+    const recs = await PriceRecord
+      .find({ competition: req.params.id, month })
+      .lean();
+    res.json(recs);
+  } catch (err) {
+    next(err);
+  }
+});
+
+// create a new price record
+app.post('/api/competitions/:id/price-records', async (req, res, next) => {
+  try {
+    const { floorPlanId, month, price } = req.body;
+    const rec = await PriceRecord.create({
+      competition: req.params.id,
+      floorPlan: floorPlanId,
+      month,
+      price
+    });
+    res.status(201).json(rec);
+  } catch (err) {
+    next(err);
+  }
+});
+
+// update an existing price record
+app.put('/api/competitions/:id/price-records/:recId', async (req, res, next) => {
+  try {
+    const { price } = req.body;
+    const rec = await PriceRecord
+      .findByIdAndUpdate(req.params.recId, { price }, { new: true })
+      .lean();
+    res.json(rec);
+  } catch (err) {
+    next(err);
+  }
+});
+app.get('/api/competitions/:id/quick-moveins', async (req, res, next) => {
+  try {
+    const { month } = req.query;
+    const recs = await QuickMoveIn
+      .find({ competition: req.params.id, month })
+      .lean();
+    res.json(recs);
+  } catch (err) {
+    next(err);
+  }
+});
+
+// POST new quick-move-in
+app.post('/api/competitions/:id/quick-moveins', async (req, res, next) => {
+  try {
+    const { month, address, floorPlanId, listPrice, sqft, status } = req.body;
+    const rec = await QuickMoveIn.create({
+      competition: req.params.id,
+      month,
+      address,
+      floorPlan: floorPlanId,
+      listPrice,
+      sqft,
+      status
+    });
+    res.status(201).json(rec);
+  } catch (err) {
+    next(err);
+  }
+});
+
+// PUT update existing quick-move-in
+app.put('/api/competitions/:id/quick-moveins/:recId', async (req, res, next) => {
+  try {
+    const { address, floorPlanId, listPrice, sqft, status } = req.body;
+    const rec = await QuickMoveIn
+      .findByIdAndUpdate(
+        req.params.recId,
+        {
+          address,
+          floorPlan: floorPlanId,
+          listPrice,
+          sqft,
+          status
+        },
+        { new: true }
+      )
+      .lean();
+    res.json(rec);
+  } catch (err) {
+    next(err);
+  }
+});
+app.get('/api/competitions/:id/sales-records', async (req, res, next) => {
+  try {
+    const year = req.query.year; // e.g. ?year=2025
+    const filter = { competition: req.params.id };
+    if (year) filter.month = new RegExp(`^${year}-`);  
+    const recs = await SalesRecord.find(filter).lean();
+    res.json(recs);
+  } catch (err) {
+    next(err);
+  }
+});
+
+// POST new sales record
+app.post('/api/competitions/:id/sales-records', async (req, res, next) => {
+  try {
+    const { month, sales, cancels, closings } = req.body;
+    const rec = await SalesRecord.create({
+      competition: req.params.id,
+      month, sales, cancels, closings
+    });
+    res.status(201).json(rec);
+  } catch (err) {
+    next(err);
+  }
+});
+
+// PUT update existing sales record
+app.put('/api/competitions/:id/sales-records/:recId', async (req, res, next) => {
+  try {
+    const { sales, cancels, closings } = req.body;
+    const rec = await SalesRecord.findByIdAndUpdate(
+      req.params.recId,
+      { sales, cancels, closings },
+      { new: true }
+    ).lean();
+    res.json(rec);
+  } catch (err) {
+    next(err);
+  }
+});
+
 
 // ✅ Catch-all 404 (keep this LAST)
 app.use((req, res) => {

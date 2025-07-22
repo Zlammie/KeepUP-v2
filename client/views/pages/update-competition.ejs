@@ -1,0 +1,707 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Simple CRM</title>
+  <link rel="stylesheet" href="/assets/css/main.css">
+  
+</head>
+<body>
+<%- include('../partials/nav') %>
+<%- include('../partials/top-nav-competition') %>
+   <main>
+  <h1>update comp</h1>
+    <!-- Add / Update Floor Plans button -->
+<button 
+  type="button"
+  class="btn btn-secondary mb-3"
+  data-bs-toggle="modal"
+  data-bs-target="#floorPlanModal"
+>
+  Add / Update Floor Plans
+</button>
+ <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+<!-- Floor Plans Modal -->
+<div
+  class="modal fade"
+  id="floorPlanModal"
+  tabindex="-1"
+  aria-labelledby="floorPlanModalLabel"
+  aria-hidden="true"
+>
+  <div class="modal-dialog modal-lg">
+    <div class="modal-content">
+      <form id="floorPlanForm">
+        <div class="modal-header">
+          <h5 class="modal-title" id="floorPlanModalLabel">
+            Floor Plans
+          </h5>
+          <button
+            type="button"
+            class="btn-close"
+            data-bs-dismiss="modal"
+            aria-label="Close"
+          ></button>
+        </div>
+        <div class="modal-body">
+          <!-- existing floor plans list -->
+          <div id="floorPlanList" class="list-group mb-4"></div>
+
+          <!-- floor plan form fields -->
+          <input type="hidden" id="fpId" name="id" />
+          <div class="mb-3">
+            <label for="fpName" class="form-label">Floor Plan Name</label>
+            <input
+              type="text"
+              id="fpName"
+              name="name"
+              class="form-control"
+              required
+            />
+          </div>
+          <div class="row">
+            <div class="col-md-4 mb-3">
+              <label for="fpSqft" class="form-label">Sqft</label>
+              <input
+                type="number"
+                id="fpSqft"
+                name="sqft"
+                class="form-control"
+              />
+            </div>
+            <div class="col-md-4 mb-3">
+              <label for="fpBed" class="form-label">Bed</label>
+              <input
+                type="number"
+                id="fpBed"
+                name="bed"
+                class="form-control"
+              />
+            </div>
+            <div class="col-md-4 mb-3">
+              <label for="fpBath" class="form-label">Bath</label>
+              <input
+                type="number"
+                id="fpBath"
+                name="bath"
+                class="form-control"
+                step="any"
+                min="0"  
+              />
+            </div>
+            <div class="col-md-4 mb-3">
+              <label for="fpGarage" class="form-label">Garage</label>
+              <input
+                type="number"
+                id="fpGarage"
+                name="garage"
+                class="form-control"
+              />
+            </div>
+            <div class="col-md-4 mb-3">
+              <label for="fpStory" class="form-label">Story Type</label>
+              <select
+                id="fpStory"
+                name="storyType"
+                class="form-select"
+                required
+              >
+                <option value="Single">Single Story</option>
+                <option value="Two">Two Story</option>
+              </select>
+            </div>
+          </div>
+        </div>
+        <div class="modal-footer">
+          <button type="submit" class="btn btn-primary">
+            Save Floor Plan
+          </button>
+          <button
+            type="button"
+            class="btn btn-secondary"
+            data-bs-dismiss="modal"
+          >
+            Close
+          </button>
+        </div>
+      </form>
+    </div>
+  </div>
+</div>
+
+
+  <div class="horizontal-cont">
+    <!-- side panel (you can leave this empty or repurpose it) -->
+    <aside id="side-bar">
+      <%- include('../partials/top-nav-competition') %>
+    </aside>
+
+    <div class="contact-content flex-fill">
+      <!-- top bar -->
+      <header id="top-bar"></header>
+
+      <main class="container mt-4">
+        <div class="card">
+          <div class="card-header">
+            Competition Info
+          </div>
+          <div class="card-body">
+            <h5 class="card-title"><%= competition.communityName %></h5>
+            <p class="card-text">
+              Builder: <strong><%= competition.builderName %></strong>
+            </p>
+          </div>
+        </div>
+           <nav class="month-nav-container mt-3">
+            <div class="d-flex overflow-auto">
+              <ul 
+                id="monthNav" 
+                class="nav nav-pills flex-nowrap"
+              ></ul>
+            </div>
+            <!-- month-table container -->
+            <div id="monthTableContainer" class="container mt-4">
+              <table id="monthTable" class="table table-bordered">
+                <thead>
+                  <tr>
+                    <th>Floor Plan</th>
+                    <th>Sqft</th>
+                    <th>Bed</th>
+                    <th>Bath</th>
+                    <th>Garage</th>
+                    <th>Story</th>
+                    <th>Price</th>
+                  </tr>
+                </thead>
+                <tbody></tbody>
+              </table>
+            </div>
+            <h3 class="mt-5">Quick Move-In Homes</h3>
+          <div id="quickHomesContainer" class="container mt-2">
+            <table id="quickHomesTable" class="table table-bordered">
+              <thead>
+                <tr>
+                  <th>Address</th>
+                  <th>Floor Plan</th>
+                  <th>List Price</th>
+                  <th>Sqft</th>
+                  <th>Status</th>
+                </tr>
+              </thead>
+              <tbody></tbody>
+            </table>
+          </div>
+          <h3 class="mt-5">Sold Homes</h3>
+          <div id="soldHomesContainer" class="container mt-2">
+            <table id="soldHomesTable" class="table table-bordered">
+              <thead>
+                <tr>
+                  <th>Address</th>
+                  <th>Floor Plan</th>
+                  <th>List Price</th>
+                  <th>Sqft</th>
+                  <th>Status</th>
+                </tr>
+              </thead>
+              <tbody></tbody>
+            </table>
+          </div>
+          <h3 class="mt-5">Sales Summary</h3>
+          <div id="salesContainer" class="container mt-2">
+            <table id="salesTable" class="table table-bordered">
+              <thead>
+                <tr>
+                  <th>Month</th>
+                  <th>Sales</th>
+                  <th>Cancels</th>
+                  <th>Net</th>
+                  <th>Closings</th>
+                </tr>
+              </thead>
+              <tbody></tbody>
+            </table>
+          </div>
+        </nav>
+      </main>
+    </div>
+  </div>
+
+<script>
+
+   
+
+ document.addEventListener('DOMContentLoaded', () => {
+      const monthNav = document.getElementById('monthNav');
+      const now = new Date();
+      const monthNames = [
+        'January','February','March','April','May','June',
+        'July','August','September','October','November','December'
+      ];
+
+      // build last 12 months, oldest first
+      const months = [];
+      for (let i = 11; i >= 0; i--) {
+        const d = new Date(now.getFullYear(), now.getMonth() - i, 1);
+        months.push({ 
+          label: monthNames[d.getMonth()] + ' ' + d.getFullYear(), 
+          value: d.getFullYear() + '-' + String(d.getMonth()+1).padStart(2,'0') 
+        });
+      }
+
+      // render nav items
+      months.forEach(m => {
+        const li = document.createElement('li');
+        li.className = 'nav-item';
+        const a = document.createElement('a');
+        a.className = 'nav-link';
+        if (m.value === `${now.getFullYear()}-${String(now.getMonth()+1).padStart(2,'0')}`) {
+          a.classList.add('active');
+        }
+        a.href = `#`; // later: set to trigger loading of that month’s table
+        a.textContent = m.label;
+        a.dataset.month = m.value;
+        li.appendChild(a);
+        monthNav.appendChild(li);
+      });
+     });
+     document.addEventListener('DOMContentLoaded', () => {
+  const competitionId = '<%= competition._id %>';
+  const modalEl = document.getElementById('floorPlanModal');
+  const modal = new bootstrap.Modal(modalEl);
+  const form = document.getElementById('floorPlanForm');
+  const list = document.getElementById('floorPlanList');
+  const fields = {
+    id:    document.getElementById('fpId'),
+    name:  document.getElementById('fpName'),
+    sqft:  document.getElementById('fpSqft'),
+    bed:   document.getElementById('fpBed'),
+    bath:  document.getElementById('fpBath'),
+    garage: document.getElementById('fpGarage'),
+    story: document.getElementById('fpStory')
+  };
+
+  // load and render existing floor plans
+  async function loadFloorPlans() {
+    const res = await fetch(`/api/competitions/${competitionId}/floorplans`);
+    const fps = await res.json();
+    list.innerHTML = '';
+    fps.forEach(fp => {
+      const item = document.createElement('a');
+      item.href = '#';
+      item.className = 'list-group-item list-group-item-action';
+      item.textContent = fp.name;
+      item.addEventListener('click', () => {
+        // populate form for editing
+        fields.id.value = fp._id;
+        fields.name.value = fp.name;
+        fields.sqft.value = fp.sqft || '';
+        fields.bed.value = fp.bed || '';
+        fields.bath.value = fp.bath || '';
+        fields.garage.value = fp.garage || '';
+        fields.story.value = fp.storyType;
+      });
+      list.appendChild(item);
+    });
+  }
+
+  // handle form submit (create or update)
+  form.addEventListener('submit', async e => {
+    e.preventDefault();
+    const payload = {
+      name: fpName.value,
+      sqft: parseFloat(fpSqft.value) || 0,
+      bed:  parseInt(fpBed.value)   || 0,
+      bath: parseFloat(fpBath.value)  || 0,
+      garage: parseInt(fpGarage.value) || 0,
+      storyType: fields.story.value
+    };
+
+    const isEdit = !!fields.id.value;
+    const url = isEdit
+      ? `/api/competitions/${competitionId}/floorplans/${fields.id.value}`
+      : `/api/competitions/${competitionId}/floorplans`;
+    const method = isEdit ? 'PUT' : 'POST';
+
+    const res = await fetch(url, {
+      method,
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload)
+    });
+
+    if (res.ok) {
+      form.reset();
+      fields.id.value = '';
+      loadFloorPlans();
+      modal.hide();
+    } else {
+      console.error('Failed to save floor plan');
+    }
+  });
+
+  // reset form when opening modal for a new entry
+  modalEl.addEventListener('show.bs.modal', () => {
+    form.reset();
+    fields.id.value = '';
+  });
+
+  loadFloorPlans();
+});
+
+document.addEventListener('DOMContentLoaded', () => {
+  const competitionId = '<%= competition._id %>';
+  const monthNav = document.getElementById('monthNav');
+  const tableBody = document.querySelector('#monthTable tbody');
+
+  // helper to fetch data & render table for a given month
+  async function loadMonth(month) {
+    // fetch floor plans
+    const [fps, prs] = await Promise.all([
+      fetch(`/api/competitions/${competitionId}/floorplans`).then(r => r.json()),
+      fetch(`/api/competitions/${competitionId}/price-records?month=${month}`).then(r => r.json())
+    ]);
+    // map existing records by floorPlan ID
+    const prMap = {};
+    prs.forEach(pr => prMap[pr.floorPlan] = pr);
+
+    // build rows
+    tableBody.innerHTML = '';
+    fps.forEach(fp => {
+      const existing = prMap[fp._id];
+      const tr = document.createElement('tr');
+      tr.innerHTML = `
+        <td>${fp.name}</td>
+        <td>${fp.sqft || ''}</td>
+        <td>${fp.bed || ''}</td>
+        <td>${fp.bath || ''}</td>
+        <td>${fp.garage || ''}</td>
+        <td>${fp.storyType}</td>
+        <td>
+          <input
+            type="number"
+            class="form-control price-input"
+            data-fp="${fp._id}"
+            value="${existing ? existing.price : ''}"
+            step="0.01"
+          />
+        </td>
+      `;
+      tableBody.appendChild(tr);
+    });
+
+    // wire up blur handlers
+    document.querySelectorAll('.price-input').forEach(input => {
+      input.addEventListener('blur', async e => {
+        const fpId = e.target.dataset.fp;
+        const price = parseFloat(e.target.value) || 0;
+        const existing = prMap[fpId];
+
+        const url = existing
+          ? `/api/competitions/${competitionId}/price-records/${existing._id}`
+          : `/api/competitions/${competitionId}/price-records`;
+        const method = existing ? 'PUT' : 'POST';
+        const body = existing
+          ? { price }
+          : { floorPlanId: fpId, month, price };
+
+        await fetch(url, {
+          method,
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(body)
+        });
+        // reload so map & table stay in sync
+        loadMonth(month);
+      });
+    });
+  }
+
+  // handle month-pill clicks
+  monthNav.addEventListener('click', e => {
+    if (e.target.tagName === 'A') {
+      e.preventDefault();
+      // set active class
+      monthNav.querySelectorAll('.nav-link').forEach(a => a.classList.remove('active'));
+      e.target.classList.add('active');
+      const month = e.target.dataset.month;
+      loadMonth(month);
+    }
+  });
+
+  // on initial load, trigger the current month
+  const activeLink = monthNav.querySelector('.nav-link.active');
+  if (activeLink) {
+    loadMonth(activeLink.dataset.month);
+  }
+});
+
+ document.addEventListener('DOMContentLoaded', () => {
+    const competitionId = '<%= competition._id %>';
+    const monthNav      = document.getElementById('monthNav');
+    const quickBody     = document.querySelector('#quickHomesTable tbody');
+    // reuse monthNames from your month-nav script
+    const monthNames = [
+      'January','February','March','April','May','June',
+      'July','August','September','October','November','December'
+    ];
+
+    async function loadQuickHomes(month) {
+      const fps  = await fetch(`/api/competitions/${competitionId}/floorplans`).then(r => r.json());
+      const recs = await fetch(
+        `/api/competitions/${competitionId}/quick-moveins?month=${month}`
+      ).then(r => r.json());
+
+        const unsold = recs.filter(r => r.status !== 'SOLD');
+        const sold   = recs.filter(r => r.status === 'SOLD');
+      // render rows
+      quickBody.innerHTML = '';
+  unsold.forEach(rec => {
+    const tr = document.createElement('tr');
+    tr.dataset.id = rec._id;
+    tr.innerHTML = `
+      <td><input class="form-control qmi-input" data-field="address" value="${rec.address}" /></td>
+      <td>
+        <select class="form-select qmi-input" data-field="floorPlanId">
+          ${fps.map(fp => 
+            `<option value="${fp._id}" ${fp._id===rec.floorPlan?'selected':''}>${fp.name}</option>`
+          ).join('')}
+        </select>
+      </td>
+      <td><input type="number" step="0.01" class="form-control qmi-input" data-field="listPrice" value="${rec.listPrice}" /></td>
+      <td><input type="number" class="form-control qmi-input" data-field="sqft" value="${rec.sqft}" /></td>
+      <td>
+        <select class="form-select qmi-input" data-field="status">
+          <option value="Ready Now"   ${rec.status==='Ready Now'  ?'selected':''}>Ready Now</option>
+          <option value="SOLD"        ${rec.status==='SOLD'       ?'selected':''}>SOLD</option>
+          ${monthNames.map(m => 
+            `<option value="${m}" ${rec.status===m?'selected':''}>${m}</option>`
+          ).join('')}
+        </select>
+      </td>
+    `;
+    quickBody.appendChild(tr);
+        });
+
+        const soldBody = document.querySelector('#soldHomesTable tbody');
+      soldBody.innerHTML = '';
+      sold.forEach(rec => {
+        const plan = fps.find(fp => fp._id === rec.floorPlan) || {};
+        const tr = document.createElement('tr');
+        tr.innerHTML = `
+          <td>${rec.address}</td>
+          <td>${plan.name || ''}</td>
+          <td>${rec.listPrice}</td>
+          <td>${rec.sqft}</td>
+          <td>${rec.status}</td>
+        `;
+        soldBody.appendChild(tr);
+      });
+
+      // helper to build <select> of floor plans
+      const fpOptions = fps.map(fp =>
+        `<option value="${fp._id}">${fp.name}</option>`
+      ).join('');
+
+      // helper to build <select> of statuses
+     const statusOptions = [
+        '<option value="Ready Now">Ready Now</option>',
+        '<option value="SOLD">SOLD</option>',
+        ...monthNames.map(m => `<option value="${m}">${m}</option>`)
+      ].join('');
+
+      
+    
+
+      // blank row for new entries
+      const newTr = document.createElement('tr');
+      newTr.dataset.id = '';
+      newTr.innerHTML = `
+        <td><input class="form-control qmi-input" data-field="address" placeholder="New address" /></td>
+        <td>
+          <select class="form-select qmi-input" data-field="floorPlanId">
+            <option value="">Select…</option>
+            ${fpOptions}
+          </select>
+        </td>
+        <td><input type="number" step="0.01" class="form-control qmi-input" data-field="listPrice" /></td>
+        <td><input type="number" class="form-control qmi-input" data-field="sqft" /></td>
+        <td>
+          <select class="form-select qmi-input" data-field="status">
+            <option value="">Select…</option>
+            ${statusOptions}
+          </select>
+        </td>
+      `;
+      quickBody.appendChild(newTr);
+       // Auto-populate Sqft when FloorPlan changes
+      quickBody.querySelectorAll('select[data-field="floorPlanId"]').forEach(select => {
+        select.addEventListener('change', e => {
+          const row = e.target.closest('tr');
+          const fpId = e.target.value;
+          const plan = fps.find(fp => fp._id === fpId);
+          const sqftInput = row.querySelector('input[data-field="sqft"]');
+          if (plan && sqftInput) {
+            sqftInput.value = plan.sqft || '';
+          } else if (sqftInput) {
+            sqftInput.value = '';
+          }
+          // trigger your existing change handler to save
+          sqftInput.dispatchEvent(new Event('change'));
+        });
+      });
+
+      // wire blur/change on every input/select
+      quickBody.querySelectorAll('.qmi-input').forEach(el => {
+        el.addEventListener('change', async e => {
+          const row = e.target.closest('tr');
+          const id  = row.dataset.id;
+          // gather all fields from this row
+          const payload = { month };
+          row.querySelectorAll('.qmi-input').forEach(inp => {
+            const val = inp.value;
+            const fld = inp.dataset.field;
+            payload[fld] = fld === 'listPrice' || fld === 'sqft'
+              ? parseFloat(val) || 0
+              : val;
+          });
+          // require at least address & floorPlan & status
+          if (!payload.address || !payload.floorPlanId || !payload.status) return;
+
+          const url = id
+            ? `/api/competitions/${competitionId}/quick-moveins/${id}`
+            : `/api/competitions/${competitionId}/quick-moveins`;
+          const method = id ? 'PUT' : 'POST';
+
+          await fetch(url, {
+            method,
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(payload)
+          });
+          // reload to keep IDs & UI in sync
+          loadQuickHomes(month);
+        });
+      });
+    }
+
+    // when a month-pill is clicked, reload both tables
+    monthNav.addEventListener('click', e => {
+      if (e.target.tagName === 'A') {
+        e.preventDefault();
+        monthNav.querySelectorAll('.nav-link').forEach(a => a.classList.remove('active'));
+        e.target.classList.add('active');
+        const m = e.target.dataset.month;
+        // existing function for price table
+        loadMonth(m);
+        // new function for quick homes
+        loadQuickHomes(m);
+      }
+    });
+
+    // on initial load, trigger for current month
+    const active = monthNav.querySelector('.nav-link.active');
+    if (active) {
+      loadQuickHomes(active.dataset.month);
+    }
+  });
+document.addEventListener('DOMContentLoaded', () => {
+  const competitionId = '<%= competition._id %>';
+  const salesBody     = document.querySelector('#salesTable tbody');
+  const year          = new Date().getFullYear();
+  const monthNames    = [
+    'January','February','March','April','May','June',
+    'July','August','September','October','November','December'
+  ];
+
+  async function loadSales() {
+    // fetch existing records for this year
+    const recs = await fetch(
+      `/api/competitions/${competitionId}/sales-records?year=${year}`
+    ).then(r => r.json());
+
+    // map by month for quick lookup
+    const recMap = {};
+    recs.forEach(r => recMap[r.month] = r);
+
+    // build one row per month Jan–Dec
+    salesBody.innerHTML = '';
+    for (let i = 0; i < 12; i++) {
+      const mValue = `${year}-${String(i+1).padStart(2,'0')}`;
+      const r = recMap[mValue];
+      const tr = document.createElement('tr');
+      if (r) tr.dataset.id = r._id;
+      tr.dataset.month = mValue;
+
+      tr.innerHTML = `
+        <td>${monthNames[i]}</td>
+        <td>
+          <input 
+            type="number" step="1" 
+            class="form-control sales-input" 
+            data-field="sales" 
+            value="${r ? r.sales : ''}" />
+        </td>
+        <td>
+          <input 
+            type="number" step="1" 
+            class="form-control sales-input" 
+            data-field="cancels" 
+            value="${r ? r.cancels : ''}" />
+        </td>
+        <td class="net-cell">
+          ${r ? (r.sales - r.cancels) : ''}
+        </td>
+        <td>
+          <input 
+            type="number" step="1" 
+            class="form-control sales-input" 
+            data-field="closings" 
+            value="${r ? r.closings : ''}" />
+        </td>
+      `;
+      salesBody.appendChild(tr);
+    }
+
+    // attach blur handler to inputs
+    salesBody.querySelectorAll('.sales-input').forEach(input => {
+      input.addEventListener('blur', async e => {
+        const row     = e.target.closest('tr');
+        const recId   = row.dataset.id;
+        const month   = row.dataset.month;
+        const sales   = parseInt(row.querySelector('input[data-field="sales"]').value)   || 0;
+        const cancels = parseInt(row.querySelector('input[data-field="cancels"]').value) || 0;
+        const closings= parseInt(row.querySelector('input[data-field="closings"]').value)|| 0;
+        // update Net cell immediately
+        row.querySelector('.net-cell').textContent = sales - cancels;
+
+        // prepare payload
+        const payload = { sales, cancels, closings };
+        let url, method;
+        if (recId) {
+          url = `/api/competitions/${competitionId}/sales-records/${recId}`;
+          method = 'PUT';
+        } else {
+          url = `/api/competitions/${competitionId}/sales-records`;
+          method = 'POST';
+          payload.month = month;
+        }
+
+        const res = await fetch(url, {
+          method,
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(payload)
+        });
+        const saved = await res.json();
+        // if it was new, store the returned ID
+        if (!recId && saved._id) row.dataset.id = saved._id;
+      });
+    });
+  }
+
+  // initial load
+  loadSales();
+});
+  
+</script>
+  
+</main>
+</body>
+</html>

@@ -1,0 +1,76 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Simple CRM</title>
+   
+  <!-- single entry-point for all your app’s CSS -->
+   <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet"/>
+   <link rel="stylesheet" href="/assets/css/main.css">
+</head>
+<body>
+  <!-- include navbar HTML at the top of every page -->
+  <!-- if you’re using EJS: -->
+  <%- include('../partials/nav') %>
+  <%- include('../partials/top-nav-competition') %>
+  <!-- or (static SSI) -->
+  <!--# include virtual="/views/partials/navbar.html" -->
+
+ <main class="container mt-4">
+  <h1>Manage Competitions</h1>
+  <div id="competition-table-container">
+    <p>Loading competitions…</p>
+  </div>
+</main>
+
+<script>
+  document.addEventListener('DOMContentLoaded', async () => {
+    const res = await fetch('/api/competitions');
+    const comps = await res.json();
+    const container = document.getElementById('competition-table-container');
+
+    if (!comps.length) {
+      container.innerHTML = '<p>No competitions found.</p>';
+      return;
+    }
+
+    let html = `
+      <table class="table table-striped">
+        <thead>
+          <tr>
+            <th>Actions</th>
+            <th>Community</th>
+            <th>Builder</th>
+            <th>Address</th>
+            <th>City</th>
+            <th>ZIP</th>
+          </tr>
+        </thead>
+        <tbody>
+    `;
+    comps.forEach(c => {
+      html += `
+        <tr>
+            <td>
+             <a
+               href="/competition-details/${c._id}"
+               class="btn btn-sm btn-primary"
+             >
+               View
+             </a>
+            </td>
+          <td>${c.communityName}</td>
+          <td>${c.builderName}</td>
+          <td>${c.address}</td>
+          <td>${c.city}</td>
+          <td>${c.zip}</td>
+        </tr>
+      `;
+    });
+    html += `</tbody></table>`;
+    container.innerHTML = html;
+  });
+</script>
+</body>
+</html>

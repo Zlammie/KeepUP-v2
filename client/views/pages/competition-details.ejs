@@ -1,0 +1,204 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Simple CRM</title>
+  <link rel="stylesheet" href="/assets/css/main.css">
+  <link rel="stylesheet" href="\assets\css\pages\competition-details.css">
+</head>
+<body>
+<%- include('../partials/nav') %>
+<%- include('../partials/top-nav-competition') %>
+   <main>
+
+    <a
+  href="/update-competition/<%= competition._id %>"
+  class="btn btn-sm btn-warning"
+  style="margin-left: 1rem;"
+>
+  Update Monthly Info
+</a>
+    <div class="horizontal-cont">
+      <div class="side-bar card .card--grey main-cont">
+        <div class="card card--white">
+          <h2>Sales Person Info</h2>
+            <div class="form-group">
+              <label for="salesPerson">Sales Person</label>
+              <input type="text" id="salesPerson" name="salesPerson" />
+            </div>
+            <div class="form-group">
+              <label for="salesPersonPhone">Sales Person Phone #</label>
+              <input type="text" id="salesPersonPhone" name="salesPersonPhone" />
+            </div>
+
+            <div class="form-group">
+              <label for="salesPersonEmail">Sales Person Email</label>
+              <input type="email" id="salesPersonEmail" name="salesPersonEmail" />
+            </div>
+
+            <dl class="row">
+              <dt class="col-sm-3">Address</dt>
+              <dd class="col-sm-9"><%= competition.address %></dd>
+
+              <dt class="col-sm-3">City</dt>
+              <dd class="col-sm-9"><%= competition.city %></dd>
+
+              <dt class="col-sm-3">ZIP</dt>
+              <dd class="col-sm-9"><%= competition.zip %></dd>
+            </dl>
+        </div>
+        <div class="card card--white">
+            <h2>School Info</h2>
+            <div class="form-group">
+              <label for="schoolISD">School ISD</label>
+              <input type="text" id="schoolISD" name="schoolISD" />
+            </div>
+
+            <div class="form-group">
+              <label for="elementarySchool">Elementary School</label>
+              <input type="text" id="elementarySchool" name="elementarySchool" />
+            </div>
+
+            <div class="form-group">
+              <label for="middleSchool">Middle School</label>
+              <input type="text" id="middleSchool" name="middleSchool" />
+            </div>
+        </div>
+        <div class="card card--white">
+          <h2>Community Info</h2>
+          <div class="form-group">
+            <label for="HOA">HOA Dues</label>
+            <input type="number" id="HOA" name="HOA" step="0.01" />
+          </div>
+
+          <div class="form-group">
+            <label for="tax">Annual Tax</label>
+            <input type="number" id="tax" name="tax" step="0.01" />
+          </div>
+          <fieldset class="form-group">
+            <legend>Additional Fees</legend>
+            <label>
+              <input type="checkbox" id="feeNone" name="feeTypes" value="None" checked />
+              None
+            </label>
+            <label>
+              <input type="checkbox" id="feeMud"  name="feeTypes" value="MUD" />
+              MUD
+            </label>
+            <label>
+              <input type="checkbox" id="feePid"  name="feeTypes" value="PID" />
+              PID
+            </label>
+          </fieldset>
+            <div class="form-group" id="mudFeeGroup" style="display:none;">
+            <label for="mudFee">MUD Fee</label>
+            <input type="number" id="mudFee" name="mudFee" step="0.01" />
+          </div>
+
+          <div class="form-group" id="pidFeeGroup" style="display:none;">
+            <label for="pidFee">PID Fee</label>
+            <input type="number" id="pidFee" name="pidFee" step="0.01" />
+          </div>
+
+            <div class="form-group">
+              <label for="earnestAmount">Earnest Amount</label>
+              <input type="number" id="earnestAmount" name="earnestAmount" step="0.01" />
+            </div>
+
+            <div class="form-group">
+              <label for="realtorCommission">Realtor Commission</label>
+              <input type="number" id="realtorCommission" name="realtorCommission" step="0.01" />
+            </div>
+        </div>
+      </div>
+      <div class="top-content-cont card card--grey top-container">
+        <h1><%= competition.communityName %> — <%= competition.builderName %></h1>
+          <div class="form-group">
+            <label for="lotSize">Lot Size</label>
+            <input type="text" id="lotSize" name="lotSize" />
+          </div>
+      </div>
+  </div>
+
+<script>
+  document.addEventListener('DOMContentLoaded', () => {
+    const noneBox = document.getElementById('feeNone');
+    const mudBox  = document.getElementById('feeMud');
+    const pidBox  = document.getElementById('feePid');
+    const mudGrp  = document.getElementById('mudFeeGroup');
+    const pidGrp  = document.getElementById('pidFeeGroup');
+
+    function updateUI() {
+      // If None is checked, force others off
+      if (noneBox.checked) {
+        mudBox.checked = false;
+        pidBox.checked = false;
+        mudGrp.style.display = 'none';
+        pidGrp.style.display = 'none';
+        return;
+      }
+      // Otherwise, ensure None is off if any other is on
+      if (mudBox.checked || pidBox.checked) {
+        noneBox.checked = false;
+      }
+      mudGrp.style.display = mudBox.checked ? 'block' : 'none';
+      pidGrp.style.display = pidBox.checked ? 'block' : 'none';
+    }
+
+    [noneBox, mudBox, pidBox].forEach(cb => cb.addEventListener('change', updateUI));
+    updateUI();
+  });
+
+  document.addEventListener('DOMContentLoaded', () => {
+  const formFields = document.querySelectorAll('input[type="text"], input[type="email"], input[type="number"]');
+
+  let saveTimeout;
+  const competitionId = '<%= competition._id %>'; // Assuming `_id` is available in the view
+
+  const getPayload = () => {
+    const data = {};
+    formFields.forEach(input => {
+      data[input.name] = input.value;
+    });
+
+    // Add checkboxes
+    data.feeTypes = [];
+    if (document.getElementById('feeMud').checked) data.feeTypes.push('MUD');
+    if (document.getElementById('feePid').checked) data.feeTypes.push('PID');
+    if (document.getElementById('feeNone').checked) data.feeTypes.push('None');
+
+    return data;
+  };
+
+  const autoSave = async () => {
+    const payload = getPayload();
+    try {
+      const res = await fetch(`/api/competitions/${competitionId}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload)
+      });
+
+      if (!res.ok) throw new Error(`Save failed with status ${res.status}`);
+      console.log('✔ Auto-saved competition data');
+    } catch (err) {
+      console.error('❌ Auto-save error:', err);
+    }
+  };
+
+  const debounceSave = () => {
+    clearTimeout(saveTimeout);
+    saveTimeout = setTimeout(autoSave, 800);
+  };
+
+  formFields.forEach(input => input.addEventListener('input', debounceSave));
+  ['feeMud', 'feePid', 'feeNone'].forEach(id => {
+    document.getElementById(id).addEventListener('change', debounceSave);
+  });
+});
+</script>
+  
+</main>
+</body>
+</html>
