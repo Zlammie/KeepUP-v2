@@ -6,7 +6,7 @@ const competitionSchema = new mongoose.Schema({
   builderName:   { type: String, required: true },
   address:       { type: String, required: true },
   city:          { type: String, required: true },
-  state:          { type: String, required: true },
+  state: { type: String, required: true, default: 'TX' },
   zip:           { type: String, required: true },
 
    // ⬇️ new occasional fields
@@ -20,11 +20,17 @@ const competitionSchema = new mongoose.Schema({
   HOA:                { type: Number },
   tax:                { type: Number },
 
-  feeType:            {
-    type: String,
-     enum: ['None','MUD','PID'],
-    default: ['None']
-  },
+feeType: {
+  type: [String],
+  enum: ['MUD', 'PID'],
+  default: undefined,
+  validate: {
+    validator: function(value) {
+      return Array.isArray(value) && value.every(v => ['MUD', 'PID'].includes(v));
+    },
+    message: props => `Invalid feeType: ${props.value}`
+  }
+},
   mudFee:             { type: Number },
   pidFee:             { type: Number },
 

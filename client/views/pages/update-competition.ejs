@@ -183,6 +183,7 @@
               <thead>
                 <tr>
                   <th>Address</th>
+                  <th>List Date</th>
                   <th>Floor Plan</th>
                   <th>List Price</th>
                   <th>Sqft</th>
@@ -229,42 +230,65 @@
 
 <script>
 
-   
-
  document.addEventListener('DOMContentLoaded', () => {
-      const monthNav = document.getElementById('monthNav');
-      const now = new Date();
-      const monthNames = [
-        'January','February','March','April','May','June',
-        'July','August','September','October','November','December'
-      ];
+  const monthNav   = document.getElementById('monthNav');
+  const now        = new Date();
+  const monthNames = [
+    'January','February','March','April','May','June',
+    'July','August','September','October','November','December'
+  ];
 
-      // build last 12 months, oldest first
-      const months = [];
-      for (let i = 11; i >= 0; i--) {
-        const d = new Date(now.getFullYear(), now.getMonth() - i, 1);
-        months.push({ 
-          label: monthNames[d.getMonth()] + ' ' + d.getFullYear(), 
-          value: d.getFullYear() + '-' + String(d.getMonth()+1).padStart(2,'0') 
-        });
-      }
+  // Calculate the “last month” date object
+  const lastMonth = new Date(now.getFullYear(), now.getMonth() - 1, 1);
+  const activeValue = 
+    `${lastMonth.getFullYear()}-${String(lastMonth.getMonth()+1).padStart(2,'0')}`;
 
-      // render nav items
-      months.forEach(m => {
-        const li = document.createElement('li');
-        li.className = 'nav-item';
-        const a = document.createElement('a');
-        a.className = 'nav-link';
-        if (m.value === `${now.getFullYear()}-${String(now.getMonth()+1).padStart(2,'0')}`) {
-          a.classList.add('active');
-        }
-        a.href = `#`; // later: set to trigger loading of that month’s table
-        a.textContent = m.label;
-        a.dataset.month = m.value;
-        li.appendChild(a);
-        monthNav.appendChild(li);
-      });
-     });
+  // Build the 12 months ending one month ago (oldest first)
+  const months = [];
+  for (let i = 12; i >= 1; i--) {
+    const d = new Date(now.getFullYear(), now.getMonth() - i, 1);
+    months.push({
+      label: `${monthNames[d.getMonth()]} ${d.getFullYear()}`,
+      value: `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}`
+    });
+  }
+
+  // Render the nav pills
+  monthNav.innerHTML = ''; 
+  months.forEach(m => {
+    const li = document.createElement('li');
+    li.className = 'nav-item';
+    const a = document.createElement('a');
+    a.className = 'nav-link';
+    a.href = '#';
+    a.textContent = m.label;
+    a.dataset.month = m.value;
+    if (m.value === activeValue) {
+      a.classList.add('active');
+    }
+    li.appendChild(a);
+    monthNav.appendChild(li);
+  });
+
+  // Trigger initial load for last month
+  const activeLink = monthNav.querySelector('.nav-link.active');
+  if (activeLink) {
+    activeLink.click();
+  }
+
+  // Reuse your existing click handler to load tables on month change...
+  monthNav.addEventListener('click', e => {
+    if (e.target.tagName === 'A') {
+      e.preventDefault();
+      monthNav.querySelectorAll('.nav-link').forEach(a => a.classList.remove('active'));
+      e.target.classList.add('active');
+      const m = e.target.dataset.month;
+      loadMonth(m);
+      loadQuickHomes(m);
+      loadSales(m);
+    }
+  });
+});
      document.addEventListener('DOMContentLoaded', () => {
   const competitionId = '<%= competition._id %>';
   const modalEl = document.getElementById('floorPlanModal');
@@ -459,6 +483,15 @@ document.addEventListener('DOMContentLoaded', () => {
     tr.dataset.id = rec._id;
     tr.innerHTML = `
       <td><input class="form-control qmi-input" data-field="address" value="${rec.address}" /></td>
+          <td>
+      <input
+        type="date"
+        class="form-control qmi-input"
+        data-field="listDate"
+        value="${rec.listDate ? rec.listDate.toISOString().substr(0,10) : ''}"
+        required
+      />
+    </td>
       <td>
         <select class="form-select qmi-input" data-field="floorPlanId">
           ${fps.map(fp => 
@@ -516,6 +549,14 @@ document.addEventListener('DOMContentLoaded', () => {
       newTr.dataset.id = '';
       newTr.innerHTML = `
         <td><input class="form-control qmi-input" data-field="address" placeholder="New address" /></td>
+         <td>
+          <input
+            type="date"
+            class="form-control qmi-input"
+            data-field="listDate"
+            required
+          />
+        </td>
         <td>
           <select class="form-select qmi-input" data-field="floorPlanId">
             <option value="">Select…</option>
@@ -564,7 +605,7 @@ document.addEventListener('DOMContentLoaded', () => {
               : val;
           });
           // require at least address & floorPlan & status
-          if (!payload.address || !payload.floorPlanId || !payload.status) return;
+          if (!payload.address || !payload.floorPlanId || !payload.status || !payload.listDate) return;
 
           const url = id
             ? `/api/competitions/${competitionId}/quick-moveins/${id}`
@@ -605,63 +646,54 @@ document.addEventListener('DOMContentLoaded', () => {
 document.addEventListener('DOMContentLoaded', () => {
   const competitionId = '<%= competition._id %>';
   const salesBody     = document.querySelector('#salesTable tbody');
-  const year          = new Date().getFullYear();
+  const monthNav      = document.getElementById('monthNav');
   const monthNames    = [
     'January','February','March','April','May','June',
     'July','August','September','October','November','December'
   ];
 
-  async function loadSales() {
-    // fetch existing records for this year
+  async function loadSales(month) {
+    // fetch the single record for this month
     const recs = await fetch(
-      `/api/competitions/${competitionId}/sales-records?year=${year}`
+      `/api/competitions/${competitionId}/sales-records?month=${month}`
     ).then(r => r.json());
+    const r = recs[0] || null;
 
-    // map by month for quick lookup
-    const recMap = {};
-    recs.forEach(r => recMap[r.month] = r);
-
-    // build one row per month Jan–Dec
+    // clear and render one row
     salesBody.innerHTML = '';
-    for (let i = 0; i < 12; i++) {
-      const mValue = `${year}-${String(i+1).padStart(2,'0')}`;
-      const r = recMap[mValue];
-      const tr = document.createElement('tr');
-      if (r) tr.dataset.id = r._id;
-      tr.dataset.month = mValue;
+    const tr = document.createElement('tr');
+    if (r) tr.dataset.id = r._id;
+    tr.dataset.month = month;
+    // determine display name of month
+    const mIndex = parseInt(month.split('-')[1],10) - 1;
+    tr.innerHTML = `
+      <td>${monthNames[mIndex]}</td>
+      <td>
+        <input type="number" step="1"
+          class="form-control sales-input"
+          data-field="sales"
+          value="${r ? r.sales : ''}" />
+      </td>
+      <td>
+        <input type="number" step="1"
+          class="form-control sales-input"
+          data-field="cancels"
+          value="${r ? r.cancels : ''}" />
+      </td>
+      <td class="net-cell">
+        ${r ? (r.sales - r.cancels) : ''}
+      </td>
+      <td>
+        <input type="number" step="1"
+          class="form-control sales-input"
+          data-field="closings"
+          value="${r ? r.closings : ''}" />
+      </td>
+    `;
+    salesBody.appendChild(tr);
 
-      tr.innerHTML = `
-        <td>${monthNames[i]}</td>
-        <td>
-          <input 
-            type="number" step="1" 
-            class="form-control sales-input" 
-            data-field="sales" 
-            value="${r ? r.sales : ''}" />
-        </td>
-        <td>
-          <input 
-            type="number" step="1" 
-            class="form-control sales-input" 
-            data-field="cancels" 
-            value="${r ? r.cancels : ''}" />
-        </td>
-        <td class="net-cell">
-          ${r ? (r.sales - r.cancels) : ''}
-        </td>
-        <td>
-          <input 
-            type="number" step="1" 
-            class="form-control sales-input" 
-            data-field="closings" 
-            value="${r ? r.closings : ''}" />
-        </td>
-      `;
-      salesBody.appendChild(tr);
-    }
-
-    // attach blur handler to inputs
-    salesBody.querySelectorAll('.sales-input').forEach(input => {
+    // auto-save on blur
+    tr.querySelectorAll('.sales-input').forEach(input => {
       input.addEventListener('blur', async e => {
         const row     = e.target.closest('tr');
         const recId   = row.dataset.id;
@@ -669,18 +701,18 @@ document.addEventListener('DOMContentLoaded', () => {
         const sales   = parseInt(row.querySelector('input[data-field="sales"]').value)   || 0;
         const cancels = parseInt(row.querySelector('input[data-field="cancels"]').value) || 0;
         const closings= parseInt(row.querySelector('input[data-field="closings"]').value)|| 0;
-        // update Net cell immediately
+
+        // update Net immediately
         row.querySelector('.net-cell').textContent = sales - cancels;
 
-        // prepare payload
+        // build payload
         const payload = { sales, cancels, closings };
-        let url, method;
+        let url = `/api/competitions/${competitionId}/sales-records`;
+        let method = 'POST';
         if (recId) {
-          url = `/api/competitions/${competitionId}/sales-records/${recId}`;
+          url += `/${recId}`;
           method = 'PUT';
         } else {
-          url = `/api/competitions/${competitionId}/sales-records`;
-          method = 'POST';
           payload.month = month;
         }
 
@@ -690,14 +722,24 @@ document.addEventListener('DOMContentLoaded', () => {
           body: JSON.stringify(payload)
         });
         const saved = await res.json();
-        // if it was new, store the returned ID
         if (!recId && saved._id) row.dataset.id = saved._id;
       });
     });
   }
 
-  // initial load
-  loadSales();
+  // wire up month-nav clicks
+  monthNav.addEventListener('click', e => {
+    if (e.target.tagName === 'A') {
+      e.preventDefault();
+      monthNav.querySelectorAll('.nav-link').forEach(a => a.classList.remove('active'));
+      e.target.classList.add('active');
+      loadSales(e.target.dataset.month);
+    }
+  });
+
+  // initial load for current month
+  const active = monthNav.querySelector('.nav-link.active');
+  if (active) loadSales(active.dataset.month);
 });
   
 </script>

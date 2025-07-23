@@ -435,7 +435,7 @@ app.get('/api/competitions/:id/quick-moveins', async (req, res, next) => {
 // POST new quick-move-in
 app.post('/api/competitions/:id/quick-moveins', async (req, res, next) => {
   try {
-    const { month, address, floorPlanId, listPrice, sqft, status } = req.body;
+    const { month, address, floorPlanId, listPrice, sqft, status, listDate } = req.body;
     const rec = await QuickMoveIn.create({
       competition: req.params.id,
       month,
@@ -443,7 +443,8 @@ app.post('/api/competitions/:id/quick-moveins', async (req, res, next) => {
       floorPlan: floorPlanId,
       listPrice,
       sqft,
-      status
+      status,
+      listDate
     });
     res.status(201).json(rec);
   } catch (err) {
@@ -454,7 +455,7 @@ app.post('/api/competitions/:id/quick-moveins', async (req, res, next) => {
 // PUT update existing quick-move-in
 app.put('/api/competitions/:id/quick-moveins/:recId', async (req, res, next) => {
   try {
-    const { address, floorPlanId, listPrice, sqft, status } = req.body;
+    const { address, floorPlanId, listPrice, sqft, status, listDate } = req.body;
     const rec = await QuickMoveIn
       .findByIdAndUpdate(
         req.params.recId,
@@ -463,7 +464,8 @@ app.put('/api/competitions/:id/quick-moveins/:recId', async (req, res, next) => 
           floorPlan: floorPlanId,
           listPrice,
           sqft,
-          status
+          status,
+          listDate
         },
         { new: true }
       )
@@ -475,16 +477,15 @@ app.put('/api/competitions/:id/quick-moveins/:recId', async (req, res, next) => 
 });
 app.get('/api/competitions/:id/sales-records', async (req, res, next) => {
   try {
-    const year = req.query.year; // e.g. ?year=2025
+    const { month } = req.query;               // e.g. ?month=2025-06
     const filter = { competition: req.params.id };
-    if (year) filter.month = new RegExp(`^${year}-`);  
+    if (month) filter.month = month;
     const recs = await SalesRecord.find(filter).lean();
     res.json(recs);
   } catch (err) {
     next(err);
   }
 });
-
 // POST new sales record
 app.post('/api/competitions/:id/sales-records', async (req, res, next) => {
   try {

@@ -37,6 +37,10 @@ const quickMoveInSchema = new Schema({
       'July','August','September','October','November','December'
     ],
     required: true
+  },
+  listDate: {
+    type: Date,
+    required: true
   }
 }, { timestamps: true });
 
