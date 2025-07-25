@@ -41,7 +41,8 @@ const quickMoveInSchema = new Schema({
   listDate: {
     type: Date,
     required: true
-  }
+  },
+  soldDate:    { type: Date }          // ← new optional field
 }, { timestamps: true });
 
 // ensure one record per competition+month+address

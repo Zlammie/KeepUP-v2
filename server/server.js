@@ -435,7 +435,7 @@ app.get('/api/competitions/:id/quick-moveins', async (req, res, next) => {
 // POST new quick-move-in
 app.post('/api/competitions/:id/quick-moveins', async (req, res, next) => {
   try {
-    const { month, address, floorPlanId, listPrice, sqft, status, listDate } = req.body;
+    const { month, address, floorPlanId, listPrice, sqft, status, listDate, soldDate } = req.body;
     const rec = await QuickMoveIn.create({
       competition: req.params.id,
       month,
@@ -444,7 +444,8 @@ app.post('/api/competitions/:id/quick-moveins', async (req, res, next) => {
       listPrice,
       sqft,
       status,
-      listDate
+      listDate,
+      soldDate
     });
     res.status(201).json(rec);
   } catch (err) {
@@ -455,7 +456,7 @@ app.post('/api/competitions/:id/quick-moveins', async (req, res, next) => {
 // PUT update existing quick-move-in
 app.put('/api/competitions/:id/quick-moveins/:recId', async (req, res, next) => {
   try {
-    const { address, floorPlanId, listPrice, sqft, status, listDate } = req.body;
+    const { address, floorPlanId, listPrice, sqft, status, listDate, soldDate } = req.body;
     const rec = await QuickMoveIn
       .findByIdAndUpdate(
         req.params.recId,
@@ -465,7 +466,8 @@ app.put('/api/competitions/:id/quick-moveins/:recId', async (req, res, next) => 
           listPrice,
           sqft,
           status,
-          listDate
+          listDate,
+          soldDate
         },
         { new: true }
       )

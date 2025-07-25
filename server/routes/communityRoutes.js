@@ -57,6 +57,27 @@ router.post('/communities/import', upload.single('file'), async (req, res) => {
     res.status(500).json({ error: 'Import failed' });
   }
 });
+// POST /api/communities — Create new community
+router.post('/', async (req, res) => {
+  try {
+    const { name, projectNumber } = req.body;
+    if (!name || !projectNumber) {
+      return res.status(400).json({ error: 'Missing required fields' });
+    }
+
+    const existing = await Community.findOne({ name, projectNumber });
+    if (existing) {
+      return res.status(409).json({ error: 'Community already exists' });
+    }
+
+    const newCommunity = new Community({ name, projectNumber, lots: [] });
+    await newCommunity.save();
+    res.status(201).json(newCommunity);
+  } catch (err) {
+    console.error('Error creating community:', err);
+    res.status(500).json({ error: 'Server error' });
+  }
+});
 
 // 📤 Get all Communities
 router.get('/', async (req, res) => {
