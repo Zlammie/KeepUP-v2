@@ -1,4 +1,5 @@
 const express = require('express');
+const mongoose = require('mongoose');
 const multer = require('multer');
 const xlsx = require('xlsx');
 const router = express.Router();
@@ -79,6 +80,8 @@ router.post('/', async (req, res) => {
   }
 });
 
+
+
 // 📤 Get all Communities
 router.get('/', async (req, res) => {
   try {
@@ -111,6 +114,54 @@ router.get('/:id/lots', async (req, res) => {
   } catch (err) {
     console.error('Failed to fetch lots:', err);
     res.status(500).json({ error: 'Failed to fetch lots' });
+  }
+});
+
+router.post('/:id/lots', async (req, res) => {
+  try {
+    const { id } = req.params;
+    const {
+      jobNumber, lot, block, phase, address, floorPlan = '', elevation = ''
+    } = req.body;
+
+    const community = await Community.findById(id);
+    if (!community) {
+      return res.status(404).json({ error: 'Community not found' });
+    }
+
+    const newLot = {
+      jobNumber: String(jobNumber).padStart(4, '0'),
+      lot,
+      block,
+      phase,
+      address,
+      floorPlan: mongoose.Types.ObjectId.isValid(floorPlan) ? floorPlan : null,
+      elevation,
+      status: '',
+      purchaser: null,
+      phone: '',
+      email: '',
+      releaseDate: '',
+      expectedCompletionDate: '',
+      closeMonth: '',
+      walkStatus: 'waitingOnBuilder',
+      thirdParty: null,
+      firstWalk: null,
+      finalSignOff: null,
+      lender: '',
+      closeDateTime: '',
+      listPrice: '',
+      salesPrice: ''
+    };
+
+    community.lots.push(newLot);
+    await community.save();
+
+    res.status(201).json({ message: 'Lot added', lot: newLot });
+  } catch (err) {
+    console.error('Error adding lot:', err);
+    res.status(500).json({ error: err.message });  // ⬅️ add this line
+    
   }
 });
 
