@@ -25,98 +25,199 @@
           <h2>Sales Person Info</h2>
             <div class="form-group">
               <label for="salesPerson">Sales Person</label>
-              <input type="text" id="salesPerson" name="salesPerson" />
+              <input type="text" id="salesPerson" name="salesPerson" value="<%= competition.salesPerson || '' %>" />
             </div>
             <div class="form-group">
               <label for="salesPersonPhone">Sales Person Phone #</label>
-              <input type="text" id="salesPersonPhone" name="salesPersonPhone" />
+              <input type="text" id="salesPersonPhone" name="salesPersonPhone" value="<%= competition.salesPersonPhone || '' %>" />
             </div>
 
             <div class="form-group">
               <label for="salesPersonEmail">Sales Person Email</label>
-              <input type="email" id="salesPersonEmail" name="salesPersonEmail" />
+              <input type="email" id="salesPersonEmail" name="salesPersonEmail" value="<%= competition.salesPersonEmail || '' %>" />
             </div>
 
-            <dl class="row">
-              <dt class="col-sm-3">Address</dt>
-              <dd class="col-sm-9"><%= competition.address %></dd>
-
-              <dt class="col-sm-3">City</dt>
-              <dd class="col-sm-9"><%= competition.city %></dd>
-
-              <dt class="col-sm-3">ZIP</dt>
-              <dd class="col-sm-9"><%= competition.zip %></dd>
-            </dl>
+           
+        </div>
+        <div class="card card--white">
+          <h2>Builder Info</h2>
+            <div class="form-group">
+              <label for="address">Address</label>
+              <input type="text" id="address" name="address" value="<%= competition.address || '' %>" />
+            </div>
+            <div class="form-group">
+              <label for="city">City</label>
+              <input type="text" id="city" name="city" value="<%= competition.city || '' %>" />
+            </div>
+            <div class="form-group">
+              <label for="zip">ZIP</label>
+              <input type="text" id="zip" name="zip" value="<%= competition.zip || '' %>" />
+            </div>
+            <div class="form-group">
+              <label for="modelPlan">Model Floor Plan</label>
+           <select id="modelPlan" name="modelPlan">
+              <option value="">-- Select a floor plan --</option>
+              <% if (floorPlans && floorPlans.length) { %>
+                <% floorPlans.forEach(plan => { %>
+                  <option value="<%= plan %>" <%= competition.modelPlan === plan ? 'selected' : '' %>><%= plan %></option>
+                <% }) %>
+              <% } else { %>
+                <option disabled>No floor plans found</option>
+              <% } %>
+            </select>
+            </div>
+            <div class="form-group">
+            <label for="lotSize">Lot Size</label>
+            <input type="text" id="lotSize" name="lotSize" value="<%= competition.lotSize || '' %>" />
+          </div>
+         <fieldset class="form-group">
+          <legend>Front or Rear Garage</legend>
+          <label>
+            <input type="checkbox" id="frontGarage" name="garageType" value="Front"
+              <%= competition.garageType === 'Front' ? 'checked' : '' %> />
+            Front Garage
+          </label>
+          <label>
+            <input type="checkbox" id="rearGarage" name="garageType" value="Rear"
+              <%= competition.garageType === 'Rear' ? 'checked' : '' %> />
+            Rear Garage
+          </label>
+        </fieldset>
+          <div class="form-group">
+            <label for="totalLots">Total Lots</label>
+            <input type="number" id="totalLots" name="totalLots" value="<%= competition.totalLots || '' %>" />
+          </div>
         </div>
         <div class="card card--white">
             <h2>School Info</h2>
             <div class="form-group">
               <label for="schoolISD">School ISD</label>
-              <input type="text" id="schoolISD" name="schoolISD" />
+              <input type="text" id="schoolISD" name="schoolISD" value="<%= competition.schoolISD || '' %>" />
             </div>
 
             <div class="form-group">
               <label for="elementarySchool">Elementary School</label>
-              <input type="text" id="elementarySchool" name="elementarySchool" />
+              <input type="text" id="elementarySchool" name="elementarySchool" value="<%= competition.elementarySchool || '' %>" />
             </div>
 
             <div class="form-group">
               <label for="middleSchool">Middle School</label>
-              <input type="text" id="middleSchool" name="middleSchool" />
+              <input type="text" id="middleSchool" name="middleSchool" value="<%= competition.middleSchool || '' %>" />
+            </div>
+
+             <div class="form-group">
+              <label for="highSchool">High School</label>
+              <input type="text" id="highSchool" name="highSchool" value="<%= competition.highSchool || '' %>" />
             </div>
         </div>
         <div class="card card--white">
           <h2>Community Info</h2>
-          <div class="form-group">
-            <label for="HOA">HOA Dues</label>
-            <input type="number" id="HOA" name="HOA" step="0.01" />
-          </div>
+         <div class="form-group">
+          <label for="hoaFee">HOA Fee</label>
+          <input type="number" id="hoaFee" name="hoaFee" value="<%= competition.hoaFee || '' %>" placeholder="Amount in dollars" />
+        </div>
+
+        <div class="form-group">
+          <label for="hoaFrequency">HOA Frequency</label>
+          <select id="hoaFrequency" name="hoaFrequency">
+            <option value="">-- Select Frequency --</option>
+            <option value="Monthly" <%= competition.hoaFrequency === 'Monthly' ? 'selected' : '' %>>Monthly</option>
+            <option value="Bi-Annually" <%= competition.hoaFrequency === 'Bi-Annually' ? 'selected' : '' %>>Bi-Annually</option>
+            <option value="Annually" <%= competition.hoaFrequency === 'Annually' ? 'selected' : '' %>>Annually</option>
+          </select>
+        </div>
 
           <div class="form-group">
             <label for="tax">Annual Tax</label>
-            <input type="number" id="tax" name="tax" step="0.01" />
+            <input type="number" id="tax" name="tax" step="0.01" value="<%= competition.tax || '' %>"/>
           </div>
-          <fieldset class="form-group">
-            <legend>Additional Fees</legend>
-            <label>
-              <input type="checkbox" id="feeNone" name="feeTypes" value="None" checked />
-              None
-            </label>
-            <label>
-              <input type="checkbox" id="feeMud"  name="feeTypes" value="MUD" />
-              MUD
-            </label>
-            <label>
-              <input type="checkbox" id="feePid"  name="feeTypes" value="PID" />
-              PID
-            </label>
-          </fieldset>
-            <div class="form-group" id="mudFeeGroup" style="display:none;">
-            <label for="mudFee">MUD Fee</label>
-            <input type="number" id="mudFee" name="mudFee" step="0.01" />
-          </div>
+          <div class="form-group">
+          <label>Additional Fees</label><br />
 
-          <div class="form-group" id="pidFeeGroup" style="display:none;">
-            <label for="pidFee">PID Fee</label>
-            <input type="number" id="pidFee" name="pidFee" step="0.01" />
-          </div>
+          <label>
+            <input type="checkbox" id="feeMud" name="feeTypes" value="MUD"
+              <%= competition.feeTypes && competition.feeTypes.includes('MUD') ? 'checked' : '' %> />
+            MUD
+          </label>
+
+          <label>
+            <input type="checkbox" id="feePid" name="feeTypes" value="PID"
+              <%= competition.feeTypes && competition.feeTypes.includes('PID') ? 'checked' : '' %> />
+            PID
+          </label>
+
+          <label>
+            <input type="checkbox" id="feeNone" name="feeTypes" value="None"
+              <%= competition.feeTypes && competition.feeTypes.includes('None') ? 'checked' : '' %> />
+            None
+          </label>
+        </div>
+
+        <div class="form-group" id="mudFeeGroup" style="display: none;">
+          <label for="mudFee">MUD Fee</label>
+          <input type="number" id="mudFee" name="mudFee" value="<%= competition.mudFee || '' %>" />
+        </div>
+
+        <div class="form-group" id="pidFeeGroup" style="display: none;">
+          <label for="pidFee">PID Fee</label>
+          <input type="number" id="pidFee" name="pidFee" value="<%= competition.pidFee || '' %>" />
+        </div>
 
             <div class="form-group">
               <label for="earnestAmount">Earnest Amount</label>
-              <input type="number" id="earnestAmount" name="earnestAmount" step="0.01" />
+              <input type="number" id="earnestAmount" name="earnestAmount" step="0.01" value="<%= competition.earnestAmount || '' %>" />
             </div>
 
             <div class="form-group">
               <label for="realtorCommission">Realtor Commission</label>
-              <input type="number" id="realtorCommission" name="realtorCommission" step="0.01" />
+              <input type="number" id="realtorCommission" name="realtorCommission" step="0.01" value="<%= competition.realtorCommission || '' %>" />
             </div>
+            <!-- Amenities Modal -->
+            <div id="amenitiesModal" class="modal">
+              <div class="modal-content">
+                <span class="close" id="closeAmenitiesModal">&times;</span>
+                <h2>Select Community Amenities</h2>
+                <form id="amenitiesForm">
+                  <!-- Checkbox groups dynamically inserted here -->
+                  <div id="amenitiesContainer"></div>
+                  <button type="submit" class="btn btn-primary">Save Amenities</button>
+                </form>
+              </div>
+            </div>
+
+            <button id="openAmenitiesBtn" class="btn btn-outline-info" style="margin: 1rem;">Edit Community Amenities</button>
         </div>
+
       </div>
       <div class="top-content-cont card card--grey top-container">
-        <h1><%= competition.communityName %> — <%= competition.builderName %></h1>
-          <div class="form-group">
-            <label for="lotSize">Lot Size</label>
-            <input type="text" id="lotSize" name="lotSize" />
+        <div class="form-group">
+          <label for="builderWebsite">Builder Website</label>
+          <input type="url" id="builderWebsite" name="builderWebsite" value="<%= competition.builderWebsite || '' %>" />
+        </div>
+        <h1>
+          <% if (competition.builderWebsite) { %>
+            <a href="<%= competition.builderWebsite %>" target="_blank" rel="noopener noreferrer">
+              <%= competition.builderName %>
+            </a>
+          <% } else { %>
+            <%= competition.builderName %>
+          <% } %> – <%= competition.communityName %>
+        </h1>
+          <p>Amenity List Goes Here</p>
+          <div>
+            <label for="">
+              HOA
+            </label>
+          </div>
+          <div>
+            <label for="">
+              Tax Rate
+            </label>
+          </div>
+           <div>
+            <label for="">
+              Mud Or PID
+            </label>
           </div>
       </div>
   </div>
@@ -149,53 +250,138 @@
     [noneBox, mudBox, pidBox].forEach(cb => cb.addEventListener('change', updateUI));
     updateUI();
   });
+ 
 
-  document.addEventListener('DOMContentLoaded', () => {
-  const formFields = document.querySelectorAll('input[type="text"], input[type="email"], input[type="number"]');
+ document.addEventListener('DOMContentLoaded', () => {
+    const formFields = document.querySelectorAll('input[type="text"], input[type="email"], input[type="number"], select');
+    const competitionId = '<%= competition._id %>';
+    let saveTimeout;
 
-  let saveTimeout;
-  const competitionId = '<%= competition._id %>'; // Assuming `_id` is available in the view
+    const debounceSave = () => {
+      clearTimeout(saveTimeout);
+      saveTimeout = setTimeout(autoSave, 800);
+    };
 
-  const getPayload = () => {
-    const data = {};
-    formFields.forEach(input => {
-      data[input.name] = input.value;
-    });
+    // 🚗 Front/Rear Garage checkbox logic
+    const front = document.getElementById('frontGarage');
+    const rear = document.getElementById('rearGarage');
 
-    // Add checkboxes
-    data.feeTypes = [];
-    if (document.getElementById('feeMud').checked) data.feeTypes.push('MUD');
-    if (document.getElementById('feePid').checked) data.feeTypes.push('PID');
-    if (document.getElementById('feeNone').checked) data.feeTypes.push('None');
+    const updateGarageSelection = () => {
+      if (front.checked) rear.checked = false;
+      if (rear.checked) front.checked = false;
+      debounceSave();
+    };
 
-    return data;
-  };
+    front.addEventListener('change', updateGarageSelection);
+    rear.addEventListener('change', updateGarageSelection);
 
-  const autoSave = async () => {
-    const payload = getPayload();
-    try {
-      const res = await fetch(`/api/competitions/${competitionId}`, {
-        method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(payload)
+    // 📦 Build payload for PUT
+    const getPayload = () => {
+      const data = {};
+      formFields.forEach(input => {
+        data[input.name] = input.value;
       });
 
-      if (!res.ok) throw new Error(`Save failed with status ${res.status}`);
-      console.log('✔ Auto-saved competition data');
-    } catch (err) {
-      console.error('❌ Auto-save error:', err);
-    }
-  };
+      // Add feeTypes checkboxes
+      data.feeTypes = [];
+      if (feeMud.checked) data.feeTypes.push('MUD');
+      if (feePid.checked) data.feeTypes.push('PID');
+      if (feeNone.checked) data.feeTypes.push('None');
 
-  const debounceSave = () => {
-    clearTimeout(saveTimeout);
-    saveTimeout = setTimeout(autoSave, 800);
-  };
+      // Add garageType
+      const garage = document.querySelector('input[name="garageType"]:checked');
+      data.garageType = garage ? garage.value : null;
 
-  formFields.forEach(input => input.addEventListener('input', debounceSave));
-  ['feeMud', 'feePid', 'feeNone'].forEach(id => {
-    document.getElementById(id).addEventListener('change', debounceSave);
+      return data;
+    };
+
+    const autoSave = async () => {
+      const payload = getPayload();
+      try {
+        const res = await fetch(`/api/competitions/${competitionId}`, {
+          method: 'PUT',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(payload)
+        });
+
+        if (!res.ok) throw new Error(`Save failed with status ${res.status}`);
+        console.log('✔ Auto-saved competition data');
+      } catch (err) {
+        console.error('❌ Auto-save error:', err);
+      }
+    };
+
+    // 🔁 Hook up listeners
+    formFields.forEach(input => input.addEventListener('input', debounceSave));
+    ['feeMud', 'feePid', 'feeNone'].forEach(id => {
+      document.getElementById(id).addEventListener('change', debounceSave);
+    });
   });
+const amenitiesData = {
+  "Pools": ["Pool", "Resort Style Pool", "Multiple Pools", "Lagoon", "Splash Pad"],
+  "Indoor": ["Fitness Center", "Clubhouse", "Amenity Center"],
+  "Recreational": ["Tennis", "Pickle Ball", "Volleyball", "Basketball", "Soccer", "Zip Line", "BBQ Grills"],
+  "Parks & Trails" : ["playground", "Dog Park", "Community Park", " Green Spaces", "Gardens", "Hiking Trails", "Biking Trails"],
+  "Misc." : ["Shops", "Community Cafe", "Golf Course", "Front Yard Maintenance"]
+  
+};
+
+const competitionId = '<%= competition._id %>';
+
+document.getElementById('openAmenitiesBtn').addEventListener('click', () => {
+  const container = document.getElementById('amenitiesContainer');
+  container.innerHTML = '';
+
+  for (const [category, items] of Object.entries(amenitiesData)) {
+    const group = document.createElement('fieldset');
+    const legend = document.createElement('legend');
+    legend.textContent = category;
+    group.appendChild(legend);
+
+    items.forEach(item => {
+      const label = document.createElement('label');
+      label.innerHTML = `
+        <input type="checkbox" name="${category}" value="${item}" />
+        ${item}
+      `;
+      group.appendChild(label);
+      group.appendChild(document.createElement('br'));
+    });
+
+    container.appendChild(group);
+  }
+
+  document.getElementById('amenitiesModal').style.display = 'block';
+});
+
+document.getElementById('closeAmenitiesModal').addEventListener('click', () => {
+  document.getElementById('amenitiesModal').style.display = 'none';
+});
+
+document.getElementById('amenitiesForm').addEventListener('submit', async (e) => {
+  e.preventDefault();
+  const checked = document.querySelectorAll('#amenitiesForm input[type="checkbox"]:checked');
+  const data = {};
+
+  checked.forEach(cb => {
+    if (!data[cb.name]) data[cb.name] = [];
+    data[cb.name].push(cb.value);
+  });
+
+  try {
+    const res = await fetch(`/api/competitions/${competitionId}/amenities`, {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ communityAmenities: data })
+    });
+
+    if (!res.ok) throw new Error(`Error: ${res.status}`);
+    alert('✔ Amenities saved');
+    document.getElementById('amenitiesModal').style.display = 'none';
+  } catch (err) {
+    console.error(err);
+    alert('❌ Failed to save amenities');
+  }
 });
 </script>
   

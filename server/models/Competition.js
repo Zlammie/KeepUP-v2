@@ -8,7 +8,10 @@ const competitionSchema = new mongoose.Schema({
   city:          { type: String, required: true },
   state: { type: String, required: true, default: 'TX' },
   zip:           { type: String, required: true },
-
+  builderWebsite: {
+    type: String,
+    default: ''
+  },
    // ⬇️ new occasional fields
   lotSize:            { type: String },
   salesPerson:        { type: String },
@@ -17,19 +20,40 @@ const competitionSchema = new mongoose.Schema({
   schoolISD:          { type: String },
   elementarySchool:   { type: String },
   middleSchool:       { type: String },
-  HOA:                { type: Number },
+  highSchool:         { type: String },
+  hoaFee: {
+  type: Number,
+  default: null
+},
+hoaFrequency: {
+  type: String,
+  enum: ['Monthly', 'Bi-Annually', 'Annually', null],
+  default: null
+},
   tax:                { type: Number },
+  modelPlan:          { type:String},
+  garageType: {
+  type: String,
+  enum: ['Front', 'Rear'],
+  default: null
+},
+totalLots: {
+  type: Number,
+  default: 0
+},
 
-feeType: {
+feeTypes: {
   type: [String],
-  enum: ['MUD', 'PID'],
-  default: undefined,
-  validate: {
-    validator: function(value) {
-      return Array.isArray(value) && value.every(v => ['MUD', 'PID'].includes(v));
-    },
-    message: props => `Invalid feeType: ${props.value}`
-  }
+  enum: ['MUD', 'PID', 'None'],
+  default: []
+},
+mudFee: {
+  type: Number,
+  default: null
+},
+pidFee: {
+  type: Number,
+  default: null
 },
   mudFee:             { type: Number },
   pidFee:             { type: Number },
@@ -39,7 +63,11 @@ feeType: {
   floorPlans: [{
    type: mongoose.Schema.Types.ObjectId,
    ref: 'FloorPlanComp'
- }]
+ }],
+ communityAmenities: [{
+  category: String,
+  items: [String]
+}]
 }, {
   timestamps: true
 });

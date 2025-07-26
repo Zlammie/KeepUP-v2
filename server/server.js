@@ -53,6 +53,7 @@ app.use('/api/floorplans', floorPlanRoutes);
 app.use('/api', lotViewRoutes);
 app.use('/api/competitions', competitionRoutes);
 
+
 // ✅ Render EJS pages
 app.get('/', (req, res) => {
   res.render('pages/index', { active: 'home' });
@@ -241,18 +242,21 @@ app.get('/api/competitions', async (req, res, next) => {
     next(err);
   }
 });
-app.get('/competition-details/:id', async (req, res, next) => {
+app.get('/competition-details/:id', async (req, res) => {
   try {
     const comp = await Competition.findById(req.params.id).lean();
-    if (!comp) {
-      return res.status(404).send('Competition not found');
-    }
+    if (!comp) return res.status(404).send('Competition not found');
+
+    const floorPlans = await FloorPlanComp.find({ competition: comp._id }).lean();
+
     res.render('pages/competition-details', {
       active: 'competition',
-      competition: comp
+      competition: comp,
+      floorPlans: floorPlans.map(fp => fp.name)  // pass just the plan names
     });
   } catch (err) {
-    next(err);
+    console.error('Error loading competition-details:', err);
+    res.status(500).send('Internal Server Error');
   }
 });
 app.post('/add-competition', async (req, res, next) => {
@@ -488,6 +492,7 @@ app.get('/api/competitions/:id/sales-records', async (req, res, next) => {
     next(err);
   }
 });
+
 // POST new sales record
 app.post('/api/competitions/:id/sales-records', async (req, res, next) => {
   try {
