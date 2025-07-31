@@ -12,6 +12,15 @@
   
 </head>
 <body>
+
+  <script id="initialData" type="application/json">
+  <%- JSON.stringify({
+    pros: competition.pros || [],
+    cons: competition.cons || [],
+    lotCount: Number(competition.totalLots || 0),
+    latestMetrics: (competition.monthlyMetrics || []).slice(-1)[0] || {}
+  }) %>
+</script>
 <%- include('../partials/nav') %>
 <%- include('../partials/top-nav-competition') %>
 
@@ -200,15 +209,21 @@
                       class="form-control"
                       rows="3"
                       placeholder="Enter promotion details"
-                    ></textarea>
+                    ><%= competition.promotion || '' %></textarea>
                   </div>
                   <!-- Top 3 Plans -->
-                  <div class="mb-3 card">
-                    <label class="form-label">Top 3 Plans</label>
-                    <input type="text" name="topPlan1" class="form-control mb-2" placeholder="1. Plan Name">
-                    <input type="text" name="topPlan2" class="form-control mb-2" placeholder="2. Plan Name">
-                    <input type="text" name="topPlan3" class="form-control" placeholder="3. Plan Name">
-                  </div>
+                 <div class="mb-3 card">
+                  <label class="form-label">Top 3 Plans</label>
+                  <select name="topPlan1" id="topPlan1" class="form-select mb-2">
+                    <option value="">1. Select Plan</option>
+                  </select>
+                  <select name="topPlan2" id="topPlan2" class="form-select mb-2">
+                    <option value="">2. Select Plan</option>
+                  </select>
+                  <select name="topPlan3" id="topPlan3" class="form-select">
+                    <option value="">3. Select Plan</option>
+                  </select>
+                </div>
 
                   <!-- Pros & Cons -->
                   <div class="mb-3 card">
@@ -231,19 +246,19 @@
                   <div class="row card">
                     <div class="col-md-3 mb-3">
                       <label class="form-label">Lot Count</label>
-                      <input type="number" class="form-control" disabled placeholder="—">
+                      <input type="number" name="totalLots" id="lotCount" class="form-control" readonly>
                     </div>
                     <div class="col-md-3 mb-3">
                       <label class="form-label">Sold Lots</label>
-                      <input type="number" class="form-control" disabled placeholder="—">
+                      <input type="number" name="soldLots" id="soldLots" class="form-control">
                     </div>
                     <div class="col-md-3 mb-3">
                       <label class="form-label">Remaining Lots</label>
-                      <input type="number" class="form-control" disabled placeholder="—">
+                      <input type="number" id="remainingLots" class="form-control" readonly>
                     </div>
                     <div class="col-md-3 mb-3">
                       <label class="form-label">Quick Move-In Lots</label>
-                      <input type="number" class="form-control" disabled placeholder="—">
+                      <input type="number" name="quickMoveInLots" id="quickMoveInLots" class="form-control">
                     </div>
                   </div>
                 </form>
@@ -334,6 +349,9 @@
       </main>
 </div>
 
+
+
+<script type="module" src="/scripts/initUpdateCompetition.js"></script>
 <script>
 document.addEventListener('DOMContentLoaded', () => {
   // ───────── cached DOM & constants ─────────
@@ -363,6 +381,212 @@ document.addEventListener('DOMContentLoaded', () => {
     story: document.getElementById('fpStory')
   };
 
+const metricsForm = document.getElementById('metricsForm');
+let saveTimeout;
+
+const metricsFields = metricsForm.querySelectorAll(
+  'input[type="text"], textarea, select'
+);
+
+// 🕒 Debounce Save
+const debounceSave = () => {
+  clearTimeout(saveTimeout);
+  saveTimeout = setTimeout(autoSaveMetrics, 800);
+};
+
+// 📦 Collect Payload
+const getMetricsPayload = () => {
+  const data = {};
+  metricsFields.forEach(field => {
+    data[field.name] = field.value;
+  });
+
+  // ➕ Add pros and cons as arrays
+  const proTags = document.querySelectorAll('#prosList .badge');
+  const conTags = document.querySelectorAll('#consList .badge');
+
+  data.pros = [...proTags].map(tag => tag.textContent);
+  data.cons = [...conTags].map(tag => tag.textContent);
+
+  return data;
+};
+
+async function populateTopPlanDropdowns() {
+  const fps = await fetch(`/api/competitions/${competitionId}/floorplans`)
+    .then(r => r.json());
+
+  const selects = [
+    document.getElementById('topPlan1'),
+    document.getElementById('topPlan2'),
+    document.getElementById('topPlan3')
+  ];
+
+  const existingValues = {
+    topPlan1: '<%= competition.topPlan1 || "" %>',
+    topPlan2: '<%= competition.topPlan2 || "" %>',
+    topPlan3: '<%= competition.topPlan3 || "" %>'
+  };
+
+  function renderOptions(exclude = []) {
+    return fps
+      .filter(fp => !exclude.includes(fp.name))
+      .map(fp => `<option value="${fp.name}">${fp.name}</option>`)
+      .join('');
+  }
+ 
+
+  function updateDropdowns() {
+    const selected = selects.map(sel => sel.value).filter(Boolean);
+
+    selects.forEach((sel, idx) => {
+      const current = sel.value;
+      sel.innerHTML = `<option value="">${idx + 1}. Select Plan</option>` +
+        renderOptions(selected.filter((_, i) => i !== idx));
+      sel.value = current;
+    });
+  }
+  
+
+  selects.forEach((sel, idx) => {
+    sel.innerHTML = `<option value="">${idx + 1}. Select Plan</option>` +
+      renderOptions();
+    const key = `topPlan${idx + 1}`;
+    if (existingValues[key]) sel.value = existingValues[key];
+
+    sel.addEventListener('change', () => {
+      updateDropdowns();
+      debounceSave(); // reuses your existing autosave function
+    });
+  });
+
+  updateDropdowns();
+}
+
+populateTopPlanDropdowns(); // 🔁 invoke after DOMContentLoaded
+document.addEventListener('DOMContentLoaded', () => {
+  const competitionId = '<%= competition._id %>';
+  const now = new Date();
+  const initialData = JSON.parse(document.getElementById('initialData').textContent);
+  const lotCount = initialData.lotCount || 0;
+  const latestMetrics = initialData.latestMetrics || {};
+  const pros = initialData.pros || [];
+  const cons = initialData.cons || [];
+
+  const prosList = document.getElementById('prosList');
+  const consList = document.getElementById('consList');
+
+  const renderBadges = () => {
+    prosList.innerHTML = '';
+    consList.innerHTML = '';
+
+    pros.forEach(pro => {
+      const div = document.createElement('div');
+      div.className = 'badge bg-success me-1';
+      div.textContent = pro;
+      prosList.appendChild(div);
+    });
+
+    cons.forEach(con => {
+      const div = document.createElement('div');
+      div.className = 'badge bg-danger me-1';
+      div.textContent = con;
+      consList.appendChild(div);
+    });
+  };
+
+  renderBadges();
+ 
+});
+
+
+const saveMonthlyMetrics = async () => {
+  const payload = {
+    soldLots: parseInt(document.getElementById('soldLots').value) || 0,
+    quickMoveInLots: parseInt(document.getElementById('quickMoveInLots').value) || 0
+  };
+
+  const res = await fetch(`/api/competitions/${competitionId}/monthly-metrics`, {
+    method: 'PUT',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(payload)
+  });
+
+  if (!res.ok) console.error('Monthly metrics failed');
+};
+
+document.getElementById('soldLots').addEventListener('change', () => {
+  updateRemainingLots();
+  saveMonthlyMetrics();
+});
+
+document.getElementById('quickMoveInLots').addEventListener('change', saveMonthlyMetrics);
+
+const initialData = JSON.parse(document.getElementById('initialData').textContent);
+const lotCount = initialData.lotCount || 0;
+const latestMetrics = initialData.latestMetrics || {};
+
+document.getElementById('lotCount').value = lotCount;
+
+const updateRemainingLots = () => {
+  const sold = parseInt(document.getElementById('soldLots').value) || 0;
+  document.getElementById('remainingLots').value = lotCount - sold;
+};
+
+
+document.getElementById('soldLots').value = latestMetrics.soldLots || 0;
+document.getElementById('quickMoveInLots').value = latestMetrics.quickMoveInLots || 0;
+document.getElementById('remainingLots').value = lotCount - (latestMetrics.soldLots || 0);
+
+
+document.getElementById('soldLots').addEventListener('input', () => {
+  updateRemainingLots();
+  debounceSave();// 🔁 if using a separate save for metrics
+});
+
+// 🚀 Send to Server
+const autoSaveMetrics = async () => {
+  const payload = getMetricsPayload();
+   console.log('📤 Payload from getMetricsPayload():', payload);
+  try {
+    const res = await fetch(`/api/competitions/${competitionId}/metrics`, {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload)
+    });
+
+    if (!res.ok) throw new Error(`Metrics save failed: ${res.status}`);
+    console.log('✔ Metrics auto-saved');
+  } catch (err) {
+    console.error('❌ Metrics auto-save error:', err);
+  }
+};
+
+document.getElementById('addProBtn').addEventListener('click', () => {
+  const val = document.getElementById('newPro').value.trim();
+  if (!val) return;
+  const div = document.createElement('div');
+  div.className = 'badge bg-success me-1';
+  div.textContent = val;
+  document.getElementById('prosList').appendChild(div);
+  document.getElementById('newPro').value = '';
+  debounceSave(); // 🔥 add this
+});
+
+document.getElementById('addConBtn').addEventListener('click', () => {
+  const val = document.getElementById('newCon').value.trim();
+  if (!val) return;
+  const div = document.createElement('div');
+  div.className = 'badge bg-danger me-1';
+  div.textContent = val;
+  document.getElementById('consList').appendChild(div);
+  document.getElementById('newCon').value = '';
+  debounceSave(); // 🔥 add this
+});
+
+// 🔁 Listen for changes
+metricsFields.forEach(field => {
+  field.addEventListener('input', debounceSave);
+});
   async function loadFloorPlans() {
     const fps = await fetch(`/api/competitions/${competitionId}/floorplans`)
                   .then(r => r.json());
@@ -383,7 +607,9 @@ document.addEventListener('DOMContentLoaded', () => {
       });
       list.appendChild(item);
     });
+
   }
+
 
   form.addEventListener('submit', async e => {
     e.preventDefault();
@@ -743,24 +969,11 @@ document.addEventListener('DOMContentLoaded', () => {
   }
 });
 
-document.getElementById('addProBtn').addEventListener('click', () => {
-  const val = document.getElementById('newPro').value.trim();
-  if (!val) return;
-  const div = document.createElement('div');
-  div.className = 'badge bg-success me-1';
-  div.textContent = val;
-  document.getElementById('prosList').appendChild(div);
-  document.getElementById('newPro').value = '';
-});
-document.getElementById('addConBtn').addEventListener('click', () => {
-  const val = document.getElementById('newCon').value.trim();
-  if (!val) return;
-  const div = document.createElement('div');
-  div.className = 'badge bg-danger me-1';
-  div.textContent = val;
-  document.getElementById('consList').appendChild(div);
-  document.getElementById('newCon').value = '';
-});
+
+
+
+
+
 </script>
 
   

@@ -190,10 +190,7 @@
 
       </div>
       <div class="top-content-cont card card--grey top-container">
-        <div class="form-group">
-          <label for="builderWebsite">Builder Website</label>
-          <input type="url" id="builderWebsite" name="builderWebsite" value="<%= competition.builderWebsite || '' %>" />
-        </div>
+      
         <h1>
           <% if (competition.builderWebsite) { %>
             <a href="<%= competition.builderWebsite %>" target="_blank" rel="noopener noreferrer">
@@ -203,22 +200,59 @@
             <%= competition.builderName %>
           <% } %> – <%= competition.communityName %>
         </h1>
-          <p>Amenity List Goes Here</p>
-          <div>
-            <label for="">
-              HOA
-            </label>
+          <div class="">
+            <div class="">
+              <h3>Community Amenities</h3>
+            </div>
+            <div class="">
+              <% if (competition.communityAmenities && competition.communityAmenities.length > 0) { %>
+                <% competition.communityAmenities.forEach(group => { %>
+                  <h4><%= group.category %></h4>
+                  <ul class="amenity-list">
+                    <% group.items.forEach(item => { %>
+                      <li><%= item %></li>
+                    <% }) %>
+                  </ul>
+                <% }) %>
+              <% } else { %>
+                <p>No amenities selected.</p>
+              <% } %>
+            </div>
           </div>
-          <div>
-            <label for="">
-              Tax Rate
-            </label>
-          </div>
-           <div>
-            <label for="">
-              Mud Or PID
-            </label>
-          </div>
+            <% if (competition.hoaFee && competition.hoaFrequency) { %>
+            <div>
+              <strong>HOA:</strong> $<%= competition.hoaFee %> / <%= competition.hoaFrequency %>
+            </div>
+          <% } else { %>
+            <div><strong>HOA:</strong> Not specified</div>
+          <% } %>
+          <!-- Tax Rate -->
+          <% if (competition.tax) { %>
+            <div>
+              <strong>Tax Rate:</strong> <%= competition.tax %>%
+            </div>
+          <% } else { %>
+            <div><strong>Tax Rate:</strong> Not specified</div>
+          <% } %>
+           <!-- MUD / PID Fees -->
+          <% if (competition.feeTypes && competition.feeTypes.length > 0) { %>
+            <div>
+              <strong>Additional Fees:</strong>
+              <ul>
+                <% if (competition.feeTypes.includes('MUD')) { %>
+                  <li>MUD: $<%= competition.mudFee || 'N/A' %></li>
+                <% } %>
+                <% if (competition.feeTypes.includes('PID')) { %>
+                  <li>PID: $<%= competition.pidFee || 'N/A' %></li>
+                <% } %>
+                <% if (competition.feeTypes.includes('None')) { %>
+                  <li>None</li>
+                <% } %>
+              </ul>
+            </div>
+          <% } else { %>
+            <div><strong>Additional Fees:</strong> None</div>
+          <% } %>
       </div>
   </div>
 
@@ -249,6 +283,8 @@
 
     [noneBox, mudBox, pidBox].forEach(cb => cb.addEventListener('change', updateUI));
     updateUI();
+
+    
   });
  
 
@@ -321,9 +357,22 @@ const amenitiesData = {
   "Pools": ["Pool", "Resort Style Pool", "Multiple Pools", "Lagoon", "Splash Pad"],
   "Indoor": ["Fitness Center", "Clubhouse", "Amenity Center"],
   "Recreational": ["Tennis", "Pickle Ball", "Volleyball", "Basketball", "Soccer", "Zip Line", "BBQ Grills"],
-  "Parks & Trails" : ["playground", "Dog Park", "Community Park", " Green Spaces", "Gardens", "Hiking Trails", "Biking Trails"],
+  "Parks & Trails" : ["Playground", "Dog Park", "Community Park", " Green Spaces", "Gardens", "Hiking Trails", "Biking Trails"],
   "Misc." : ["Shops", "Community Cafe", "Golf Course", "Front Yard Maintenance"]
-  
+};
+const preloadAmenities = () => {
+  // Clear all checkboxes first
+  document.querySelectorAll('#amenitiesForm input[type="checkbox"]').forEach(cb => cb.checked = false);
+
+   const savedAmenities = JSON.parse('<%- JSON.stringify(competition.communityAmenities || []) %>');
+
+  savedAmenities.forEach(group => {
+    group.items.forEach(item => {
+      const selector = `#amenitiesForm input[name="${group.category}"][value="${item}"]`;
+      const checkbox = document.querySelector(selector);
+      if (checkbox) checkbox.checked = true;
+    });
+  });
 };
 
 const competitionId = '<%= competition._id %>';
@@ -351,6 +400,7 @@ document.getElementById('openAmenitiesBtn').addEventListener('click', () => {
     container.appendChild(group);
   }
 
+  preloadAmenities(); // ✅ ← run after rendering checkboxes
   document.getElementById('amenitiesModal').style.display = 'block';
 });
 
@@ -368,11 +418,16 @@ document.getElementById('amenitiesForm').addEventListener('submit', async (e) =>
     data[cb.name].push(cb.value);
   });
 
+  const formattedAmenities = Object.entries(data).map(([category, items]) => ({
+    category,
+    items
+  }));
+
   try {
     const res = await fetch(`/api/competitions/${competitionId}/amenities`, {
       method: 'PUT',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ communityAmenities: data })
+      body: JSON.stringify({ communityAmenities: formattedAmenities })
     });
 
     if (!res.ok) throw new Error(`Error: ${res.status}`);

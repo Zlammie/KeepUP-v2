@@ -67,7 +67,25 @@ pidFee: {
  communityAmenities: [{
   category: String,
   items: [String]
+}],
+promotion: {
+  type: String,
+  default: ''
+},
+
+topPlan1: { type: String },
+topPlan2: { type: String },
+topPlan3: { type: String },
+
+pros: { type: [String], default: [] },
+cons: { type: [String], default: [] },
+
+monthlyMetrics: [{
+  month: String, // e.g., "2025-07"
+  soldLots: { type: Number, default: 0 },
+  quickMoveInLots: { type: Number, default: 0 }
 }]
+
 }, {
   timestamps: true
 });
