@@ -1,0 +1,15 @@
+export const monthNav    = document.getElementById('monthNav');
+export const sectionNav  = document.getElementById('sectionNav');
+export const metricsForm = document.getElementById('metricsForm');
+export const soldInput   = document.getElementById('soldLots');
+export const quickInput  = document.getElementById('quickMoveInLots');
+export const prosList    = document.getElementById('prosList');
+export const consList    = document.getElementById('consList');
+export const newProInput = document.getElementById('newPro');
+export const newConInput = document.getElementById('newCon');
+export const addProBtn   = document.getElementById('addProBtn');
+export const addConBtn   = document.getElementById('addConBtn');
+export const planSelects = Array.from(document.querySelectorAll('.top-plan-select'));
+export const openModal   = document.getElementById('openPlanModal');
+export const modalEl     = document.getElementById('floorPlanModal');
+export const remainingEl = document.getElementById('remainingLots');
