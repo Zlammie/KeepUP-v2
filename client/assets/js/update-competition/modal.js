@@ -1,13 +1,28 @@
-// modal.js
+// public/assets/js/update-competition/modal.js
+
+
+
+
+/**
+ * Wire your “Add / Update Floor Plans” trigger to open/close the Bootstrap modal.
+ * @param {HTMLElement} openBtn    the button that calls the modal
+ * @param {HTMLElement} modalEl    the <div id="floorPlanModal">
+ * @param {(planId:string)=>void} onSelect callback when a plan-option is clicked
+ */
 export function initFloorPlanModal(openBtn, modalEl, onSelect) {
-  openBtn.addEventListener('click', () => modalEl.classList.add('open'));
+  const bsModal = new bootstrap.Modal(modalEl);
+
+  // show the modal
+  openBtn.addEventListener('click', () => bsModal.show());
+
+  // delegate clicks on plan items & close button
   modalEl.addEventListener('click', e => {
     if (e.target.matches('.plan-option')) {
       onSelect(e.target.dataset.planId);
-      modalEl.classList.remove('open');
+      bsModal.hide();
     }
-    if (e.target.matches('.close')) {
-      modalEl.classList.remove('open');
+    if (e.target.matches('[data-bs-dismiss="modal"], .btn-close')) {
+      bsModal.hide();
     }
   });
-}
+ }

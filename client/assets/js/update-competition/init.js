@@ -1,23 +1,36 @@
 // public/assets/js/update-competition/init.js
-import { pros, cons, monthNames, latestMetrics, totalLots } from './data.js';
-import * as DOM            from './dom.js';
-import { renderMonthNav, bindMonthNav, bindSectionNav } from './nav.js';
-import { loadMonth, loadQuickHomes, loadSales }         from './loaders.js';
-import { initMetrics, saveMetrics }                     from './metrics.js';
-import { updateRemainingLots, saveMonthly }             from './monthlyMetrics.js';
-import { renderBadges, bindProsCons }                   from './prosCons.js';
-import { populateTopPlans, bindTopPlanChanges }         from './plans.js';
-import { initFloorPlansModal, loadFloorPlansList }      from './floorPlans.js';
-import { initFloorPlanModal }                           from './modal.js';
+import {
+  pros,
+  cons,
+  monthNames,
+  latestMetrics,
+  totalLots,
+  competitionId
+} from './data.js';
+import * as DOM from './dom.js';
+import {
+  renderMonthNav,
+  bindMonthNav,
+  bindSectionNav
+} from './nav.js';
+import { loadMonth, loadQuickHomes, loadSales } from './loaders.js';
+import { initMetrics, saveMetrics } from './metrics.js';
+import { updateRemainingLots, saveMonthly } from './monthlyMetrics.js';
+import { renderBadges, bindProsCons } from './prosCons.js';
+import { populateTopPlans, bindTopPlanChanges } from './plans.js';
+import { initFloorPlansModal, loadFloorPlansList } from './floorPlans.js';
+import { initFloorPlanModal } from './modal.js';
 
 document.addEventListener('DOMContentLoaded', () => {
-  // 1) DATA + DOM already loaded by imports
-  console.log('🛰 init.js bootstrapping…', DOM.monthNav);
-  // 2) NAVIGATION
+  // 1) build & wire your month-pill nav
   renderMonthNav(DOM.monthNav);
-  bindMonthNav(DOM.monthNav, m => {
-    loadMonth(m); loadQuickHomes(m); loadSales(m);
+  bindMonthNav(DOM.monthNav, month => {
+    loadMonth(month);
+    loadQuickHomes(month);
+    loadSales(month);
   });
+
+  // 2) wire your section tabs
   bindSectionNav(DOM.sectionNav);
 
   // 3) METRICS FORM
@@ -67,9 +80,46 @@ document.addEventListener('DOMContentLoaded', () => {
 );
 
   // 7) FLOOR-PLANS MODAL
-  initFloorPlansModal(DOM.modalEl, ()=> loadFloorPlansList(DOM.planListEl), data=> {/*save floorplan*/});
-  initFloorPlanModal(DOM.openModal, DOM.modalEl, id=> { /*select plan*/ });
 
-  const activeLink = DOM.monthNav.querySelector('a.nav-link.active');
-    if (activeLink) activeLink.click();
+  // A) bootstrap + form-submit wiring + reload list
+  initFloorPlansModal(
+    DOM.modalEl,
+    () => loadFloorPlansList(DOM.planListEl, DOM.floorPlanFields),
+    async data => {
+      // POST or PUT depending on whether `data.id` exists
+      const isEdit = Boolean(data.id);
+      const url    = isEdit
+        ? `/api/competitions/${competitionId}/floorplans/${data.id}`
+        : `/api/competitions/${competitionId}/floorplans`;
+      const method = isEdit ? 'PUT' : 'POST';
+
+      const res = await fetch(url, {
+         method,
+         headers: {'Content-Type':'application/json'},
+         body: JSON.stringify(data)
+      });
+      if (res.ok) {
+        // refresh list so you can immediately pick the new/updated plan
+        loadFloorPlansList(DOM.planListEl, DOM.floorPlanFields);
+      } else {
+        console.error('Floor plan save failed:', await res.text());
+      }
+    }
+  );
+
+  // B) open modal & populate form fields when you click a plan
+  initFloorPlanModal(
+    DOM.openPlanModal,
+    DOM.modalEl,
+    planId => {
+      // once you click an item, the loadFloorPlansList click‐handler has
+      // already populated the fields, so you don’t need to do anything else
+      // here—but if you wanted to fetch extras you could:
+      // fetch(`/api/competitions/${competitionId}/floorplans/${planId}`)
+      //   .then(r=>r.json()).then(fp=>{ /* fill DOM.floorPlanFields */ });
+    }
+);
+  const active = DOM.monthNav.querySelector('a.nav-link.active');
+  if (active) active.click();
 });
+
