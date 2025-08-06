@@ -1,6 +1,7 @@
 // public/assets/js/update-competition/monthlyMetrics.js
 export function updateRemainingLots(total, soldEl, remainingEl) {
-  remainingEl.textContent = total - Number(soldEl.value || 0);
+  const sold = Number(soldEl.value || 0);
+  remainingEl.value = total - sold;
 }
 
 export async function saveMonthly(data) {

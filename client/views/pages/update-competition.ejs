@@ -347,7 +347,11 @@
       cons: competition.cons || [],
       monthNames: ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'],
       latestMetrics: (competition.monthlyMetrics || []).slice(-1)[0] || {},
-      totalLots: competition.totalLots || 0
+      totalLots: competition.totalLots || 0,
+      topPlan1: competition.topPlan1 || null,
+      topPlan2: competition.topPlan2 || null,
+      topPlan3: competition.topPlan3 || null,
+      competitionId: competition._id
     }) %>
   </script>
 

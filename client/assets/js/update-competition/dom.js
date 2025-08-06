@@ -1,5 +1,6 @@
 export const monthNav    = document.getElementById('monthNav');
 export const sectionNav  = document.getElementById('sectionNav');
+export const lotCount    = document.getElementById('lotCount');
 export const metricsForm = document.getElementById('metricsForm');
 export const soldInput   = document.getElementById('soldLots');
 export const quickInput  = document.getElementById('quickMoveInLots');
@@ -9,7 +10,11 @@ export const newProInput = document.getElementById('newPro');
 export const newConInput = document.getElementById('newCon');
 export const addProBtn   = document.getElementById('addProBtn');
 export const addConBtn   = document.getElementById('addConBtn');
-export const planSelects = Array.from(document.querySelectorAll('.top-plan-select'));
+export const planSelects = [
+  document.getElementById('topPlan1'),
+  document.getElementById('topPlan2'),
+  document.getElementById('topPlan3'),
+];
 export const openModal   = document.getElementById('openPlanModal');
 export const remainingEl = document.getElementById('remainingLots');
 

@@ -17,7 +17,7 @@ import { loadMonth, loadQuickHomes, loadSales } from './loaders.js';
 import { initMetrics, saveMetrics } from './metrics.js';
 import { updateRemainingLots, saveMonthly } from './monthlyMetrics.js';
 import { renderBadges, bindProsCons } from './prosCons.js';
-import { populateTopPlans, bindTopPlanChanges } from './plans.js';
+import { populateTopPlans } from './plans.js';
 import { initFloorPlansModal, loadFloorPlansList } from './floorPlans.js';
 import { initFloorPlanModal } from './modal.js';
 
@@ -33,51 +33,77 @@ document.addEventListener('DOMContentLoaded', () => {
   // 2) wire your section tabs
   bindSectionNav(DOM.sectionNav);
 
+DOM.sectionNav.addEventListener('click', e => {
+  const link = e.target.closest('a.nav-link');
+  if (!link) return;
+
+  // ── YOU MUST ADD THIS LINE ──
+  const activeMonth = DOM.monthNav.querySelector('a.nav-link.active')?.dataset.month;
+  if (!activeMonth) return;
+
+  switch (link.dataset.section) {
+    case 'price':
+      loadMonth(activeMonth);
+      break;
+    case 'inventory':
+      loadQuickHomes(activeMonth);
+      loadSales(activeMonth);
+      break;
+    // case 'metrics': nothing to load
+  }
+});
+
+
   // 3) METRICS FORM
   initMetrics(DOM.metricsForm, latestMetrics, saveMetrics);
 
+
+
   // 4) MONTHLY LOTS COUNTER
-  DOM.soldInput .addEventListener('input', ()=> updateRemainingLots(totalLots, DOM.soldInput, DOM.remainingEl));
-  DOM.quickInput.addEventListener('change', ()=> saveMonthly({ quickMoveInLots: DOM.quickInput.value }));
-  updateRemainingLots(totalLots, DOM.soldInput, DOM.remainingEl);
+  // a) fill the Lot Count input from the DB
+DOM.lotCount.value = totalLots;
+
+// b) recalc remaining when sold changes
+DOM.soldInput.addEventListener('input', () =>
+  updateRemainingLots(totalLots, DOM.soldInput, DOM.remainingEl)
+);
+
+// c) save quick‐move‐in lots when changed
+DOM.quickInput.addEventListener('change', () =>
+  saveMonthly({ quickMoveInLots: DOM.quickInput.value })
+);
+
+// d) initial remaining calculation
+updateRemainingLots(totalLots, DOM.soldInput, DOM.remainingEl);
 
   // 5) PROS/CONS
-  renderBadges(DOM.prosList, pros);
-  renderBadges(DOM.consList, cons);
-  bindProsCons(
+renderBadges(DOM.prosList, pros);
+renderBadges(DOM.consList, cons);
+
+bindProsCons(
   DOM.addProBtn,
   DOM.newProInput,
   DOM.prosList,
-  // TODO: call your API to add a new “pro”
-  newProText => {
-    console.log('Add pro:', newProText);
-    // e.g. fetch(`/api/competitions/${competitionId}/pros`, { … })
+  async updatedPros => {
+    // 1) persist to server
+    await saveMetrics({ pros: updatedPros });
+    // 2) re-render immediately
+    renderBadges(DOM.prosList, updatedPros);
   }
 );
-  bindProsCons(
+
+bindProsCons(
   DOM.addConBtn,
   DOM.newConInput,
   DOM.consList,
-  newConText => {
-    console.log('Add con:', newConText);
-    // e.g. fetch(`/api/competitions/${competitionId}/cons`, { … })
+  async updatedCons => {
+    await saveMetrics({ cons: updatedCons });
+    renderBadges(DOM.consList, updatedCons);
   }
 );
 
   // 6) TOP-3 PLANS
-  populateTopPlans(DOM.planSelects);
-  bindTopPlanChanges(
-  DOM.planSelects,
-  changedData => {
-    console.log('Top-plan change:', changedData);
-    
-    fetch(`/api/competitions/${competitionId}`, {
-      method: 'PUT',
-       headers: {'Content-Type':'application/json'},
-      body: JSON.stringify(changedData)
-    });
-  }
-);
+  populateTopPlans();
 
   // 7) FLOOR-PLANS MODAL
 
@@ -106,6 +132,8 @@ document.addEventListener('DOMContentLoaded', () => {
       }
     }
   );
+  
+
 
   // B) open modal & populate form fields when you click a plan
   initFloorPlanModal(
@@ -119,7 +147,11 @@ document.addEventListener('DOMContentLoaded', () => {
       //   .then(r=>r.json()).then(fp=>{ /* fill DOM.floorPlanFields */ });
     }
 );
-  const active = DOM.monthNav.querySelector('a.nav-link.active');
-  if (active) active.click();
-});
 
+  const initMonthLink   = DOM.monthNav.querySelector('a.nav-link.active');
+  if (initMonthLink) initMonthLink.click();
+
+  const initSectionLink = DOM.sectionNav.querySelector('a.nav-link.active');
+  if (initSectionLink) initSectionLink.click();
+
+});
