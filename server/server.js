@@ -427,9 +427,9 @@ app.put('/api/competitions/:id/price-records/:recId', async (req, res, next) => 
 app.get('/api/competitions/:id/quick-moveins', async (req, res, next) => {
   try {
     const { month } = req.query;
-    const recs = await QuickMoveIn
-      .find({ competition: req.params.id, month })
-      .lean();
+    const filter = { competition: req.params.id };
+   if (month) filter.month = month;
+   const recs = await QuickMoveIn.find(filter).lean();
     res.json(recs);
   } catch (err) {
     next(err);
