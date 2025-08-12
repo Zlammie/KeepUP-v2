@@ -81,17 +81,10 @@ export async function loadMonth(monthKey) {
  */
 export function loadQuickHomes(monthKey) {
   const monthIdx = new Date(`${monthKey}-01`).getMonth();
-  console.log('loadQuickHomes ➔ monthKey:', monthKey, 'monthIdx:', monthIdx);
-  console.log('allQuickHomes dates:', allQuickHomes.map(h => h.listDate));
   // Filter unsold and sold for the given month
-   const unsold = allQuickHomes.filter(r => {
-    if (r.status === 'SOLD') return false;
-    const recYM = r.listDate.slice(0, 7);   // e.g. "2025-06"
-    return recYM <= monthKey;               // shows in monthKey and later
-  });
-  const sold = allQuickHomes.filter(r =>
-    r.status === 'SOLD' && new Date(r.soldDate).getMonth() === monthIdx
-  );
+  const unsold = allQuickHomes;
+  const sold = allQuickHomes.filter(r => r.status === 'SOLD');
+
 
   // Render Quick-Move-Ins table
   DOM.quickBody.innerHTML = '';
@@ -100,9 +93,9 @@ export function loadQuickHomes(monthKey) {
     tr.dataset.id = rec._id;
     tr.innerHTML = `
       <td><input class="form-control qmi-input" data-field="address" value="${rec.address}" /></td>
-      <td><input type="date" class="form-control qmi-input" data-field="listDate" value="${rec.listDate.slice(0,10)}" /></td>
+      <td><input type="date" class="form-control qmi-input"  data-field="listDate" value="${(rec.listDate || '').slice(0,10)}" /></td>
       <td>
-        <select class="form-select qmi-input" data-field="floorPlanId">
+        <select class="form-select qmi-input" data-field="floorPlan">
           ${allFloorPlans.map(fp =>
             `<option value="${fp._id}"${fp._id===rec.floorPlan?' selected':''}>${fp.name}</option>`
           ).join('')}
@@ -123,9 +116,9 @@ export function loadQuickHomes(monthKey) {
 // no addTr.dataset.id so POST on save
 addTr.innerHTML = `
   <td><input class="form-control qmi-input" data-field="address" value="" /></td>
-  <td><input type="date" class="form-control qmi-input" data-field="listDate" value="" /></td>
+  <td><input type="date" class="form-control qmi-input"  data-field="listDate" value="" /></td>
   <td>
-    <select class="form-select qmi-input" data-field="floorPlanId">
+    <select class="form-select qmi-input" data-field="floorPlan">
       ${allFloorPlans.map(fp =>
         `<option value="${fp._id}">${fp.name}</option>`
       ).join('')}
@@ -148,23 +141,28 @@ DOM.quickBody.appendChild(addTr);
     tr.dataset.id = rec._id;
     tr.innerHTML = `
       <td><input class="form-control sold-input" data-field="address" value="${rec.address}" /></td>
-      <td><input type="date" class="form-control sold-input" data-field="listDate" value="${rec.listDate.slice(0,10)}" /></td>
-      <td><input type="date" class="form-control sold-input" data-field="soldDate" value="${rec.soldDate.slice(0,10)}" /></td>
-      <td><input type="number" class="form-control sold-input" data-field="listPrice" step="0.01" value="${rec.listPrice}" /></td>
-      <td><input type="number" class="form-control sold-input" data-field="sqft" value="${rec.sqft}" /></td>
+      <td><input type="date" class="form-control sold-input" data-field="listDate" value="${(rec.listDate || '').slice(0,10)}" /></td>
       <td>
-        <select class="form-select sold-input" data-field="floorPlanId">
+        <select class="form-select sold-input" data-field="floorPlan">
           ${allFloorPlans.map(fp =>
             `<option value="${fp._id}"${fp._id===rec.floorPlan?' selected':''}>${fp.name}</option>`
           ).join('')}
         </select>
       </td>
+      <td><input type="number" class="form-control sold-input" data-field="listPrice" step="0.01" value="${rec.listPrice}" /></td>
+      <td><input type="number" class="form-control sold-input" data-field="sqft" value="${rec.sqft}" /></td>
       <td>
         <select class="form-select sold-input" data-field="status">
           <option value="Ready Now">Ready Now</option>
           <option value="SOLD" selected>SOLD</option>
         </select>
-      </td>`;
+      </td>
+      <td><input type="date" class="form-control sold-input" data-field="soldDate" value="${(rec.soldDate || '').slice(0,10)}" /></td>
+      <td>
+        <input class="form-control sold-input" type="number" step="0.01"
+              data-field="soldPrice" value="${rec.soldPrice ?? ''}" />
+      </td>  
+   `;
     DOM.soldBody.appendChild(tr);
   });
 
@@ -184,8 +182,9 @@ DOM.quickBody.appendChild(addTr);
         ? `/api/competitions/${competitionId}/quick-moveins/${id}`
         : `/api/competitions/${competitionId}/quick-moveins`;
       const method = id ? 'PUT' : 'POST';
-      await fetch(url, { method, headers:{'Content-Type':'application/json'}, body:JSON.stringify(payload) });
-      loadQuickHomes(monthKey);
+     await fetch(url, { method, headers:{'Content-Type':'application/json'}, body:JSON.stringify(payload) });
+     await initQuickHomes();
+     loadQuickHomes(monthKey);
     });
   });
 
@@ -201,12 +200,13 @@ DOM.quickBody.appendChild(addTr);
       payload.listPrice = parseFloat(payload.listPrice) || 0;
       payload.sqft = parseFloat(payload.sqft) || 0;
 
-      await fetch(`/api/competitions/${competitionId}/quick-moveins/${id}`, {
+     await fetch(`/api/competitions/${competitionId}/quick-moveins/${id}`, {
         method: 'PUT',
         headers:{'Content-Type':'application/json'},
-        body:JSON.stringify(payload)
+        body: JSON.stringify(payload)
       });
-      loadQuickHomes(monthKey);
+      await initQuickHomes();   // <<< refresh cache so soldDate is present
+      loadQuickHomes(monthKey); // <<< now re-render with fresh data
     });
   });
 }
