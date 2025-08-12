@@ -1,4 +1,15 @@
 // public/assets/js/update-competition/loaders.js
+const isNum = v => v !== '' && v != null && !Number.isNaN(Number(v));
+const numOrNull = v => (isNum(v) ? Number(v) : null);
+const findPlan  = id => allFloorPlans.find(fp => fp._id === id);
+
+// gate creates until required fields present
+const canCreateQMI = p =>
+  !!p.address?.trim() &&
+  !!p.listDate &&
+  !!p.floorPlan &&
+  isNum(p.listPrice) &&
+  isNum(p.sqft);
 
 import { competitionId } from './data.js';
 import * as DOM from './dom.js';
@@ -85,7 +96,12 @@ export function loadQuickHomes(monthKey) {
   const unsold = allQuickHomes.filter(r =>
   r.status !== 'SOLD' && (r.listDate || '').slice(0,7) <= monthKey
 );
-  const sold = allQuickHomes.filter(r => r.status === 'SOLD');
+  const sold = allQuickHomes.filter(r =>
+  r.status === 'SOLD' && (
+    (r.soldDate && r.soldDate.slice(0, 7) === monthKey) ||
+    (!r.soldDate && r.month === monthKey)
+  )
+);
 
 
   // Render Quick-Move-Ins table
@@ -104,7 +120,8 @@ export function loadQuickHomes(monthKey) {
         </select>
       </td>
       <td><input type="number" class="form-control qmi-input" data-field="listPrice" step="0.01" value="${rec.listPrice}" /></td>
-      <td><input type="number" class="form-control qmi-input" data-field="sqft" value="${rec.sqft}" /></td>
+       <td><input type="number" class="form-control qmi-input" data-field="sqft"
+                   value="${rec.sqft ?? (findPlan(rec.floorPlan)?.sqft ?? '')}" /></td>
       <td>
         <select class="form-select qmi-input" data-field="status">
           <option value="Ready Now"${rec.status==='Ready Now'?' selected':''}>Ready Now</option>
@@ -152,7 +169,8 @@ DOM.quickBody.appendChild(addTr);
         </select>
       </td>
       <td><input type="number" class="form-control sold-input" data-field="listPrice" step="0.01" value="${rec.listPrice}" /></td>
-      <td><input type="number" class="form-control sold-input" data-field="sqft" value="${rec.sqft}" /></td>
+       <td><input class="form-control sold-input" type="number" data-field="sqft"
+                   value="${rec.sqft ?? (findPlan(rec.floorPlan)?.sqft ?? '')}" /></td>
       <td>
         <select class="form-select sold-input" data-field="status">
           <option value="Ready Now">Ready Now</option>
@@ -170,25 +188,68 @@ DOM.quickBody.appendChild(addTr);
 
   // Auto-save Quick-Move-Ins
   DOM.quickBody.querySelectorAll('.qmi-input').forEach(el => {
-    el.addEventListener('change', async e => {
-      const row = e.target.closest('tr');
-      const id = row.dataset.id;
-      const payload = {};
-      row.querySelectorAll('.qmi-input').forEach(inp => {
-        payload[inp.dataset.field] = inp.value;
-      });
-      payload.listPrice = parseFloat(payload.listPrice) || 0;
-      payload.sqft = parseFloat(payload.sqft) || 0;
+  el.addEventListener('change', async e => {
+    const row = e.target.closest('tr');
+    const id  = row.dataset.id;
 
-      const url = id
-        ? `/api/competitions/${competitionId}/quick-moveins/${id}`
-        : `/api/competitions/${competitionId}/quick-moveins`;
-      const method = id ? 'PUT' : 'POST';
-     await fetch(url, { method, headers:{'Content-Type':'application/json'}, body:JSON.stringify(payload) });
-     await initQuickHomes();
-     loadQuickHomes(monthKey);
+    // build payload from the row
+    const payload = {};
+    row.querySelectorAll('.qmi-input').forEach(inp => {
+      payload[inp.dataset.field] = inp.value;
     });
+
+    // if the plan changed, auto-fill sqft from the selected plan
+    if (e.target.dataset.field === 'floorPlan') {
+      const plan = allFloorPlans.find(fp => fp._id === e.target.value);
+      const sq   = plan?.sqft ?? null;
+      const sqftInput = row.querySelector('.qmi-input[data-field="sqft"]');
+      if (sqftInput) sqftInput.value = sq ?? '';
+      payload.sqft = sq;
+    }
+
+    // NEW: gate creation until required fields are present
+    if (!id) {
+      if (!canCreateQMI(payload)) {
+        // do NOT POST yet—let the user finish the row
+        return;
+      }
+      // defaults for a new record
+      payload.month  = monthKey;
+      if (!payload.status) payload.status = 'Ready Now';
+    }
+
+    // normalize numeric fields for the API
+    payload.listPrice = numOrNull(payload.listPrice);
+    payload.sqft      = numOrNull(payload.sqft);
+
+    // keep your “pin to month when SOLD and no soldDate yet” if you added it
+    if (payload.status === 'SOLD' && !payload.soldDate) {
+      payload.month = monthKey;
+    }
+
+    const url    = id
+      ? `/api/competitions/${competitionId}/quick-moveins/${id}`
+      : `/api/competitions/${competitionId}/quick-moveins`;
+    const method = id ? 'PUT' : 'POST';
+
+    try {
+      const resp = await fetch(url, {
+        method,
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload)
+      });
+      if (!resp.ok) {
+        console.error('QMI save failed', resp.status, await resp.text());
+        return; // don't wipe the row on failure
+      }
+      await initQuickHomes();   // refresh cache so values stick
+      loadQuickHomes(monthKey);
+    } catch (err) {
+      console.error('QMI save error', err);
+    }
   });
+});
+
 
   // Auto-save Sold
   DOM.soldBody.querySelectorAll('.sold-input').forEach(el => {
@@ -199,8 +260,16 @@ DOM.quickBody.appendChild(addTr);
       row.querySelectorAll('.sold-input').forEach(inp => {
         payload[inp.dataset.field] = inp.value;
       });
-      payload.listPrice = parseFloat(payload.listPrice) || 0;
-      payload.sqft = parseFloat(payload.sqft) || 0;
+       if (e.target.dataset.field === 'floorPlan') {
+          const plan = findPlan(e.target.value);
+          const sq   = plan?.sqft ?? null;
+          const sqftInput = row.querySelector('.sold-input[data-field="sqft"]');
+          if (sqftInput) sqftInput.value = sq ?? '';
+          payload.sqft = sq;
+        }
+      payload.listPrice = numOrNull(payload.listPrice);
+      payload.sqft      = numOrNull(payload.sqft);
+      payload.soldPrice = numOrNull(payload.soldPrice);
 
      await fetch(`/api/competitions/${competitionId}/quick-moveins/${id}`, {
         method: 'PUT',

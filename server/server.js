@@ -484,7 +484,8 @@ app.put('/api/competitions/:id/quick-moveins/:recId', async (req, res, next) => 
       status,
       listDate,
       soldDate,
-      soldPrice   // <-- include it
+      soldPrice,   // <-- include it
+      month
     } = req.body;
 
     const rec = await QuickMoveIn.findByIdAndUpdate(
