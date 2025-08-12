@@ -1,33 +1,15 @@
+// models/salesRecord.js
 const mongoose = require('mongoose');
+const { Schema } = mongoose;
 
-const salesRecordSchema = new mongoose.Schema({
-  competition: {
-    type: mongoose.Schema.Types.ObjectId,
-    ref: 'Competition',
-    required: true
-  },
-  month: {
-    type: String,   // “YYYY-MM”
-    required: true
-  },
-  sales: {
-    type: Number,
-    required: true
-  },
-  cancels: {
-    type: Number,
-    required: true
-  },
-  closings: {
-    type: Number,
-    required: true
-  }
+const salesRecordSchema = new Schema({
+  competition: { type: Schema.Types.ObjectId, ref: 'Competition', required: true },
+  month:       { type: String, required: true }, // 'YYYY-MM'
+  sales:       { type: Number, default: 0, min: 0 },
+  cancels:     { type: Number, default: 0, min: 0 },
+  closings:    { type: Number, default: 0, min: 0 },
 }, { timestamps: true });
 
-// one record per competition+month
-salesRecordSchema.index(
-  { competition: 1, month: 1 },
-  { unique: true }
-);
+salesRecordSchema.index({ competition: 1, month: 1 }, { unique: true });
 
 module.exports = mongoose.model('SalesRecord', salesRecordSchema);

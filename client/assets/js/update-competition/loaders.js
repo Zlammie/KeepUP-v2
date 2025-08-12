@@ -2,6 +2,11 @@
 const isNum = v => v !== '' && v != null && !Number.isNaN(Number(v));
 const numOrNull = v => (isNum(v) ? Number(v) : null);
 const findPlan  = id => allFloorPlans.find(fp => fp._id === id);
+const formatMonth = ym => {
+  if (!ym) return '';
+  const [y, m] = ym.split('-').map(Number);
+  return new Date(y, m - 1, 1).toLocaleString(undefined, { month: 'long', year: 'numeric' });
+};
 
 // gate creates until required fields present
 const canCreateQMI = p =>
@@ -110,6 +115,9 @@ export function loadQuickHomes(monthKey) {
     const tr = document.createElement('tr');
     tr.dataset.id = rec._id;
     tr.innerHTML = `
+     <td>
+        <button type="button" class="btn btn-sm btn-outline-danger qmi-delete">Delete</button>
+     </td>
       <td><input class="form-control qmi-input" data-field="address" value="${rec.address}" /></td>
       <td><input type="date" class="form-control qmi-input"  data-field="listDate" value="${(rec.listDate || '').slice(0,10)}" /></td>
       <td>
@@ -131,9 +139,12 @@ export function loadQuickHomes(monthKey) {
     DOM.quickBody.appendChild(tr);
   });
 
-  const addTr = document.createElement('tr');
+const addTr = document.createElement('tr');
 // no addTr.dataset.id so POST on save
 addTr.innerHTML = `
+  <td>
+    <button type="button" class="btn btn-sm btn-outline-secondary qmi-clear">Clear</button>
+  </td>
   <td><input class="form-control qmi-input" data-field="address" value="" /></td>
   <td><input type="date" class="form-control qmi-input"  data-field="listDate" value="" /></td>
   <td>
@@ -150,8 +161,30 @@ addTr.innerHTML = `
       <option value="Ready Now" selected>Ready Now</option>
       <option value="SOLD">SOLD</option>
     </select>
-  </td>`;
+  </td>
+`;
 DOM.quickBody.appendChild(addTr);
+
+DOM.quickBody.querySelectorAll('.qmi-delete').forEach(btn => {
+  btn.addEventListener('click', async e => {
+    const row = e.target.closest('tr');
+    const id  = row.dataset.id;
+    if (!id) return; // only saved rows can be deleted
+    if (!confirm('Delete this home?')) return;
+    const resp = await fetch(`/api/competitions/${competitionId}/quick-moveins/${id}`, { method: 'DELETE' });
+    if (!resp.ok) { console.error('Delete failed', await resp.text()); return; }
+    await initQuickHomes();
+    loadQuickHomes(monthKey);
+  });
+});
+
+// Clear button (no API call)
+DOM.quickBody.querySelectorAll('.qmi-clear').forEach(btn => {
+  btn.addEventListener('click', e => {
+    const row = e.target.closest('tr');
+    row.querySelectorAll('.qmi-input').forEach(inp => { inp.value = ''; });
+  });
+});
 
   // Render Sold table
   DOM.soldBody.innerHTML = '';
@@ -159,6 +192,9 @@ DOM.quickBody.appendChild(addTr);
     const tr = document.createElement('tr');
     tr.dataset.id = rec._id;
     tr.innerHTML = `
+    <td>
+      <button type="button" class="btn btn-sm btn-outline-danger sold-delete">Delete</button>
+     </td>
       <td><input class="form-control sold-input" data-field="address" value="${rec.address}" /></td>
       <td><input type="date" class="form-control sold-input" data-field="listDate" value="${(rec.listDate || '').slice(0,10)}" /></td>
       <td>
@@ -186,11 +222,27 @@ DOM.quickBody.appendChild(addTr);
     DOM.soldBody.appendChild(tr);
   });
 
+  DOM.soldBody.querySelectorAll('.sold-delete').forEach(btn => {
+  btn.addEventListener('click', async e => {
+    const row = e.target.closest('tr');
+    const id  = row.dataset.id;
+    if (!id) return;
+    if (!confirm('Delete this sold home?')) return;
+    await fetch(`/api/competitions/${competitionId}/quick-moveins/${id}`, { method: 'DELETE' });
+    await initQuickHomes();
+    loadQuickHomes(monthKey);
+  });
+});
+
+
+
   // Auto-save Quick-Move-Ins
   DOM.quickBody.querySelectorAll('.qmi-input').forEach(el => {
   el.addEventListener('change', async e => {
     const row = e.target.closest('tr');
     const id  = row.dataset.id;
+
+
 
     // build payload from the row
     const payload = {};
@@ -251,9 +303,15 @@ DOM.quickBody.appendChild(addTr);
 });
 
 
+
   // Auto-save Sold
   DOM.soldBody.querySelectorAll('.sold-input').forEach(el => {
     el.addEventListener('change', async e => {
+        if (e.target.dataset.field === 'soldDate') {
+      const v = e.target.value; // from <input type="date">
+      if (!v || !/^\d{4}-\d{2}-\d{2}$/.test(v)) return; // wait until full date
+    }
+
       const row = e.target.closest('tr');
       const id = row.dataset.id;
       const payload = {};
@@ -276,11 +334,13 @@ DOM.quickBody.appendChild(addTr);
         headers:{'Content-Type':'application/json'},
         body: JSON.stringify(payload)
       });
+        
       await initQuickHomes();   // <<< refresh cache so soldDate is present
       loadQuickHomes(monthKey); // <<< now re-render with fresh data
     });
   });
 }
+  
 
 /**
  * 3) Sales Records loader
@@ -289,34 +349,41 @@ export async function loadSales(monthKey) {
   const recs = await fetch(
     `/api/competitions/${competitionId}/sales-records?month=${monthKey}`
   ).then(r => r.json());
-  const r = recs[0] || {};
+
+  // pick the exact record for the selected month (or none)
+  const r = recs.find(x => x.month === monthKey) || {};
+  const monthLabel = formatMonth(monthKey);
 
   DOM.salesBody.innerHTML = '';
   const tr = document.createElement('tr');
-  tr.dataset.id    = r._id || '';
+  tr.dataset.id = r._id || '';
   tr.dataset.month = monthKey;
   tr.innerHTML = `
-    <td>${r.month}</td>
-    <td><input type="number" class="form-control sales-input" data-field="sales" value="${r.sales||''}" /></td>
-    <td><input type="number" class="form-control sales-input" data-field="cancels" value="${r.cancels||''}" /></td>
-    <td class="net-cell">${r.sales ? r.sales - r.cancels : ''}</td>
-    <td><input type="number" class="form-control sales-input" data-field="closings" value="${r.closings||''}" /></td>`;
+    <td>${monthLabel}</td>
+    <td><input type="number" class="form-control sales-input" data-field="sales"    value="${r.sales ?? ''}" /></td>
+    <td><input type="number" class="form-control sales-input" data-field="cancels"  value="${r.cancels ?? ''}" /></td>
+    <td class="net-cell">${(r.sales ?? '') !== '' && (r.cancels ?? '') !== '' ? (Number(r.sales) - Number(r.cancels)) : ''}</td>
+    <td><input type="number" class="form-control sales-input" data-field="closings" value="${r.closings ?? ''}" /></td>
+  `;
   DOM.salesBody.appendChild(tr);
 
+  // keep your existing blur/change handler; ensure new creates set month
   tr.querySelectorAll('.sales-input').forEach(input => {
     input.addEventListener('blur', async e => {
-      const row      = e.target.closest('tr');
-      const id       = row.dataset.id;
-      const sales    = parseInt(row.querySelector('[data-field="sales"]').value,   10) || 0;
-      const cancels  = parseInt(row.querySelector('[data-field="cancels"]').value, 10) || 0;
-      const closings = parseInt(row.querySelector('[data-field="closings"]').value,10) || 0;
+      const row = e.target.closest('tr');
+      const id = row.dataset.id;
+
+      const sales   = Number(row.querySelector('[data-field="sales"]').value || 0);
+      const cancels = Number(row.querySelector('[data-field="cancels"]').value || 0);
+      const closings= Number(row.querySelector('[data-field="closings"]').value || 0);
       row.querySelector('.net-cell').textContent = sales - cancels;
 
       const payload = { sales, cancels, closings };
-      let url     = `/api/competitions/${competitionId}/sales-records`;
-      let method  = 'POST';
+      let url   = `/api/competitions/${competitionId}/sales-records`;
+      let method = 'POST';
       if (id) { url += `/${id}`; method = 'PUT'; }
-      else    { payload.month = monthKey; }
+      else { payload.month = monthKey; } // <-- important for new records
+
       await fetch(url, {
         method,
         headers: { 'Content-Type':'application/json' },

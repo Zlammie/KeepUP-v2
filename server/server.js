@@ -4,6 +4,7 @@ const mongoose = require('mongoose');
 const bodyParser = require('body-parser');
 const path = require('path');
 const numOrNull = v => (v === '' || v == null ? null : Number(v));
+const toNum = v => (v == null || v === '' ? 0 : Number(v));
 
 const realtorRoutes = require('./routes/realtorRoutes'); 
 const contactRoutes = require('./routes/contactRoutes');
@@ -527,11 +528,15 @@ app.post('/api/competitions/:id/sales-records', async (req, res, next) => {
     const { month, sales, cancels, closings } = req.body;
     const rec = await SalesRecord.create({
       competition: req.params.id,
-      month, sales, cancels, closings
+      month,
+      sales:   toNum(sales),
+      cancels: toNum(cancels),
+      closings: toNum(closings),
     });
     res.status(201).json(rec);
   } catch (err) {
-    next(err);
+    // Optional: send details to the client during dev
+    res.status(400).json({ error: err.message });
   }
 });
 
@@ -541,14 +546,24 @@ app.put('/api/competitions/:id/sales-records/:recId', async (req, res, next) => 
     const { sales, cancels, closings } = req.body;
     const rec = await SalesRecord.findByIdAndUpdate(
       req.params.recId,
-      { sales, cancels, closings },
-      { new: true }
+      { sales: toNum(sales), cancels: toNum(cancels), closings: toNum(closings) },
+      { new: true, runValidators: true }
     ).lean();
     res.json(rec);
+  } catch (err) {
+    res.status(400).json({ error: err.message });
+  }
+});
+
+app.delete('/api/competitions/:id/quick-moveins/:recId', async (req, res, next) => {
+  try {
+    await QuickMoveIn.deleteOne({ _id: req.params.recId, competition: req.params.id });
+    res.sendStatus(204);
   } catch (err) {
     next(err);
   }
 });
+
 
 
 // ✅ Catch-all 404 (keep this LAST)
