@@ -82,7 +82,9 @@ export async function loadMonth(monthKey) {
 export function loadQuickHomes(monthKey) {
   const monthIdx = new Date(`${monthKey}-01`).getMonth();
   // Filter unsold and sold for the given month
-  const unsold = allQuickHomes;
+  const unsold = allQuickHomes.filter(r =>
+  r.status !== 'SOLD' && (r.listDate || '').slice(0,7) <= monthKey
+);
   const sold = allQuickHomes.filter(r => r.status === 'SOLD');
 
 

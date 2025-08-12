@@ -3,6 +3,7 @@ const express = require('express');
 const mongoose = require('mongoose');
 const bodyParser = require('body-parser');
 const path = require('path');
+const numOrNull = v => (v === '' || v == null ? null : Number(v));
 
 const realtorRoutes = require('./routes/realtorRoutes'); 
 const contactRoutes = require('./routes/contactRoutes');
@@ -439,18 +440,32 @@ app.get('/api/competitions/:id/quick-moveins', async (req, res, next) => {
 // POST new quick-move-in
 app.post('/api/competitions/:id/quick-moveins', async (req, res, next) => {
   try {
-    const { month, address, floorPlanId, listPrice, sqft, status, listDate, soldDate, soldPrice } = req.body;
-    const rec = await QuickMoveIn.create({
-      competition: req.params.id,
+    const {
       month,
       address,
-      floorPlan: floorPlanId,
+      floorPlanId,   // front-end may send floorPlanId ...
+      floorPlan,     // ...or floorPlan (use whichever is present)
       listPrice,
       sqft,
       status,
       listDate,
-      soldDate
+      soldDate,
+      soldPrice      // <-- make sure this is included
+    } = req.body;
+
+    const rec = await QuickMoveIn.create({
+      competition: req.params.id,
+      month,
+      address,
+      floorPlan: floorPlanId || floorPlan, // normalize
+      listPrice: numOrNull(listPrice),
+      sqft:      numOrNull(sqft),
+      status,
+      listDate,
+      soldDate:  soldDate || null,
+      soldPrice: numOrNull(soldPrice)      // <-- persist it
     });
+
     res.status(201).json(rec);
   } catch (err) {
     next(err);
@@ -460,27 +475,39 @@ app.post('/api/competitions/:id/quick-moveins', async (req, res, next) => {
 // PUT update existing quick-move-in
 app.put('/api/competitions/:id/quick-moveins/:recId', async (req, res, next) => {
   try {
-    const { address, floorPlanId, listPrice, sqft, status, listDate, soldDate,soldPrice } = req.body;
-    const rec = await QuickMoveIn
-      .findByIdAndUpdate(
-        req.params.recId,
-        {
-          address,
-          floorPlan: floorPlanId,
-          listPrice,
-          sqft,
-          status,
-          listDate,
-          soldDate
-        },
-        { new: true }
-      )
-      .lean();
+    const {
+      address,
+      floorPlanId,
+      floorPlan,
+      listPrice,
+      sqft,
+      status,
+      listDate,
+      soldDate,
+      soldPrice   // <-- include it
+    } = req.body;
+
+    const rec = await QuickMoveIn.findByIdAndUpdate(
+      req.params.recId,
+      {
+        address,
+        floorPlan: floorPlanId || floorPlan,
+        listPrice: numOrNull(listPrice),
+        sqft:      numOrNull(sqft),
+        status,
+        listDate,
+        soldDate:  soldDate || null,
+        soldPrice: numOrNull(soldPrice)   // <-- persist it
+      },
+      { new: true }
+    ).lean();
+
     res.json(rec);
   } catch (err) {
     next(err);
   }
 });
+
 app.get('/api/competitions/:id/sales-records', async (req, res, next) => {
   try {
     const { month } = req.query;               // e.g. ?month=2025-06
