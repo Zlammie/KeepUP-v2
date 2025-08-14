@@ -7,7 +7,7 @@ const formatMonth = ym => {
   const [y, m] = ym.split('-').map(Number);
   return new Date(y, m - 1, 1).toLocaleString(undefined, { month: 'long', year: 'numeric' });
 };
-
+const isFullDate = v => typeof v === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(v);
 // gate creates until required fields present
 const canCreateQMI = p =>
   !!p.address?.trim() &&
@@ -165,6 +165,13 @@ addTr.innerHTML = `
 `;
 DOM.quickBody.appendChild(addTr);
 
+const newPlanSel = addTr.querySelector('.qmi-input[data-field="floorPlan"]');
+const newSqftInp = addTr.querySelector('.qmi-input[data-field="sqft"]');
+if (newPlanSel && newSqftInp && !newSqftInp.value) {
+  const plan = allFloorPlans.find(fp => fp._id === newPlanSel.value);
+  if (plan?.sqft != null) newSqftInp.value = plan.sqft;
+}
+
 DOM.quickBody.querySelectorAll('.qmi-delete').forEach(btn => {
   btn.addEventListener('click', async e => {
     const row = e.target.closest('tr');
@@ -304,41 +311,63 @@ DOM.quickBody.querySelectorAll('.qmi-clear').forEach(btn => {
 
 
 
-  // Auto-save Sold
-  DOM.soldBody.querySelectorAll('.sold-input').forEach(el => {
-    el.addEventListener('change', async e => {
-        if (e.target.dataset.field === 'soldDate') {
-      const v = e.target.value; // from <input type="date">
-      if (!v || !/^\d{4}-\d{2}-\d{2}$/.test(v)) return; // wait until full date
+  // Auto-save Sold (date uses BLUR; others use CHANGE)
+DOM.soldBody.querySelectorAll('.sold-input').forEach(el => {
+  const field = el.dataset.field;
+  const evt   = field === 'soldDate' ? 'blur' : 'change';
+
+  el.addEventListener(evt, async e => {
+    const row = e.target.closest('tr');
+    const id  = row.dataset.id;
+
+    // Block saves from OTHER fields while soldDate is partially typed
+    const sdInput = row.querySelector('.sold-input[data-field="soldDate"]');
+    const sdVal   = sdInput ? sdInput.value : '';
+    if (field !== 'soldDate' && sdVal && !isFullDate(sdVal)) {
+      return; // wait until soldDate is complete or cleared
     }
 
-      const row = e.target.closest('tr');
-      const id = row.dataset.id;
-      const payload = {};
-      row.querySelectorAll('.sold-input').forEach(inp => {
-        payload[inp.dataset.field] = inp.value;
-      });
-       if (e.target.dataset.field === 'floorPlan') {
-          const plan = findPlan(e.target.value);
-          const sq   = plan?.sqft ?? null;
-          const sqftInput = row.querySelector('.sold-input[data-field="sqft"]');
-          if (sqftInput) sqftInput.value = sq ?? '';
-          payload.sqft = sq;
-        }
-      payload.listPrice = numOrNull(payload.listPrice);
-      payload.sqft      = numOrNull(payload.sqft);
-      payload.soldPrice = numOrNull(payload.soldPrice);
+    // If this is the soldDate field, only save on a FULL date (blur event)
+    if (field === 'soldDate' && !isFullDate(e.target.value)) {
+      return; // ignore partial/invalid
+    }
 
-     await fetch(`/api/competitions/${competitionId}/quick-moveins/${id}`, {
-        method: 'PUT',
-        headers:{'Content-Type':'application/json'},
-        body: JSON.stringify(payload)
-      });
-        
-      await initQuickHomes();   // <<< refresh cache so soldDate is present
-      loadQuickHomes(monthKey); // <<< now re-render with fresh data
+    // Build payload; SKIP soldDate unless it's complete so we don't wipe it
+    const payload = {};
+    row.querySelectorAll('.sold-input').forEach(inp => {
+      const f = inp.dataset.field;
+      const v = inp.value;
+
+      if (f === 'soldDate' && !isFullDate(v)) return; // skip incomplete/blank
+
+      payload[f] = (inp.type === 'number')
+        ? (v === '' || v == null ? null : Number(v))
+        : v;
     });
+
+    const resp = await fetch(`/api/competitions/${competitionId}/quick-moveins/${id}`, {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload)
+    });
+    if (!resp.ok) {
+      console.error('Sold save failed', resp.status, await resp.text());
+      return;
+    }
+
+    await initQuickHomes();
+
+    // If soldDate was set and belongs to another month, hop there so the row stays visible
+    if (field === 'soldDate' && isFullDate(e.target.value)) {
+      const newYM = e.target.value.slice(0, 7);
+      if (newYM !== monthKey) {
+        const link = document.querySelector(`[data-month="${newYM}"]`);
+        if (link) { link.click(); return; }
+      }
+    }
+    loadQuickHomes(monthKey);
   });
+});
 }
   
 
