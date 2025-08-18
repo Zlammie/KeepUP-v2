@@ -10,6 +10,7 @@
 @import "layout/top-nav.css";
 @import "layout/header.css";
 @import "layout/footer.css";
+@import "layout/graph.css";
 
 /* 3. Components */
 @import "components/card.css";

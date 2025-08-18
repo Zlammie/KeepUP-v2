@@ -252,10 +252,30 @@
               </div>
             </div>
           </section>
+           <div class="card card--grey ">
+              <section class="section-box span-full card card--white mt-3" id="graphsSection">
+                <div class="section-box__header graphs-header">
+                  <h4 class="graphs-title">Performance Graphs</h4>
+
+                  <!-- Tabs -->
+                  <div class="tab-nav" role="tablist" aria-label="Graph selector">
+                    <button class="tab-btn is-active" data-tab="sales" role="tab" aria-selected="true">Sales</button>
+                    <button class="tab-btn" data-tab="sqft" role="tab" aria-selected="false">Sqft Comparison</button>
+                    <button class="tab-btn" data-tab="base" role="tab" aria-selected="false">Base Price</button>
+                    <button class="tab-btn" data-tab="qmi" role="tab" aria-selected="false">QMI / Solds</button>
+                  </div>
+                </div>
+
+                <!-- Graph mount point (JS fills this) -->
+                <div id="graphMount" class="graph-mount" role="region" aria-live="polite" aria-busy="false"></div>
+              </section>
+            </div>
         </div>
       </div>
-
+      
     </div>
+   
+   
   </main>
 
   <!-- Amenities Modal (JS populates content) -->
@@ -285,6 +305,7 @@
 </script>
 
 <!-- Entry script as an ES module -->
+ <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.4/dist/chart.umd.min.js"></script>
 <script type="module" src="/assets/js/competition-details/index.js"></script>
 </body>
 </html>

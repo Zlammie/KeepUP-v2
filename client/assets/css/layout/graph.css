@@ -1,0 +1,63 @@
+/* ----- Graphs tabs ----- */
+.graphs-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: .75rem;
+  flex-wrap: wrap;
+}
+
+.graphs-title {
+  margin: 0;
+}
+
+.tab-nav {
+  display: flex;
+  gap: .5rem;
+  flex-wrap: wrap;
+}
+
+.tab-btn {
+  border: 1px solid var(--border, #ddd);
+  background: var(--btnBg, #f7f7f7);
+  padding: .4rem .8rem;
+  border-radius: 999px;
+  font-size: .9rem;
+  cursor: pointer;
+  transition: transform .05s ease;
+}
+
+.tab-btn:hover { transform: translateY(-1px); }
+
+.tab-btn.is-active {
+  background: var(--primaryTint, #eef5ff);
+  border-color: var(--primary, #2b6cb0);
+  color: var(--primary, #2b6cb0);
+}
+
+/* graph canvas/container */
+.graph-mount {
+  min-height: 320px;
+  background: var(--cardWhite, #fff);
+  border: 1px solid var(--border, #eee);
+  border-radius: 12px;
+  padding: 1rem;
+}
+
+/* simple table used for placeholder renderers */
+.graph-table {
+  width: 100%;
+  border-collapse: collapse;
+}
+.graph-table th, .graph-table td {
+  padding: .5rem .6rem;
+  border-bottom: 1px solid #eee;
+  text-align: left;
+}
+.graph-empty {
+  opacity: .7;
+  font-style: italic;
+}
+
+#graphsSection .graph-mount { min-height: 420px; }
+#salesChartCanvas { width: 100%; height: 100%; }

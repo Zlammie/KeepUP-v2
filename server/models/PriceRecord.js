@@ -28,4 +28,5 @@ priceRecordSchema.index(
   { unique: true }
 );
 
-module.exports = mongoose.model('PriceRecord', priceRecordSchema);
+module.exports = mongoose.models.PriceRecord
+  || mongoose.model('PriceRecord', priceRecordSchema);
