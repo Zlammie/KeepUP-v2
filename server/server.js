@@ -14,6 +14,8 @@ const commentRoutes = require('./routes/commentsRoutes');
 const lotViewRoutes = require('./routes/lotViewRoutes');
 const floorPlanRoutes  = require('./routes/floorPlanRoutes');
 const competitionRoutes = require('./routes/competitionRoutes')
+const myCommunityCompetitionRoutes = require('./routes/myCommunityCompetitionRoutes');
+
 
 const Contact = require(path.join(__dirname, 'models', 'Contact'));
 const Realtor = require(path.join(__dirname, 'models', 'Realtor'));
@@ -54,6 +56,7 @@ app.use('/api/comments', commentRoutes);
 app.use('/api/floorplans', floorPlanRoutes);
 app.use('/api', lotViewRoutes);
 app.use('/api/competitions', competitionRoutes);
+app.use(myCommunityCompetitionRoutes);
 
 
 // ✅ Render EJS pages
@@ -562,6 +565,11 @@ app.delete('/api/competitions/:id/quick-moveins/:recId', async (req, res, next) 
   } catch (err) {
     next(err);
   }
+});
+
+
+app.get('/my-community-competition', (req, res) => {
+  res.render('pages/my-community-competition', { title: 'My Community — Competition' });
 });
 
 

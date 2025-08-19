@@ -10,57 +10,105 @@
   <%- include('../partials/top-nav-community') %>
   <h1>Community Management</h1>
 
-  <!-- Community Creation -->
-  <section class="community-form">
-    <h2>Add New Community</h2>
-    <form id="community-form">
-      <label>Community Name: 
-        <input type="text" id="communityName" required />
-      </label>
-      <label>Project Number:
-        <input type="text" id="projectNumber" required />
-      </label>
-      <button type="submit">Create Community</button>
-    </form>
+ 
+
+<div class="container">
+  <h2>My Community — Competition</h2>
+
+  <!-- Community picker -->
+  <section class="card mb-3">
+    <div class="card-header">Select Community</div>
+    <div class="card-body row g-2 align-items-end">
+      <div class="col-md-6">
+        <label for="communitySelect" class="form-label">Community</label>
+        <select id="communitySelect" class="form-select">
+          <option value="">-- Select a community --</option>
+        </select>
+      </div>
+      <div class="col-md-6">
+        <small id="communityHelper" class="text-muted">
+          Choose a community to load its profile. (We’ll prefill from Community data.)
+        </small>
+      </div>
+    </div>
   </section>
 
-  <!-- Lot Addition -->
-  <section class="lot-form">
-    <h2>Add Lot to Community</h2>
-    <form id="lotForm">
-      <label>Community: 
-        <select id="communitySelect" required></select>
-      </label>
-      <label>Job Number: <input type="text" id="jobNumber" required /></label>
-      <label>Lot: <input type="text" id="lot" required /></label>
-      <label>Block: <input type="text" id="block" required /></label>
-      <label>Phase: <input type="text" id="phase" required /></label>
-      <label>Address: <input type="text" id="address" required /></label>
-      <label>Floor Plan: <input type="text" id="floorPlan" /></label>
-      <label>Elevation: <input type="text" id="elevation" /></label>
-      <button type="submit">Add Lot</button>
-    </form>
-  </section>
+  <!-- Everything below is disabled until a community is selected -->
+  <div id="editorArea" class="opacity-50 pointer-events-none">
+    <!-- Prefill (read-only from Community) -->
+    <section class="card mb-3">
+      <div class="card-header">Base Community Info</div>
+      <div class="card-body">
+        <div><strong>Name:</strong> <span id="commName"></span></div>
+        <div><strong>Address:</strong> <span id="commAddress"></span></div>
+        <div><strong>HOA:</strong> <span id="commHoa"></span></div>
+      </div>
+    </section>
 
-  <section>
-    <h2>Import Communities from Excel/CSV</h2>
-    <form id="importForm" enctype="multipart/form-data">
-      <input type="file" id="importFile" name="file" accept=".csv, .xlsx" required />
-      <button type="submit">Upload</button>
-    </form>
-  </section>
+    <!-- Editable profile (reuse your update-competition structure) -->
+    <section class="card mb-3">
+      <div class="card-header">Promotion</div>
+      <div class="card-body">
+        <textarea id="promotion" class="form-control" rows="3" placeholder="Enter promotion..."></textarea>
+      </div>
+    </section>
 
-  <!-- Display Section -->
-   <div id="community-list"></div>
-  <section class="lot-list">
-    <h2>Lots by Community</h2>
-    <div id="lotsContainer"></div>
-  </section>
+    <section class="card mb-3">
+      <div class="card-header">Top 3 Plans</div>
+      <div class="card-body">
+        <input id="topPlan1" class="form-control mb-2" placeholder="1. Plan Name">
+        <input id="topPlan2" class="form-control mb-2" placeholder="2. Plan Name">
+        <input id="topPlan3" class="form-control" placeholder="3. Plan Name">
+      </div>
+    </section>
 
-  <script src="/assets/js/community-view.js"></script>
-  <script>
+    <section class="card mb-3">
+      <div class="card-header">Pros & Cons</div>
+      <div class="card-body">
+        <label class="form-label">Pros</label>
+        <div id="prosList" class="mb-2"></div>
+        <input id="newPro" class="form-control" placeholder="Add a pro and press Enter">
 
-  </script>
+        <div class="mt-3">
+          <label class="form-label">Cons</label>
+          <div id="consList" class="mb-2"></div>
+          <input id="newCon" class="form-control" placeholder="Add a con and press Enter">
+        </div>
+      </div>
+    </section>
+
+    <section class="card mb-3">
+      <div class="card-header">Lot Counts (optional)</div>
+      <div class="card-body row g-2">
+        <div class="col-md-3"><input id="lotsTotal" class="form-control" type="number" placeholder="Total Lots"></div>
+        <div class="col-md-3"><input id="lotsSold" class="form-control" type="number" placeholder="Sold Lots"></div>
+        <div class="col-md-3"><input id="lotsRemaining" class="form-control" type="number" placeholder="Remaining Lots"></div>
+        <div class="col-md-3"><input id="lotsQMI" class="form-control" type="number" placeholder="QMI Lots"></div>
+      </div>
+    </section>
+
+    <section class="card mb-3">
+      <div class="card-header">Linked Competitors</div>
+      <div class="card-body">
+        <input id="competitionSearch" class="form-control mb-2" placeholder="Search competitors...">
+        <div id="competitionResults" class="list-group mb-3"></div>
+        <h6>Selected:</h6>
+        <div id="linkedCompetitors" class="list-group"></div>
+      </div>
+    </section>
+
+    <section class="card mb-5">
+      <div class="card-header">Comparison Preview</div>
+      <div class="card-body" id="comparisonPreview">
+        <!-- charts/tables later -->
+      </div>
+    </section>
+  </div>
+</div>
+
+<script src="/assets/js/my-community-competition.js"></script>
+
+
   
 </body>
 </html>

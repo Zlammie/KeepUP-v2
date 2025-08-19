@@ -1,0 +1,262 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>My Community — Competition</title>
+  <link rel="stylesheet" href="/assets/css/main.css">
+</head>
+<body>
+  <%- include('../partials/nav') %>
+ <%- include('../partials/top-nav-competition') %>
+
+  <main>
+    <!-- ACTIONS ROW (similar spacing to competition-details) -->
+    <div style="margin: 1rem;">
+      <!-- Community picker first -->
+      <label for="communitySelect" class="sr-only">Select Community</label>
+      <select id="communitySelect" class="btn btn-sm btn-secondary">
+        <option value="">-- Select a community --</option>
+      </select>
+
+      <!-- Optional: a quick link to manage communities -->
+      <a href="/view-communities" class="btn btn-sm btn-outline">Manage Communities</a>
+    </div>
+
+    <div class="horizontal-cont">
+      <!-- LEFT: side bar card (same class names for consistency) -->
+      <div class="side-bar card card--grey main-cont" id="leftSidebar" aria-disabled="true">
+        <!-- Sales-like section (we’ll use it for contact/admin info as needed) -->
+        <section class="card card--white">
+          <h2>Primary Community Contact</h2>
+          <div class="form-group">
+            <label for="salesPerson">Sales Person</label>
+            <input type="text" id="salesPerson" name="salesPerson">
+          </div>
+          <div class="form-group">
+            <label for="salesPersonPhone">Sales Person Phone #</label>
+            <input type="text" id="salesPersonPhone" name="salesPersonPhone">
+          </div>
+          <div class="form-group">
+            <label for="salesPersonEmail">Sales Person Email</label>
+            <input type="email" id="salesPersonEmail" name="salesPersonEmail">
+          </div>
+        </section>
+
+        <!-- Builder-like section populated from Community + editable profile -->
+        <section class="card card--white">
+          <h2>Community / Builder Info</h2>
+
+          <div class="form-group">
+            <label for="address">Address</label>
+            <input type="text" id="address" name="address">
+          </div>
+          <div class="form-group">
+            <label for="city">City</label>
+            <input type="text" id="city" name="city">
+          </div>
+          <div class="form-group">
+            <label for="zip">ZIP</label>
+            <input type="text" id="zip" name="zip">
+          </div>
+
+          <div class="form-group">
+            <label for="modelPlan">Model Floor Plan</label>
+            <select id="modelPlan" name="modelPlan">
+              <option value="">-- Select a floor plan --</option>
+              <!-- options filled by JS if you want parity -->
+            </select>
+          </div>
+
+          <div class="form-group">
+            <label for="lotSize">Lot Size</label>
+            <input type="text" id="lotSize" name="lotSize">
+          </div>
+
+          <fieldset class="form-group">
+            <legend>Garage Type</legend>
+            <label><input type="radio" name="garageType" value="Front"> Front</label>
+            <label><input type="radio" name="garageType" value="Rear"> Rear</label>
+          </fieldset>
+
+          <div class="form-group">
+            <label for="totalLots">Total Lots</label>
+            <input type="number" id="totalLots" name="totalLots">
+          </div>
+        </section>
+
+        <section class="card card--white">
+          <h2>School Info</h2>
+          <div class="form-group">
+            <label for="schoolISD">School ISD</label>
+            <input type="text" id="schoolISD" name="schoolISD">
+          </div>
+          <div class="form-group">
+            <label for="elementarySchool">Elementary School</label>
+            <input type="text" id="elementarySchool" name="elementarySchool">
+          </div>
+          <div class="form-group">
+            <label for="middleSchool">Middle School</label>
+            <input type="text" id="middleSchool" name="middleSchool">
+          </div>
+          <div class="form-group">
+            <label for="highSchool">High School</label>
+            <input type="text" id="highSchool" name="highSchool">
+          </div>
+        </section>
+
+        <section class="card card--white">
+          <h2>Community Info</h2>
+
+          <div class="form-group">
+            <label for="hoaFee">HOA Fee</label>
+            <input type="number" id="hoaFee" name="hoaFee">
+          </div>
+
+          <div class="form-group">
+            <label for="hoaFrequency">HOA Frequency</label>
+            <select id="hoaFrequency" name="hoaFrequency">
+              <option value="">-- Select Frequency --</option>
+              <option value="Monthly">Monthly</option>
+              <option value="Bi-Annually">Bi-Annually</option>
+              <option value="Annually">Annually</option>
+            </select>
+          </div>
+
+          <div class="form-group">
+            <label for="tax">Annual Tax (%)</label>
+            <input type="number" id="tax" name="tax" step="0.01">
+          </div>
+
+          <div class="form-group">
+            <label>Additional Fees</label><br>
+            <label><input type="checkbox" id="feeMud"  name="feeTypes" value="MUD"> MUD</label>
+            <label><input type="checkbox" id="feePid"  name="feeTypes" value="PID"> PID</label>
+            <label><input type="checkbox" id="feeNone" name="feeTypes" value="None"> None</label>
+          </div>
+
+          <div class="form-group" id="mudFeeGroup" style="display:none;">
+            <label for="mudFee">MUD Fee</label>
+            <input type="number" id="mudFee" name="mudFee">
+          </div>
+
+          <div class="form-group" id="pidFeeGroup" style="display:none;">
+            <label for="pidFee">PID Fee</label>
+            <input type="number" id="pidFee" name="pidFee">
+          </div>
+
+          <div class="form-group">
+            <label for="earnestAmount">Earnest Amount</label>
+            <input type="number" id="earnestAmount" name="earnestAmount" step="0.01">
+          </div>
+
+          <div class="form-group">
+            <label for="realtorCommission">Realtor Commission (%)</label>
+            <input type="number" id="realtorCommission" name="realtorCommission" step="0.01">
+          </div>
+        </section>
+      </div>
+
+      <!-- RIGHT: top container (same card grid and section-boxes) -->
+      <div class="top-content-cont card card--grey top-container" id="rightTop" aria-disabled="true">
+        <div class="top-card-grid">
+          <!-- Builder title and amenities, mirrored -->
+          <div class="title-and-amenities">
+            <h1 class="builder-title" id="builderTitle">—</h1>
+            <ul class="amenity-chiplist" id="amenityList">
+              <!-- chips inserted by JS -->
+            </ul>
+          </div>
+
+          <ul class="lot-stats">
+            <li class="lot-stat">
+              <span class="stat-label">Total Lots</span>
+              <span class="stat-value" id="statTotalLots">—</span>
+            </li>
+            <li class="lot-stat">
+              <span class="stat-label">Lots Sold</span>
+              <span class="stat-value" id="statLotsSold">—</span>
+            </li>
+            <li class="lot-stat">
+              <span class="stat-label">Remaining</span>
+              <span class="stat-value" id="statLotsRemaining">—</span>
+            </li>
+            <li class="lot-stat">
+              <span class="stat-label">QMI</span>
+              <span class="stat-value" id="statQmiAvailable">—</span>
+            </li>
+          </ul>
+
+          <!-- Promotion & HOA row -->
+          <section class="section-box span-full">
+            <div class="section-box__header">
+              <h4>Promotion & HOA</h4>
+              <button class="toggle-btn" data-target="#promoHoaContent">Hide</button>
+            </div>
+            <div id="promoHoaContent" class="promo-hoa-row">
+              <div class="promo">
+                <p id="promoText">Select a community to load promotions.</p>
+              </div>
+              <div class="hoa-tax">
+                <div class="kv"><span class="k">HOA</span><span class="v" id="hoaDisplay">Not specified</span></div>
+                <div class="kv"><span class="k">Tax Rate</span><span class="v" id="taxDisplay">Not specified</span></div>
+              </div>
+            </div>
+          </section>
+
+          <!-- Pros & Cons full width -->
+          <section class="section-box span-full">
+            <div class="section-box__header">
+              <h4>Pros & Cons</h4>
+              <button class="toggle-btn" data-target="#prosConsContent">Hide</button>
+            </div>
+            <div id="prosConsContent" class="proscons-grid">
+              <div>
+                <h5>Pros</h5>
+                <ul id="prosUl"></ul>
+              </div>
+              <div>
+                <h5>Cons</h5>
+                <ul id="consUl"></ul>
+              </div>
+            </div>
+          </section>
+
+          <!-- Graphs wrapper to match the look -->
+          <div class="card card--grey">
+            <section class="section-box span-full card card--white mt-3" id="graphsSection">
+              <div class="section-box__header graphs-header">
+                <h4 class="graphs-title">Performance Graphs</h4>
+                <div class="tab-nav" role="tablist" aria-label="Graph selector">
+                  <button class="tab-btn is-active" data-tab="sales" role="tab" aria-selected="true">Sales</button>
+                  <button class="tab-btn" data-tab="sqft" role="tab" aria-selected="false">Sqft Comparison</button>
+                  <button class="tab-btn" data-tab="base" role="tab" aria-selected="false">Base Price</button>
+                  <button class="tab-btn" data-tab="qmi" role="tab" aria-selected="false">QMI / Solds</button>
+                </div>
+              </div>
+              <div id="graphMount" class="graph-mount" role="region" aria-live="polite" aria-busy="false"></div>
+            </section>
+          </div>
+
+          <!-- Linked competitors selector (full width) -->
+          <section class="section-box span-full">
+            <div class="section-box__header">
+              <h4>Linked Competitors</h4>
+            </div>
+            <div class="card card--white" style="padding:1rem;">
+              <input id="competitionSearch" class="form-control mb-2" placeholder="Search competitors...">
+              <div id="competitionResults" class="list-group mb-3"></div>
+              <h6>Selected:</h6>
+              <div id="linkedCompetitors" class="list-group"></div>
+            </div>
+          </section>
+        </div>
+      </div>
+    </div>
+  </main>
+
+  <!-- Page script -->
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.4/dist/chart.umd.min.js"></script>
+  <script type="module" src="/assets/js/my-community-competition/index.js"></script>
+</body>
+</html>
