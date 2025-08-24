@@ -135,19 +135,23 @@ async function onSelectCommunity(id) {
 
     // Promotion & HOA display
     promoText.textContent = (profile?.promotion && profile.promotion.trim()) ? profile.promotion : 'No promotion recorded.';
-    hoaDisplay.textContent = (profile?.lotCounts?.quickMoveInLots != null || community?.hoaFee)
-      ? (community?.hoaFee && profile?.hoaFrequency ? `$${community.hoaFee} / ${profile.hoaFrequency}` : (community?.hoaFee ? `$${community.hoaFee}` : 'Not specified'))
-      : 'Not specified';
-    taxDisplay.textContent = community?.tax ? `${community.tax}%` : (profile?.tax ? `${profile.tax}%` : 'Not specified');
+   const effHoaFee = (profile?.hoaFee ?? community?.hoaFee);
+   const effHoaFreq = profile?.hoaFrequency ?? null;
+   hoaDisplay.textContent = (effHoaFee != null && effHoaFee !== '')
+    ? (effHoaFreq ? `$${effHoaFee} / ${effHoaFreq}` : `$${effHoaFee}`)
+    : 'Not specified';
+
+    const effTax = (profile?.tax ?? community?.tax);
+    taxDisplay.textContent = (effTax != null && effTax !== '') ? `${effTax}%` : 'Not specified';
 
     // Fill left sidebar inputs from community (prefill) + profile (editable)
     salesPerson.value = profile?.salesPerson || '';
     salesPersonPhone.value = profile?.salesPersonPhone || '';
     salesPersonEmail.value = profile?.salesPersonEmail || '';
 
-    address.value = community?.address || '';
-    city.value = community?.city || '';
-    zip.value = community?.zip || '';
+   address.value = (profile?.address ?? community?.address ?? '');
+    city.value    = (profile?.city    ?? community?.city    ?? '');
+    zip.value     = (profile?.zip     ?? community?.zip     ?? '');
 
     lotSize.value = profile?.lotSize || '';
     totalLots.value = profile?.lotCounts?.total ?? '';
@@ -156,14 +160,14 @@ async function onSelectCommunity(id) {
     (profile?.garageType === 'Front') ? (garageTypeFront.checked = true) :
     (profile?.garageType === 'Rear')  ? (garageTypeRear.checked  = true) : null;
 
-    schoolISD.value = community?.schoolISD || '';
-    elementarySchool.value = community?.elementarySchool || '';
-    middleSchool.value = community?.middleSchool || '';
-    highSchool.value = community?.highSchool || '';
+    schoolISD.value       = (profile?.schoolISD       ?? community?.schoolISD       ?? '');
+    elementarySchool.value= (profile?.elementarySchool?? community?.elementarySchool?? '');
+    middleSchool.value    = (profile?.middleSchool    ?? community?.middleSchool    ?? '');
+    highSchool.value      = (profile?.highSchool      ?? community?.highSchool      ?? '');
 
-    hoaFee.value = community?.hoaFee ?? '';
-    hoaFrequency.value = profile?.hoaFrequency || '';
-    tax.value = community?.tax ?? profile?.tax ?? '';
+   hoaFee.value       = (profile?.hoaFee ?? community?.hoaFee ?? '');
+    hoaFrequency.value = (profile?.hoaFrequency ?? '');
+    tax.value          = (profile?.tax ?? community?.tax ?? '');
 
     const fees = profile?.feeTypes || [];
     feeMud.checked  = fees.includes('MUD');
@@ -233,7 +237,7 @@ async function autosave() {
       zip: zip.value,
       modelPlan: modelPlan.value || null,
       lotSize: lotSize.value || null,
-      garageType,
+      garageType: garageTypeFront.checked ? 'Front' : (garageTypeRear.checked ? 'Rear' : undefined),
       schoolISD: schoolISD.value,
       elementarySchool: elementarySchool.value,
       middleSchool: middleSchool.value,
@@ -241,7 +245,11 @@ async function autosave() {
       hoaFee: numOrNull(hoaFee.value),
       hoaFrequency: hoaFrequency.value || null,
       tax: numOrNull(tax.value),
-      feeTypes,
+      feeTypes: [
+        feeMud.checked ? 'MUD' : null,
+        feePid.checked ? 'PID' : null,
+        feeNone.checked ? 'None' : null
+      ].filter(Boolean),
       mudFee: feeMud.checked ? numOrNull(mudFee.value) : null,
       pidFee: feePid.checked ? numOrNull(pidFee.value) : null,
       earnestAmount: numOrNull(earnestAmount.value),

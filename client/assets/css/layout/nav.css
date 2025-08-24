@@ -27,6 +27,23 @@
   height: 40px;
 }
 
+.nav-logo{
+  height: 40px !important; 
+  font-size: 35px !important;
+  font-weight: 800 !important;
+  color: white !important;
+  line-height: 1.2 !important;
+
+  margin: 0 !important;
+  padding: 0 !important;
+  box-sizing: border-box !important;
+
+  display: inline-block !important;
+  vertical-align: middle !important;
+
+  align-self: center !important;
+}
+
 .search-bar {
   width: 300px;
   padding: 0.4rem 0.6rem;
@@ -113,4 +130,5 @@
   text-decoration: none;
   color: white;
   transition: background-color 0.2s;
+  margin-left: -1rem;
 }
