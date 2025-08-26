@@ -1,4 +1,5 @@
 const mongoose = require('mongoose');
+const toObjectIdOrNull = v => (typeof v === 'string' && v.trim() === '' ? null : v);
 
 const ProsConsSchema = new mongoose.Schema({
   pros: [String],
@@ -6,9 +7,9 @@ const ProsConsSchema = new mongoose.Schema({
 }, { _id: false });
 
 const TopPlansSchema = new mongoose.Schema({
-  plan1: String,
-  plan2: String,
-  plan3: String
+  plan1: { type: mongoose.Schema.Types.ObjectId, ref: 'FloorPlan', default: null, set: toObjectIdOrNull },
+  plan2: { type: mongoose.Schema.Types.ObjectId, ref: 'FloorPlan', default: null, set: toObjectIdOrNull },
+  plan3: { type: mongoose.Schema.Types.ObjectId, ref: 'FloorPlan', default: null, set: toObjectIdOrNull },
 }, { _id: false });
 
 const CommunityCompetitionProfileSchema = new mongoose.Schema({
@@ -52,7 +53,18 @@ const CommunityCompetitionProfileSchema = new mongoose.Schema({
 
   // ===== Later content but included for continuity =====
   promotion: String,
-  topPlans: TopPlansSchema,
+ topPlans: {
+  type: TopPlansSchema,
+  validate: {
+    validator(v) {
+      const vals = [v?.plan1, v?.plan2, v?.plan3]
+        .filter(Boolean)
+        .map(x => x.toString());
+      return new Set(vals).size === vals.length; // no dupes
+    },
+    message: 'Top plans must be unique.',
+  }
+  },
   prosCons: ProsConsSchema,
 
   // Server-computed from Community.lots

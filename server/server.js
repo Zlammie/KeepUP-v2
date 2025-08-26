@@ -15,6 +15,7 @@ const lotViewRoutes = require('./routes/lotViewRoutes');
 const floorPlanRoutes  = require('./routes/floorPlanRoutes');
 const competitionRoutes = require('./routes/competitionRoutes')
 const myCommunityCompetitionRoutes = require('./routes/myCommunityCompetitionRoutes');
+const communityCompetitionProfileRoutes = require('./routes/communityCompetitionProfileRoutes');
 
 
 const Contact = require(path.join(__dirname, 'models', 'Contact'));
@@ -26,6 +27,7 @@ const FloorPlanComp = require(path.join(__dirname, 'models', 'floorPlanComp'));
 const PriceRecord = require(path.join(__dirname, 'models', 'priceRecord'));
 const QuickMoveIn = require(path.join(__dirname, 'models', 'quickMoveIn'));
 const SalesRecord = require(path.join(__dirname,'models', 'salesRecord'));
+const CommunityCompetitionProfile = require(path.join(__dirname, 'models', 'communityCompetitionProfile'));
 
 const app = express();
 
@@ -57,6 +59,8 @@ app.use('/api/floorplans', floorPlanRoutes);
 app.use('/api', lotViewRoutes);
 app.use('/api/competitions', competitionRoutes);
 app.use(myCommunityCompetitionRoutes);
+app.use('/api/communities', require('./routes/communityRoutes'));
+app.use(communityCompetitionProfileRoutes);
 
 
 // ✅ Render EJS pages
@@ -567,6 +571,24 @@ app.delete('/api/competitions/:id/quick-moveins/:recId', async (req, res, next) 
   }
 });
 
+app.get('/manage-my-community-competition/:communityId', async (req, res) => {
+  const { communityId } = req.params;
+
+  try {
+    const community = await Community.findById(communityId).lean();
+    if (!community) return res.status(404).send('Community not found');
+
+    // 👇 ensure profile exists so EJS never crashes
+    res.render('pages/manage-my-community-competition', {
+      communityId,
+      community,
+      profile: null
+    });
+  } catch (err) {
+    console.error('Error loading manage-my-community-competition:', err);
+    res.status(500).send('Server error');
+  }
+});
 
 app.get('/my-community-competition', (req, res) => {
   res.render('pages/my-community-competition', { title: 'My Community — Competition' });

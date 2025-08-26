@@ -7,13 +7,12 @@ const CommunityCompetitionProfile = require('../models/communityCompetitionProfi
 // helper: derive stats from Community.lots
 function deriveLotStats(community) {
   const lots = Array.isArray(community?.lots) ? community.lots : [];
-  const total = lots.length;
+  const total = (typeof community.totalLots === 'number')
+    ? community.totalLots
+    : lots.length;
 
-  // mark sold as "purchased" or "closed" (case-insensitive)
-  const sold = lots.filter(l => {
-    const s = (l.status || '').toLowerCase();
-    return s === 'purchased' || s === 'closed';
-  }).length;
+  // SOLD = lots that have a linked Contact
+  const sold = lots.filter(l => !!l && !!l.purchaser).length;
 
   const remaining = total - sold;
 

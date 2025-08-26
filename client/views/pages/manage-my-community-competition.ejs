@@ -3,34 +3,57 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
-  <title>Update Competition</title>
-   <link
+  <title>Manage My Community Competition</title>
+
+  <!-- keep the same libs as update-competition so styles match -->
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet"/>
+    <link
     href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css"
     rel="stylesheet"
   />
   <link rel="stylesheet" href="/assets/css/main.css">
-  
 </head>
-<body data-competition-id="<%= competition._id %>">
 
-<%- include('../partials/nav') %>
-<%- include('../partials/top-nav-competition') %>
+<body data-community-id="<%= communityId %>">
+  <%- include('../partials/nav') %>
+  <%- include('../partials/top-nav-competition') %>
 
-<div class="horizontal-cont">
-  <div class="side-bar card . card--grey main-cont">
-     <div class="card card--white">
-          <div class="card-header">
-            Competition Info
-          </div>
-          <div class="card-body">
-            <h5 class="card-title"><%= competition.communityName %></h5>
-            <p class="card-text">
-              Builder: <strong><%= competition.builderName %></strong>
-            </p>
-          </div>
+  <div class="horizontal-cont">
+    <!-- ============ LEFT SIDEBAR ============ -->
+    <div class="side-bar card card--grey main-cont">
+<%
+// Make sure these locals exist even if the route forgot to pass them:
+var profile   = (typeof profile   !== 'undefined' && profile)   ? profile   : null;
+var community = (typeof community !== 'undefined' && community) ? community : null;
+
+// Now your display vars (robust to field name differences)
+const commName = community
+  ? (community.communityName || community.name || community.title || 'Unnamed Community')
+  : 'Unnamed Community';
+
+const builderName = community
+  ? (community.builderName || community.builder || '—')
+  : '—';
+
+const addr = (profile && profile.address) || (community && community.address) || '—';
+const city = (profile && profile.city)    || (community && community.city)    || '—';
+const zip  = (profile && profile.zip)     || (community && community.zip)     || '';
+%>
+
+      <!-- Community Info -->
+    <div class="card card--white mb-3">
+        <div class="card-header">Community Info</div>
+        <div class="card-body">
+          <h5 class="card-title"><%= commName %></h5>
+          <p class="card-text">
+            Builder: <strong><%= builderName %></strong><br/>
+          </p>
+          <a class="btn btn-sm btn-outline-secondary"
+            href="/view-lots?communityId=<%= communityId %>">View Lots</a>
+        </div>
       </div>
-          <!-- Add / Update Floor Plans button -->
-      <button 
+
+     <button 
         id="openPlanModal"
         type="button"
         class="btn btn-secondary mb-3"
@@ -194,12 +217,12 @@
                   <div class="mb-3">
                     <label for="promotion" class="form-label">Promotion</label>
                     <textarea
-                      id="promotion"
+                      id="mPromotion"
                       name="promotion"
                       class="form-control"
                       rows="3"
                       placeholder="Enter promotion details"
-                    ><%= competition.promotion || '' %></textarea>
+                    ></textarea>
                   </div>
                   <!-- Top 3 Plans -->
                  <div class="mb-3 card">
@@ -218,14 +241,14 @@
                   <!-- Pros & Cons -->
                   <div class="mb-3 card">
                     <label class="form-label">Pros</label>
-                    <div id="prosList" class="mb-2"></div>
+                    <ul id="prosList" class="list-group mb-2"></ul>
                     <div class="input-group mb-2">
                       <input type="text" id="newPro" class="form-control" placeholder="Add a pro">
                       <button type="button" id="addProBtn" class="btn btn-outline-secondary">Add</button>
                     </div>
 
                     <label class="form-label">Cons</label>
-                    <div id="consList" class="mb-2"></div>
+                    <ul id="consList" class="list-group mb-2"></ul>
                     <div class="input-group">
                       <input type="text" id="newCon" class="form-control" placeholder="Add a con">
                       <button type="button" id="addConBtn" class="btn btn-outline-secondary">Add</button>
@@ -240,7 +263,7 @@
                     </div>
                     <div class="col-md-3 mb-3">
                       <label class="form-label">Sold Lots</label>
-                      <input type="number" name="soldLots" id="soldLots" class="form-control">
+                      <input type="number" name="soldLots" id="soldLots" class="form-control" readonly>
                     </div>
                     <div class="col-md-3 mb-3">
                       <label class="form-label">Remaining Lots</label>
@@ -342,27 +365,15 @@
       </main>
 </div>
 
-
-
- <script id="competition-data" type="application/json">
+  <!-- Initial data for JS -->
+  <script id="community-data" type="application/json">
     <%- JSON.stringify({
-      pros: competition.pros || [],
-      cons: competition.cons || [],
-      monthNames: ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'],
-      latestMetrics: (competition.monthlyMetrics || []).slice(-1)[0] || {},
-      totalLots: competition.totalLots || 0,
-      topPlan1: competition.topPlan1 || null,
-      topPlan2: competition.topPlan2 || null,
-      topPlan3: competition.topPlan3 || null,
-      competitionId: competition._id
+      communityId: communityId,
+      community: community || {}
     }) %>
   </script>
 
-  <!-- 2) only one script tag to pull in your modules -->
-  <script type="module" src="/assets/js/update-competition/init.js"></script>
-
-
-  
-
+  <!-- Page script -->
+  <script type="module" src="/assets/js/manage-my-community-competition/init.js"></script>
 </body>
 </html>

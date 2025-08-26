@@ -19,8 +19,18 @@
         <option value="">-- Select a community --</option>
       </select>
 
-      <!-- Optional: a quick link to manage communities -->
-      <a href="/view-communities" class="btn btn-sm btn-outline">Manage Communities</a>
+      <button id="manageCommunityBtn" class="btn btn-sm btn-outline">Manage Communities</button>
+
+        <script>
+          document.getElementById('manageCommunityBtn').addEventListener('click', () => {
+            const communityId = document.getElementById('communitySelect').value;
+            if (!communityId) {
+              alert('Please select a community first.');
+              return;
+            }
+            window.location.href = `/manage-my-community-competition/${communityId}`;
+          });
+        </script>
     </div>
 
     <div class="horizontal-cont">
