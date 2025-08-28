@@ -1,6 +1,33 @@
 const mongoose = require('mongoose');
 const toObjectIdOrNull = v => (typeof v === 'string' && v.trim() === '' ? null : v);
 
+const MonthlyPricesSchema = new mongoose.Schema({
+  // "YYYY-MM" (e.g., "2025-07")
+  month: {
+    type: String,
+    required: true,
+    match: [/^\d{4}-(0[1-9]|1[0-2])$/, 'Month must be YYYY-MM']
+  },
+  // Map of planId -> price (Number). planId is a FloorPlan _id string.
+  prices: {
+    type: Map,
+    of: Number,
+    default: {}
+  }
+}, { _id: false });
+
+const MonthlyQmiSchema = new mongoose.Schema({
+  month: {
+    type: String,
+    required: true,
+    match: [/^\d{4}-(0[1-9]|1[0-2])$/, 'Month must be YYYY-MM'],
+  },
+  // We store the Community.lots subdoc _id values here
+  excludedLots: [{ type: mongoose.Schema.Types.ObjectId, default: [] }],
+}, { _id: false });
+
+
+
 const ProsConsSchema = new mongoose.Schema({
   pros: [String],
   cons: [String]
@@ -74,6 +101,10 @@ const CommunityCompetitionProfileSchema = new mongoose.Schema({
     remaining: Number,
     quickMoveInLots: Number
   },
+
+  monthlyPrices: { type: [MonthlyPricesSchema], default: [] },
+
+  monthlyQMI: { type: [MonthlyQmiSchema], default: [] },
 
   notes: String,
 

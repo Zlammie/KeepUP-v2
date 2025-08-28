@@ -117,6 +117,36 @@ router.get('/:id/lots', async (req, res) => {
   }
 });
 
+// GET /api/communities/lot-by-purchaser/:contactId
+router.get('/lot-by-purchaser/:contactId', async (req, res) => {
+  try {
+    const { contactId } = req.params;
+    // Find any community that has a lot purchased by this contact
+    const community = await Community.findOne({ 'lots.purchaser': contactId }, { lots: 1 })
+      .populate('lots.purchaser', 'lastName');
+
+    if (!community) return res.json({ found: false });
+
+    const lot = community.lots.find(l => String(l.purchaser?._id || l.purchaser) === String(contactId));
+    if (!lot) return res.json({ found: false });
+
+    res.json({
+      found: true,
+      communityId: community._id,
+      lot: {
+        _id: lot._id,
+        address: lot.address,
+        jobNumber: lot.jobNumber,
+        salesDate: lot.salesDate,
+        salesPrice: lot.salesPrice
+      }
+    });
+  } catch (err) {
+    console.error('lot-by-purchaser error', err);
+    res.status(500).json({ error: 'Server error' });
+  }
+});
+
 router.post('/:id/lots', async (req, res) => {
   try {
     const { id } = req.params;
@@ -204,6 +234,9 @@ router.put(
   async (req, res) => {
     const { communityId, lotId } = req.params;
     const updates = req.body;    // e.g. { walkStatus: 'datesSentToPurchaser' }
+    if (typeof updates.salesDate === 'string' && updates.salesDate) {
+  updates.salesDate = new Date(updates.salesDate);
+}
 
     // Build a $set that targets lots.$.<field>
     const setObj = Object.entries(updates).reduce((acc, [k,v]) => {

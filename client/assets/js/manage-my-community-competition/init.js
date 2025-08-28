@@ -19,6 +19,73 @@ const PLANS_API     = `/api/communities/${communityId}/floorplans`;
 const LOT_STATS_API = `/api/communities/${communityId}/lot-stats`;
 
 // ---------------- Tab nav (mirror update-competition behavior) ----------------
+
+// ===== Month tabs (previous month on the RIGHT, older months to the left) =====
+const monthTabs = (() => {
+  const nav = document.getElementById('monthNav');
+  if (!nav) return { init: () => {}, getSelectedMonth: () => null, subscribe: () => {} };
+
+  const NUM_MONTHS = 6; // adjust as needed
+  const subs = [];
+
+  const keyOf   = (d) => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`; // YYYY-MM
+  const labelOf = (d) => d.toLocaleString(undefined, { month: 'short', year: 'numeric' });  // "Jul 2025"
+
+  function setActive(a) {
+    nav.querySelectorAll('.nav-link').forEach(l => l.classList.remove('active'));
+    a.classList.add('active');
+  }
+  function getSelectedMonth() {
+    const a = nav.querySelector('.nav-link.active');
+    return a ? a.dataset.month : null;
+  }
+  function notify() {
+    const m = getSelectedMonth();
+    subs.forEach(fn => { try { fn(m); } catch (e) { console.error(e); } });
+  }
+
+  function build() {
+    nav.innerHTML = '';
+
+    // base = previous month
+    const today = new Date();
+    const base  = new Date(today.getFullYear(), today.getMonth() - 1, 1);
+
+    // build from OLDEST → NEWEST so the newest (prev month) ends up on the RIGHT
+    for (let i = NUM_MONTHS - 1; i >= 0; i--) {
+      const d  = new Date(base.getFullYear(), base.getMonth() - i, 1);
+      const li = document.createElement('li');
+      li.className = 'nav-item';
+
+      const a = document.createElement('a');
+      a.href = '#';
+      a.className = `nav-link${i === 0 ? ' active' : ''}`; // last one (prev month) active
+      a.dataset.month = keyOf(d);
+      a.textContent   = labelOf(d);
+      a.addEventListener('click', (ev) => {
+        ev.preventDefault();
+        setActive(a);
+        notify();
+      });
+
+      li.appendChild(a);
+      nav.appendChild(li);
+    }
+
+    // auto-scroll the overflow container to the right so the active pill is visible
+    const scroller = nav.parentElement; // the <div class="d-flex overflow-auto">
+    if (scroller) scroller.scrollLeft = scroller.scrollWidth;
+
+    notify(); // fire once with the active month
+  }
+
+  function subscribe(fn) { subs.push(fn); }
+  function init() { build(); }
+
+  return { init, getSelectedMonth, subscribe };
+})();
+
+
 function wireTabs() {
   const links = document.querySelectorAll('#sectionNav .nav-link');
   links.forEach(link => {
@@ -421,77 +488,261 @@ const lotStats = (() => {
   });
 })();
 
-// ===== Price tab: Floor Plans table =====
-(function () {
-  // resolve communityId the same way as other sections
-  const dataEl = document.getElementById('community-data');
-  const initial = dataEl ? JSON.parse(dataEl.textContent) : {};
-  const communityId =
-    (document.body.getAttribute('data-community-id') || '').trim() ||
-    initial.communityId || '';
-  if (!communityId) return;
-
-  const PLANS_API = `/api/communities/${communityId}/floorplans`;
+// ===== Price tab: Floor Plans table (month-aware, editable) =====
+const priceTable = (() => {
   const table = document.getElementById('monthTable');
-  if (!table) return;
+  if (!table) return { load: async () => {} };
+
   const tbody = table.querySelector('tbody');
 
-  // simple formatters
+  // Reuse constants you already define at the top of init.js:
+  // const communityId = ...; const PLANS_API = `/api/communities/${communityId}/floorplans`;
+  // const PROFILE_API = `/api/community-competition-profiles/${communityId}`;
+  const PRICES_API = `${PROFILE_API}/prices`; // -> /api/community-competition-profiles/:id/prices
+
+  let currentMonth = null; // "YYYY-MM"
+  let priceMap = {};       // { planId: number }
+  let debounceTimer = null;
+
   const fmtNum = (n) => (Number.isFinite(n) ? n.toLocaleString() : (n ?? '—'));
-  const safe = (s) => (s == null || s === '' ? '—' : s);
+  const safe   = (s) => (s == null || s === '' ? '—' : s);
 
-  async function loadPlansIntoTable() {
-    try {
-      const res = await fetch(PLANS_API);
-      if (!res.ok) throw new Error(await res.text());
-      const plans = await res.json();
-
-      // clear body
-      tbody.innerHTML = '';
-
-      // build rows
-      plans.forEach(p => {
-        const sq = p?.specs?.squareFeet;
-        const beds = p?.specs?.beds;
-        const baths = p?.specs?.baths;
-        const garage = p?.specs?.garage;
-
-        // story & price aren’t in the FloorPlan schema yet; show placeholder for now
-        const story = '—';
-        const price = '—';
-
-        const tr = document.createElement('tr');
-        tr.innerHTML = `
-          <td>${safe(p?.name)}${p?.planNumber ? ` (${p.planNumber})` : ''}</td>
-          <td>${fmtNum(sq)}</td>
-          <td>${fmtNum(beds)}</td>
-          <td>${fmtNum(baths)}</td>
-          <td>${fmtNum(garage)}</td>
-          <td>${story}</td>
-          <td>${price}</td>
-        `;
-        tbody.appendChild(tr);
-      });
-    } catch (err) {
-      console.error('Failed to load floor plans:', err);
-      // keep the table body empty but don’t crash the page
-    }
+  function debounce(fn, delay = 400) {
+    clearTimeout(debounceTimer);
+    debounceTimer = setTimeout(fn, delay);
   }
 
-  // Load immediately, and also whenever the “price” tab is clicked
-  document.addEventListener('DOMContentLoaded', () => {
-    loadPlansIntoTable().catch(console.error);
-  });
-  const nav = document.getElementById('sectionNav');
-  if (nav) {
-    nav.addEventListener('click', (e) => {
-      const link = e.target.closest('.nav-link');
-      if (link && link.getAttribute('data-section') === 'price') {
-        loadPlansIntoTable().catch(console.error);
-      }
+  async function fetchPlans() {
+    const res = await fetch(PLANS_API);
+    if (!res.ok) throw new Error(await res.text());
+    return res.json();
+  }
+
+  async function fetchPrices(month) {
+    const res = await fetch(`${PRICES_API}?month=${encodeURIComponent(month)}`);
+    if (!res.ok) throw new Error(await res.text());
+    const data = await res.json();
+    return data.prices || {};
+  }
+
+  async function putPrice(month, planId, price) {
+    const res = await fetch(PRICES_API, {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ month, plan: planId, price })
+    });
+    if (!res.ok) throw new Error(await res.text());
+    const data = await res.json();
+    return data.prices || {};
+  }
+
+  function buildRow(plan) {
+    const sq     = plan?.specs?.squareFeet;
+    const beds   = plan?.specs?.beds;
+    const baths  = plan?.specs?.baths;
+    const garage = plan?.specs?.garage;
+    const price  = priceMap[plan._id] ?? '';
+
+    const tr = document.createElement('tr');
+    tr.innerHTML = `
+      <td>${safe(plan?.name)}${plan?.planNumber ? ` (${plan.planNumber})` : ''}</td>
+      <td>${fmtNum(sq)}</td>
+      <td>${fmtNum(beds)}</td>
+      <td>${fmtNum(baths)}</td>
+      <td>${fmtNum(garage)}</td>
+      <td>—</td>  <!-- Story (add if/when available) -->
+      <td>
+        <input type="number" min="0" step="1000"
+               class="form-control form-control-sm plan-price-input"
+               data-plan="${plan._id}" value="${price}">
+      </td>
+    `;
+    return tr;
+  }
+
+  function wirePriceInputs() {
+    tbody.querySelectorAll('input.plan-price-input').forEach(input => {
+      input.addEventListener('input', () => {
+        const planId = input.dataset.plan;
+        const valNum = input.value === '' ? '' : Number(input.value);
+        // Optimistic local state
+        priceMap[planId] = (input.value === '' ? undefined : (Number.isFinite(valNum) ? valNum : 0));
+
+        debounce(async () => {
+          try {
+            const newPrices = await putPrice(currentMonth, planId, input.value === '' ? null : valNum);
+            priceMap = newPrices; // sync to server’s truth
+          } catch (e) {
+            console.error('Failed to save price', e);
+          }
+        });
+      });
+
+      input.addEventListener('blur', () => {
+        // Flush immediately on blur
+        clearTimeout(debounceTimer);
+        const planId = input.dataset.plan;
+        const valNum = input.value === '' ? null : Number(input.value);
+        putPrice(currentMonth, planId, valNum)
+          .then(newPrices => { priceMap = newPrices; })
+          .catch(err => console.error('Failed to save price', err));
+      });
     });
   }
+
+  async function load(month /* "YYYY-MM" from month pills */) {
+    if (!month) return;
+    currentMonth = month;
+
+    const [plans, prices] = await Promise.all([ fetchPlans(), fetchPrices(month) ]);
+    priceMap = prices || {};
+
+    tbody.innerHTML = '';
+    plans.forEach(p => tbody.appendChild(buildRow(p)));
+    wirePriceInputs();
+  }
+
+  return { load };
 })();
+
+// ===== Inventory tab: Quick Move-In Homes (month-aware) =====
+const qmiTable = (() => {
+  const table = document.getElementById('quickHomesTable');
+  if (!table) return { load: async () => {} };
+
+  const tbody = table.querySelector('tbody');
+  const QMI_GET_API = `${PROFILE_API}/qmi`; // GET ?month=YYYY-MM
+  const QMI_PUT_API = `${PROFILE_API}/qmi`; // PUT { month, excludeLotId | includeLotId }
+
+  let currentMonth = null;
+
+  const fmtMoney = (n) =>
+    (Number.isFinite(n) ? n.toLocaleString(undefined, { maximumFractionDigits: 0 }) : '—');
+  const fmtDate = (d) => {
+    if (!d) return '—';
+    const dt = (d instanceof Date) ? d : new Date(d);
+    return Number.isNaN(dt.getTime()) ? '—'
+      : dt.toLocaleDateString(undefined, { year: 'numeric', month: 'short', day: 'numeric' });
+  };
+  const safe = (s) => (s == null || s === '' ? '—' : s);
+
+  async function exclude(lotId) {
+    if (!currentMonth) return;
+    const res = await fetch(QMI_PUT_API, {
+      method: 'PUT',
+      headers: { 'Content-Type':'application/json' },
+      body: JSON.stringify({ month: currentMonth, excludeLotId: lotId }),
+    });
+    if (!res.ok) throw new Error(await res.text());
+  }
+
+  function buildRow(h) {
+    const tr = document.createElement('tr');
+    tr.innerHTML = `
+      <td style="width:42px">
+        <button type="button" class="btn btn-sm btn-outline-danger qmi-del" data-id="${h.lotId}">✕</button>
+      </td>
+      <td>${safe(h.address)}</td>
+      <td>${fmtDate(h.listDate)}</td>
+      <td>${h.floorPlan ? `${safe(h.floorPlan.name)}${h.floorPlan.planNumber ? ` (${h.floorPlan.planNumber})` : ''}` : '—'}</td>
+      <td>${fmtMoney(h.listPrice)}</td>
+      <td>${h.sqft ? h.sqft.toLocaleString() : '—'}</td>
+      <td>${safe(h.status)}</td>
+    `;
+    return tr;
+  }
+
+  async function load(month /* "YYYY-MM" */) {
+    if (!month) return;
+    currentMonth = month;
+    const res = await fetch(`${QMI_GET_API}?month=${encodeURIComponent(month)}`);
+    if (!res.ok) {
+      console.error('Failed to load QMI:', await res.text());
+      return;
+    }
+    const data = await res.json();
+    const homes = data.homes || [];
+
+    tbody.innerHTML = '';
+    homes.forEach(h => tbody.appendChild(buildRow(h)));
+
+    // wire delete buttons
+    tbody.querySelectorAll('.qmi-del').forEach(btn => {
+      btn.addEventListener('click', async () => {
+        const lotId = btn.getAttribute('data-id');
+        try {
+          await exclude(lotId);
+          // remove row locally
+          const tr = btn.closest('tr');
+          if (tr) tr.remove();
+        } catch (e) {
+          console.error('Exclude failed', e);
+          alert('Failed to remove from this month.');
+        }
+      });
+    });
+  }
+
+  return { load };
+})();
+
+// ===== Inventory tab: Sold Homes (month-scoped) =====
+const soldTable = (() => {
+  const table = document.getElementById('soldHomesTable');
+  if (!table) return { load: async () => {} };
+
+  const tbody = table.querySelector('tbody');
+  const SOLD_GET_API = `${PROFILE_API}/sales`; // GET ?month=YYYY-MM
+
+  let currentMonth = null;
+
+  const fmtDate = (d) => {
+    if (!d) return '—';
+    // If it's "YYYY-MM", print as that; if it's a full date, format prettily.
+    if (/^\d{4}-(0[1-9]|1[0-2])$/.test(d)) return d;
+    const dt = new Date(d);
+    return Number.isNaN(dt.getTime())
+      ? String(d)
+      : dt.toLocaleDateString(undefined, { year:'numeric', month:'short', day:'numeric' });
+  };
+  const safe = (s) => (s == null || s === '' ? '—' : s);
+
+  function buildRow(h) {
+    const tr = document.createElement('tr');
+    tr.innerHTML = `
+      <td style="width:42px"></td>  <!-- no per-month delete for sales (can add later) -->
+      <td>${safe(h.address)}</td>
+      <td>${fmtDate(h.listDate)}</td>
+      <td>${h.floorPlan ? `${safe(h.floorPlan.name)}${h.floorPlan.planNumber ? ` (${h.floorPlan.planNumber})` : ''}` : '—'}</td>
+      <td>${safe(h.listPrice)}</td>
+      <td>${h.sqft ? Number(h.sqft).toLocaleString() : '—'}</td>
+      <td>${safe(h.status)}</td>
+      <td>${fmtDate(h.soldDate)}</td>
+      <td>${h.soldPrice == null || h.soldPrice === '' ? '—' : String(h.soldPrice)}</td>
+    `;
+    return tr;
+  }
+
+  async function load(month /* "YYYY-MM" */) {
+    if (!month) return;
+    currentMonth = month;
+
+    const res = await fetch(`${SOLD_GET_API}?month=${encodeURIComponent(month)}`);
+    if (!res.ok) {
+      console.error('Failed to load sold homes:', await res.text());
+      return;
+    }
+    const data = await res.json();
+    const sales = data.sales || [];
+
+    tbody.innerHTML = '';
+    sales.forEach(h => tbody.appendChild(buildRow(h)));
+  }
+
+  return { load };
+})();
+
+
 
 // ---------------- Boot ----------------
 document.addEventListener('DOMContentLoaded', () => {
@@ -509,4 +760,22 @@ document.addEventListener('DOMContentLoaded', () => {
   topPlans.load().catch(console.error);
 
   lotStats.load().catch(console.error);
+
+  // 👇 NEW: build month pills and reload the plans table when month changes
+  monthTabs.subscribe((ym) => {
+    priceTable.load(ym).catch(console.error);
+    qmiTable.load(ym).catch(console.error);
+    soldTable.load(ym).catch(console.error); 
+  });
+  monthTabs.init();
+// optional: if you only want to load QMI when the Inventory section is shown
+  const sectionNav = document.getElementById('sectionNav');
+  if (sectionNav) {
+    sectionNav.addEventListener('click', (e) => {
+      const link = e.target.closest('.nav-link');
+      if (link && link.getAttribute('data-section') === 'inventory') {
+        qmiTable.load(monthTabs.getSelectedMonth()).catch(console.error);
+      }
+    });
+  }
 });

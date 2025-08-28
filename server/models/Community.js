@@ -44,6 +44,7 @@ const LotSchema = new mongoose.Schema({
   closeDateTime: String,
   listPrice: String,
   salesPrice: String,
+  salesDate: { type: Date, default: null } 
   
 }); // disable _id for subdocuments if not needed
 

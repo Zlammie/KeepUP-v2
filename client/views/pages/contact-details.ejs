@@ -262,6 +262,18 @@
                 </div>
             </div>
 
+               <!-- NEW: Sales details captured at link time -->
+            <div class="form-row" style="margin-top:.5rem;">
+              <div class="form-group">
+                <label for="sale-date">Sales Date</label>
+                <input type="date" id="sale-date" />
+              </div>
+              <div class="form-group">
+                <label for="sale-price">Sales Price</label>
+                <input type="number" id="sale-price" placeholder="e.g. 435000" step="0.01" inputmode="decimal" />
+              </div>
+            </div>
+
             <!-- This will show the linked lot info once it's connected -->
             <div id="linked-lot-display" style="display: none;"></div>
         
@@ -300,7 +312,7 @@
 </div>
 
 
-
+<script>window.contactId = '<%= contact._id %>';</script>
  <script>
   
 
@@ -351,6 +363,70 @@
   }
 });
 
+(async function hydrateLinkedLotOnLoad() {
+  try {
+    // Need the current contact id — provided by Step 2
+    const contactId = window.contactId || (window.getContactId ? getContactId() : null);
+    if (!contactId) return;
+
+    // Ask backend which lot is linked to this purchaser
+    const res = await fetch(`/api/communities/lot-by-purchaser/${contactId}`);
+    if (!res.ok) return;
+    const data = await res.json();
+    if (!data.found) return; // nothing linked yet
+
+    const { communityId, lot } = data;
+
+    // 1) Re-seed autosave context so edits persist to the right subdoc
+    if (window.setLinkedLotContext) {
+      window.setLinkedLotContext(communityId, lot._id, lot);
+    } else {
+      // Minimal fallback: store on DOM for any script that reads it
+      const box = document.getElementById('linked-lot-display');
+      if (box) {
+        box.dataset.communityId = communityId;
+        box.dataset.lotId = lot._id;
+      }
+    }
+
+    // 2) Prefill inputs from saved values
+    const saleDateEl  = document.getElementById('sale-date');
+    const salePriceEl = document.getElementById('sale-price');
+
+    if (saleDateEl && lot.salesDate) {
+      const d = new Date(lot.salesDate);
+      const yyyy = d.getFullYear();
+      const mm = String(d.getMonth() + 1).padStart(2, '0');
+      const dd = String(d.getDate()).padStart(2, '0');
+      saleDateEl.value = `${yyyy}-${mm}-${dd}`;
+    }
+    if (salePriceEl && lot.salesPrice != null) {
+      salePriceEl.value = lot.salesPrice;
+    }
+
+    // 3) Show the linked-lot card
+    const box = document.getElementById('linked-lot-display');
+    if (box) {
+      box.style.display = 'block';
+      box.innerHTML = `
+        <div class="linked-lot-card">
+          <strong>Linked Lot:</strong> ${lot.address ?? '—'}<br/>
+          <strong>Job #:</strong> ${lot.jobNumber ?? '—'}<br/>
+          <strong>Sales Date:</strong> ${lot.salesDate ? new Date(lot.salesDate).toLocaleDateString() : '—'}<br/>
+          <strong>Sales Price:</strong> ${lot.salesPrice ? Number(lot.salesPrice).toLocaleString() : '—'}
+        </div>
+      `;
+    }
+
+    // 4) Make sure the two inputs are hooked into autosave
+    if (window.setupLotSalesAutoSaveListeners) {
+      window.setupLotSalesAutoSaveListeners();
+    }
+  } catch (e) {
+    console.error('hydrateLinkedLotOnLoad error', e);
+  }
+})();
+
 </script>
 
 <script src="/assets/js/contact-details/utils.js"></script>
@@ -361,7 +437,24 @@
 <script src="/assets/js/contact-details/autoSave.js"></script>
 <script src="/assets/js/contact-details/realtorSearch.js"></script>
 <script src="/assets/js/contact-details/statusStyling.js"></script>
+<script>
+  // After all external scripts have been loaded
+  window.addEventListener('load', () => {
+    const box = document.getElementById('linked-lot-display');
+    const commId = box?.dataset?.communityId;
+    const lotId  = box?.dataset?.lotId;
 
+    // If the earlier hydrate already found the lot, seed context now:
+    if (commId && lotId && window.setLinkedLotContext) {
+      window.setLinkedLotContext(commId, lotId);
+    }
+
+    // Ensure listeners get attached even if the earlier hydrate ran too early
+    if (window.setupLotSalesAutoSaveListeners) {
+      window.setupLotSalesAutoSaveListeners();
+    }
+  });
+</script>
 
 
 
