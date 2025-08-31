@@ -742,6 +742,105 @@ const soldTable = (() => {
   return { load };
 })();
 
+// ===== Sales Summary (month-aware, editable) =====
+const salesSummary = (() => {
+  const table = document.getElementById('salesTable');
+  if (!table) return { load: async () => {} };
+
+  const tbody = table.querySelector('tbody');
+  const SALES_API = `${PROFILE_API}/sales-summary`; // GET/PUT
+
+  let currentMonth = null;
+  let debounceTimer = null;
+
+  const ymLabel = (ym) => {
+    if (!ym || !/^\d{4}-(0[1-9]|1[0-2])$/.test(ym)) return '—';
+    const [y, m] = ym.split('-').map(Number);
+    const d = new Date(y, m - 1, 1);
+    return d.toLocaleString(undefined, { month: 'short', year: 'numeric' }); // "Jul 2025"
+  };
+  const num = (v) => {
+    const n = Number(v);
+    return Number.isFinite(n) ? n : 0;
+  };
+
+  function buildRow(state) {
+    const net = Math.max(0, num(state.sales) - num(state.cancels));
+    const tr = document.createElement('tr');
+    tr.innerHTML = `
+      <td>${ymLabel(currentMonth)}</td>
+      <td><input type="number" min="0" step="1" id="salesCount" class="form-control form-control-sm" value="${state.sales ?? 0}"></td>
+      <td><input type="number" min="0" step="1" id="salesCancels" class="form-control form-control-sm" value="${state.cancels ?? 0}"></td>
+      <td><input type="number" min="0" step="1" id="salesNet" class="form-control form-control-sm" value="${net}" readonly></td>
+      <td><input type="number" min="0" step="1" id="salesClosings" class="form-control form-control-sm" value="${state.closings ?? 0}"></td>
+    `;
+    return tr;
+  }
+
+  function wireInputs() {
+    const salesEl    = tbody.querySelector('#salesCount');
+    const cancelsEl  = tbody.querySelector('#salesCancels');
+    const netEl      = tbody.querySelector('#salesNet');
+    const closingsEl = tbody.querySelector('#salesClosings');
+
+    const recompute = () => {
+      const net = Math.max(0, num(salesEl.value) - num(cancelsEl.value));
+      netEl.value = net;
+    };
+
+    const save = async () => {
+      const payload = {
+        month: currentMonth,
+        sales:    num(salesEl.value),
+        cancels:  num(cancelsEl.value),
+        closings: num(closingsEl.value),
+      };
+      const res = await fetch(SALES_API, {
+        method: 'PUT',
+        headers: { 'Content-Type':'application/json' },
+        body: JSON.stringify(payload)
+      });
+      if (!res.ok) throw new Error(await res.text());
+      // no need to read body unless you want to confirm values
+    };
+
+    const debouncedSave = () => {
+      clearTimeout(debounceTimer);
+      debounceTimer = setTimeout(() => {
+        save().catch(err => console.error('Save sales summary failed:', err));
+      }, 400);
+    };
+
+    [salesEl, cancelsEl, closingsEl].forEach(el => {
+      el.addEventListener('input', () => { recompute(); debouncedSave(); });
+      el.addEventListener('blur', () => { recompute(); save().catch(console.error); });
+    });
+  }
+
+  async function load(month /* "YYYY-MM" */) {
+    if (!month) return;
+    currentMonth = month;
+
+    const res = await fetch(`${SALES_API}?month=${encodeURIComponent(month)}`);
+    if (!res.ok) {
+      console.error('Failed to load sales summary:', await res.text());
+      return;
+    }
+    const data = await res.json();
+
+    tbody.innerHTML = '';
+    tbody.appendChild(buildRow({
+      sales: data.sales ?? 0,
+      cancels: data.cancels ?? 0,
+      closings: data.closings ?? 0
+    }));
+    wireInputs();
+  }
+
+  return { load };
+})();
+
+
 
 
 // ---------------- Boot ----------------
@@ -765,17 +864,37 @@ document.addEventListener('DOMContentLoaded', () => {
   monthTabs.subscribe((ym) => {
     priceTable.load(ym).catch(console.error);
     qmiTable.load(ym).catch(console.error);
-    soldTable.load(ym).catch(console.error); 
+    soldTable.load(ym).catch(console.error);
+    salesSummary.load(ym).catch(console.error);  
   });
   monthTabs.init();
-// optional: if you only want to load QMI when the Inventory section is shown
-  const sectionNav = document.getElementById('sectionNav');
-  if (sectionNav) {
-    sectionNav.addEventListener('click', (e) => {
-      const link = e.target.closest('.nav-link');
-      if (link && link.getAttribute('data-section') === 'inventory') {
-        qmiTable.load(monthTabs.getSelectedMonth()).catch(console.error);
-      }
-    });
+
+  setTimeout(() => {
+  const ym = monthTabs.getSelectedMonth();
+  if (ym) {
+    priceTable.load(ym).catch(console.error);
+    qmiTable.load(ym).catch(console.error);
+    soldTable.load(ym).catch(console.error);
+    salesSummary.load(ym).catch(console.error);
   }
+}, 0);
+// optional: if you only want to load QMI when the Inventory section is shown
+const sectionNav = document.getElementById('sectionNav');
+if (sectionNav) {
+  sectionNav.addEventListener('click', (e) => {
+    const link = e.target.closest('.nav-link');
+    if (!link) return;
+    const section = link.getAttribute('data-section');
+    const ym = monthTabs.getSelectedMonth();
+
+    if (section === 'inventory') {
+      qmiTable.load(ym).catch(console.error);
+      soldTable.load(ym).catch(console.error);
+    } else if (section === 'price') {
+      priceTable.load(ym).catch(console.error);
+    } else if (section === 'sales') {
+      salesSummary.load(ym).catch(console.error);
+    }
+  });
+}
 });

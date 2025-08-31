@@ -170,6 +170,36 @@ document.addEventListener("DOMContentLoaded", async () => {
           `<span class="status-badge ${walkStatusClasses[newVal]}">${walkStatusLabels[newVal]}</span>`;
       });
 
+      const listPriceIn = document.getElementById("listPriceInput");
+        if (listPriceIn) {
+          // initial populate
+          listPriceIn.value = lot.listPrice || '';
+
+          // simple debounce so we don't spam the server
+          let lpTimer;
+          const saveListPrice = async (val) => {
+            await fetch(`/api/communities/${commId}/lots/${lotId}`, {
+              method: "PUT",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({ listPrice: val })
+            });
+            // (optional) console.log('Saved listPrice', val);
+          };
+
+          listPriceIn.addEventListener("input", () => {
+            clearTimeout(lpTimer);
+            lpTimer = setTimeout(() => saveListPrice(listPriceIn.value.trim()), 350);
+          });
+
+          // (optional) light formatting on blur; stores raw string (schema is String)
+          listPriceIn.addEventListener("blur", () => {
+            // keep what user typed; you can add currency formatting here later
+            if (listPriceIn.value.trim() !== (lot.listPrice || '')) {
+              saveListPrice(listPriceIn.value.trim());
+            }
+          });
+        }
+
     // 5️⃣ Purchaser/Contact
     let purchaserContact = null;
     if (lot.purchaser) {

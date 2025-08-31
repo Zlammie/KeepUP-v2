@@ -334,6 +334,38 @@ router.get('/api/community-competition-profiles/:communityId/qmi', async (req, r
         ?.map(id => id.toString()) || []
     );
 
+    // GET /api/community-competition-profiles/:communityId/sales-summary?month=YYYY-MM
+router.get('/api/community-competition-profiles/:communityId/sales-summary', async (req, res) => {
+  try {
+    const { communityId } = req.params;
+    const { month } = req.query;
+
+    if (!mongoose.Types.ObjectId.isValid(communityId)) {
+      return res.status(400).json({ error: 'Invalid communityId' });
+    }
+    if (!month || !/^\d{4}-(0[1-9]|1[0-2])$/.test(month)) {
+      return res.status(400).json({ error: 'month=YYYY-MM is required' });
+    }
+
+    // ensure the community exists (avoid orphan profiles)
+    const exists = await Community.findById(communityId).select('_id').lean();
+    if (!exists) return res.status(404).json({ error: 'Community not found' });
+
+    const profile = await CommunityCompetitionProfile.findOne({ community: communityId })
+      .select('monthlySalesSummary')
+      .lean();
+
+    const entry = (profile?.monthlySalesSummary || []).find(s => s.month === month);
+    const out = entry ? { sales: entry.sales ?? 0, cancels: entry.cancels ?? 0, closings: entry.closings ?? 0 }
+                      : { sales: 0, cancels: 0, closings: 0 };
+
+    return res.json({ month, ...out });
+  } catch (err) {
+    console.error('GET /sales-summary error:', err);
+    res.status(500).json({ error: 'Server error' });
+  }
+});
+
     // Helpers
    // Helpers (replace your current ym() helper with this pair)
 // Helpers (keep these near the top of the route)
@@ -621,6 +653,57 @@ router.put('/api/community-competition-profiles/:communityId/qmi', async (req, r
   }
 });
 
+// PUT /api/community-competition-profiles/:communityId/sales-summary
+// Body: { month:"YYYY-MM", sales?:<num>, cancels?:<num>, closings?:<num> }
+router.put('/api/community-competition-profiles/:communityId/sales-summary', async (req, res) => {
+  try {
+    const { communityId } = req.params;
+    const { month, sales, cancels, closings } = req.body || {};
+
+    if (!mongoose.Types.ObjectId.isValid(communityId)) {
+      return res.status(400).json({ error: 'Invalid communityId' });
+    }
+    if (!month || !/^\d{4}-(0[1-9]|1[0-2])$/.test(month)) {
+      return res.status(400).json({ error: 'month (YYYY-MM) is required' });
+    }
+
+    const doc = await CommunityCompetitionProfile.findOneAndUpdate(
+      { community: communityId },
+      { $setOnInsert: { community: communityId } },
+      { new: true, upsert: true }
+    );
+
+    if (!Array.isArray(doc.monthlySalesSummary)) doc.monthlySalesSummary = [];
+
+    let entry = doc.monthlySalesSummary.find(s => s.month === month);
+    if (!entry) {
+      entry = { month, sales: 0, cancels: 0, closings: 0 };
+      doc.monthlySalesSummary.push(entry);
+    }
+
+    // apply partial updates if provided
+    const toInt = (v) => (v === '' || v == null ? null : Number(v));
+    const s = toInt(sales);
+    const c = toInt(cancels);
+    const cl = toInt(closings);
+
+    if (s != null && Number.isFinite(s)) entry.sales = s;
+    if (c != null && Number.isFinite(c)) entry.cancels = c;
+    if (cl != null && Number.isFinite(cl)) entry.closings = cl;
+
+    await doc.save();
+
+    return res.json({
+      month: entry.month,
+      sales: entry.sales ?? 0,
+      cancels: entry.cancels ?? 0,
+      closings: entry.closings ?? 0
+    });
+  } catch (err) {
+    console.error('PUT /sales-summary error:', err);
+    res.status(500).json({ error: 'Server error' });
+  }
+});
 
 
 module.exports = router;

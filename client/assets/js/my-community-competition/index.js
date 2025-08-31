@@ -60,6 +60,9 @@ let profileCache = null;
 let linked = [];
 let saveTimer;
 
+// single chart instance holder
+let currentChart = null;
+
 function enableUI(enabled) {
   const method = enabled ? 'remove' : 'add';
   leftSidebar?.classList[method]('opacity-50');
@@ -73,7 +76,7 @@ function numOrNull(v) {
   return Number.isFinite(n) ? n : null;
 }
 
-// ---- Load communities into dropdown
+// ---- One-time: load communities into dropdown (select-options endpoint)
 (async function loadCommunities() {
   try {
     const list = await fetch('/api/communities/select-options').then(r => r.json());
@@ -83,7 +86,8 @@ function numOrNull(v) {
       opt.textContent = c.name || c._id;
       selectEl.appendChild(opt);
     });
-    // Optional deep-link: ?communityId=
+
+    // Deep link support ?communityId=
     const params = new URLSearchParams(window.location.search);
     const preId = params.get('communityId');
     if (preId && list.find(x => x._id === preId)) {
@@ -97,15 +101,20 @@ function numOrNull(v) {
   }
 })();
 
+// One change handler → single source of truth
 selectEl.addEventListener('change', async () => {
   const id = selectEl.value;
   if (!id) {
     enableUI(false);
     currentCommunityId = null;
+    clearGraph();
     return;
   }
   await onSelectCommunity(id);
 });
+
+// Tabs wiring (call once at load)
+wireTabs();
 
 async function onSelectCommunity(id) {
   currentCommunityId = id;
@@ -116,7 +125,7 @@ async function onSelectCommunity(id) {
     // Title
     builderTitle.textContent = `${community?.builderName || 'Your Builder'} – ${community?.name || community?.communityName || 'Your Community'}`;
 
-    // Amenities chips (if you have them in your Community)
+    // Amenities chips
     amenityList.innerHTML = '';
     (community?.communityAmenities || []).forEach(group => {
       (group.items || []).forEach(item => {
@@ -127,7 +136,7 @@ async function onSelectCommunity(id) {
       });
     });
 
-    // Stats (left as — when unknown)
+    // Stats
     statTotalLots.textContent = profile?.lotCounts?.total ?? '—';
     statLotsSold.textContent = profile?.lotCounts?.sold ?? '—';
     statLotsRemaining.textContent = profile?.lotCounts?.remaining ?? '—';
@@ -135,37 +144,37 @@ async function onSelectCommunity(id) {
 
     // Promotion & HOA display
     promoText.textContent = (profile?.promotion && profile.promotion.trim()) ? profile.promotion : 'No promotion recorded.';
-   const effHoaFee = (profile?.hoaFee ?? community?.hoaFee);
-   const effHoaFreq = profile?.hoaFrequency ?? null;
-   hoaDisplay.textContent = (effHoaFee != null && effHoaFee !== '')
-    ? (effHoaFreq ? `$${effHoaFee} / ${effHoaFreq}` : `$${effHoaFee}`)
-    : 'Not specified';
+    const effHoaFee  = (profile?.hoaFee ?? community?.hoaFee);
+    const effHoaFreq = profile?.hoaFrequency ?? null;
+    hoaDisplay.textContent = (effHoaFee != null && effHoaFee !== '')
+      ? (effHoaFreq ? `$${effHoaFee} / ${effHoaFreq}` : `$${effHoaFee}`)
+      : 'Not specified';
 
     const effTax = (profile?.tax ?? community?.tax);
     taxDisplay.textContent = (effTax != null && effTax !== '') ? `${effTax}%` : 'Not specified';
 
-    // Fill left sidebar inputs from community (prefill) + profile (editable)
+    // Left sidebar inputs
     salesPerson.value = profile?.salesPerson || '';
     salesPersonPhone.value = profile?.salesPersonPhone || '';
     salesPersonEmail.value = profile?.salesPersonEmail || '';
 
-   address.value = (profile?.address ?? community?.address ?? '');
+    address.value = (profile?.address ?? community?.address ?? '');
     city.value    = (profile?.city    ?? community?.city    ?? '');
     zip.value     = (profile?.zip     ?? community?.zip     ?? '');
 
     lotSize.value = profile?.lotSize || '';
     totalLots.value = profile?.lotCounts?.total ?? '';
-      totalLots.setAttribute('readonly', 'readonly');
+    totalLots.setAttribute('readonly', 'readonly');
 
     (profile?.garageType === 'Front') ? (garageTypeFront.checked = true) :
     (profile?.garageType === 'Rear')  ? (garageTypeRear.checked  = true) : null;
 
-    schoolISD.value       = (profile?.schoolISD       ?? community?.schoolISD       ?? '');
-    elementarySchool.value= (profile?.elementarySchool?? community?.elementarySchool?? '');
-    middleSchool.value    = (profile?.middleSchool    ?? community?.middleSchool    ?? '');
-    highSchool.value      = (profile?.highSchool      ?? community?.highSchool      ?? '');
+    schoolISD.value        = (profile?.schoolISD        ?? community?.schoolISD        ?? '');
+    elementarySchool.value = (profile?.elementarySchool ?? community?.elementarySchool ?? '');
+    middleSchool.value     = (profile?.middleSchool     ?? community?.middleSchool     ?? '');
+    highSchool.value       = (profile?.highSchool       ?? community?.highSchool       ?? '');
 
-   hoaFee.value       = (profile?.hoaFee ?? community?.hoaFee ?? '');
+    hoaFee.value       = (profile?.hoaFee ?? community?.hoaFee ?? '');
     hoaFrequency.value = (profile?.hoaFrequency ?? '');
     tax.value          = (profile?.tax ?? community?.tax ?? '');
 
@@ -197,6 +206,22 @@ async function onSelectCommunity(id) {
 
     enableUI(true);
     bindAutosaveOnce();
+
+    // Draw the active tab immediately
+    const activeTab = document.querySelector('.tab-btn.is-active');
+    const tab = activeTab ? activeTab.dataset.tab : 'sales';
+    if (tab === 'sales') {
+      await drawSalesGraph(id);
+    } else if (tab === 'base') {
+      await drawBasePriceGraph(id);
+    } 
+     else if (tab === 'qmi') {
+      await drawQmiSoldsGraph(id);
+    }
+    else {
+      clearGraph();
+      mountInfo(`"${tab}" graph coming soon.`);
+    }
   } catch (e) {
     console.error('Failed to load profile', e);
     enableUI(false);
@@ -220,14 +245,6 @@ async function autosave() {
   if (!currentCommunityId) return;
   clearTimeout(saveTimer);
   saveTimer = setTimeout(async () => {
-    const feeTypes = [
-      feeMud.checked ? 'MUD' : null,
-      feePid.checked ? 'PID' : null,
-      feeNone.checked ? 'None' : null
-    ].filter(Boolean);
-
-    const garageType = garageTypeFront.checked ? 'Front' : (garageTypeRear.checked ? 'Rear' : null);
-
     const payload = {
       salesPerson: salesPerson.value,
       salesPersonPhone: salesPersonPhone.value,
@@ -313,3 +330,187 @@ compSearch?.addEventListener('input', async () => {
     compResults.appendChild(btn);
   });
 });
+
+// ---------- Charts ----------
+function clearGraph() {
+  graphMount.innerHTML = '';
+  if (currentChart) {
+    currentChart.destroy();
+    currentChart = null;
+  }
+}
+
+function mountInfo(text) {
+  graphMount.innerHTML = `<div class="p-3 text-muted">${text}</div>`;
+}
+
+function wireTabs() {
+  const tabs = Array.from(document.querySelectorAll('.tab-btn'));
+  tabs.forEach(btn => {
+    btn.addEventListener('click', async () => {
+      tabs.forEach(b => b.classList.remove('is-active'));
+      btn.classList.add('is-active');
+
+      if (!currentCommunityId) { clearGraph(); return; }
+
+      const tab = btn.dataset.tab;
+      if (tab === 'sales') {
+        await drawSalesGraph(currentCommunityId);
+      } else if (tab === 'base') {
+        await drawBasePriceGraph(currentCommunityId);
+      } else if (tab === 'sqft') {
+        clearGraph(); mountInfo('"Sqft Comparison" coming soon.');
+      } else if (tab === 'qmi') {
+        await drawQmiSoldsGraph(currentCommunityId);
+    }
+      
+    });
+  });
+}
+
+async function drawSalesGraph(communityId) {
+  clearGraph();
+  const canvas = document.createElement('canvas');
+  canvas.id = 'salesChart';
+  graphMount.appendChild(canvas);
+
+  const res = await fetch(`/api/community-profiles/${communityId}/sales?months=12`);
+  if (!res.ok) { mountInfo('Could not load sales data.'); return; }
+
+  const { labels, series } = await res.json();
+  const ctx = canvas.getContext('2d');
+  const data = {
+    labels,
+    datasets: [
+      { type: 'bar',  label: 'Sales',   data: series.sales,   borderWidth: 1 },
+      { type: 'bar',  label: 'Cancels', data: series.cancels, borderWidth: 1 },
+      { type: 'bar',  label: 'Closings',data: series.closings,borderWidth: 1 },
+      { type: 'line', label: 'Net (Sales − Cancels)', data: series.net, borderWidth: 2, tension: 0.25 }
+    ]
+  };
+  const options = {
+    responsive: true, maintainAspectRatio: false,
+    plugins: { legend: { position: 'top' }, tooltip: { mode: 'index', intersect: false } },
+    scales: { y: { beginAtZero: true, title: { display: true, text: 'Count' } },
+              x: { title: { display: true, text: 'Month' } } }
+  };
+  currentChart = new Chart(ctx, { data, options });
+}
+
+async function drawBasePriceGraph(communityId) {
+  clearGraph();
+  const canvas = document.createElement('canvas');
+  canvas.id = 'basePriceChart';
+  graphMount.appendChild(canvas);
+
+  const res = await fetch(`/api/community-profiles/${communityId}/base-prices?months=12`);
+  if (!res.ok) { mountInfo('Could not load base price data.'); return; }
+
+  const { labels, datasets } = await res.json();
+  const ctx = canvas.getContext('2d');
+  const chartData = {
+    labels,
+    datasets: datasets.map(d => ({
+      label: d.label,
+      data: d.data,
+      type: 'line',
+      borderWidth: 2,
+      tension: 0.25,
+      spanGaps: true
+    }))
+  };
+  const options = {
+    responsive: true, maintainAspectRatio: false,
+    plugins: {
+      legend: { position: 'top' },
+      tooltip: { mode: 'index', intersect: false, callbacks: {
+        label: (ctx) => {
+          const v = ctx.parsed.y;
+          if (v == null) return `${ctx.dataset.label}: n/a`;
+          return `${ctx.dataset.label}: $${Number(v).toLocaleString()}`;
+        }
+      }}
+    },
+    scales: {
+      y: { beginAtZero: false, title: { display: true, text: 'Base Price ($)' },
+           ticks: { callback: v => `$${Number(v).toLocaleString()}` } },
+      x: { title: { display: true, text: 'Month' } }
+    }
+  };
+  currentChart = new Chart(ctx, { data: chartData, options });
+}
+
+async function drawQmiSoldsGraph(communityId) {
+  clearGraph();
+  const canvas = document.createElement('canvas');
+  canvas.id = 'qmiSoldsChart';
+  graphMount.appendChild(canvas);
+
+  const res = await fetch(`/api/communities/${communityId}/qmi-solds-scatter`);
+  if (!res.ok) { mountInfo('Could not load QMI/SOLD data.'); return; }
+  const { qmi, sold } = await res.json();
+
+  // quick visibility in console
+  console.log('[QMI/SOLD] points:', { qmi: qmi?.length || 0, sold: sold?.length || 0 });
+
+  // ✅ correct spread
+  const sortBySqft = (arr) => [...arr].sort((a, b) => a.x - b.x);
+  const qmiSorted  = sortBySqft(qmi || []);
+  const soldSorted = sortBySqft(sold || []);
+
+  const ctx = canvas.getContext('2d');
+  const data = {
+    datasets: [
+      {
+        label: 'Quick Move-Ins',
+        type: 'scatter',
+        showLine: true,
+        data: qmiSorted,               // each point: { x: sqft, y: ppsf, price, plan, address }
+        pointRadius: 4,
+        tension: 0.25
+      },
+      {
+        label: 'SOLD',
+        type: 'scatter',
+        showLine: true,
+        data: soldSorted,
+        pointRadius: 4,
+        tension: 0.25
+      }
+    ]
+  };
+
+  const options = {
+  responsive: true,
+  maintainAspectRatio: false,
+  parsing: false,
+  plugins: {
+    legend: { position: 'top' },
+    tooltip: {
+      callbacks: {
+        label: (ctx) => {
+          const d = ctx.raw;
+          const sqft  = Number(d.x).toLocaleString();
+          const price = d.y != null ? `$${Number(d.y).toLocaleString()}` : 'n/a'; // now y = price
+          const plan  = d.plan ? ` – ${d.plan}` : '';
+          const addr  = d.address ? `\n${d.address}` : '';
+          return `${ctx.dataset.label}${plan}: ${price} @ ${sqft} sqft${addr}`;
+        }
+      }
+    }
+  },
+  scales: {
+    x: { title: { display: true, text: 'Square Feet' }, ticks: { callback: v => Number(v).toLocaleString() } },
+    y: {
+      title: { display: true, text: 'Price ($)' },          // update axis label
+      ticks: { callback: v => `$${Number(v).toLocaleString()}` }
+    }
+  }
+};
+
+  currentChart = new Chart(ctx, { data, options });
+}
+
+
+
+

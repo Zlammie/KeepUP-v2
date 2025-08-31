@@ -595,6 +595,15 @@ app.get('/my-community-competition', (req, res) => {
 });
 
 
+// Competition Dashboard page
+app.get('/competition-dashboard', (req, res) => {
+  const communityId = req.query.communityId || ''; // allow ?communityId=...
+  res.render('pages/competition-dashboard', {
+    active: 'competition',
+    communityId
+  });
+});
+
 
 // ✅ Catch-all 404 (keep this LAST)
 app.use((req, res) => {

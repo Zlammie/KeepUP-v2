@@ -1,0 +1,111 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Competition Dashboard</title>
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet"/>
+  <link rel="stylesheet" href="/assets/css/main.css">
+</head>
+
+<body data-community-id="<%= communityId || '' %>">
+  <%- include('../partials/nav') %>
+  <%- include('../partials/top-nav-competition') %>
+
+  <main class="container-fluid my-3">
+    <!-- Top strip -->
+    <div class="card card--grey p-3 mb-3">
+      <div class="row g-3 align-items-start">
+        <!-- My Community + Linked Builders -->
+        <div class="col-lg-9">
+          <div class="card card--white p-3">
+            <div class="row g-3">
+              <div class="col-md-6">
+                <label class="form-label">My Community</label>
+                <select id="dashCommunity" class="form-select form-select-sm">
+                  <option value="">-- Select a community --</option>
+                </select>
+              </div>
+              <div class="col-md-6">
+                <label class="form-label">Linked Builders</label>
+                <div id="dashLinkedBuilders" class="d-flex flex-wrap gap-2">
+                  <!-- chips injected -->
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+        <!-- Filters -->
+        <div class="col-lg-3">
+          <div class="card card--white p-3">
+            <div class="d-flex gap-2 align-items-end">
+              <div class="flex-fill">
+                <label class="form-label">Months</label>
+                <select id="dashMonths" class="form-select form-select-sm">
+                  <option value="6">6</option>
+                  <option value="12" selected>12</option>
+                  <option value="24">24</option>
+                </select>
+              </div>
+              <button id="dashRefresh" class="btn btn-sm btn-secondary">Refresh</button>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Main grid -->
+    <div class="row g-3">
+      <div class="col-lg-8">
+        <div class="card card--grey p-2">
+          <div class="card card--white p-3">
+            <h5 class="mb-2">Quick Move-In & Sold (Price vs Sqft)</h5>
+            <div style="height: 380px"><canvas id="qmiSoldsChart"></canvas></div>
+          </div>
+        </div>
+      </div>
+      <div class="col-lg-4">
+        <div class="card card--grey p-2">
+          <div class="card card--white p-3">
+            <h5 class="mb-2">Sales Mix (12 mo)</h5>
+            <div style="height: 380px"><canvas id="salesPieChart"></canvas></div>
+          </div>
+        </div>
+      </div>
+
+      <div class="col-lg-8">
+        <div class="card card--grey p-2">
+          <div class="card card--white p-3">
+            <div class="d-flex justify-content-between align-items-center mb-2">
+              <h5 class="mb-0">Base Price Comparison</h5>
+              <button id="toggleBaseMode" class="btn btn-sm btn-outline">Table</button>
+            </div>
+            <div id="baseChartWrap" style="height: 380px"><canvas id="basePriceChart"></canvas></div>
+            <div id="baseTableWrap" class="d-none">
+              <div class="table-responsive">
+                <table class="table table-sm table-bordered mb-0" id="baseTable"></table>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+      <div class="col-lg-4">
+        <div class="card card--grey p-2">
+          <div class="card card--white p-3">
+            <h5 class="mb-2">Lot Counts</h5>
+            <ul class="list-unstyled mb-0" id="lotCounts">
+              <li>Total Lots: <strong id="lcTotal">—</strong></li>
+              <li>Lots Sold: <strong id="lcSold">—</strong></li>
+              <li>Remaining: <strong id="lcRemaining">—</strong></li>
+              <li>Quick Move-Ins: <strong id="lcQmi">—</strong></li>
+            </ul>
+          </div>
+        </div>
+      </div>
+    </div>
+  </main>
+
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.4/dist/chart.umd.min.js"></script>
+  <script type="module" src="/assets/js/competition-dashboard/index.js"></script>
+</body>
+</html>

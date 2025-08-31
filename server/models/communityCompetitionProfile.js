@@ -26,6 +26,16 @@ const MonthlyQmiSchema = new mongoose.Schema({
   excludedLots: [{ type: mongoose.Schema.Types.ObjectId, default: [] }],
 }, { _id: false });
 
+const MonthlySalesSummarySchema = new mongoose.Schema({
+  month: {
+    type: String,
+    required: true,
+    match: [/^\d{4}-(0[1-9]|1[0-2])$/, 'Month must be YYYY-MM'],
+  },
+  sales:    { type: Number, default: 0 }, // user-entered
+  cancels:  { type: Number, default: 0 }, // user-entered
+  closings: { type: Number, default: 0 }, // user-entered
+}, { _id: false });
 
 
 const ProsConsSchema = new mongoose.Schema({
@@ -105,6 +115,8 @@ const CommunityCompetitionProfileSchema = new mongoose.Schema({
   monthlyPrices: { type: [MonthlyPricesSchema], default: [] },
 
   monthlyQMI: { type: [MonthlyQmiSchema], default: [] },
+
+  monthlySalesSummary: { type: [MonthlySalesSummarySchema], default: [] },
 
   notes: String,
 
