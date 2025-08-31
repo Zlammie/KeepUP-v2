@@ -604,6 +604,15 @@ app.get('/competition-dashboard', (req, res) => {
   });
 });
 
+//Help.ejs page
+app.get('/toolbar/help', (req, res) => {
+  res.render('pages/toolbar/help', {
+   
+  });
+});
+
+
+
 
 // ✅ Catch-all 404 (keep this LAST)
 app.use((req, res) => {
