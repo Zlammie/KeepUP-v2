@@ -1,6 +1,3 @@
-# docker-compose.yml
-version: '3.8'
-
 services:
   db:
     image: mongo:6
@@ -11,12 +8,20 @@ services:
 
   web:
     build: .
+    working_dir: /usr/src/app
     ports:
       - "3000:3000"
     environment:
+      - NODE_ENV=development
       - MONGO_URI=mongodb://db:27017/keepup
+      - CHOKIDAR_USEPOLLING=true     # file watching on Windows/Mac
     depends_on:
       - db
+    volumes:
+      - .:/usr/src/app               # bind-mount your source
+      - keepup_node_modules:/usr/src/app/node_modules   # <-- named volume
+    command: ["npm","run","dev"]     # runs your dev script (uses nodemon)
 
 volumes:
   dbdata:
+  keepup_node_modules:   # <-- define the named volume

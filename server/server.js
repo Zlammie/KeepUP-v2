@@ -64,7 +64,7 @@ app.use(communityCompetitionProfileRoutes);
 
 
 // ✅ Render EJS pages
-app.get('/', (req, res) => {
+app.get('/index', (req, res) => {
   res.render('pages/index', { active: 'home' });
 });
 

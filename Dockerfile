@@ -1,21 +1,17 @@
-# Dockerfile for KeepUP-v2
-# Builds the Node.js app and sets up the container to run on port 3000
-
-# Use a lightweight Node.js base image
 FROM node:18-alpine
-
-# Create and set the working directory
 WORKDIR /usr/src/app
 
-# Install app dependencies (package.json and package-lock.json)
+# 1) Install dependencies (include devDeps; we do NOT set NODE_ENV here)
 COPY package*.json ./
-RUN npm install --production
+RUN npm ci
 
-# Copy the rest of the application code
+# 2) ALSO install nodemon globally so it's on PATH regardless of node_modules mount
+RUN npm i -g nodemon
+
+# 3) Bring in source
 COPY . .
 
-# Expose the app port
 EXPOSE 3000
 
-# Start the app
-CMD ["npm", "start"]
+# Default to prod start; compose will override to dev
+CMD ["npm","start"]

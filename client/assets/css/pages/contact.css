@@ -1,8 +1,26 @@
 
+#contactsTable td .icon-btn {
+  padding: 0;
+  border: none;
+  background: none;
+  line-height: 1;
 
+    display: inline-flex;
+  justify-content: center;
+  align-items: center;
+}
 
+#contactsTable td .icon-btn:focus {
+  box-shadow: none;
+}
 
+/* Icon size */
+#contactsTable td .icon-btn img {
+  width: 20px;
+  height: 20px;
+  display: block;
+}
 
-
-
-
+#contactsTable td.text-center {
+  text-align: center;
+}

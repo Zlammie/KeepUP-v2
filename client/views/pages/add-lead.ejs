@@ -11,15 +11,18 @@
   <%- include('../partials/nav') %>
   <%- include('../partials/top-nav-contacts') %>
   <div class="add-lead-wrapper">
-     <h1>Simple CRM</h1>
+     <h1>Add a New Contact</h1>
   <form id="contactForm">
     <div class="mb-3">
-      <label>Contact Type</label>
-      <select id="lead-type" class="form-control">
-        <option value="contact">Lead</option>
-        <option value="realtor">Realtor</option>
-        <option value="lender">Lender</option>
-      </select>
+    
+      <div id="lead-type-buttons" class="d-flex gap-2" role="group" aria-label="Contact type">
+        <button type="button" class="btn btn-outline-primary rounded-pill active" data-type="contact">Lead</button>
+        <button type="button" class="btn btn-outline-primary rounded-pill" data-type="realtor">Realtor</button>
+        <button type="button" class="btn btn-outline-primary rounded-pill" data-type="lender">Lender</button>
+      </div>
+
+      <!-- Hidden input keeps same id the JS expects -->
+      <input type="hidden" id="lead-type" value="contact">
     </div>
     <div class="mb-3">
       <label>First Name</label>
@@ -80,7 +83,8 @@
 <script>
 
   document.addEventListener('DOMContentLoaded', () => {
-    const leadTypeSelect = document.getElementById('lead-type');
+    const leadTypeSelect = document.getElementById('lead-type'); // now the hidden input
+    const leadTypeButtons = document.getElementById('lead-type-buttons');
     const contactForm = document.getElementById('contactForm');
 
     function updateFieldVisibility() {
@@ -137,6 +141,21 @@
         lenderLastInput.required = true;
       }
     }
+
+    // Handle clicks on the button group
+leadTypeButtons.querySelectorAll('button').forEach(btn => {
+  btn.addEventListener('click', () => {
+    // 1) set hidden input value
+    leadTypeSelect.value = btn.getAttribute('data-type');
+
+    // 2) toggle active button styling
+    leadTypeButtons.querySelectorAll('button').forEach(b => b.classList.remove('active'));
+    btn.classList.add('active');
+
+    // 3) re-run your existing visibility logic
+    updateFieldVisibility();
+  });
+});
 
     leadTypeSelect.addEventListener('change', updateFieldVisibility);
 

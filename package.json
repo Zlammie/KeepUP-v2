@@ -4,7 +4,7 @@
   "main": "server/server.js",
   "scripts": {
     "start": "node server/server.js",
-    "dev": "nodemon server/server.js",
+    "dev": "nodemon server/server.js --watch server --watch client --watch assets --ext js,ejs,css,json --legacy-watch",
     "seed": "node scripts/seed.js"
   },
   "keywords": [],
@@ -24,3 +24,4 @@
     "nodemon": "^3.1.10"
   }
 }
+

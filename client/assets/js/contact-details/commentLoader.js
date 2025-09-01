@@ -5,7 +5,7 @@ async function setupCommentSection() {
     return;
   }
 
-  alert('setupCommentSection initialized'); // ✅ DEBUG: confirms function is running
+
 
   saveBtn.addEventListener('click', async (e) => {
     e.preventDefault();

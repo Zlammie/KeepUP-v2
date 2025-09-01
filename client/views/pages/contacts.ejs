@@ -13,8 +13,11 @@
   <table class="table table-bordered" id="contactsTable">
    <thead>
       <tr>
+        <th><span class="visually-hidden">Task</span></th>     <!-- 📋 task icon -->
+        <th><span class="visually-hidden">Flag</span></th>     <!-- 🚩 flag toggle -->
         <th><span class="visually-hidden">Comment</span></th> <!-- 💬 icon -->
         <th><span class="visually-hidden">View</span></th>    <!-- View button -->
+        <th>Visit Date</th>
         <th>First Name</th>
         <th>Last Name</th>
         <th>Email</th>
@@ -63,65 +66,120 @@ async function loadContacts() {
   tableBody.innerHTML = '';
 
   contacts.forEach(contact => {
-    const row = document.createElement('tr');
-    row.dataset.id = contact._id;
+  const row = document.createElement('tr');
+  row.dataset.id = contact._id;
 
-    // 💬 Comment button (left-most)
-    const commentBtnCell = document.createElement('td');
-    const commentBtn = document.createElement('button');
-    commentBtn.innerHTML = '💬';
-    commentBtn.title = 'Add Comment';
-    commentBtn.classList.add('btn', 'btn-outline-secondary', 'btn-sm');
-    commentBtn.addEventListener('click', () => {
-      openCommentModal(contact._id);
-    });
-    commentBtnCell.appendChild(commentBtn);
-    row.appendChild(commentBtnCell);
+  // 📋 Task icon
+const taskCell = document.createElement('td');
+taskCell.classList.add('text-center');
+const taskBtn = document.createElement('button');
+taskBtn.type = 'button';
+taskBtn.classList.add('icon-btn', 'btn', 'btn-sm', 'btn-link');
+const taskIcon = document.createElement('img');
+taskIcon.src = '/assets/icons/add_task.svg';
+taskIcon.alt = 'Task';
+taskBtn.appendChild(taskIcon);
+taskCell.appendChild(taskBtn);
+row.appendChild(taskCell);
 
-    // View button
-    const viewBtnCell = document.createElement('td');
-    const viewBtn = document.createElement('button');
-    viewBtn.textContent = 'View';
-    viewBtn.classList.add('btn', 'btn-primary', 'btn-sm');
-    viewBtn.addEventListener('click', () => {
-      window.location.href = `/contact-details?id=${contact._id}`;
-    });
-    viewBtnCell.appendChild(viewBtn);
-    row.appendChild(viewBtnCell);
+  // 🚩 Flag toggle
+ // 🚩 Flag toggle (exclamation icon)
+const flagCell = document.createElement('td');
+flagCell.classList.add('text-center');
+const flagBtn = document.createElement('button');
+flagBtn.type = 'button';
+flagBtn.classList.add('icon-btn', 'btn', 'btn-sm', 'btn-link');
+const flagIcon = document.createElement('img');
+flagIcon.src = '/assets/icons/exclamation.svg';
+flagIcon.alt = 'Flag';
+flagBtn.appendChild(flagIcon);
 
-    // Editable fields
-    ['firstName', 'lastName', 'email', 'phone'].forEach(field => {
-      const cell = document.createElement('td');
-      cell.textContent = contact[field];
-      cell.contentEditable = true;
-      cell.dataset.field = field;
-
-      cell.addEventListener('blur', async (e) => {
-        const newValue = e.target.textContent.trim();
-        const id = row.dataset.id;
-        const field = e.target.dataset.field;
-
-        await fetch(`/api/contacts/${id}`, {
-          method: 'PUT',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ [field]: newValue })
-        });
-      });
-
-      row.appendChild(cell);
-    });
-
-    // Status badge
-    const statusCell = document.createElement('td');
-    const status = (contact.status || 'new').toLowerCase();
-    const badge = document.createElement('span');
-    badge.className = `status-badge ${status}`;
-    badge.textContent = status.replace(/-/g, ' ');
-    statusCell.appendChild(badge);
-    row.appendChild(statusCell);
-
-    tableBody.appendChild(row);
+// toggle behavior
+let flagged = contact.flagged || false;
+if (flagged) flagIcon.style.filter = "invert(23%) sepia(93%) saturate(6575%) hue-rotate(358deg) brightness(99%) contrast(119%)"; // makes it red-ish
+flagBtn.addEventListener('click', async () => {
+  flagged = !flagged;
+  if (flagged) {
+    flagIcon.style.filter = "invert(23%) sepia(93%) saturate(6575%) hue-rotate(358deg) brightness(99%) contrast(119%)";
+  } else {
+    flagIcon.style.filter = "";
+  }
+  await fetch(`/api/contacts/${contact._id}`, {
+    method: 'PUT',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ flagged })
   });
+});
+flagCell.appendChild(flagBtn);
+row.appendChild(flagCell);
+
+// 💬 Comment button
+const commentBtnCell = document.createElement('td');
+commentBtnCell.classList.add('text-center');
+const commentBtn = document.createElement('button');
+commentBtn.type = 'button';
+commentBtn.classList.add('icon-btn', 'btn', 'btn-sm', 'btn-link');
+const commentIcon = document.createElement('img');
+commentIcon.src = '/assets/icons/comment.svg';
+commentIcon.alt = 'Comment';
+commentBtn.appendChild(commentIcon);
+commentBtn.addEventListener('click', () => {
+  openCommentModal(contact._id);
+});
+commentBtnCell.appendChild(commentBtn);
+row.appendChild(commentBtnCell);
+
+  // View button
+  const viewBtnCell = document.createElement('td');
+  viewBtnCell.classList.add('text-center');
+  const viewBtn = document.createElement('button');
+  viewBtn.textContent = 'View';
+  viewBtn.classList.add('btn', 'btn-primary', 'btn-sm');
+  viewBtn.addEventListener('click', () => {
+    window.location.href = `/contact-details?id=${contact._id}`;
+  });
+  viewBtnCell.appendChild(viewBtn);
+  row.appendChild(viewBtnCell);
+
+  // Visit date
+  const visitCell = document.createElement('td');
+  visitCell.textContent = contact.visitDate || '';
+  row.appendChild(visitCell);
+
+  // Editable fields
+  ['firstName', 'lastName', 'email', 'phone'].forEach(field => {
+    const cell = document.createElement('td');
+    cell.textContent = contact[field];
+    cell.contentEditable = true;
+    cell.dataset.field = field;
+
+    cell.addEventListener('blur', async (e) => {
+      const newValue = e.target.textContent.trim();
+      const id = row.dataset.id;
+      const field = e.target.dataset.field;
+
+      await fetch(`/api/contacts/${id}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ [field]: newValue })
+      });
+    });
+
+    row.appendChild(cell);
+  });
+
+  // Status badge (unchanged)
+  const statusCell = document.createElement('td');
+  const status = (contact.status || 'new').toLowerCase();
+  const badge = document.createElement('span');
+  badge.className = `status-badge ${status}`;
+  badge.textContent = status.replace(/-/g, ' ');
+  statusCell.appendChild(badge);
+  row.appendChild(statusCell);
+
+  tableBody.appendChild(row);
+});
+
 }
 
 // Comment modal logic
