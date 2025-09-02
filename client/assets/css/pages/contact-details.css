@@ -83,6 +83,18 @@
   border-top-left-radius: 12px;
   border-top-right-radius: 12px;
   margin-bottom: 0.5rem;
+
+}
+
+
+
+/* Optional: style only the body (below the toggle bar) */
+#more-info-body {
+  border-top: 2px solid #0d6efd;
+  border-right: 2px solid #0d6efd;
+  border-bottom: 2px solid #0d6efd;
+  
+  background-color: #fff;
 }
 
 /* Comment Section */
@@ -170,13 +182,6 @@
   z-index: 10;
 }
 
-/* at the very end of contact-details.css */
-.bottom-cont > #community-section,
-.bottom-cont > #lot-link-container,
-.bottom-cont > #linked-lot-display {
-  flex: 1;               /* fill all available space */
-  min-width: 0;          /* allow flex-shrink to work correctly */
-}
 
 /* (optional) ensure their inner padding/width doesn’t overflow */
 .bottom-cont > #community-section > .com-left-cont,
@@ -195,6 +200,8 @@
 /* the inner scroll/body */
 
 /* A: inputs go in the left column */
+
+
 #more-info-body .inputs-group {
   grid-column: 1 / 2;
 }
@@ -243,24 +250,9 @@
 }
 
 /* NEW ITEMS ADDED */
-#community-summary {
-  display: flex;
-  flex-direction: column;
-  gap: 0.75rem;               /* space between each row */
-  padding: 0.5rem;
-  margin-left: 15px;
-  width: 500px;       /* pick the width you want */
-  max-width: 100%;    /* so it never overflows its parent */
-  box-sizing: border-box;
- 
-  background: #f9f9f9;
-  border-radius: 4px;
-}
 
-.time-summary {
-  display: flex;
-  gap: 1.5rem;               /* space between Buy Time & Buy Month */
-}
+
+
 
 .time-item {
   flex: 1;
@@ -374,4 +366,188 @@
   flex-direction: column;
   transition: width 0.3s ease, padding 0.3s ease;
   overflow: hidden;
+}
+
+/* Community Summary */
+
+
+#community-summary {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  width: 100%;
+  box-sizing: border-box;
+}
+
+/* Each row: label left, value right */
+#community-summary > div {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  gap: 0.5rem;
+  flex-wrap: nowrap;      /* keep label+value on same line */
+}
+
+/* Labels */
+#community-summary strong {
+  font-weight: 600;
+  color: #495057;
+  margin-right: 0.5rem;
+  white-space: nowrap;
+}
+#community-summary strong::after {
+  content: ':'; margin-left: 0.25rem;
+}
+/* Values (wrap long data nicely) */
+#community-summary span {
+  flex: 1;
+  text-align: right;
+  overflow-wrap: anywhere;
+}
+
+/* Scoped time layout so it won’t affect other areas */
+#community-section .time-summary {
+  display: flex;
+  justify-content: space-between;
+  gap: 1rem;
+  width: 100%;
+}
+
+#community-section .time-summary .time-item {
+  flex: 1;
+  display: flex;
+  justify-content: space-between;
+}
+
+
+/* Let the Lot Line Up row wrap, unlike the other rows */
+#community-summary .lot-line-up-summary {
+  flex-wrap: wrap;              /* allows a second line inside this row */
+  align-items: flex-start;      /* nicer baseline when wrapping */
+}
+
+/* Make the time pair become a full-width line *inside* the card */
+#community-summary .lot-line-up-summary .time-summary {
+  flex: 1 1 100%;               /* break onto its own line in that row */
+  display: flex;
+  flex-wrap: nowrap;            /* keep Buy Time + Buy Month on one line */
+  gap: 0.75rem 1rem;
+  margin-top: 0.25rem;          /* small separation from Lot Line Up value */
+  min-width: 0;                 /* prevent overflow */
+}
+
+/* Keep each time item compact and inline */
+#community-summary .lot-line-up-summary .time-summary .time-item {
+  display: inline-flex;
+  align-items: baseline;
+  gap: 0.25rem;
+  flex: 0 0 auto;               /* don’t let them stretch weirdly */
+}
+
+#community-summary .lot-line-up-summary .time-summary .time-item strong,
+#community-summary .lot-line-up-summary .time-summary .time-item span {
+  flex: 0 0 auto;               /* cancel the global span flex for this line */
+  min-width: 0;
+}
+
+#community-section {
+  background: #f8f9fa;
+  border: 1px solid #dee2e6;
+  border-radius: .5rem;
+  padding: .75rem;
+  width: 100%;
+  box-sizing: border-box;
+}
+
+
+/* Blocks mapped to areas */
+.lot-line     { grid-area: lot; }
+.floorplans-block { grid-area: floor; }
+.facing-block { grid-area: facing; }
+.buy-block    { grid-area: buy; }
+.living-block { grid-area: living; }
+
+/* Each block styled like a small card */
+.card-block {
+  background: #fff;
+  border: 1px solid #e9ecef;
+  border-radius: .5rem;
+  padding: .6rem .75rem;
+  box-sizing: border-box;
+  min-width: 0; /* prevents overflow in grid */
+}
+
+/* Labels & values inside blocks */
+.card-block .block-label {
+  font-weight: 600;
+  color: #495057;
+  margin-bottom: .25rem;
+  white-space: nowrap;
+}
+.card-block .block-value {
+  color: #212529;
+  overflow-wrap: anywhere;  /* long lists won’t push layout */
+  line-height: 1.3;
+}
+
+/* Two stacked mini rows for Buy block */
+.buy-block {
+  display: grid;
+  grid-template-rows: auto auto;
+  gap: .5rem;
+}
+.buy-block .sub-block .block-label { margin-bottom: .15rem; }
+
+
+.bottom-cont {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 1rem;
+  align-items: flex-start;
+}
+
+/* Left column: lenders stack (fixed-ish width) */
+.all-status-cont {
+  flex: 0 0 320px;   /* reserve ~320px for lenders */
+  max-width: 340px;  /* protect against runaway growth */
+}
+
+/* Right column(s): community / lot link / linked lot can grow */
+.bottom-cont > #community-section,
+.bottom-cont > #lot-link-container,
+.bottom-cont > #linked-lot-display {
+  flex: 1 1 0;       /* take the remaining space */
+  min-width: 0;      /* allow content to shrink instead of overflow */
+  box-sizing: border-box;
+}
+
+/* 2) Make the community grid columns shrink correctly (prevents overflow) */
+.community-grid {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);  /* <-- important */
+  grid-template-rows: auto auto auto;
+  grid-template-areas:
+    "lot lot"
+    "floor facing"
+    "buy living";
+  gap: .75rem;
+}
+
+/* 3) Safety: make every small card in the grid allow shrinking */
+.card-block {
+  min-width: 0;      /* already present, keep it */
+  overflow-wrap: anywhere;
+}
+
+/* (Optional) When the viewport gets narrow, stack the community grid */
+@media (max-width: 900px) {
+  .community-grid {
+    grid-template-columns: 1fr;
+    grid-template-areas:
+      "lot"
+      "floor"
+      "facing"
+      "buy"
+      "living";
+  }
 }

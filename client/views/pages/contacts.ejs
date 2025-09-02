@@ -173,7 +173,9 @@ row.appendChild(commentBtnCell);
   const status = (contact.status || 'new').toLowerCase();
   const badge = document.createElement('span');
   badge.className = `status-badge ${status}`;
-  badge.textContent = status.replace(/-/g, ' ');
+ badge.textContent = status
+  .replace(/-/g, ' ')                        // turn dashes into spaces
+  .replace(/\b\w/g, c => c.toUpperCase());   // uppercase first letter of every word
   statusCell.appendChild(badge);
   row.appendChild(statusCell);
 

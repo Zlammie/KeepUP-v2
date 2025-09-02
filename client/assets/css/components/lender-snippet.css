@@ -47,3 +47,41 @@
   stroke-width: 2;
   fill: none;               /* no fill, just outline */
 }
+
+/* Generic row inside a lender snippet */
+.lender-snippet .lender-line {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  margin-bottom: 0.25rem;
+}
+
+/* First line: name + brokerage side by side */
+.lender-snippet .lender-header .lender-name {
+  font-weight: 600;
+  font-size: 0.95rem;
+}
+.lender-snippet .lender-header .lender-brokerage {
+  color: #555;
+  font-size: 0.9rem;
+  font-weight: 500;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* Second line: status badge */
+.lender-snippet .lender-status .lender-status-badge {
+  margin-top: 0.25rem;
+  width: 250px;     /* let the badge size to content */
+  text-align: center;
+ 
+}
+
+/* Third line: invite/approved date */
+.lender-snippet .lender-dates {
+  font-size: 0.85rem;
+  color: #666;
+}

@@ -205,24 +205,89 @@ if (contact.communityId) {
 
     // Match this to your status-styling.js values
     const statusBackgrounds = {
-      'new': 'lightblue',
-      'be-back': 'orange',
-      'cold': 'lightgray',
-      'target': 'plum',
-      'possible': 'lightseagreen',
-      'negotiating': 'khaki',
-      'purchased': 'lightgreen',
-      'closed': 'mediumseagreen',
-      'not-interested': 'salmon',
-      'deal-lost': 'crimson'
+      'new': '#0E79B2',
+      'be-back': '#FFB347',
+      'cold': '#4682B4',
+      'target': '#6A0DAD',
+      'possible': '#B57EDC',
+      'negotiating': '#3CB371',
+      'purchased': '#2E8B57',
+      'closed': '#495057',
+      'not-interested': '#FF6F61',
+      'deal-lost': '#B22222',
+      'bust': '#8B0000'
     };
 
     const bgColor = statusBackgrounds[rawStatus] || '#ccc';
 
-    statusEl.textContent = rawStatus.replace(/-/g, ' ');
+    statusEl.textContent = (window.formatStatusLabel)
+  ? window.formatStatusLabel(rawStatus)
+  : rawStatus.replace(/[-_]+/g, ' ').replace(/\b\w/g, c => c.toUpperCase());
     statusEl.style.backgroundColor = bgColor;
     statusEl.style.color = (rawStatus === 'cold' || rawStatus === 'negotiating') ? '#000' : '#fff';
   }
+
+  // --- live sync for the top status badge ---
+(function () {
+  const statusSelect = document.getElementById('status');
+  const topBadge     = document.getElementById('contact-status-badge');
+  if (!statusSelect || !topBadge) return;
+
+  // reuse your formatter if you exposed it; otherwise fallback
+  const format = (window.formatStatusLabel)
+    ? window.formatStatusLabel
+    : (s) => String(s || '')
+        .replace(/[-_]+/g, ' ')
+        .replace(/\s+/g, ' ')
+        .trim()
+        .replace(/\b\w/g, c => c.toUpperCase());
+
+  const normalizeKey = (s) => String(s || '')
+    .trim()
+    .toLowerCase()
+    .replace(/[_\s]+/g, '-');
+
+  // if you keep inline colors on the badge, reuse your background map
+  const bgMap = (window.statusBackgrounds) || {
+    'new': '#0E79B2',
+    'be-back': '#FFB347',
+    'cold': '#4682B4',
+    'target': '#6A0DAD',
+    'possible': '#B57EDC',
+    'negotiating': '#3CB371',
+    'purchased': '#2E8B57',
+    'closed': '#495057',
+    'not-interested': '#FF6F61',
+    'deal-lost': '#B22222',
+    'bust': '#8B0000'
+  };
+
+  function applyTopBadge(val) {
+    const key   = normalizeKey(val);
+    const label = format(val);
+
+    // (A) If you rely on CSS classes for colors:
+    topBadge.className = `status-badge ${key}`;
+
+    // (B) If you still use inline colors, keep these 3 lines:
+    const bg = bgMap[key];
+    if (bg) {
+      topBadge.style.backgroundColor = bg;
+      topBadge.style.color = (key === 'cold' || key === 'negotiating') ? '#000' : '#fff';
+    } else {
+      topBadge.style.backgroundColor = '';
+      topBadge.style.color = '';
+    }
+
+    topBadge.textContent = label;
+  }
+
+  // initial render + on change
+  applyTopBadge(statusSelect.value);
+  statusSelect.addEventListener('change', () => {
+    applyTopBadge(statusSelect.value);
+  });
+})();
 const statusBox = document.querySelector('.all-status-cont');
 statusBox.innerHTML = ''; // clear out old cards
 
@@ -253,13 +318,17 @@ for (let i = 0; i < maxCards; i++) {
     snippet.className = 'lender-snippet';
     if (entry.isPrimary) snippet.classList.add('primary');
     snippet.innerHTML = `
-      <strong>${lender.firstName} ${lender.lastName}</strong><br/>
-      <strong>${lender.brokerage || lender.lenderBrokerage || '—'}</strong><br/>
-      <span class="lender-status-badge ${rawStatus}">
-        ${label}
-      </span><br/>
-      ${rawStatus === 'approved' ? 'Approved Date' : 'Invite Date'}:
-      <span>${displayDate}</span>
+     <div class="lender-line lender-header">
+        <strong class="lender-name">${lender.firstName} ${lender.lastName}</strong>
+        <span class="lender-brokerage">${lender.brokerage || lender.lenderBrokerage || '—'}</span>
+      </div>
+      <div class="lender-line lender-status">
+        <span class="lender-status-badge ${rawStatus}">${label}</span>
+      </div>
+      <div class="lender-line lender-dates">
+        ${rawStatus === 'approved' ? 'Approved Date' : 'Invite Date'}:
+        <span>${displayDate}</span>
+      </div>
     `;
     statusBox.appendChild(snippet);
 

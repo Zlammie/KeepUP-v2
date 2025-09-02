@@ -4,6 +4,7 @@
 .page-wrapper,
 .contact-content {
   display: flex;
+  margin: 10px;
 }
 .horizontal-cont { flex-direction: row; align-items: flex-start; }
 .disc-cont      { flex-direction: row; align-items: center; }
