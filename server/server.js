@@ -59,7 +59,6 @@ app.use('/api/floorplans', floorPlanRoutes);
 app.use('/api', lotViewRoutes);
 app.use('/api/competitions', competitionRoutes);
 app.use(myCommunityCompetitionRoutes);
-app.use('/api/communities', require('./routes/communityRoutes'));
 app.use(communityCompetitionProfileRoutes);
 
 

@@ -9,7 +9,7 @@ const Community = require('../models/Community'); // ✅ Only declared once
 const upload = multer({ dest: 'uploads/' });
 
 // 📥 Import Communities from Excel/CSV
-router.post('/communities/import', upload.single('file'), async (req, res) => {
+router.post('/import', upload.single('file'), async (req, res) => {
   try {
     const workbook = xlsx.readFile(req.file.path);
     const sheet = workbook.Sheets[workbook.SheetNames[0]];

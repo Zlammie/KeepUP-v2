@@ -3,6 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <title>Community Management</title>
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet"/>
   <link rel="stylesheet" href="/assets/css/main.css">
 </head>
 <body>
@@ -10,64 +11,207 @@
   <%- include('../partials/top-nav-community') %>
   <h1>Community Management</h1>
 
- 
+ <div class="horizontal-cont">
+  <div class="sideBarMange">
+   <!-- Community Creation -->
+  
+    <section class="community-form card card--grey">
+      <h2>Add New Community</h2>
+      <div class="card card--white">
+          <form id="community-form">
+            <label>Community Name: 
+              <input type="text" id="communityName" class="form-control" required />
+            </label>
+            <label>Project Number:
+              <input type="text" id="projectNumber" class="form-control" required />
+            </label>
+            <div>
+              <button type="submit" class="btn btn-primary">Create Community</button>
+            </div>
+            
+          </form>
+          </div>
+          </section>  
+        
+        
 
- <!-- Community Creation -->
-  <section class="community-form">
-    <h2>Add New Community</h2>
-    <form id="community-form">
-      <label>Community Name: 
-        <input type="text" id="communityName" required />
-      </label>
-      <label>Project Number:
-        <input type="text" id="projectNumber" required />
-      </label>
-      <button type="submit">Create Community</button>
-    </form>
-  </section>
 
   <!-- Lot Addition -->
-  <section class="lot-form">
-    <h2>Add Lot to Community</h2>
-    <form id="lotForm">
-      <label>Community: 
-        <select id="communitySelect" required></select>
-      </label>
-      <label>Job Number: <input type="text" id="jobNumber" required /></label>
-      <label>Lot: <input type="text" id="lot" required /></label>
-      <label>Block: <input type="text" id="block" required /></label>
-      <label>Phase: <input type="text" id="phase" required /></label>
-      <label>Address: <input type="text" id="address" required /></label>
-      <label>Floor Plan: <input type="text" id="floorPlan" /></label>
-      <label>Elevation: <input type="text" id="elevation" /></label>
-      <button type="submit">Add Lot</button>
-    </form>
-  </section>
+   <div class="card card--grey">
+  
+      <section>
+        <h2>Import Communities from Excel/CSV</h2>
+        <div class="card card--white">
+          <form id="importForm" enctype="multipart/form-data">
+            <!-- Dropzone -->
+            <div id="importDropzone" class="dropzone" tabindex="0" aria-label="Upload CSV or XLSX by drag and drop">
+              <div class="dz-inner">
+                <div class="dz-icon">📥</div>
+                <div class="dz-text">
+                  <strong>Drag & drop</strong> your .csv or .xlsx here<br/>
+                  or <button type="button" id="browseBtn" class="btn btn-link p-0 align-baseline">browse</button>
+                </div>
+              </div>
 
-  <section>
-    <h2>Import Communities from Excel/CSV</h2>
-    <form id="importForm" enctype="multipart/form-data">
-      <input type="file" id="importFile" name="file" accept=".csv, .xlsx" required />
-      <button type="submit">Upload</button>
-    </form>
-  </section>
+              <!-- Keep the original input (hidden) so existing JS/back-end work unchanged -->
+              <input type="file" id="importFile" name="file" accept=".csv,.xlsx" hidden required />
+            </div>
+
+            <!-- File meta + actions -->
+            <div class="dz-meta mt-2">
+              <span id="fileName" class="text-muted">No file selected</span>
+            </div>
+
+            <div class="mt-3 d-flex gap-2">
+              <button type="submit" class="btn btn-primary " id="uploadBtn" disabled>Upload</button>
+              <a href="/samples/community-import-sample.csv" class="btn btn-outline-secondary">Download sample CSV</a>
+            </div>
+
+            <!-- Optional progress (can be toggled in JS) -->
+            <div class="progress mt-2 d-none" id="uploadProgress" aria-hidden="true">
+              <div class="progress-bar" role="progressbar" style="width: 0%"></div>
+            </div>
+          </form>
+        </div>
+      </section>
+
+
+      <section class="lot-form">
+        <h2>Add Lot to Community</h2>
+        <div class="card card--white">
+          <form id="lotForm">
+          
+            
+              <div>
+                <label>Community:   
+                <select id="communitySelect" required></select>
+                </label>
+              </div>
+              <div>
+                <label>Job Number: <input type="text" id="jobNumber" class="form-control" required /></label>
+                <label>Address: <input type="text" id="address" class="form-control" required /></label>
+              </div>
+              <div>
+                <label>Lot: <input type="text" id="lot" class="form-control" required /></label>
+                <label>Block: <input type="text" id="block" class="form-control" required /></label>
+                <label>Phase: <input type="text" id="phase" class="form-control" required /></label>
+              </div>
+            <div>
+              <label>Floor Plan: <input type="text" id="floorPlan" class="form-control" /></label>
+              <label>Elevation: <input type="text" id="elevation"  class="form-control"/></label>
+            </div>
+            <div>
+              <button type="submit" class="btn btn-primary">Add Lot</button>
+            </div>
+            
+          </form>
+        </div>
+        </section>
+      </div>
+</div>
+
+   
 
   <!-- Display Section -->
-   <div id="community-list"></div>
-  <section class="lot-list">
-    <h2>Lots by Community</h2>
-    <div id="lotsContainer"></div>
-  </section>
+   <div class="card card--grey lots-com-cont">
+      <div id="community-list" ></div>
+    <section class="lot-list card card--white">
+      <h2>Lots by Community</h2>
+      <div id="lotsContainer"></div>
+    </section>
+ </div>
 
-  <script src="/scripts/community.js"></script>
+   </div>
+ 
+
+  <script src="/assets/js/community.js"></script>
   <script>
-      // Load navs
-    fetch('/nav.html').then(res => res.text()).then(data => {
-      document.getElementById('side-bar').innerHTML = data;
-    });
-    fetch('/top-nav-community.html').then(res => res.text()).then(data => {
-      document.getElementById('top-bar').innerHTML = data;
-    });
+    
+
+    (() => {
+  const dz = document.getElementById('importDropzone');
+  const fileInput = document.getElementById('importFile');
+  const browseBtn = document.getElementById('browseBtn');
+  const fileName = document.getElementById('fileName');
+  const uploadBtn = document.getElementById('uploadBtn');
+  const importForm = document.getElementById('importForm');
+  const progressWrap = document.getElementById('uploadProgress');
+  const progressBar = progressWrap ? progressWrap.querySelector('.progress-bar') : null;
+
+  if (!dz || !fileInput || !browseBtn || !fileName || !uploadBtn || !importForm) return;
+
+  // Helpers
+  const prevent = e => { e.preventDefault(); e.stopPropagation(); };
+  const setFile = f => {
+    if (!f) return;
+    // put the dropped file into the hidden input so existing code picks it up
+    const dt = new DataTransfer();
+    dt.items.add(f);
+    fileInput.files = dt.files;
+
+    fileName.textContent = `${f.name} • ${(f.size / 1024).toFixed(1)} KB`;
+    uploadBtn.disabled = false;
+  };
+
+  // Drag events
+  ['dragenter','dragover','dragleave','drop'].forEach(evt => {
+    dz.addEventListener(evt, prevent, false);
+  });
+  ['dragenter','dragover'].forEach(evt => {
+    dz.addEventListener(evt, () => dz.classList.add('drag'), false);
+  });
+  ['dragleave','drop'].forEach(evt => {
+    dz.addEventListener(evt, () => dz.classList.remove('drag'), false);
+  });
+  dz.addEventListener('drop', e => {
+    const f = e.dataTransfer.files && e.dataTransfer.files[0];
+    setFile(f);
+  });
+
+  // Keyboard + click browse
+  dz.addEventListener('click', () => fileInput.click());
+  dz.addEventListener('keydown', e => {
+    if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); fileInput.click(); }
+  });
+  browseBtn.addEventListener('click', () => fileInput.click());
+  fileInput.addEventListener('change', () => {
+    const f = fileInput.files && fileInput.files[0];
+    setFile(f);
+  });
+
+  // OPTIONAL: show progress if you intercept the submit with XHR
+  // If your backend expects a regular form POST, you can skip this block and let
+  // your existing handler submit. Otherwise, uncomment to POST with progress.
+  
+  importForm.addEventListener('submit', e => {
+    e.preventDefault();
+    if (!fileInput.files.length) return;
+
+    const fd = new FormData(importForm);
+    progressWrap.classList.remove('d-none');
+    progressWrap.setAttribute('aria-hidden', 'false');
+
+    const xhr = new XMLHttpRequest();
+    xhr.open('POST', '/api/communities/import'); // <-- adjust to your route if different
+    xhr.upload.onprogress = evt => {
+      if (!evt.lengthComputable || !progressBar) return;
+      const pct = Math.round((evt.loaded / evt.total) * 100);
+      progressBar.style.width = pct + '%';
+      progressBar.textContent = pct + '%';
+    };
+    xhr.onload = () => {
+      // TODO: toast success + refresh your list
+      progressBar.style.width = '100%';
+      setTimeout(() => { progressWrap.classList.add('d-none'); }, 800);
+    };
+    xhr.onerror = () => {
+      // TODO: toast error
+      progressWrap.classList.add('d-none');
+    };
+    xhr.send(fd);
+  });
+  
+})();
   </script>
 
 

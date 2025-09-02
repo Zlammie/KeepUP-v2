@@ -1,0 +1,40 @@
+.sideBarMange{
+    display: flex;
+    flex-direction: column;
+}
+
+#communitySelect{
+    width: 150px;
+}
+
+.lots-com-cont{
+    margin-left: 15px;
+    width: 45%;
+}
+
+
+.dropzone {
+  border: 2px dashed #cfd4da;
+  border-radius: 12px;
+  padding: 1rem;
+  background: #fafbfc;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 140px;
+  transition: background .15s ease, border-color .15s ease, box-shadow .15s ease;
+  outline: none;
+}
+.dropzone:focus {
+  box-shadow: 0 0 0 3px rgba(13,110,253,.25);
+  border-color: #9ec5fe;
+}
+.dropzone.drag {
+  background: #f1f8ff;
+  border-color: #9ec5fe;
+}
+.dz-inner { text-align: center; }
+.dz-icon { font-size: 2rem; line-height: 1; }
+.dz-text { margin-top: .5rem; color: #6c757d; }
+
+.dz-meta { font-size: .9rem; }
