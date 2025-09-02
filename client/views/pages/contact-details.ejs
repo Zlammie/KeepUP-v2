@@ -348,22 +348,39 @@
   });
 }
  
-  document.addEventListener('DOMContentLoaded', () => {
-    const statusSelect = document.getElementById('status');
-    const communitySection = document.getElementById('community-section');
-    const purchasedSelector = document.getElementById('purchased-community-selector');
+ document.addEventListener('DOMContentLoaded', () => {
+    const statusSelect       = document.getElementById('status');
+    const communitySection   = document.getElementById('community-section');
+    const lotLinkContainer   = document.getElementById('lot-link-container');
+    const purchasedSelector  = document.getElementById('purchased-community-selector');
+    const linkedLotDisplay   = document.getElementById('linked-lot-display');
+
+    function hasLinkedLot() {
+      return !!(linkedLotDisplay && linkedLotDisplay.innerHTML.trim());
+    }
 
     function toggleUI() {
       const isPurchased = statusSelect.value === 'purchased';
       communitySection.style.display = isPurchased ? 'none' : 'block';
-      purchasedSelector.style.display = isPurchased ? 'block' : 'none';
+
+      if (!isPurchased) {
+        // hide both lot UIs in non-purchased states
+        if (lotLinkContainer)  lotLinkContainer.style.display = 'none';
+        if (linkedLotDisplay)  linkedLotDisplay.style.display = 'none';
+        return;
+      }
+
+      const linked = hasLinkedLot();
+      if (lotLinkContainer)  lotLinkContainer.style.display  = linked ? 'none'  : 'block';
+      if (purchasedSelector) purchasedSelector.style.display = linked ? 'none'  : 'block';
+      if (linkedLotDisplay)  linkedLotDisplay.style.display  = linked ? 'block' : 'none';
     }
 
-    // ✅ Run immediately on page load
     toggleUI();
-
-    // ✅ React to status dropdown change
     statusSelect.addEventListener('change', toggleUI);
+
+    // expose so other scripts can refresh the view after they render the card
+    window.refreshLotPanels = toggleUI;
   });
 
   document.getElementById('todo-toggle').addEventListener('click', () => {

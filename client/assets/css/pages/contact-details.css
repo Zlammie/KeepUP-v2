@@ -371,40 +371,6 @@
 /* Community Summary */
 
 
-#community-summary {
-  display: flex;
-  flex-direction: column;
-  gap: 0.5rem;
-  width: 100%;
-  box-sizing: border-box;
-}
-
-/* Each row: label left, value right */
-#community-summary > div {
-  display: flex;
-  justify-content: space-between;
-  align-items: baseline;
-  gap: 0.5rem;
-  flex-wrap: nowrap;      /* keep label+value on same line */
-}
-
-/* Labels */
-#community-summary strong {
-  font-weight: 600;
-  color: #495057;
-  margin-right: 0.5rem;
-  white-space: nowrap;
-}
-#community-summary strong::after {
-  content: ':'; margin-left: 0.25rem;
-}
-/* Values (wrap long data nicely) */
-#community-summary span {
-  flex: 1;
-  text-align: right;
-  overflow-wrap: anywhere;
-}
-
 /* Scoped time layout so it won’t affect other areas */
 #community-section .time-summary {
   display: flex;
@@ -419,22 +385,6 @@
   justify-content: space-between;
 }
 
-
-/* Let the Lot Line Up row wrap, unlike the other rows */
-#community-summary .lot-line-up-summary {
-  flex-wrap: wrap;              /* allows a second line inside this row */
-  align-items: flex-start;      /* nicer baseline when wrapping */
-}
-
-/* Make the time pair become a full-width line *inside* the card */
-#community-summary .lot-line-up-summary .time-summary {
-  flex: 1 1 100%;               /* break onto its own line in that row */
-  display: flex;
-  flex-wrap: nowrap;            /* keep Buy Time + Buy Month on one line */
-  gap: 0.75rem 1rem;
-  margin-top: 0.25rem;          /* small separation from Lot Line Up value */
-  min-width: 0;                 /* prevent overflow */
-}
 
 /* Keep each time item compact and inline */
 #community-summary .lot-line-up-summary .time-summary .time-item {
@@ -516,8 +466,8 @@
 .bottom-cont > #community-section,
 .bottom-cont > #lot-link-container,
 .bottom-cont > #linked-lot-display {
-  flex: 1 1 0;       /* take the remaining space */
-  min-width: 0;      /* allow content to shrink instead of overflow */
+  flex: 2 1 0;       /* take the remaining space */
+  min-width: 500px;      /* allow content to shrink instead of overflow */
   box-sizing: border-box;
 }
 
@@ -550,4 +500,285 @@
       "buy"
       "living";
   }
+}
+
+#community-section #community-summary.community-grid {
+  display: grid !important;               /* defeat earlier flex rule */
+  grid-template-columns: minmax(0,1fr) minmax(0,1fr);
+  grid-template-rows: auto auto auto;
+  grid-template-areas:
+    "lot lot"
+    "floor facing"
+    "buy living";
+  gap: .75rem;
+  width: 100%;
+  box-sizing: border-box;
+}
+
+/* Make sure the wrapper can't pinch the grid */
+#community-section .com-left-cont {
+  width: 100%;
+}
+
+/* Safety: cards should shrink instead of overflowing */
+#community-section .card-block { min-width: 0; }
+
+/* === Community section font tuning === */
+#community-section .card-block .block-label {
+  font-size: 0.9rem;   /* slightly smaller than default (16px → ~14.5px) */
+}
+
+#community-section .card-block .block-value {
+  font-size: 0.85rem;  /* even smaller for the values */
+  line-height: 1.25;   /* tighten line spacing a bit */
+}
+
+#community-section {
+  font-size: 0.9rem;
+}
+
+/*link lot cont */
+.bottom-cont > #lot-link-container,
+.bottom-cont > #linked-lot-display {
+  flex: 2 1 0;     /* same growth as #community-section */
+  min-width: 500px;
+  box-sizing: border-box;
+}
+
+/* Give lot-link the same visual shell as the community card */
+#lot-link-container,
+#linked-lot-display {
+  background: #f8f9fa;
+  border: 1px solid #dee2e6;
+  border-radius: .5rem;
+  padding: .75rem;
+  width: 100%;
+}
+
+/* Optional: make the linked lot card look tidy inside the shell */
+#linked-lot-display .linked-lot-card {
+  background: #fff;
+  border: 1px solid #e9ecef;
+  border-radius: .5rem;
+  padding: .6rem .75rem;
+  line-height: 1.25;
+}
+
+/* Lot search: input first, results directly underneath */
+#lot-link-container #purchased-community-selector {
+  display: block;                 /* ensure it shows when purchased */
+}
+
+#lot-search {
+  width: 100%;
+  box-sizing: border-box;
+}
+
+#lot-search-results {
+  margin-top: .5rem;
+  max-height: 260px;              /* scroll if lots of results */
+  overflow-y: auto;
+  background: #fff;
+  border: 1px solid #e9ecef;
+  border-radius: .5rem;
+  padding: .5rem;
+}
+
+/* Optional: individual result rows (tweak to your app’s markup) */
+#lot-search-results .result-item {
+  padding: .4rem .5rem;
+  border-radius: .35rem;
+  cursor: pointer;
+}
+#lot-search-results .result-item + .result-item {
+  margin-top: .25rem;
+}
+#lot-search-results .result-item:hover {
+  background: #f8f9fa;
+}
+#lot-search-results .results-note {
+  margin-top: .5rem;
+  font-size: 0.8rem;
+  color: #666;
+  font-style: italic;
+}
+
+/* Linked Lot Card shell */
+.linked-lot-card {
+  background:#f8f9fa;
+  border:1px solid #dee2e6;
+  border-radius:.5rem;
+  padding:.6rem;               /* smaller padding */
+  display:flex;
+  flex-direction:column;
+  gap:.6rem;
+  font-size:0.85rem;           /* overall smaller font */
+}
+
+/* Full-width address bar */
+.linked-lot-card .lot-address {
+  font-weight:600;
+  background:#fff;
+  border:1px solid #e9ecef;
+  border-radius:.35rem;
+  padding:.5rem .75rem;
+}
+.linked-lot-card .lot-address strong{color:#495057}
+
+/* small chips row (Job / Lot Block / Plan+Elev) */
+.linked-lot-card .lot-row {
+  display: flex;
+  flex-direction: row;
+  align-items: center;       /* tighten vertical alignment */
+}
+
+
+.linked-lot-card .lot-chip {
+  flex:1 1 150px;              /* narrower minimum width */
+  background:#fff;
+  border:1px solid #e9ecef;
+  border-radius:.3rem;
+  padding:.3rem .5rem;
+  font-size:0.85em;            /* smaller text inside */
+  line-height:1.2;
+}
+.linked-lot-card .lot-chip strong{color:#495057}
+
+/* three content boxes (Prices / Close details / Build info) */
+.linked-lot-card .lot-box{
+  flex:1 1 240px;background:#fff;border:1px solid #e9ecef;border-radius:.35rem;
+  padding:.6rem .75rem; line-height:1.3; min-width:0; font-size:.9rem;
+}
+.linked-lot-card strong{font-weight:600;color:#495057}
+
+/* actions row */
+.linked-lot-card .lot-actions {
+  display:flex;
+  justify-content:flex-end;
+}
+.linked-lot-card .lot-actions button {
+  font-size:0.8rem;
+  padding:.35rem .7rem;
+}
+
+/* Compact the first row of the linked lot card */
+.linked-lot-card .lot-row:first-of-type .lot-chip {
+  padding: .18rem .4rem;     /* smaller padding */
+  font-size: .8rem;          /* smaller text */
+  line-height: 1.1;
+}
+
+/* Job # and Lot/Block hug content only */
+.linked-lot-card .lot-row:first-of-type > .lot-chip:nth-child(1),
+.linked-lot-card .lot-row:first-of-type > .lot-chip:nth-child(2) {
+  display: inline-flex;       /* size to content */
+  align-items: center;
+  gap: .35rem;                /* space between label/value */
+  flex: 0 0 auto;             /* no flex-grow */
+  width: max-content;         /* hug content width */
+  white-space: nowrap;        /* prevent wrapping inside */
+  max-width: 160px;           /* safety cap; lower if you want them even tighter */
+}
+
+/* Plan & Elevation takes all leftover space */
+.linked-lot-card .lot-row:first-of-type > .lot-chip:nth-child(3) {
+  flex: 1 1 0;                /* take leftover space */
+  min-width: 220px;           /* enough room before it wraps */
+}
+
+/* --- Linked Lot: grid layout matching the sketch --- */
+.linked-lot-card.linked-lot-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;          /* left | right */
+  grid-template-areas:
+    "addr  addr"
+    "chips chips"
+    "price close"
+    "build close";
+  gap: .75rem;
+}
+
+/* Area mapping */
+.linked-lot-card .lot-address { grid-area: addr; }
+.linked-lot-card .lot-chip-row { grid-area: chips; display:flex; flex-wrap:wrap; gap:.5rem; }
+.linked-lot-card .prices-box { grid-area: price; }
+.linked-lot-card .build-box  { grid-area: build; }
+.linked-lot-card .close-box  { grid-area: close; }
+
+/* Chip sizing: first two hug content, Plan/Elev takes remaining space */
+.linked-lot-card .lot-chip {
+  background:#fff; border:1px solid #e9ecef; border-radius:.3rem;
+  padding:.24rem .5rem; font-size:.82rem; line-height:1.1;
+}
+.linked-lot-card .lot-chip-row .lot-chip:nth-child(1),
+.linked-lot-card .lot-chip-row .lot-chip:nth-child(2) {
+  flex:0 0 auto; width:max-content; white-space:nowrap; max-width: 150px;
+}
+.linked-lot-card .lot-chip-row .plan-chip {
+  flex:1 1 250px; min-width:220px;          /* absorbs leftover space */
+}
+
+/* Boxes look like cards (you already had .lot-box; reuse and tighten) */
+.linked-lot-card .lot-box {
+  background:#fff; border:1px solid #e9ecef; border-radius:.35rem;
+  padding:.6rem .75rem; font-size:.9rem; line-height:1.3;
+}
+
+/* Keep overall card compact like before */
+.linked-lot-card { padding:.6rem; gap:.6rem; font-size:.85rem; }
+
+/* Responsive: on narrow screens, stack columns */
+@media (max-width: 900px) {
+  .linked-lot-card.linked-lot-grid {
+    grid-template-columns: 1fr;
+    grid-template-areas:
+      "addr"
+      "chips"
+      "price"
+      "build"
+      "close";
+  }
+}
+
+/* --- Linked Lot: tighten chip row so Plan & Elev stays inline --- */
+.linked-lot-card .lot-chip-row {
+  display: flex;
+  flex-wrap: nowrap;   /* force all chips to stay on one line */
+  gap: 0.5rem;
+  min-width: 0;        /* allow children to shrink */
+}
+
+.linked-lot-card .lot-chip-row .lot-chip {
+  flex: 0 0 auto;      /* hug content by default */
+  white-space: nowrap; /* keep label/value together */
+}
+
+.linked-lot-card .lot-chip-row .plan-chip {
+  flex: 1 1 auto;      /* take remaining space */
+  min-width: 0;        /* allow shrinking instead of wrapping */
+  overflow: hidden;
+  text-overflow: ellipsis;  /* show … if text too long */
+  white-space: nowrap;      /* keep on the same line */
+}
+
+.linked-lot-card .left-col .form-pair {
+  display: grid;
+  grid-template-columns: max-content 1fr;
+  align-items: center;
+  column-gap: .5rem;
+  margin-bottom: .35rem;
+}
+
+.linked-lot-card .left-col .form-pair input[type="number"],
+.linked-lot-card .left-col .form-pair input[type="date"] {
+  width: 100%;
+  box-sizing: border-box;
+  padding: .35rem .5rem;
+  border: 1px solid #e1e3e6;
+  border-radius: .35rem;
+  font-size: .9rem;
+}
+
+.linked-lot-card .left-col .lot-sep {
+  border: 0; height: 1px; background: #eee; margin: .5rem 0;
 }

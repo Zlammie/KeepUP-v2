@@ -36,11 +36,17 @@ router.post('/:contactId/link-lot', async (req, res) => {
     }
 
     contact.linkedLot = {
-      jobNumber: lot.jobNumber,
-      address: lot.address,
-      lot: lot.lot,
-      block: lot.block,
-      phase: lot.phase
+      communityId: community._id,             // ⬅️ add
+      lotId:       lot._id,                   // ⬅️ add
+      jobNumber:   lot.jobNumber,
+      address:     lot.address,
+      lot:         lot.lot,
+      block:       lot.block,
+      phase:       lot.phase,
+      // optional: seed from lot so first hydration has values
+      listPrice:   lot.listPrice || '',
+      salesPrice:  lot.salesPrice || '',
+      salesDate:   lot.salesDate || null
     };
 
     await contact.save();

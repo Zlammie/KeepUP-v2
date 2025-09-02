@@ -408,40 +408,146 @@ for (let i = 0; i < maxCards; i++) {
 
   
 
-  if (contact.linkedLot?.jobNumber) {
+// ⬇️ REPLACE your current "if (contact.linkedLot?.jobNumber) { ... }" with this:
+if (contact.linkedLot?.jobNumber) {
   const lot = contact.linkedLot;
+
+  // helpers
+  const fmtDate = v => v ? new Date(v).toLocaleDateString() : '—';
+  const fmtMoney = v => (v || v === 0) ? Number(v).toLocaleString() : '—';
+  const safe = (v) => (v ?? '—');
+
+  const planLabel = lot.planName || lot.floorPlan?.name || lot.floorPlanName || lot.plan || null;
+  const elevLabel = lot.elevation || lot.elev || null;
+  const planElev  = planLabel && elevLabel ? `${planLabel} – ${elevLabel}` : (planLabel || '—');
+
   const display = document.getElementById('linked-lot-display');
   display.innerHTML = `
-    <div>
-      <strong>Lot Linked:</strong><br/>
-      Job #: ${lot.jobNumber}<br/>
-      Lot: ${lot.lot} | Block: ${lot.block}<br/>
-      Address: ${lot.address}<br/>
-      <button id="unlink-lot-btn">Unlink Lot</button>
-    </div>
-  `;
+      <div class="linked-lot-card linked-lot-grid">
+        <!-- Address (full width) -->
+        <div class="lot-address" role="heading" aria-level="3">
+          <span>${safe(lot.address)}</span>
+        </div>
+
+        <!-- Chips row (3 items) -->
+        <div class="lot-chip-row">
+          <div class="lot-chip"><strong>Job #:</strong> ${lot.jobNumber || '—'}</div>
+          <div class="lot-chip"><strong>Lot:</strong> ${lot.lot || '—'} / ${lot.block || '—'}</div>
+          <div class="lot-chip plan-chip"><strong>Plan & Elev:</strong> ${(lot.plan || lot.planName || '—')}${lot.elevation ? ' – ' + lot.elevation : ''}</div>
+        </div>
+
+        <!-- Left column, box 1: Prices -->
+        <section class="lot-box prices-box">
+          <div class="form-pair">
+            <label for="linked-list-price"><strong>List Price:</strong></label>
+            <input type="number" id="linked-list-price" placeholder="e.g. 435000" step="0.01" inputmode="decimal" />
+          </div>
+
+          <div class="form-pair">
+            <label for="linked-sales-price"><strong>Sales Price:</strong></label>
+            <input type="number" id="linked-sales-price" placeholder="e.g. 425000" step="0.01" inputmode="decimal" />
+          </div>
+
+          <div class="form-pair">
+            <label for="linked-sale-date"><strong>Sales Date:</strong></label>
+            <input type="date" id="linked-sale-date" />
+          </div>
+        </section>
+
+        <!-- Left column, box 2: Build -->
+        <section class="lot-box build-box">
+          <div><strong>Build Status:</strong> ${safe(lot.buildStatus)}</div>
+          <div><strong>Release Date:</strong> ${fmtDate(lot.releaseDate)}</div>
+          <div><strong>Projected Completion:</strong> ${fmtDate(lot.projectedCompletion || lot.projectedCompletionDate)}</div>
+        </section>
+
+        <!-- Right column: Close/inspection (tall, spans both rows) -->
+        <section class="lot-box close-box">
+          <div><strong>Close Month:</strong> ${safe(lot.closeMonth)}</div>
+          <div><strong>Lender Close Status:</strong> ${safe(lot.lenderCloseStatus)}</div>
+          <div><strong>Close Date & Time:</strong> ${fmtDate(lot.closeDate)} ${lot.closeTime ?? ''}</div>
+          <div><strong>3rd Party Date:</strong> ${fmtDate(lot.thirdPartyDate || lot.thirdPartyInspectionDate)}</div>
+          <div><strong>1st Walk Date:</strong> ${fmtDate(lot.firstWalkDate)}</div>
+          <div><strong>Final Sign Off Date:</strong> ${fmtDate(lot.finalSignOffDate)}</div>
+        </section>
+
+        <div class="lot-actions">
+          <button id="unlink-lot-btn" type="button">Unlink Lot</button>
+        </div>
+      </div>
+    `;
   display.style.display = 'block';
-  document.getElementById('lot-link-container').style.display = 'none';
 
-  document.getElementById('unlink-lot-btn').addEventListener('click', async () => {
-    const confirmDelete = confirm('Unlink this lot?');
-    if (!confirmDelete) return;
+ // 1) Grab the inline inputs we just rendered
+const listInput  = document.getElementById('linked-list-price');
+const salesInput = document.getElementById('linked-sales-price');
+const dateInput  = document.getElementById('linked-sale-date');
 
-    const res = await fetch(`/api/contacts/${window.contactId}`, {
+// Helpers for hydration
+const readMoney = v => v == null ? '' : String(v).replace(/[^0-9.]/g,'');
+const readDate  = v => !v ? '' : (/^\d{4}-\d{2}-\d{2}$/.test(v) ? v : new Date(v).toISOString().slice(0,10));
+
+// 2) IDs to reach the real lot subdoc
+const communityId = lot.communityId;
+const lotId       = lot.lotId;
+
+// 3) Hydrate inputs (prefer the Community lot; fall back to contact.linkedLot)
+async function hydrateFromCommunityLot() {
+  try {
+    if (!communityId || !lotId) throw new Error('Missing communityId/lotId on linkedLot');
+
+    const res = await fetch(`/api/communities/${communityId}/lots/${lotId}`);
+    if (!res.ok) throw new Error(await res.text());
+    const srvLot = await res.json();
+
+    listInput.value  = readMoney(srvLot.listPrice);
+    salesInput.value = readMoney(srvLot.salesPrice);
+    dateInput.value  = readDate(srvLot.salesDate);
+  } catch (e) {
+    console.warn('Community lot hydrate fallback → contact.linkedLot:', e?.message || e);
+    listInput.value  = readMoney(lot.listPrice);
+    salesInput.value = readMoney(lot.salesPrice);
+    dateInput.value  = readDate(lot.salesDate ?? lot.saleDate);
+  }
+}
+await hydrateFromCommunityLot();
+
+// 4) Debounced save back to Community lot (true source of truth)
+function debounce(fn, ms = 400) { let t; return (...a)=>{ clearTimeout(t); t=setTimeout(()=>fn(...a), ms); }; }
+
+const saveLotFields = debounce(async () => {
+  if (!communityId || !lotId) return; // can't save without IDs
+
+  const payload = {
+    listPrice:  listInput.value  ? String(listInput.value)  : '',
+    salesPrice: salesInput.value ? String(salesInput.value) : '',
+    salesDate:  dateInput.value  ? new Date(dateInput.value).toISOString() : null
+  };
+
+  try {
+    const res = await fetch(`/api/communities/${communityId}/lots/${lotId}`, {
       method: 'PUT',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ linkedLot: null })
+      body: JSON.stringify(payload)
     });
+    if (!res.ok) throw new Error(await res.text());
+    // mirror locally so the card stays in sync
+    lot.listPrice  = payload.listPrice;
+    lot.salesPrice = payload.salesPrice;
+    lot.salesDate  = payload.salesDate;
+  } catch (err) {
+    console.error('Failed to save lot fields', err);
+    alert('Could not save lot fields.');
+  }
+}, 500);
 
-    if (res.ok) {
-      display.style.display = 'none';
-      document.getElementById('lot-link-container').style.display = 'block';
-    } else {
-      alert('Failed to unlink lot');
-    }
-  });
+// 5) Wire up input events
+[listInput, salesInput, dateInput].forEach(el => {
+  el?.addEventListener('input',  saveLotFields);
+  el?.addEventListener('change', saveLotFields);
+});
 }
-  
+
   const statusSelect = document.getElementById('status');
   statusSelect.dispatchEvent(new Event('change'));
   updateStatusBackground();

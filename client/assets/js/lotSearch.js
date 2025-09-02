@@ -30,7 +30,7 @@ window.setupLotSearch = async function setupLotSearch() {
         return;
       }
 
-      lots.forEach(lot => {
+        lots.slice(0, 8).forEach(lot => {
         const div = document.createElement('div');
         div.textContent = `${lot.address} (${lot.lot}, Block ${lot.block})`;
         div.classList.add('search-result');
@@ -42,6 +42,15 @@ window.setupLotSearch = async function setupLotSearch() {
         });
         resultsContainer.appendChild(div);
       });
+
+      // Optional: show a note if more than 10 were found
+      if (lots.length > 10) {
+        const note = document.createElement('div');
+        note.style.fontSize = '0.8rem';
+        note.style.color = '#666';
+        note.textContent = `Showing 10 of ${lots.length} results… refine your search`;
+        resultsContainer.appendChild(note);
+      }
     } catch (err) {
       console.error('Lot search failed:', err);
       resultsContainer.innerHTML = '<div>Error fetching lots</div>';
