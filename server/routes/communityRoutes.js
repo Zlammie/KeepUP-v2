@@ -5,6 +5,8 @@ const xlsx = require('xlsx');
 const router = express.Router();
 
 const Community = require('../models/Community'); // ✅ Only declared once
+const FloorPlan = require('../models/FloorPlan');
+const Contact = require('../models/Contact'); 
 
 const upload = multer({ dest: 'uploads/' });
 
@@ -16,18 +18,25 @@ router.post('/import', upload.single('file'), async (req, res) => {
     const data = xlsx.utils.sheet_to_json(sheet);
 
     const communitiesMap = {};
+    const plans = await FloorPlan.find({}, 'name planNumber').lean();
+    const planByName   = new Map(plans.map(p => [String(p.name).toLowerCase(), String(p._id)]));
+    const planByNumber = new Map(plans.map(p => [String(p.planNumber).toLowerCase(), String(p._id)]));
 
     data.forEach(row => {
-      const name = row["Community Name"];
-      const projectNumber = row["Project Number"];
+      const name = row['Community Name'];
+      const projectNumber = row['Project Number'];
+
+      const fpRaw = (row['Floor Plan'] || '').toString().trim().toLowerCase();
+      const fpId  = planByName.get(fpRaw) || planByNumber.get(fpRaw) || null;
+
       const lot = {
-        jobNumber: String(row["Job Number"]).padStart(4, '0'), // <-- padded to 4 digits
-        lot: row["Lot"],
-        block: row["Block"],
-        phase: row["Phase"],
-        address: row["Address"],
-        floorPlan: row["Floor Plan"] || '',
-        elevation: row["Elevation"] || ''
+        jobNumber: String(row['Job Number']).padStart(4, '0'),
+        lot: row['Lot'],
+        block: row['Block'],
+        phase: row['Phase'],
+        address: row['Address'],
+        floorPlan: fpId,                 // ✅ store ObjectId (or null)
+        elevation: row['Elevation'] || ''
       };
 
       const key = `${name}|${projectNumber}`;
@@ -195,7 +204,6 @@ router.post('/:id/lots', async (req, res) => {
   }
 });
 
-const FloorPlan = require('../models/FloorPlan'); // at the top, alongside Community
 
 // GET all floor plans for a specific community
 router.get('/:id/floorplans', async (req, res) => {
@@ -214,13 +222,37 @@ router.get('/:id/floorplans', async (req, res) => {
 router.get('/:id/lots/:lotId', async (req, res) => {
   try {
     const { id, lotId } = req.params;
+
+    // Keep purchaser populate if you want; avoid populating floorPlan here
     const community = await Community
       .findById(id)
-      .populate('lots.purchaser', 'lastName');
+      .populate('lots.purchaser', 'lastName')
+      .lean();
+
     if (!community) return res.status(404).json({ error: 'Community not found' });
 
-    const lot = community.lots.id(lotId);
-    if (!lot)       return res.status(404).json({ error: 'Lot not found' });
+    const lot = (community.lots || []).find(l => String(l._id) === String(lotId));
+    if (!lot) return res.status(404).json({ error: 'Lot not found' });
+
+    // --- Normalize floorPlan for the client without throwing ---
+    // Cases we handle: ObjectId string, populated object, legacy string, or empty
+    let planId = null;
+    if (lot.floorPlan && typeof lot.floorPlan === 'object') {
+      planId = lot.floorPlan._id; // already an object for some records
+    } else if (typeof lot.floorPlan === 'string') {
+      planId = lot.floorPlan;
+    }
+
+    let planPayload = null;
+    if (planId && mongoose.isValidObjectId(planId)) {
+      // valid ObjectId → fetch plan details
+      const fp = await FloorPlan.findById(planId).select('name planNumber').lean();
+      if (fp) planPayload = fp;
+    } else if (typeof lot.floorPlan === 'string' && lot.floorPlan.trim()) {
+      // legacy plain string (e.g., "Harper" or "1234")
+      planPayload = { name: lot.floorPlan };
+    }
+    lot.floorPlan = planPayload; // object or null
 
     return res.json(lot);
   } catch (err) {
@@ -296,6 +328,31 @@ router.put(
   }
 );
 
+// DELETE /api/communities/:id/lots/:lotId/purchaser
+router.delete('/:id/lots/:lotId/purchaser', async (req, res) => {
+  try {
+    const { id, lotId } = req.params;
+
+    const doc = await Community.findOne(
+      { _id: id, 'lots._id': lotId },
+      { 'lots.$': 1 }
+    ).lean();
+
+    if (!doc || !doc.lots || !doc.lots[0]) {
+      return res.status(404).json({ error: 'Community or lot not found' });
+    }
+
+    await Community.updateOne(
+      { _id: id, 'lots._id': lotId },
+      { $unset: { 'lots.$.purchaser': '' } }
+    );
+
+    return res.json({ ok: true });
+  } catch (err) {
+    console.error('unlink purchaser failed:', err);
+    return res.status(500).json({ error: err.message });
+  }
+});
 
 
 

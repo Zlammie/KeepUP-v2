@@ -6,6 +6,12 @@
   <link rel="stylesheet" href="/assets/css/main.css">
 </head>
 <body>
+
+  <div id="contact-details-root"
+    data-contact-id="<%= contact._id %>"
+    data-initial-status="<%= contact.status %>">
+  </div>
+
   <%- include('../partials/nav') %>
   <%- include('../partials/top-nav-contacts') %>
 <div class="page-wrapper">
@@ -327,170 +333,7 @@
   </aside>
 </div>
 
-
-<script>window.contactId = '<%= contact._id %>';</script>
- <script>
-  
-
-  async function populateCommunityDropdown(selectedId) {
-  const res = await fetch('/api/communities');
-  const communities = await res.json();
-  const select = document.getElementById('community-select');
-
-  communities.forEach(comm => {
-    const opt = document.createElement('option');
-    opt.value = comm._id;
-    opt.textContent = comm.name;
-    if (comm._id === selectedId) {
-      opt.selected = true;
-    }
-    select.appendChild(opt);
-  });
-}
- 
- document.addEventListener('DOMContentLoaded', () => {
-    const statusSelect       = document.getElementById('status');
-    const communitySection   = document.getElementById('community-section');
-    const lotLinkContainer   = document.getElementById('lot-link-container');
-    const purchasedSelector  = document.getElementById('purchased-community-selector');
-    const linkedLotDisplay   = document.getElementById('linked-lot-display');
-
-    function hasLinkedLot() {
-      return !!(linkedLotDisplay && linkedLotDisplay.innerHTML.trim());
-    }
-
-    function toggleUI() {
-      const isPurchased = statusSelect.value === 'purchased';
-      communitySection.style.display = isPurchased ? 'none' : 'block';
-
-      if (!isPurchased) {
-        // hide both lot UIs in non-purchased states
-        if (lotLinkContainer)  lotLinkContainer.style.display = 'none';
-        if (linkedLotDisplay)  linkedLotDisplay.style.display = 'none';
-        return;
-      }
-
-      const linked = hasLinkedLot();
-      if (lotLinkContainer)  lotLinkContainer.style.display  = linked ? 'none'  : 'block';
-      if (purchasedSelector) purchasedSelector.style.display = linked ? 'none'  : 'block';
-      if (linkedLotDisplay)  linkedLotDisplay.style.display  = linked ? 'block' : 'none';
-    }
-
-    toggleUI();
-    statusSelect.addEventListener('change', toggleUI);
-
-    // expose so other scripts can refresh the view after they render the card
-    window.refreshLotPanels = toggleUI;
-  });
-
-  document.getElementById('todo-toggle').addEventListener('click', () => {
-  const panel = document.getElementById('todo-panel');
-  panel.classList.toggle('collapsed');
-
-  // flip the arrow
-  const btn = document.getElementById('todo-toggle');
-  if (panel.classList.contains('collapsed')) {
-    btn.textContent = '▸ Tasks';
-  } else {
-    btn.textContent = '▾ Tasks';
-  }
-});
-
-(async function hydrateLinkedLotOnLoad() {
-  try {
-    // Need the current contact id — provided by Step 2
-    const contactId = window.contactId || (window.getContactId ? getContactId() : null);
-    if (!contactId) return;
-
-    // Ask backend which lot is linked to this purchaser
-    const res = await fetch(`/api/communities/lot-by-purchaser/${contactId}`);
-    if (!res.ok) return;
-    const data = await res.json();
-    if (!data.found) return; // nothing linked yet
-
-    const { communityId, lot } = data;
-
-    // 1) Re-seed autosave context so edits persist to the right subdoc
-    if (window.setLinkedLotContext) {
-      window.setLinkedLotContext(communityId, lot._id, lot);
-    } else {
-      // Minimal fallback: store on DOM for any script that reads it
-      const box = document.getElementById('linked-lot-display');
-      if (box) {
-        box.dataset.communityId = communityId;
-        box.dataset.lotId = lot._id;
-      }
-    }
-
-    // 2) Prefill inputs from saved values
-    const saleDateEl  = document.getElementById('sale-date');
-    const salePriceEl = document.getElementById('sale-price');
-
-    if (saleDateEl && lot.salesDate) {
-      const d = new Date(lot.salesDate);
-      const yyyy = d.getFullYear();
-      const mm = String(d.getMonth() + 1).padStart(2, '0');
-      const dd = String(d.getDate()).padStart(2, '0');
-      saleDateEl.value = `${yyyy}-${mm}-${dd}`;
-    }
-    if (salePriceEl && lot.salesPrice != null) {
-      salePriceEl.value = lot.salesPrice;
-    }
-
-    // 3) Show the linked-lot card
-    const box = document.getElementById('linked-lot-display');
-    if (box) {
-      box.style.display = 'block';
-      box.innerHTML = `
-        <div class="linked-lot-card">
-          <strong>Linked Lot:</strong> ${lot.address ?? '—'}<br/>
-          <strong>Job #:</strong> ${lot.jobNumber ?? '—'}<br/>
-          <strong>Sales Date:</strong> ${lot.salesDate ? new Date(lot.salesDate).toLocaleDateString() : '—'}<br/>
-          <strong>Sales Price:</strong> ${lot.salesPrice ? Number(lot.salesPrice).toLocaleString() : '—'}
-        </div>
-      `;
-    }
-
-    // 4) Make sure the two inputs are hooked into autosave
-    if (window.setupLotSalesAutoSaveListeners) {
-      window.setupLotSalesAutoSaveListeners();
-    }
-  } catch (e) {
-    console.error('hydrateLinkedLotOnLoad error', e);
-  }
-})();
-
-</script>
-
-<script src="/assets/js/contact-details/utils.js"></script>
-<script src="/assets/js/contact-details/commentLoader.js"></script>
-<script src="/assets/js/lotSearch.js"></script>
-<script src="/assets/js/contact-details/contactLoader.js"></script>
-<script src="/assets/js/contact-details/lenderSearch.js"></script>
-<script src="/assets/js/contact-details/autoSave.js"></script>
-<script src="/assets/js/contact-details/realtorSearch.js"></script>
-<script src="/assets/js/contact-details/statusStyling.js"></script>
-<script>
-  // After all external scripts have been loaded
-  window.addEventListener('load', () => {
-    const box = document.getElementById('linked-lot-display');
-    const commId = box?.dataset?.communityId;
-    const lotId  = box?.dataset?.lotId;
-
-    // If the earlier hydrate already found the lot, seed context now:
-    if (commId && lotId && window.setLinkedLotContext) {
-      window.setLinkedLotContext(commId, lotId);
-    }
-
-    // Ensure listeners get attached even if the earlier hydrate ran too early
-    if (window.setupLotSalesAutoSaveListeners) {
-      window.setupLotSalesAutoSaveListeners();
-    }
-  });
-</script>
-
-
-
+<script type="module" src="/assets/js/contact-details/index.js"></script>
 
 </body>
 </html>

@@ -1,94 +1,143 @@
-// realtorSearch.js
+// assets/js/contact-details/realtorSearch.js
+import { DOM } from './domCache.js';
+import { debounce } from './utils.js';
 
-/**
- * Wiring up the realtor search autocomplete and creation.
- */
-function setupRealtorSearch() {
-  const searchInput      = document.getElementById('realtor-search');
-  const resultsContainer = document.getElementById('realtor-search-results');
+// Public init (called from index.js)
+export function initRealtorSearch() {
+  // Prefer the new cached nodes, but fall back to the legacy id if needed.
+  const input    = DOM.realtorSearch || document.getElementById('realtor-search');
+  const results  = DOM.realtorList   || document.getElementById('realtor-search-results');
+  if (!input || !results) return;
 
-  // ─── Handle typing (no debounce here; add one if you like) ─────────────────
-  searchInput.addEventListener('input', async () => {
-    const query = searchInput.value.trim();
-    resultsContainer.innerHTML = '';
+  // Debounced typeahead search
+  input.addEventListener('input', debounce(() => onType(input, results), 250));
 
-    if (!query) return;
+  // Enter to create when "No results" is showing
+  input.addEventListener('keydown', async (e) => {
+    if (e.key !== 'Enter') return;
+    const hasNoResults = results.dataset.state === 'empty';
+    if (!hasNoResults) return;
 
-    try {
-      const res      = await fetch(`/api/realtors/search?q=${encodeURIComponent(query)}`);
-      const realtors = await res.json();
-
-      if (!Array.isArray(realtors)) {
-        console.error('Expected array, got:', realtors);
-        resultsContainer.innerHTML = '<div>Error fetching realtors</div>';
-        return;
-      }
-
-      if (realtors.length === 0) {
-        resultsContainer.innerHTML = '<div>No results found. Press Enter to create new realtor.</div>';
-        return;
-      }
-
-      realtors.forEach(realtor => {
-        const div = document.createElement('div');
-        div.textContent = `${realtor.firstName} ${realtor.lastName} (${realtor.email})`;
-        div.classList.add('search-result');
-
-        div.addEventListener('click', () => {
-          fillRealtorFields(realtor);
-          updatedContactRealtorId = realtor._id;
-          resultsContainer.innerHTML = '';
-        });
-
-        resultsContainer.appendChild(div);
-      });
-    } catch (err) {
-      console.error('Search error:', err);
-      resultsContainer.innerHTML = '<div>Error fetching realtors</div>';
-    }
+    e.preventDefault();
+    await createFromForm(results);
   });
 
-  // ─── Handle Enter to create new realtor ────────────────────────────────
-  searchInput.addEventListener('keydown', async (e) => {
-    if (e.key === 'Enter' && resultsContainer.innerHTML.includes('No results')) {
-      e.preventDefault();
-
-      const newRealtor = {
-        firstName: document.getElementById('realtorFirstName').value,
-        lastName:  document.getElementById('realtorLastName').value,
-        email:     document.getElementById('realtorEmail').value,
-        phone:     document.getElementById('realtorPhone').value,
-        brokerage: document.getElementById('realtorBrokerage').value,
-      };
-
-      try {
-        const res   = await fetch('/api/realtors', {
-          method:  'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body:    JSON.stringify(newRealtor),
-        });
-        const saved = await res.json();
-        fillRealtorFields(saved);
-        updatedContactRealtorId = saved._id;
-        resultsContainer.innerHTML = '';
-      } catch (err) {
-        console.error('Error creating realtor:', err);
-      }
-    }
+  // Dismiss results on Escape / outside click
+  input.addEventListener('keydown', (e) => {
+    if (e.key === 'Escape') clearResults(results);
+  });
+  document.addEventListener('click', (e) => {
+    if (!results.contains(e.target) && e.target !== input) clearResults(results);
   });
 }
 
-/**
- * Populate the realtor fields in your form.
- */
-function fillRealtorFields(realtor) {
-  document.getElementById('realtorFirstName').value = realtor.firstName || '';
-  document.getElementById('realtorLastName').value  = realtor.lastName  || '';
-  document.getElementById('realtorPhone').value     = realtor.phone     || '';
-  document.getElementById('realtorEmail').value     = realtor.email     || '';
-  document.getElementById('realtorBrokerage').value = realtor.brokerage || '';
+/* ---------------- internal: search & render ---------------- */
+async function onType(input, results) {
+  const q = input.value.trim();
+  clearResults(results);
+  if (!q) return;
+
+  setBusy(results, true);
+  try {
+    const res = await fetch(`/api/realtors/search?q=${encodeURIComponent(q)}`);
+    if (!res.ok) throw new Error(`Search failed: ${res.status}`);
+    const list = await res.json();
+
+    if (!Array.isArray(list)) {
+      return renderError(results, 'Unexpected response.');
+    }
+    if (list.length === 0) {
+      return renderEmpty(results, 'No results found. Press Enter to create a new realtor from the fields.');
+    }
+
+    const frag = document.createDocumentFragment();
+    list.forEach(r => frag.appendChild(resultRow(r, results)));
+    results.appendChild(frag);
+    results.dataset.state = 'results';
+  } catch (err) {
+    console.error('[realtor] search error', err);
+    renderError(results, 'Error fetching realtors.');
+  } finally {
+    setBusy(results, false);
+  }
 }
 
-// Expose them so contactLoader.js can wire everything up
-window.setupRealtorSearch  = setupRealtorSearch;
-window.fillRealtorFields  = fillRealtorFields;
+function resultRow(realtor, results) {
+  const div = document.createElement('div');
+  div.className = 'search-result';
+  const name = [realtor.firstName, realtor.lastName].filter(Boolean).join(' ') || '(no name)';
+  const email = realtor.email ? ` (${realtor.email})` : '';
+  div.textContent = `${name}${email}`;
+  div.addEventListener('click', () => {
+    fillRealtorFields(realtor);
+    // Keep backward compatibility with older flows that read this
+    window.updatedContactRealtorId = realtor._id || realtor.id || null;
+    clearResults(results);
+  });
+  return div;
+}
+
+/* ---------------- internal: create on Enter ---------------- */
+async function createFromForm(results) {
+  const payload = {
+    firstName: val('realtorFirstName'),
+    lastName:  val('realtorLastName'),
+    email:     val('realtorEmail'),
+    phone:     val('realtorPhone'),
+    brokerage: val('realtorBrokerage'),
+  };
+
+  // Minimal validation: require at least a name or an email
+  if (!payload.firstName && !payload.lastName && !payload.email) {
+    return renderError(results, 'Enter a first/last name or an email before creating.');
+  }
+
+  setBusy(results, true);
+  try {
+    const res = await fetch('/api/realtors', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload),
+    });
+    if (!res.ok) throw new Error(await res.text());
+    const saved = await res.json();
+
+    fillRealtorFields(saved);
+    window.updatedContactRealtorId = saved._id || saved.id || null;
+    clearResults(results);
+  } catch (err) {
+    console.error('[realtor] create error', err);
+    renderError(results, 'Error creating realtor.');
+  } finally {
+    setBusy(results, false);
+  }
+}
+
+/* ---------------- internal: DOM helpers ---------------- */
+export function fillRealtorFields(realtor) {
+  set('realtorFirstName', realtor.firstName || '');
+  set('realtorLastName',  realtor.lastName  || '');
+  set('realtorPhone',     realtor.phone     || '');
+  set('realtorEmail',     realtor.email     || '');
+  set('realtorBrokerage', realtor.brokerage || '');
+}
+
+function set(id, v) { const el = document.getElementById(id); if (el) el.value = v; }
+function val(id) { const el = document.getElementById(id); return el ? el.value.trim() : ''; }
+
+function clearResults(results) {
+  results.innerHTML = '';
+  results.dataset.state = '';
+}
+
+function renderEmpty(results, msg) {
+  results.innerHTML = `<div class="search-empty">${msg}</div>`;
+  results.dataset.state = 'empty';
+}
+function renderError(results, msg) {
+  results.innerHTML = `<div class="search-error">${msg}</div>`;
+  results.dataset.state = 'error';
+}
+function setBusy(results, isBusy) {
+  results.classList.toggle('is-loading', !!isBusy);
+}
