@@ -1,6 +1,7 @@
 // /assets/js/realtors/index.js
 import { fetchRealtors } from './api.js';
 import { renderTable } from './render.js';
+import { initRealtorModal } from './modal.js'; // NEW
 
 // --- contacts fetch (for stats) ---
 async function fetchContacts() {
@@ -9,14 +10,20 @@ async function fetchContacts() {
   return res.json();
 }
 
-function getRealtorIdFromContact(c) {
-  return (
-    c?.realtorId ||
-    c?.realtor ||
-    c?.linkedRealtor ||
-    c?.realtor?._id ||
-    null
-  );
+function getLinkedRealtorIds(c) {
+  const ids = new Set();
+
+  // single-field possibilities
+  [c?.realtorId, c?.realtor, c?.linkedRealtor, c?.realtor?._id]
+    .filter(Boolean)
+    .forEach(v => ids.add(typeof v === 'object' ? String(v._id ?? '') : String(v)));
+
+  // optional array case (if you ever support multiple links)
+  if (Array.isArray(c?.realtors)) {
+    c.realtors.forEach(r => ids.add(typeof r === 'object' ? String(r._id ?? '') : String(r)));
+  }
+
+  return Array.from(ids).filter(Boolean);
 }
 
 function normalizeStatus(raw) {
@@ -27,18 +34,22 @@ function normalizeStatus(raw) {
 }
 
 function buildRealtorStats(contacts) {
-  const stats = new Map(); // realtorId -> { total, purchased, negotiating, closed }
+  const stats = new Map(); // realtorId (string) -> { total, purchased, negotiating, closed }
   for (const c of contacts) {
-    const rid = getRealtorIdFromContact(c);
-    if (!rid) continue;
-    if (!stats.has(rid)) stats.set(rid, { total: 0, purchased: 0, negotiating: 0, closed: 0 });
+    const status = normalizeStatus(c.status);
+    const rids = getLinkedRealtorIds(c);
+    if (!rids.length) continue;
 
-    const b = stats.get(rid);
-    b.total += 1;
-    const st = normalizeStatus(c.status);
-    if (st === 'purchased') b.purchased += 1;
-    if (st === 'negotiating') b.negotiating += 1;
-    if (st === 'closed') b.closed += 1;
+    for (const rid of rids) {
+      if (!stats.has(rid)) {
+        stats.set(rid, { total: 0, purchased: 0, negotiating: 0, closed: 0 });
+      }
+      const b = stats.get(rid);
+      b.total += 1;
+      if (status === 'negotiating') b.negotiating += 1;
+      if (status === 'purchased')   b.purchased   += 1;
+      if (status === 'closed')      b.closed      += 1;
+    }
   }
   return stats;
 }
@@ -134,6 +145,22 @@ document.addEventListener('DOMContentLoaded', async () => {
     state.statsByRealtor = buildRealtorStats(contacts);
     initTopBar();
     applyFilters(); // initial render + counters
+  } catch (err) {
+    console.error(err);
+  }
+});
+
+//Comment modal
+
+document.addEventListener('DOMContentLoaded', async () => {
+  try {
+    initRealtorModal(); // NEW — sets up handlers
+
+    const [realtors, contacts] = await Promise.all([fetchRealtors(), fetchContacts()]);
+    state.allRealtors = realtors;
+    state.statsByRealtor = buildRealtorStats(contacts);
+    initTopBar();
+    applyFilters();
   } catch (err) {
     console.error(err);
   }

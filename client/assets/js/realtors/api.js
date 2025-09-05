@@ -14,3 +14,15 @@ export async function updateRealtor(id, patch) {
   if (!res.ok) throw new Error(`Failed to update realtor ${id}`);
   return res.json().catch(() => ({}));
 }
+
+export async function postRealtorComment({ type, content, realtorId }) {
+  // Matches your contacts pattern, but passes realtorId.
+  // If your backend uses a separate endpoint, change the URL accordingly.
+  const res = await fetch('/api/comments', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ type, content, realtorId }),
+  });
+  if (!res.ok) throw new Error('Failed to post realtor comment');
+  return res.json().catch(() => ({}));
+}
