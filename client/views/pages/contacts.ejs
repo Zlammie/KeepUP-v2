@@ -9,7 +9,57 @@
 <body class="container mt-5">
   <%- include('../partials/nav') %>
   <%- include('../partials/top-nav-contacts') %>
-  <h1>Saved Contacts</h1>
+    <!-- TOP BAR -->
+  <div id="contactsTopBar" class="contact-topbar">
+    <div class="topbar-left">
+      <label for="communitySelect" class="visually-hidden">Community</label>
+      <select id="communitySelect" class="form-select form-select-sm">
+        <!-- populated by JS -->
+      </select>
+      <div class="topbar-total">
+        <span class="total-label">Total:</span>
+        <span id="countTotal" class="total-value">0</span>
+      </div>
+    </div>
+
+    <div class="topbar-filters" id="statusFilters">
+      <!-- each pill shows label + count; JS updates the counts -->
+      <button class="status-pill active" data-status="all">
+        <span class="label">All</span>
+        <span class="value" data-count="all">0</span>
+      </button>
+      <button class="status-pill" data-status="new">
+        <span class="label">New</span>
+        <span class="value" data-count="new">0</span>
+      </button>
+      <button class="status-pill" data-status="target">
+        <span class="label">Target</span>
+        <span class="value" data-count="target">0</span>
+      </button>
+      <button class="status-pill" data-status="possible">
+        <span class="label">Possible</span>
+        <span class="value" data-count="possible">0</span>
+      </button>
+      <button class="status-pill" data-status="negotiation">
+        <span class="label">Negotiation</span>
+        <span class="value" data-count="negotiation">0</span>
+      </button>
+      <button class="status-pill" data-status="be-back">
+        <span class="label">Be-Back</span>
+        <span class="value" data-count="be-back">0</span>
+      </button>
+      <button class="status-pill" data-status="purchased">
+        <span class="label">Purchased</span>
+        <span class="value" data-count="purchased">0</span>
+      </button>
+    </div>
+      <button id="toggleFilterMode" class="btn btn-sm btn-outline-secondary">
+    More
+  </button>
+  <button id="resetFilters" class="btn btn-sm btn-outline-secondary">
+  Reset
+</button>
+  </div>
   <table class="table table-bordered" id="contactsTable">
    <thead>
       <tr>
@@ -17,7 +67,7 @@
         <th><span class="visually-hidden">Flag</span></th>     <!-- 🚩 flag toggle -->
         <th><span class="visually-hidden">Comment</span></th> <!-- 💬 icon -->
         <th><span class="visually-hidden">View</span></th>    <!-- View button -->
-        <th>Visit Date</th>
+        <th id="visitDateHeader" style="cursor:pointer;">Visit Date<span id="visitDateArrow">▲▼</span></th>
         <th>First Name</th>
         <th>Last Name</th>
         <th>Email</th>
@@ -51,185 +101,13 @@
     <textarea id="modal-comment-text" rows="4" placeholder="Add a comment..."></textarea>
     <br />
     <button id="saveModalComment" class="btn btn-primary btn-sm">Save</button>
-    <button onclick="closeCommentModal()" class="btn btn-secondary btn-sm">Cancel</button>
+    <button id="cancelModalComment" class="btn btn-secondary btn-sm">Cancel</button>
   </div>
 </div>
 
- <script>
+<script type="module" src="/assets/js/contacts/index.js"></script>
 
-// Load and render contacts
-async function loadContacts() {
-  const res = await fetch('/api/contacts');
-  const contacts = await res.json();
 
-  const tableBody = document.querySelector('#contactsTable tbody');
-  tableBody.innerHTML = '';
-
-  contacts.forEach(contact => {
-  const row = document.createElement('tr');
-  row.dataset.id = contact._id;
-
-  // 📋 Task icon
-const taskCell = document.createElement('td');
-taskCell.classList.add('text-center');
-const taskBtn = document.createElement('button');
-taskBtn.type = 'button';
-taskBtn.classList.add('icon-btn', 'btn', 'btn-sm', 'btn-link');
-const taskIcon = document.createElement('img');
-taskIcon.src = '/assets/icons/add_task.svg';
-taskIcon.alt = 'Task';
-taskBtn.appendChild(taskIcon);
-taskCell.appendChild(taskBtn);
-row.appendChild(taskCell);
-
-  // 🚩 Flag toggle
- // 🚩 Flag toggle (exclamation icon)
-const flagCell = document.createElement('td');
-flagCell.classList.add('text-center');
-const flagBtn = document.createElement('button');
-flagBtn.type = 'button';
-flagBtn.classList.add('icon-btn', 'btn', 'btn-sm', 'btn-link');
-const flagIcon = document.createElement('img');
-flagIcon.src = '/assets/icons/exclamation.svg';
-flagIcon.alt = 'Flag';
-flagBtn.appendChild(flagIcon);
-
-// toggle behavior
-let flagged = contact.flagged || false;
-if (flagged) flagIcon.style.filter = "invert(23%) sepia(93%) saturate(6575%) hue-rotate(358deg) brightness(99%) contrast(119%)"; // makes it red-ish
-flagBtn.addEventListener('click', async () => {
-  flagged = !flagged;
-  if (flagged) {
-    flagIcon.style.filter = "invert(23%) sepia(93%) saturate(6575%) hue-rotate(358deg) brightness(99%) contrast(119%)";
-  } else {
-    flagIcon.style.filter = "";
-  }
-  await fetch(`/api/contacts/${contact._id}`, {
-    method: 'PUT',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ flagged })
-  });
-});
-flagCell.appendChild(flagBtn);
-row.appendChild(flagCell);
-
-// 💬 Comment button
-const commentBtnCell = document.createElement('td');
-commentBtnCell.classList.add('text-center');
-const commentBtn = document.createElement('button');
-commentBtn.type = 'button';
-commentBtn.classList.add('icon-btn', 'btn', 'btn-sm', 'btn-link');
-const commentIcon = document.createElement('img');
-commentIcon.src = '/assets/icons/comment.svg';
-commentIcon.alt = 'Comment';
-commentBtn.appendChild(commentIcon);
-commentBtn.addEventListener('click', () => {
-  openCommentModal(contact._id);
-});
-commentBtnCell.appendChild(commentBtn);
-row.appendChild(commentBtnCell);
-
-  // View button
-  const viewBtnCell = document.createElement('td');
-  viewBtnCell.classList.add('text-center');
-  const viewBtn = document.createElement('button');
-  viewBtn.textContent = 'View';
-  viewBtn.classList.add('btn', 'btn-primary', 'btn-sm');
-  viewBtn.addEventListener('click', () => {
-    window.location.href = `/contact-details?id=${contact._id}`;
-  });
-  viewBtnCell.appendChild(viewBtn);
-  row.appendChild(viewBtnCell);
-
-  // Visit date
-  const visitCell = document.createElement('td');
-  visitCell.textContent = contact.visitDate || '';
-  row.appendChild(visitCell);
-
-  // Editable fields
-  ['firstName', 'lastName', 'email', 'phone'].forEach(field => {
-    const cell = document.createElement('td');
-    cell.textContent = contact[field];
-    cell.contentEditable = true;
-    cell.dataset.field = field;
-
-    cell.addEventListener('blur', async (e) => {
-      const newValue = e.target.textContent.trim();
-      const id = row.dataset.id;
-      const field = e.target.dataset.field;
-
-      await fetch(`/api/contacts/${id}`, {
-        method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ [field]: newValue })
-      });
-    });
-
-    row.appendChild(cell);
-  });
-
-  // Status badge (unchanged)
-  const statusCell = document.createElement('td');
-  const status = (contact.status || 'new').toLowerCase();
-  const badge = document.createElement('span');
-  badge.className = `status-badge ${status}`;
- badge.textContent = status
-  .replace(/-/g, ' ')                        // turn dashes into spaces
-  .replace(/\b\w/g, c => c.toUpperCase());   // uppercase first letter of every word
-  statusCell.appendChild(badge);
-  row.appendChild(statusCell);
-
-  tableBody.appendChild(row);
-});
-
-}
-
-// Comment modal logic
-let currentCommentContactId = null;
-
-function openCommentModal(contactId) {
-  currentCommentContactId = contactId;
-  document.getElementById('modal-comment-text').value = '';
-  document.getElementById('commentModal').style.display = 'flex';
-
-  // Reset icon selection
-  document.querySelectorAll('#modal-comment-type-buttons button').forEach(btn => {
-    btn.classList.remove('active');
-  });
-  document.querySelector('#modal-comment-type-buttons button[data-type="Note"]').classList.add('active');
-}
-
-function closeCommentModal() {
-  document.getElementById('commentModal').style.display = 'none';
-  currentCommentContactId = null;
-}
-
-document.querySelectorAll('#modal-comment-type-buttons button').forEach(btn => {
-  btn.addEventListener('click', () => {
-    document.querySelectorAll('#modal-comment-type-buttons button').forEach(b => b.classList.remove('active'));
-    btn.classList.add('active');
-  });
-});
-
-document.getElementById('saveModalComment').addEventListener('click', async () => {
-  const content = document.getElementById('modal-comment-text').value.trim();
-  const typeBtn = document.querySelector('#modal-comment-type-buttons button.active');
-  const type = typeBtn ? typeBtn.getAttribute('data-type') : 'Note';
-
-  if (!content || !currentCommentContactId) return;
-
-  await fetch('/api/comments', {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ type, content, contactId: currentCommentContactId })
-  });
-
-  closeCommentModal();
-});
-
-// Load the contact table
-loadContacts();
-</script>
 
 </body>
 </html>

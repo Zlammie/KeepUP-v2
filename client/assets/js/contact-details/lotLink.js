@@ -129,15 +129,22 @@ function linkedLotCardHTML(lot) {
   const planElev = plan && elev ? `${plan} – ${elev}` : (plan || elev || '—');
 
   return `
+     <!-- Make the OUTER card the ONLY grid container -->
     <div class="linked-lot-card linked-lot-grid">
-      <div class="lot-address" role="heading" aria-level="3"><span>${safe(lot.address)}</span></div>
+      <!-- Keep the lot-address class so CSS grid-area applies -->
+      <div class="lot-address lot-address-row">
+        <div class="lot-address-main">${safe(lot.address)}</div>
+        <div class="lot-build-status">
+          <strong>Status:</strong> <span id="linked-build-status">${safe(lot.status)}</span>
+        </div>
+      </div>
       <div class="lot-chip-row">
         <div class="lot-chip"><strong>Job #:</strong> ${lot.jobNumber || '—'}</div>
         <div class="lot-chip"><strong>Lot:</strong> ${lot.lot || '—'} / ${lot.block || '—'}</div>
         <div class="lot-chip plan-chip"><strong>Plan & Elev:</strong> <span id="linked-plan-elev">${planElev}</span></div>
       </div>
 
-      <section class="lot-box prices-box">
+      <section class="lot-box prices-box left-col">
         <div class="form-pair">
           <label for="linked-list-price"><strong>List Price:</strong></label>
           <input type="number" id="linked-list-price" placeholder="e.g. 435000" step="0.01" inputmode="decimal" />
@@ -152,22 +159,54 @@ function linkedLotCardHTML(lot) {
         </div>
       </section>
 
-      <section class="lot-box build-box">
-        <div><strong>Build Status:</strong> <span id="linked-build-status">${safe(lot.status)}</span></div>
-        <div><strong>Release Date:</strong> <span id="linked-release-date">${fmtDate(lot.releaseDate)}</span></div>
-        <div><strong>Projected Completion:</strong> <span id="linked-projected-completion">${fmtDate(lot.expectedCompletionDate)}</span></div>
+      <section class="lot-box build-box left-col">
+        <div class="form-pair">
+          <label><strong>Release Date:</strong></label>
+          <span id="linked-release-date">${fmtDate(lot.releaseDate)}</span>
+        </div>
+        <div class="form-pair">
+          <label><strong>Projected Completion:</strong></label>
+          <span id="linked-projected-completion">${fmtDate(lot.expectedCompletionDate)}</span>
+        </div>
       </section>
 
-      <section class="lot-box close-box">
-        <div><strong>Close Month:</strong> <span id="linked-close-month">${safe(lot.closeMonth)}</span></div>
-        <div><strong>Lender Close Status:</strong> <span id="linked-lender-close-status">${safe(lot.lender)}</span></div>
-        <div><strong>Close Date &amp; Time:</strong>
+      <section class="lot-box close-box left-col">
+        <div class="form-pair">
+          <label><strong>Close Month:</strong></label>
+          <span id="linked-close-month">${safe(lot.closeMonth)}</span>
+        </div>
+
+        <div class="form-pair">
+          <label><strong>Lender Close Status:</strong></label>
+          <span id="linked-lender-close-status">${safe(lot.lender)}</span>
+        </div>
+
+        <div class="form-pair">
+          <label><strong>Close Date:</strong></label>
           <span id="linked-close-date">${fmtDate(lot.closeDateTime)}</span>
+        </div>
+
+        <div class="form-pair">
+          <label><strong>Close Time:</strong></label>
           <span id="linked-close-time"></span>
         </div>
-        <div><strong>3rd Party Date:</strong> <span id="linked-third-party-date">${fmtDate(lot.thirdParty)}</span></div>
-        <div><strong>1st Walk Date:</strong> <span id="linked-first-walk-date">${fmtDate(lot.firstWalk)}</span></div>
-        <div><strong>Final Sign Off Date:</strong> <span id="linked-final-signoff-date">${fmtDate(lot.finalSignOff)}</span></div>
+
+        <hr class="lot-sep" />
+
+        <div class="form-pair">
+          <label><strong>3rd Party Date:</strong></label>
+          <span id="linked-third-party-date">${fmtDate(lot.thirdParty)}</span>
+        </div>
+
+        <div class="form-pair">
+          <label><strong>1st Walk Date:</strong></label>
+          <span id="linked-first-walk-date">${fmtDate(lot.firstWalk)}</span>
+        </div>
+
+        <div class="form-pair">
+          <label><strong>Final Sign Off Date:</strong></label>
+          <span id="linked-final-signoff-date">${fmtDate(lot.finalSignOff)}</span>
+        </div>
       </section>
 
       <div class="lot-actions"><button id="unlink-lot-btn" type="button">Unlink Lot</button></div>

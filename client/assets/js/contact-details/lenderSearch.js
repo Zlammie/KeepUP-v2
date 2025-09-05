@@ -4,6 +4,7 @@ import { getState } from './state.js';
 export function initLenderSearch() {
   renderLenderSummary();
   renderLenderCards();
+  initLenderSearchUI();
 }
 
 /* ---------- SUMMARY (top 3) ---------- */
@@ -141,8 +142,12 @@ async function onRemoveLender(entry) {
   try {
     const res = await fetch(`/api/contacts/${contactId}/lenders/${entry._id}`, { method: 'DELETE' });
     if (!res.ok) throw new Error(await res.text());
-    // Optimistic local update: remove from state, then repaint
-    contact.lenders = (contact.lenders || []).filter(l => l._id !== entry._id);
+
+    const updated = await res.json();
+    if (updated && Array.isArray(updated.lenders)) {
+      contact.lenders = updated.lenders;
+    }
+
     renderLenderSummary();
     renderLenderCards();
   } catch (err) {
@@ -158,15 +163,16 @@ async function onSaveLender(entry, container) {
   const btn  = container.querySelector('.save-lender-btn');
   const hint = container.querySelector('.lender-save-hint');
 
+  // Only fields your PATCH route actually updates
   const payload = {
-    isPrimary:   !!container.querySelector(`input[name="primaryLender"][value="${entry._id}"]`)?.checked,
-    status:      container.querySelector('.lender-status')?.value || '',
-    inviteDate:  normalizeDate(container.querySelector('.lender-invite-date')?.value),
-    approvedDate:normalizeDate(container.querySelector('.lender-approved-date')?.value)
+    status:       container.querySelector('.lender-status')?.value || '',
+    inviteDate:   normalizeDate(container.querySelector('.lender-invite-date')?.value),
+    approvedDate: normalizeDate(container.querySelector('.lender-approved-date')?.value)
   };
 
   try {
     btn.disabled = true; if (hint) hint.textContent = 'Saving…';
+
     const res = await fetch(`/api/contacts/${contactId}/lenders/${entry._id}`, {
       method: 'PATCH',
       headers: { 'Content-Type': 'application/json' },
@@ -174,9 +180,15 @@ async function onSaveLender(entry, container) {
     });
     if (!res.ok) throw new Error(await res.text());
 
-    // Mirror local state and repaint summary only (keeps cards intact)
-    Object.assign(entry, payload);
+    // Server returns the updated subdoc (populated)
+    const serverEntry = await res.json(); // ← use it
+    const idx = (contact.lenders || []).findIndex(l => l._id === entry._id);
+    if (idx !== -1) contact.lenders[idx] = serverEntry; // replace in state with server truth
+
+    // Repaint so everything is current (dates/status chips)
     renderLenderSummary();
+    renderLenderCards();
+
     if (hint) hint.textContent = 'Saved';
     setTimeout(() => { if (hint && hint.textContent === 'Saved') hint.textContent = ''; }, 1200);
   } catch (err) {
@@ -188,7 +200,8 @@ async function onSaveLender(entry, container) {
   }
 }
 
-function setupPrimaryLenderRadios() {
+
+async function setupPrimaryLenderRadios() {
   document.querySelectorAll('input[name="primaryLender"]').forEach(radio => {
     radio.addEventListener('change', async (e) => {
       const lenderId = e.target.value;
@@ -199,18 +212,183 @@ function setupPrimaryLenderRadios() {
         const res = await fetch(`/api/contacts/${contactId}/lenders/${lenderId}/primary`, { method: 'PUT' });
         if (!res.ok) throw new Error(await res.text());
 
-        // Optimistically update local state: set this one primary, others false
-        (contact.lenders || []).forEach(l => { l.isPrimary = (l._id === lenderId); });
+        // Server returns the full contact (with lenders populated) — use it
+        const updated = await res.json();
+        if (updated && Array.isArray(updated.lenders)) {
+          contact.lenders = updated.lenders;
+        }
+
         renderLenderSummary();
-        renderLenderCards(); // re-render to reflect radio state
+        renderLenderCards();
       } catch (err) {
         console.error('Failed to set primary lender', err);
         alert('Could not update primary lender.');
-        // Repaint to undo the optimistic UI if needed
-        renderLenderCards();
+        renderLenderCards(); // revert radio UI if needed
       }
     });
   });
+}
+
+/* =========================================================
+   LENDER SEARCH + LINK (non-breaking add-on)
+   ========================================================= */
+let _selectedLender = null;
+let _abortController = null;
+
+function initLenderSearchUI() {
+  const input    = document.getElementById('lender-search-input');
+  const results  = document.getElementById('lender-search-results');
+  const infoWrap = document.getElementById('lender-info-fields');
+  const linkBtn  = document.getElementById('lender-link-btn');
+
+  // If this page doesn’t have the block, bail quietly
+  if (!input || !results || !infoWrap || !linkBtn) return;
+
+  // typing → debounce → search
+  input.addEventListener('input', debounce(async (e) => {
+    const q = e.target.value.trim();
+    _selectedLender = null;
+    linkBtn.disabled = true;
+    clearInfoFields();
+    infoWrap.style.display = 'none';
+
+    if (!q || q.length < 2) { results.innerHTML = ''; return; }
+
+    // cancel previous fetch if still running
+    if (_abortController) _abortController.abort();
+    _abortController = new AbortController();
+
+    results.innerHTML = `<div class="results-note">Searching…</div>`;
+    try {
+      const matches = await lenderSearchAPI(q, _abortController.signal);
+      renderSearchResults(matches);
+    } catch (err) {
+      if (err.name !== 'AbortError') {
+        console.error('[lender search] failed:', err);
+        results.innerHTML = `<div class="results-note">Search failed</div>`;
+      }
+    }
+  }, 250));
+
+  linkBtn.addEventListener('click', linkSelectedLender);
+}
+
+async function lenderSearchAPI(query, signal) {
+  const res = await fetch(`/api/contacts/search?q=${encodeURIComponent(query)}`, { signal });
+  if (!res.ok) throw new Error(await res.text());
+  return res.json();
+}
+
+function renderSearchResults(list) {
+  const results  = document.getElementById('lender-search-results');
+  const infoWrap = document.getElementById('lender-info-fields');
+  const linkBtn  = document.getElementById('lender-link-btn');
+
+  if (!Array.isArray(list) || list.length === 0) {
+    results.innerHTML = `<div class="results-note">No matches — refine your search.</div>`;
+    infoWrap.style.display = 'none';
+    linkBtn.disabled = true;
+    return;
+  }
+
+  results.innerHTML = '';
+  list.forEach(l => {
+    const row = document.createElement('div');
+    row.className = 'result-item';
+    const name = `${esc(l.firstName || '')} ${esc(l.lastName || '')}`.trim() || '—';
+    const broker = esc(l.brokerage || l.lenderBrokerage || '—');
+    const email  = esc(l.email || '—');
+    const phone  = esc(l.phone || '—');
+
+    row.innerHTML = `
+      <div class="name"><strong>${name}</strong></div>
+      <div class="sub">${email} • ${phone} • ${broker}</div>
+    `;
+    row.addEventListener('click', () => selectLender(l));
+    results.appendChild(row);
+  });
+}
+
+function selectLender(l) {
+  _selectedLender = l;
+  setValue('lender-firstName', l.firstName || '');
+  setValue('lender-lastName',  l.lastName  || '');
+  setValue('lender-email',     l.email     || '');
+  setValue('lender-phone',     l.phone     || '');
+  setValue('lender-brokerage', l.brokerage || l.lenderBrokerage || '');
+
+  document.getElementById('lender-info-fields').style.display = 'block';
+  document.getElementById('lender-link-btn').disabled = false;
+}
+
+async function linkSelectedLender() {
+  if (!_selectedLender) return;
+  const { contactId, contact } = getState();
+  if (!contactId) { alert('Missing contact ID — cannot link lender.'); return; }
+
+  const btn = document.getElementById('lender-link-btn');
+  try {
+    btn.disabled = true;
+
+    // Old route: PATCH /api/contacts/:contactId/link-lender
+    const res = await fetch(`/api/contacts/${contactId}/link-lender`, {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        lenderId: _selectedLender._id,
+        status: 'invite',
+        inviteDate: null,
+        approvedDate: null
+      })
+    });
+    if (!res.ok) throw new Error(await res.text());
+
+    // server returns the updated contact with lenders populated
+    const updated = await res.json();
+
+    // Refresh local state with the server's truth
+    if (updated && Array.isArray(updated.lenders)) {
+      contact.lenders = updated.lenders;
+    }
+
+    // repaint
+    renderLenderSummary();
+    renderLenderCards();
+
+    // reset UI
+    setValue('lender-firstName','');
+    setValue('lender-lastName','');
+    setValue('lender-email','');
+    setValue('lender-phone','');
+    setValue('lender-brokerage','');
+    const input   = document.getElementById('lender-search-input');
+    const results = document.getElementById('lender-search-results');
+    if (input)   input.value = '';
+    if (results) results.innerHTML = '';
+    document.getElementById('lender-info-fields').style.display = 'none';
+    _selectedLender = null;
+  } catch (err) {
+    console.error('[lender link] failed:', err);
+    alert('Failed to link lender');
+  } finally {
+    btn.disabled = false;
+  }
+}
+
+/* ---------- tiny helpers ---------- */
+function debounce(fn, wait = 250) {
+  let t; return (...args) => { clearTimeout(t); t = setTimeout(() => fn.apply(null, args), wait); };
+}
+function setValue(id, v) {
+  const el = document.getElementById(id);
+  if (el) el.value = v;
+}
+function clearInfoFields() {
+  ['lender-firstName','lender-lastName','lender-email','lender-phone','lender-brokerage']
+    .forEach(id => setValue(id, ''));
+}
+function esc(s) {
+  return String(s ?? '').replace(/[&<>"']/g, m => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;','\'':'&#39;'}[m]));
 }
 
 /* ---------- helpers ---------- */

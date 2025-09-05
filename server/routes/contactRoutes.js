@@ -78,6 +78,20 @@ router.get('/', async (req, res) => {
   }
 });
 
+// Search lenders
+router.get('/search', async (req, res) => {
+  const q = req.query.q;
+  const regex = new RegExp(q, 'i');
+  const results = await Lender.find({
+    $or: [
+      { firstName: regex },
+      { lastName: regex },
+      { email: regex },
+      { phone: regex }
+    ]
+  }).limit(10);
+  res.json(results);
+});
 
 
 // Get a single contact by ID
@@ -248,20 +262,7 @@ router.patch('/:contactId/link-lender', async (req, res) => {
   }
 });
 
-// Search lenders
-router.get('/search', async (req, res) => {
-  const q = req.query.q;
-  const regex = new RegExp(q, 'i');
-  const results = await Lender.find({
-    $or: [
-      { firstName: regex },
-      { lastName: regex },
-      { email: regex },
-      { phone: regex }
-    ]
-  }).limit(10);
-  res.json(results);
-});
+
 
 // PATCH: Unlink all lenders from contact
 router.patch('/:id/unlink-lender', async (req, res) => {

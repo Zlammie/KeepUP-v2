@@ -1,67 +1,76 @@
-async function setupCommentSection() {
+// assets/js/contact-details/commentLoader.js
+import { getState } from './state.js';
+
+export function setupCommentSection() {
   const saveBtn = document.getElementById('save-comment');
   if (!saveBtn) {
-    console.warn('Save Comment button not found');
+    console.warn('[comments] Save button not found');
     return;
   }
 
-
-
   saveBtn.addEventListener('click', async (e) => {
     e.preventDefault();
-    alert('Save button clicked'); // ✅ DEBUG: confirms button click
 
     const selectedBtn = document.querySelector('#comment-type-buttons button.active');
     const type = selectedBtn ? selectedBtn.getAttribute('data-type') : 'Note';
     const content = document.getElementById('comment-text').value.trim();
-    const contactId = window.contactId;
+    const { contactId } = getState();
 
-    if (!content) {
-      alert('Comment cannot be empty');
+    if (!content) return alert('Comment cannot be empty');
+    if (!contactId) {
+      console.error('[comments] Missing contactId; cannot save.');
       return;
     }
 
-    const res = await fetch('/api/comments', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ type, content, contactId })
-    });
-
-    if (res.ok) {
-      alert('Comment saved'); // ✅ DEBUG: success confirmation
+    try {
+      const res = await fetch('/api/comments', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ type, content, contactId })
+      });
+      if (!res.ok) throw new Error(await res.text());
       document.getElementById('comment-text').value = '';
-      loadComments();
-    } else {
+      await loadComments();
+    } catch (err) {
+      console.error('[comments] Save failed:', err);
       alert('Error saving comment');
-      console.error(await res.text());
     }
   });
 
+  // Toggle active type button
   document.querySelectorAll('#comment-type-buttons button').forEach(btn => {
-  btn.addEventListener('click', () => {
-    document.querySelectorAll('#comment-type-buttons button').forEach(b => b.classList.remove('active'));
-    btn.classList.add('active');
+    btn.addEventListener('click', () => {
+      document.querySelectorAll('#comment-type-buttons button').forEach(b => b.classList.remove('active'));
+      btn.classList.add('active');
+    });
   });
-});
 
   loadComments();
 }
 
 async function loadComments() {
-  const contactId = window.contactId;
-  const res = await fetch(`/api/comments/${contactId}`);
-  const comments = await res.json();
+  const { contactId } = getState();
+  if (!contactId) return;
 
-  const container = document.getElementById('comment-history');
-  container.innerHTML = '';
+  try {
+    const res = await fetch(`/api/comments/${contactId}`);
+    if (!res.ok) throw new Error(await res.text());
+    const comments = await res.json();
 
-  comments.forEach(comment => {
-    const div = document.createElement('div');
-    div.classList.add('comment-entry');
-    div.innerHTML = `
-      <div class="meta">${comment.type} • ${new Date(comment.timestamp).toLocaleString()}</div>
-      <div>${comment.content}</div>
-    `;
-    container.appendChild(div);
-  });
+    const container = document.getElementById('comment-history');
+    if (!container) return;
+
+    container.innerHTML = '';
+    comments.forEach(comment => {
+      const div = document.createElement('div');
+      div.classList.add('comment-entry');
+      div.innerHTML = `
+        <div class="meta">${comment.type} • ${new Date(comment.timestamp).toLocaleString()}</div>
+        <div>${comment.content}</div>
+      `;
+      container.appendChild(div);
+    });
+  } catch (err) {
+    console.error('[comments] Load failed:', err);
+  }
 }

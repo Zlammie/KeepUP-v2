@@ -42,6 +42,9 @@ export async function hydrateAll() {
   // 3) Communities + floorplans
   await populateCommunities({ contact });
 
+  //3.5) More-Details-Panel
+  hydrateMoreDetails(contact);
+
   // 4) Summary
   hydrateSummaryOnly();
 
@@ -162,5 +165,61 @@ function setDateInputValue(id, isoOrDateish) {
   const dd = String(d.getDate()).padStart(2, '0');
   // If it's a <input type="date"> use yyyy-mm-dd; otherwise still give a clean date-only
   el.value = `${yyyy}-${mm}-${dd}`;
+}
+
+// --- Hydrate the "More Details" panel from the contact doc ---
+function hydrateMoreDetails(contact) {
+  // A) Simple text inputs
+  setInputValue('lotLineUp', contact?.lotLineUp);
+  setInputValue('buyTime',   contact?.buyTime);
+  setInputValue('buyMonth',  contact?.buyMonth);
+
+  // (optional) Lead Source select, if you store it on the contact
+  if (document.getElementById('source') && contact?.source) {
+    setInputValue('source', contact.source);
+  }
+
+  // B) Facing checkboxes (supports array OR comma-separated string)
+  const allFacing = Array.from(document.querySelectorAll('input[name="facing"]'));
+  allFacing.forEach(cb => cb.checked = false);
+  if (contact?.facing != null) {
+    const faces = Array.isArray(contact.facing)
+      ? contact.facing
+      : String(contact.facing).split(',').map(s => s.trim()).filter(Boolean);
+    allFacing.forEach(cb => { if (faces.includes(cb.value)) cb.checked = true; });
+  }
+
+  // C) Living condition (supports array OR individual booleans)
+  // Array shape: ["Investor","Renting","Own & Selling","Own & Not Selling"]
+  // Boolean shape: contact.investor, contact.renting, contact.ownSelling, contact.ownNotSelling
+  const idForLabel = (label) => {
+    switch (label) {
+      case 'Investor':             return 'investor';
+      case 'Renting':              return 'renting';
+      case 'Own & Selling':        return 'own-selling';
+      case 'Own & Not Selling':    return 'own-not-selling';
+      default: return null;
+    }
+  };
+
+  // Clear all first
+  ['investor','renting','own-selling','own-not-selling']
+    .forEach(id => { const el = document.getElementById(id); if (el) el.checked = false; });
+
+  if (Array.isArray(contact?.living)) {
+    contact.living.forEach(label => {
+      const id = idForLabel(label);
+      if (id) { const el = document.getElementById(id); if (el) el.checked = true; }
+    });
+  } else if (contact) {
+    const setIf = (id, flag) => {
+      const el = document.getElementById(id);
+      if (el && Object.prototype.hasOwnProperty.call(contact, flag)) el.checked = !!contact[flag];
+    };
+    setIf('investor',        'investor');
+    setIf('renting',         'renting');
+    setIf('own-selling',     'ownSelling');
+    setIf('own-not-selling', 'ownNotSelling');
+  }
 }
 

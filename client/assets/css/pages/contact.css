@@ -21,6 +21,116 @@
   display: block;
 }
 
+#visitDateHeader {
+  user-select: none;
+  white-space: nowrap;
+}
+#visitDateArrow {
+  display: inline-block;
+  width: 1em;        /* fixed width so ▲, ▼, or blank take same space */
+  text-align: center;
+  font-size: 0.75rem;
+  margin-left: 4px;
+  opacity: 0.6;
+}
+
 #contactsTable td.text-center {
   text-align: center;
 }
+
+/* Top bar layout */
+.contact-topbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 10px 12px;
+  border: 1px solid #dcdcdc;
+  border-radius: 10px;
+  background: #f8f9fa;
+  margin-bottom: 12px;
+  flex-wrap: wrap;
+}
+
+.contact-topbar .topbar-left {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.contact-topbar .topbar-total {
+  display: inline-flex;
+  align-items: baseline;
+  gap: 6px;
+  font-weight: 600;
+}
+
+.topbar-total{
+  margin-right: 45px;
+}
+
+#statusFilters {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+  flex: 1 1 auto;
+}
+
+#toggleFilterMode {
+  flex: 0 0 auto;
+}
+
+/* Filter pills */
+.status-pill {
+  border: 2px solid #cfd4da;
+  background: #ffffff;
+  border-radius: 12px;
+  padding: 6px 12px;
+  line-height: 1;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  cursor: pointer;
+  font-weight: 600;
+  transition: all 0.2s ease;
+}
+
+.status-pill .label { font-weight: 600; }
+.status-pill .value {
+  font-variant-numeric: tabular-nums;
+  font-weight: 500;
+}
+
+
+.status-pill.active {
+  box-shadow: 0 0 0 3px rgba(0,0,0,0.05) inset;
+  background: #f9f9f9;
+}
+.status-pill:hover { box-shadow: 0 0 0 3px rgba(0,0,0,.04) inset; }
+
+/* Status-specific borders only (text stays default) */
+.status-pill.new            { border-color: #0E79B2; }
+.status-pill.be-back        { border-color: #FFB347; }
+.status-pill.cold           { border-color: #4682B4; }
+.status-pill.target         { border-color: #6A0DAD; }
+.status-pill.possible       { border-color: #B57EDC; }
+.status-pill.negotiation    { border-color: #3CB371; }
+.status-pill.purchased      { border-color: #2E8B57; }
+.status-pill.closed         { border-color: #495057; }
+.status-pill.not-interested { border-color: #FF6F61; }
+.status-pill.deal-lost      { border-color: #B22222; }
+.status-pill.bust           { border-color: #8B0000; }
+
+/* When active → text also takes on the border color */
+.status-pill.new.active            { color: #0E79B2; }
+.status-pill.be-back.active        { color: #FFB347; }
+.status-pill.cold.active           { color: #4682B4; }
+.status-pill.target.active         { color: #6A0DAD; }
+.status-pill.possible.active       { color: #B57EDC; }
+.status-pill.negotiation.active    { color: #3CB371; }
+.status-pill.purchased.active      { color: #2E8B57; }
+.status-pill.closed.active         { color: #495057; }
+.status-pill.not-interested.active { color: #FF6F61; }
+.status-pill.deal-lost.active      { color: #B22222; }
+.status-pill.bust.active           { color: #8B0000; }
+/* keep your existing icon styles for the table */

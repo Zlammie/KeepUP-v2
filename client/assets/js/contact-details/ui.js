@@ -1,7 +1,28 @@
 // assets/js/contact-details/ui.js
 export function initMiscUI() {
-  initMoreInfoPanel();
-  initTodoPanel();
+  const panel   = document.getElementById('more-info-panel');
+  const toggle  = document.getElementById('more-info-toggle');
+  const body    = document.getElementById('more-info-body');
+  const triangle = toggle?.querySelector('.triangle');
+
+  if (!panel || !toggle || !body) return;
+
+  // ensure closed by default (only the blue bar peeks in)
+  panel.classList.remove('open');
+
+  function apply() {
+    const isOpen = panel.classList.contains('open');
+    // Let CSS handle display/width; keep ARIA + triangle synced
+    toggle.setAttribute('aria-expanded', String(isOpen));
+    if (triangle) triangle.textContent = isOpen ? '▼' : '▶';
+  }
+
+  toggle.addEventListener('click', () => {
+    panel.classList.toggle('open');
+    apply();
+  });
+
+  apply();
 }
 
 function initMoreInfoPanel() {
@@ -19,7 +40,7 @@ function initMoreInfoPanel() {
   // Apply current state to UI
   function apply() {
     const isCollapsed = panel.classList.contains('collapsed');
-    body.style.display = isCollapsed ? 'none' : '';
+    body.style.display = isCollapsed ? 'none' : 'block';
     toggle.setAttribute('aria-expanded', String(!isCollapsed));
     if (triangle) triangle.textContent = isCollapsed ? '▶' : '▼';
   }

@@ -36,7 +36,7 @@
           </div>
           <div class="form-group">
             <label for="visit-date">Visit Date</label>
-            <input type="text" id="visit-date" />
+            <input type="text" id="visit-date"  value="<%= contact && contact.visitDate ? new Date(contact.visitDate).toISOString().slice(0,10) : '' %>"/>
           </div>
         </div>
 
@@ -180,29 +180,51 @@
         <form class="lender-form">
           <div class="lender-search-container">
 
-    <!-- ===== LENDER SEARCH BLOCK ===== -->
-            <section id="lender-link-section">
-              <h3>Link a Lender</h3>
+<!-- ===== LENDER SEARCH BLOCK ===== -->
+      <section id="lender-link-section" class="lender-link-card">
+        <h3 class="lender-link-title">Link a Lender</h3>
 
-          <!-- Search input -->
-              <input
-                id="lender-search-input"
-                type="text"
-                placeholder="Search lenders by name, email, or phone"
-              />
-              <div id="lender-search-results"></div>
+        <!-- Search input -->
+        <div class="form-group">
+          <input
+            id="lender-search-input"
+            type="text"
+            placeholder="Search lenders by name, email, or phone"
+          />
+        </div>
 
-          <!-- Auto-filled fields -->
-              <div id="lender-info-fields" style="margin-top:1em; display:none;">
-                <input id="lender-firstName" placeholder="First Name" readonly />
-                <input id="lender-lastName"  placeholder="Last Name"  readonly />
-                <input id="lender-email"     placeholder="Email"      readonly />
-                <input id="lender-phone"     placeholder="Phone"      readonly />
-                <input id="lender-brokerage" placeholder="Brokerage"  readonly />
-                <button id="lender-link-btn" type="button" disabled>Link to Contact</button>
-              </div>
-            </section>
-    <!-- ===== END SEARCH BLOCK ===== -->
+        <div id="lender-search-results" class="search-results"></div>
+
+        <!-- Auto-filled fields -->
+        <div id="lender-info-fields" class="lender-info" style="display:none;">
+          <div class="form-pair">
+            <label>First Name</label>
+            <input id="lender-firstName" readonly />
+          </div>
+          <div class="form-pair">
+            <label>Last Name</label>
+            <input id="lender-lastName" readonly />
+          </div>
+          <div class="form-pair">
+            <label>Email</label>
+            <input id="lender-email" readonly />
+          </div>
+          <div class="form-pair">
+            <label>Phone</label>
+            <input id="lender-phone" readonly />
+          </div>
+          <div class="form-pair">
+            <label>Brokerage</label>
+            <input id="lender-brokerage" readonly />
+          </div>
+          <div class="form-actions">
+            <button id="lender-link-btn" type="button" disabled>
+              Link to Contact
+            </button>
+          </div>
+        </div>
+      </section>
+      <!-- ===== END SEARCH BLOCK ===== -->
 
     <!-- ===== LINKED LENDERS DISPLAY ===== -->
             <section id="linked-lenders-section">

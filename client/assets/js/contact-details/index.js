@@ -8,6 +8,7 @@ import { initCommunitySection } from './communitySection.js';
 import { initLotLinking } from './lotLink.js';
 import { initRealtorSearch } from './realtorSearch.js';
 import { initLenderSearch } from './lenderSearch.js';
+import { setupCommentSection } from './commentLoader.js';
 import { on, emit } from './events.js';
 import { initMiscUI } from './ui.js';
 import { initLotSearch } from './lotSearch.js';
@@ -37,6 +38,7 @@ window.addEventListener('DOMContentLoaded', async () => {
     initRealtorSearch();
     initLenderSearch();
     initLotSearch();
+    setupCommentSection();
 
     // 4) First paint
     await hydrateAll();

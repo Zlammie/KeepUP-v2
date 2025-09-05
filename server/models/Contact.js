@@ -5,6 +5,7 @@ const contactSchema = new mongoose.Schema({
   lastName: String,
   email: String,
   phone: String,
+  visitDate: { type: Date, default: null },
   status: String,
   source: String,
   investor: Boolean,

@@ -348,6 +348,144 @@
   border-color: #007bff;
 }
 
+/* ===== Linked Lender Card Styling ===== */
+.lender-card {
+  background: #fff;
+  border: 1px solid #e9ecef;
+  border-radius: 8px;
+  padding: 0.85rem 1rem;
+  margin-bottom: 1rem;
+  box-shadow: 0 1px 3px rgba(0,0,0,0.05);
+  font-size: 0.9rem;
+  line-height: 1.4;
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+/* Top: name/brokerage */
+.lender-card > div:first-of-type strong {
+  font-size: 1.05rem;
+  color: #222;
+  margin-bottom: 0.25rem;
+  display: inline-block;
+}
+.lender-card > div:first-of-type {
+  font-weight: 500;
+  color: #555;
+}
+
+/* Remove (trash) button */
+.lender-card .remove-lender-btn {
+  background: none;
+  border: none;
+  cursor: pointer;
+  color: #888;
+  transition: color 0.2s ease;
+}
+.lender-card .remove-lender-btn:hover {
+  color: #d9534f; /* red on hover */
+}
+.lender-card .remove-lender-btn svg {
+  width: 18px;
+  height: 18px;
+  stroke: currentColor;
+  stroke-width: 1.8;
+  fill: none;
+}
+
+/* Status select + dates */
+.lender-card label {
+  font-weight: 500;
+  color: #444;
+  display: flex;
+  flex-direction: column;
+  font-size: 0.85rem;
+  gap: 0.25rem;
+}
+.lender-card select,
+.lender-card input[type="date"] {
+  padding: 0.35rem 0.5rem;
+  border: 1px solid #ccc;
+  border-radius: 4px;
+ font-family: inherit;       /* use your app’s font, not the browser default */
+  font-size: 0.9rem;          /* bump just slightly for readability */
+  color: #222;                /* darker, more modern text */
+  line-height: 1.4;           /* space out the digits a bit */
+  letter-spacing: 0.02em;  
+}
+
+/* Save button */
+.lender-card .save-lender-btn {
+  align-self: flex-start;
+  background: #0d6efd;
+  color: #fff;
+  border: none;
+  padding: 0.4rem 0.8rem;
+  border-radius: 6px;
+  cursor: pointer;
+  font-size: 0.85rem;
+  transition: background-color 0.2s ease;
+}
+.lender-card .save-lender-btn:hover {
+  background: #0b5ed7;
+}
+
+/* Save hint (Saved / Error) */
+.lender-card .lender-save-hint {
+  font-size: 0.8rem;
+  color: #666;
+}
+
+/* Primary lender radio pill (already had styles) */
+.lender-card .primary-label {
+  margin: 0.5rem 0;
+}
+
+/* Modernize lender date inputs */
+.lender-card input[type="date"] {
+  appearance: none;           /* strip default look */
+  -webkit-appearance: none;
+  -moz-appearance: none;
+
+  background-color: #f9f9f9;
+  border: 1px solid #ccc;
+  border-radius: 4px;
+  padding: 0.4rem 0.5rem;
+  font-size: 0.85rem;
+  color: #333;
+  line-height: 1.2;
+  width: 100%;
+
+  transition: border-color 0.2s ease, box-shadow 0.2s ease;
+}
+
+.lender-card input[type="date"]:focus {
+  border-color: #0d6efd;
+  box-shadow: 0 0 0 2px rgba(13,110,253,0.2);
+  outline: none;
+}
+
+/* Style the calendar picker icon (WebKit browsers) */
+.lender-card input[type="date"]::-webkit-calendar-picker-indicator {
+  background: url("data:image/svg+xml,%3Csvg fill='none' stroke='%23666' stroke-width='2' viewBox='0 0 24 24' xmlns='http://www.w3.org/2000/svg'%3E%3Cpath d='M8 7V3m8 4V3m-9 8h10m-13 9h16a2 2 0 002-2V7a2 2 0 00-2-2H4a2 2 0 00-2 2v11a2 2 0 002 2z'/%3E%3C/svg%3E") no-repeat center;
+  background-size: 16px 16px;
+  opacity: 0.6;
+  cursor: pointer;
+}
+
+.lender-card input[type="date"]::-webkit-calendar-picker-indicator:hover {
+  opacity: 1;
+}
+
+/* Firefox fallback: use a subtle background image for consistency */
+.lender-card input[type="date"]::-moz-focus-inner {
+  border: 0;
+}
+
+
+
 /* Specific containers for contact details page - THESE ARE DONE DO NOT TOUCH*/
 .deal-info,
 .cus-info-container,
@@ -545,6 +683,26 @@
   box-sizing: border-box;
 }
 
+.lot-address-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline; 
+}
+
+/* Address more prominent */
+.lot-address-main {
+  font-size: 1.1rem;   /* bump size */
+  font-weight: 600;    /* bold */
+  color: #222;         /* darker text */
+}
+
+/* Build status on the far right */
+.lot-build-status {
+  font-size: 0.95rem;
+  color: #444;
+  white-space: nowrap; /* prevents wrapping */
+}
+
 /* Give lot-link the same visual shell as the community card */
 #lot-link-container,
 #linked-lot-display {
@@ -695,12 +853,12 @@
     "chips chips"
     "price close"
     "build close";
-  gap: .75rem;
+  gap: .5rem;
 }
 
 /* Area mapping */
 .linked-lot-card .lot-address { grid-area: addr; }
-.linked-lot-card .lot-chip-row { grid-area: chips; display:flex; flex-wrap:wrap; gap:.5rem; }
+.linked-lot-card .lot-chip-row { grid-area: chips; display:flex; flex-wrap:wrap; gap:.5rem;  }
 .linked-lot-card .prices-box { grid-area: price; }
 .linked-lot-card .build-box  { grid-area: build; }
 .linked-lot-card .close-box  { grid-area: close; }
@@ -744,8 +902,8 @@
 .linked-lot-card .lot-chip-row {
   display: flex;
   flex-wrap: nowrap;   /* force all chips to stay on one line */
-  gap: 0.5rem;
-  min-width: 0;        /* allow children to shrink */
+  gap: 0.35rem;
+  min-width: 0;       /* allow children to shrink */
 }
 
 .linked-lot-card .lot-chip-row .lot-chip {
@@ -763,12 +921,16 @@
 
 .linked-lot-card .left-col .form-pair {
   display: grid;
-  grid-template-columns: max-content 1fr;
+  grid-template-columns: 120px 1fr;
+  
   align-items: center;
   column-gap: .5rem;
   margin-bottom: .35rem;
 }
 
+.linked-lot-card .left-col .form-pair input[type="date"] {
+  max-width: 110px;   /* pick a value that matches your price fields visually */
+}
 .linked-lot-card .left-col .form-pair input[type="number"],
 .linked-lot-card .left-col .form-pair input[type="date"] {
   width: 100%;
@@ -777,8 +939,146 @@
   border: 1px solid #e1e3e6;
   border-radius: .35rem;
   font-size: .9rem;
+  
 }
 
 .linked-lot-card .left-col .lot-sep {
   border: 0; height: 1px; background: #eee; margin: .5rem 0;
+}
+
+.lot-actions {
+  margin-top: 1rem;
+  text-align: right; /* align button to the right, or center if you prefer */
+}
+
+.lot-actions button {
+  background: #f5f5f5;
+  border: 1px solid #ccc;
+  padding: 0.4rem 0.8rem;
+  border-radius: 6px;
+  cursor: pointer;
+}
+
+.lot-actions button:hover {
+  background: #e2e2e2;
+}
+
+/* ===== Comment section shell ===== */
+.comment-section {
+  background: #f8f9fb;                 /* subtle panel bg */
+  border: 1px solid #e6e9ee;
+  border-radius: 10px;
+  padding: 1rem;
+  margin-left: 25px;   /* match .top-container */
+  margin-right: 8px; 
+  margin-top: -.10rem;
+}
+
+/* Header (optional, if you want it a bit tighter) */
+.comment-section > h3 {
+  margin: 0 0 .6rem 0;
+  font-size: 1.1rem;
+  color: #222;
+}
+
+/* Form layout */
+.comment-form {
+  background: #fff;
+  border: 1px solid #e9ecef;
+  border-radius: 8px;
+  padding: .75rem;
+  margin-bottom: .8rem;
+}
+
+/* Type pills row */
+.comment-type-nav {
+  display: flex;
+  gap: .4rem;
+  margin-bottom: .5rem;
+}
+.comment-type-nav button {
+  display: inline-flex;
+  align-items: center;
+  gap: .35rem;
+  border: 1px solid #d7dbe2;
+  background: #f7f8fa;
+  color: #333;
+  padding: .35rem .6rem;
+  border-radius: 999px;               /* pill */
+  cursor: pointer;
+  font-size: .85rem;
+}
+.comment-type-nav button.active {
+  background: #0d6efd;
+  color: #fff;
+  border-color: #0d6efd;
+}
+
+/* Textarea: smaller, cleaner */
+.comment-form textarea#comment-text {
+  width: 100%;
+  min-height: 90px;                   /* ↓ from “too tall” */
+  max-height: 180px;
+  resize: vertical;                   /* let them drag taller if needed */
+  box-sizing: border-box;
+  padding: .6rem .7rem;
+  border: 1px solid #dfe3ea;
+  border-radius: 8px;
+  line-height: 1.4;
+  background: #fafbfc;
+  margin: .4rem 0 .6rem;
+
+  font-family: inherit;        /* use your site font from typography.css */
+  font-size: 0.95rem;          /* readable but compact */
+  line-height: 1.5;            /* airy lines */
+  font-weight: 400;
+  letter-spacing: 0.01em;      /* tiny spacing helps legibility */
+  color: #1f2937;              /* slate-800-ish */
+  caret-color: #0d6efd;        /* blue caret to match theme */
+
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+.comment-form textarea#comment-text::placeholder { color: #94a3b8; opacity: 1; }
+.comment-form textarea#comment-text::-ms-input-placeholder { color: #94a3b8; }
+.comment-form textarea#comment-text:-ms-input-placeholder  { color: #94a3b8; }
+
+.comment-form textarea#comment-text:focus {
+  outline: none;
+  border-color: #0d6efd;
+  box-shadow: 0 0 0 2px rgba(13,110,253,0.20);
+}
+
+.comment-form #save-comment {
+  background: #0d6efd;
+  color: #fff;
+  border: none;
+  padding: .45rem .9rem;
+  border-radius: 6px;
+  cursor: pointer;
+  font-size: .9rem;
+}
+.comment-form #save-comment:hover { background: #0b5ed7; }
+
+/* Comment history list */
+#comment-history {
+  display: grid;
+  gap: .6rem;
+}
+
+/* Each comment card */
+.comment-entry {
+  background: #fff;
+  border: 1px solid #e9ecef;
+  border-radius: 8px;
+  padding: .6rem .75rem;
+  line-height: 1.35;
+}
+
+/* Meta line: type + timestamp */
+.comment-entry .meta {
+  font-size: .8rem;
+  color: #6b7280; /* slate-500-ish */
+  margin-bottom: .25rem;
 }
