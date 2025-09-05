@@ -183,33 +183,6 @@
   // If your backend expects a regular form POST, you can skip this block and let
   // your existing handler submit. Otherwise, uncomment to POST with progress.
   
-  importForm.addEventListener('submit', e => {
-    e.preventDefault();
-    if (!fileInput.files.length) return;
-
-    const fd = new FormData(importForm);
-    progressWrap.classList.remove('d-none');
-    progressWrap.setAttribute('aria-hidden', 'false');
-
-    const xhr = new XMLHttpRequest();
-    xhr.open('POST', '/api/communities/import'); // <-- adjust to your route if different
-    xhr.upload.onprogress = evt => {
-      if (!evt.lengthComputable || !progressBar) return;
-      const pct = Math.round((evt.loaded / evt.total) * 100);
-      progressBar.style.width = pct + '%';
-      progressBar.textContent = pct + '%';
-    };
-    xhr.onload = () => {
-      // TODO: toast success + refresh your list
-      progressBar.style.width = '100%';
-      setTimeout(() => { progressWrap.classList.add('d-none'); }, 800);
-    };
-    xhr.onerror = () => {
-      // TODO: toast error
-      progressWrap.classList.add('d-none');
-    };
-    xhr.send(fd);
-  });
   
 })();
   </script>

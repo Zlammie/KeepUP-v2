@@ -11,47 +11,120 @@
 
   <h1>All Communities</h1>
   <div class="table-container">
-    <table id="communitiesTable">
-      <thead>
-        <tr>
-          <th>Name</th>
-          <th>Lots Count</th>
-          <th>Actions</th>
-        </tr>
-      </thead>
-      <tbody id="communitiesTableBody">
-        <!-- populated by script -->
-      </tbody>
-    </table>
-  </div>
+  <table id="communitiesTable">
+    <thead>
+      <tr>
+        <th>Community</th>
+        <th>Project #</th>
+        <th>Lot Count</th>
+        <th>Actions</th>
+      </tr>
+    </thead>
+    <tbody id="communitiesTableBody">
+      <!-- populated by script -->
+    </tbody>
+  </table>
+</div>
 
-  <script>
+<script>
+  document.addEventListener('DOMContentLoaded', async () => {
+    const tbody = document.getElementById('communitiesTableBody');
 
-    document.addEventListener('DOMContentLoaded', async () => {
+    // basic escape to avoid injection in string templates
+    const esc = s => String(s ?? '').replace(/[&<>"]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+
+    async function loadCommunities() {
+      tbody.innerHTML = '<tr><td colspan="4">Loading…</td></tr>';
       try {
-        // 👉 your communityRoutes are already mounted at /api/communities :contentReference[oaicite:0]{index=0}
-        const res = await fetch('/api/communities');
+        const res = await fetch('/api/communities'); // existing index route
         if (!res.ok) throw new Error(`Server returned ${res.status}`);
         const communities = await res.json();
 
-        const tbody = document.getElementById('communitiesTableBody');
+        if (!Array.isArray(communities) || !communities.length) {
+          tbody.innerHTML = '<tr><td colspan="4" class="text-muted">No communities yet</td></tr>';
+          return;
+        }
+
+        tbody.innerHTML = '';
         communities.forEach(c => {
-          const row = document.createElement('tr');
-          row.innerHTML = `
-            <td>${c.name}</td>
-            <td>${(c.lots || []).length}</td>
-            <td>
-              <a href="/view-lots?communityId=${c._id}">
-                View Lots
-              </a>
+          const tr = document.createElement('tr');
+          tr.dataset.id = c._id;
+
+          const lotCount = Array.isArray(c.lots) ? c.lots.length : (c.lotsCount ?? 0);
+
+          tr.innerHTML = `
+            <td>${esc(c.name)}</td>
+            <td>${esc(c.projectNumber || '')}</td>
+            <td>${lotCount}</td>
+            <td class="actions">
+              <a class="btn btn-sm btn-outline" href="/view-lots?communityId=${esc(c._id)}">View Lots</a>
+              <button class="btn btn-sm btn-secondary js-edit">Edit</button>
+              <button class="btn btn-sm btn-danger js-delete">Delete</button>
             </td>
           `;
-          tbody.appendChild(row);
+          tbody.appendChild(tr);
         });
+
       } catch (err) {
         console.error('Failed to load communities:', err);
+        tbody.innerHTML = `<tr><td colspan="4" class="text-danger">Failed to load. ${esc(err.message)}</td></tr>`;
+      }
+    }
+
+    async function doEdit(id, current) {
+      // quick inline edit with two prompts; swap to a modal later if you prefer
+      const name = prompt('Community name:', current.name ?? '');
+      if (name === null) return; // canceled
+      const projectNumber = prompt('Project number:', current.projectNumber ?? '');
+      if (projectNumber === null) return;
+
+      const payload = { name: name.trim(), projectNumber: projectNumber.trim() };
+
+      const res = await fetch(`/api/communities/${id}`, {
+        method: 'PUT',
+        headers: { 'Content-Type':'application/json' },
+        body: JSON.stringify(payload)
+      });
+      if (!res.ok) throw new Error(`Update failed (${res.status})`);
+      await loadCommunities();
+    }
+
+    async function doDelete(id) {
+      if (!confirm('Delete this community and all of its lots?')) return;
+      const res = await fetch(`/api/communities/${id}`, { method: 'DELETE' });
+      if (!res.ok) throw new Error(`Delete failed (${res.status})`);
+      await loadCommunities();
+    }
+
+    // delegate button clicks
+    tbody.addEventListener('click', async (e) => {
+      const btn = e.target.closest('button');
+      if (!btn) return;
+      const tr = btn.closest('tr');
+      const id = tr?.dataset?.id;
+      if (!id) return;
+
+      // collect current values for convenience in editing
+      const current = {
+        name: tr.children[0]?.textContent?.trim(),
+        projectNumber: tr.children[1]?.textContent?.trim()
+      };
+
+      try {
+        if (btn.classList.contains('js-edit')) {
+          await doEdit(id, current);
+        } else if (btn.classList.contains('js-delete')) {
+          await doDelete(id);
+        }
+      } catch (err) {
+        alert(err.message);
+        console.error(err);
       }
     });
-  </script>
+
+    loadCommunities();
+  });
+</script>
+
 </body>
 </html>

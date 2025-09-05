@@ -328,6 +328,32 @@ router.put(
   }
 );
 
+// PUT /api/communities/:id  → update name/projectNumber
+router.put('/:id', async (req, res) => {
+  const { id } = req.params;
+  const { name, projectNumber } = req.body;
+
+  try {
+    // Optional: basic validation
+    const update = {};
+    if (typeof name === 'string') update.name = name.trim();
+    if (typeof projectNumber === 'string') update.projectNumber = projectNumber.trim();
+
+    const updated = await Community.findByIdAndUpdate(
+      id,
+      { $set: update },
+      { new: true, runValidators: true }
+    ).lean();
+
+    if (!updated) return res.status(404).json({ error: 'Community not found' });
+    res.json(updated);
+  } catch (err) {
+    console.error('Update community failed:', err);
+    res.status(400).json({ error: err.message });
+  }
+});
+
+
 // DELETE /api/communities/:id/lots/:lotId/purchaser
 router.delete('/:id/lots/:lotId/purchaser', async (req, res) => {
   try {
@@ -354,6 +380,19 @@ router.delete('/:id/lots/:lotId/purchaser', async (req, res) => {
   }
 });
 
+// DELETE /api/communities/:id  → delete an entire community (and its embedded lots)
+router.delete('/:id', async (req, res) => {
+  const { id } = req.params;
+  try {
+    const deleted = await Community.findByIdAndDelete(id).lean();
+    if (!deleted) return res.status(404).json({ error: 'Community not found' });
+    // Lots are embedded, so removing the doc removes lots as well.
+    res.sendStatus(204);
+  } catch (err) {
+    console.error('Delete community failed:', err);
+    res.status(400).json({ error: err.message });
+  }
+});
 
 
 module.exports = router;
