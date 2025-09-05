@@ -10,3 +10,44 @@
 
 .status-pill.has-closed          { border-color: #495057; }
 .status-pill.has-closed.active { color: #495057; }
+
+/* Keep realtor table columns stable */
+#realtorsTable.table-fixed {
+  table-layout: fixed;  /* critical: stops width auto-adjust */
+  width: 100%;
+}
+
+/* Prevent header row from wrapping and keep it stable */
+#realtorsTable thead th {
+  white-space: nowrap;
+}
+
+/* Truncate long text cells cleanly */
+#realtorsTable td,
+#realtorsTable th {
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+/* Center the first 4 icon columns + the 4 count columns */
+#realtorsTable td:nth-child(-n+4),
+#realtorsTable th:nth-child(-n+4),
+#realtorsTable td:nth-last-child(-n+4),
+#realtorsTable th:nth-last-child(-n+4) {
+  text-align: center;
+  vertical-align: middle;
+  white-space: nowrap;
+   padding-left: .5rem;
+  padding-right: .5rem;
+}
+
+/* Keep Name/Email/Phone/Brokerage on one line with ellipsis */
+#realtorsTable td:nth-child(5),
+#realtorsTable td:nth-child(6),
+#realtorsTable td:nth-child(7),
+#realtorsTable td:nth-child(8),
+#realtorsTable td:nth-child(9) {
+  white-space: nowrap;
+}
+
+

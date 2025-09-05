@@ -1,5 +1,6 @@
 // /assets/js/realtors/render.js
 import { updateRealtor } from './api.js';
+import { openRealtorCommentModal } from './modal.js'; // NEW
 
 function setFlagIconColor(imgEl, flagged) {
   imgEl.style.filter = flagged
@@ -68,6 +69,7 @@ export function renderTable(realtors, statsByRealtor = new Map()) {
       const btn = document.createElement('button');
       btn.type = 'button';
       btn.classList.add('icon-btn', 'btn', 'btn-sm', 'btn-link');
+      btn.addEventListener('click', () => openRealtorCommentModal(realtor._id));
       const img = document.createElement('img');
       img.src = '/assets/icons/comment.svg';
       img.alt = 'Comment';

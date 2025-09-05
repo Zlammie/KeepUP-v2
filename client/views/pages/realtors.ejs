@@ -45,6 +45,21 @@
   </div>
 
   <table class="table table-bordered" id="realtorsTable">
+      <colgroup>
+        <col style="width: 25px;">  <!-- Task icon -->
+        <col style="width: 25px;">  <!-- Flag icon -->
+        <col style="width: 25px;">  <!-- Comment icon -->
+        <col style="width: 72px;">  <!-- View btn -->
+        <col style="width: 12%;">   <!-- First Name -->
+        <col style="width: 12%;">   <!-- Last Name -->
+        <col style="width: 18%;">   <!-- Email -->
+        <col style="width: 12%;">   <!-- Phone -->
+         <col style="width:220px;"><!-- Brokerage: FIXED PX WIDTH -->
+        <col style="width: 6%;">    <!-- Contacts (count) -->
+        <col style="width: 6%;">    <!-- Purchased (count) -->
+        <col style="width: 6%;">    <!-- Negotiation (count) -->
+        <col style="width: 6%;">    <!-- Closed (count) -->
+      </colgroup>
     <thead>
       <tr>
         <th><span class="visually-hidden">Task</span></th>     <!-- 📋 -->
@@ -64,6 +79,34 @@
     </thead>
     <tbody></tbody>
   </table>
+
+  <!-- Realtor Comment Modal -->
+<div id="realtorCommentModal" class="modal-overlay" style="display: none;">
+  <div class="modal-content">
+    <h5>Add Comment</h5>
+
+    <div class="comment-type-nav" id="realtor-modal-comment-type-buttons">
+      <button type="button" data-type="Note" class="active" title="Note">
+        <img src="/assets/icons/note.svg" alt="Note" />
+      </button>
+      <button type="button" data-type="Phone" title="Phone">
+        <img src="/assets/icons/phone.svg" alt="Phone" />
+      </button>
+      <button type="button" data-type="Email" title="Email">
+        <img src="/assets/icons/email.svg" alt="Email" />
+      </button>
+      <button type="button" data-type="Text" title="Text">
+        <img src="/assets/icons/sms.svg" alt="Text" />
+      </button>
+    </div>
+
+    <textarea id="realtor-modal-comment-text" rows="4" placeholder="Add a comment..."></textarea>
+    <br />
+    <button id="saveRealtorModalComment" class="btn btn-primary btn-sm">Save</button>
+    <button id="cancelRealtorModalComment" class="btn btn-secondary btn-sm">Cancel</button>
+  </div>
+</div>
+
 
   <!-- module entry (no inline script) -->
   <script type="module" src="/assets/js/realtors/index.js"></script>
