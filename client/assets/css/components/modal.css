@@ -30,3 +30,7 @@
 .close {
   float: right; font-size: 1.5rem; cursor: pointer;
 }
+
+/* Ensure proper stacking order */
+.modal { z-index: 1060; }          /* > backdrop */
+.modal-backdrop { z-index: 1050; } /* default is 1050; keep it below modal */

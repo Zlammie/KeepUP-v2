@@ -1,0 +1,55 @@
+import { state } from './state.js';
+import { loadLots } from './api.js';
+import { renderRows, updateCount } from './render.js';
+
+export function bindEvents() {
+  const body = document.body;
+  const communitySel = document.querySelector('#vl-community');
+  const searchInput  = document.querySelector('#vl-search');
+  const filterBtns   = [
+    document.querySelector('#vl-filter-available'),
+    document.querySelector('#vl-filter-spec'),
+    document.querySelector('#vl-filter-coming'),
+    document.querySelector('#vl-filter-sold')
+  ].filter(Boolean);
+
+  // Initial community selection (body[data-community-id] has priority if present)
+  const fromBody = body?.getAttribute('data-community-id') || null;
+  if (fromBody && window.__communities?.some(c => String(c._id) === String(fromBody))) {
+    state.communityId = fromBody;
+    if (communitySel) communitySel.value = fromBody;
+  } else if (window.__communities?.[0]?._id) {
+    state.communityId = window.__communities[0]._id;
+    if (communitySel) communitySel.value = state.communityId;
+  }
+
+  communitySel?.addEventListener('change', async () => {
+    state.communityId = communitySel.value || null;
+    const lots = await loadLots();
+    renderRows(lots);
+    updateCount(lots.length);
+  });
+
+  // Debounced search
+  let t;
+  searchInput?.addEventListener('input', () => {
+    clearTimeout(t);
+    t = setTimeout(async () => {
+      state.search = searchInput.value.trim();
+      const lots = await loadLots();
+      renderRows(lots);
+      updateCount(lots.length);
+    }, 250);
+  });
+
+  // Filter pill visuals (data is not filtered yet; hook up later if you add API params)
+  filterBtns.forEach(btn => {
+    btn.addEventListener('click', () => {
+      const key = btn.dataset.filter;
+      const active = btn.classList.toggle('active');
+      btn.setAttribute('aria-pressed', String(active));
+      if (active) state.filters.add(key); else state.filters.delete(key);
+      // TODO: apply filters via query params or client-side mapping
+    });
+  });
+}

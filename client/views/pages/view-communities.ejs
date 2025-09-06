@@ -1,3 +1,5 @@
+<!-- CAN DELETE THIS PAGE NOW NO LONGER USED-->
+<!--
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -9,7 +11,6 @@
  <%- include('../partials/nav') %>
   <%- include('../partials/top-nav-community') %>
 
-  <h1>All Communities</h1>
   <div class="table-container">
   <table id="communitiesTable">
     <thead>
@@ -20,111 +21,46 @@
         <th>Actions</th>
       </tr>
     </thead>
-    <tbody id="communitiesTableBody">
-      <!-- populated by script -->
-    </tbody>
+    <tbody id="communitiesTableBody"></tbody>
   </table>
 </div>
 
 <script>
   document.addEventListener('DOMContentLoaded', async () => {
     const tbody = document.getElementById('communitiesTableBody');
-
-    // basic escape to avoid injection in string templates
     const esc = s => String(s ?? '').replace(/[&<>"]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
 
-    async function loadCommunities() {
-      tbody.innerHTML = '<tr><td colspan="4">Loading…</td></tr>';
-      try {
-        const res = await fetch('/api/communities'); // existing index route
-        if (!res.ok) throw new Error(`Server returned ${res.status}`);
-        const communities = await res.json();
+    try {
+      const res = await fetch('/api/communities'); // your existing index route
+      if (!res.ok) throw new Error(`Server returned ${res.status}`);
+      const communities = await res.json();
 
-        if (!Array.isArray(communities) || !communities.length) {
-          tbody.innerHTML = '<tr><td colspan="4" class="text-muted">No communities yet</td></tr>';
-          return;
-        }
+      if (!Array.isArray(communities) || !communities.length) {
+        tbody.innerHTML = '<tr><td colspan="4" class="text-muted">No communities yet</td></tr>';
+        return;
+      }
 
-        tbody.innerHTML = '';
-        communities.forEach(c => {
-          const tr = document.createElement('tr');
-          tr.dataset.id = c._id;
-
-          const lotCount = Array.isArray(c.lots) ? c.lots.length : (c.lotsCount ?? 0);
-
-          tr.innerHTML = `
+      tbody.innerHTML = communities.map(c => {
+        const lotCount = Array.isArray(c.lots) ? c.lots.length : (c.lotsCount ?? 0);
+        return `
+          <tr>
             <td>${esc(c.name)}</td>
             <td>${esc(c.projectNumber || '')}</td>
             <td>${lotCount}</td>
-            <td class="actions">
+            <td>
               <a class="btn btn-sm btn-outline" href="/view-lots?communityId=${esc(c._id)}">View Lots</a>
-              <button class="btn btn-sm btn-secondary js-edit">Edit</button>
-              <button class="btn btn-sm btn-danger js-delete">Delete</button>
             </td>
-          `;
-          tbody.appendChild(tr);
-        });
-
-      } catch (err) {
-        console.error('Failed to load communities:', err);
-        tbody.innerHTML = `<tr><td colspan="4" class="text-danger">Failed to load. ${esc(err.message)}</td></tr>`;
-      }
+          </tr>
+        `;
+      }).join('');
+    } catch (err) {
+      console.error('Failed to load communities:', err);
+      tbody.innerHTML = `<tr><td colspan="4" class="text-danger">Failed to load communities</td></tr>`;
     }
-
-    async function doEdit(id, current) {
-      // quick inline edit with two prompts; swap to a modal later if you prefer
-      const name = prompt('Community name:', current.name ?? '');
-      if (name === null) return; // canceled
-      const projectNumber = prompt('Project number:', current.projectNumber ?? '');
-      if (projectNumber === null) return;
-
-      const payload = { name: name.trim(), projectNumber: projectNumber.trim() };
-
-      const res = await fetch(`/api/communities/${id}`, {
-        method: 'PUT',
-        headers: { 'Content-Type':'application/json' },
-        body: JSON.stringify(payload)
-      });
-      if (!res.ok) throw new Error(`Update failed (${res.status})`);
-      await loadCommunities();
-    }
-
-    async function doDelete(id) {
-      if (!confirm('Delete this community and all of its lots?')) return;
-      const res = await fetch(`/api/communities/${id}`, { method: 'DELETE' });
-      if (!res.ok) throw new Error(`Delete failed (${res.status})`);
-      await loadCommunities();
-    }
-
-    // delegate button clicks
-    tbody.addEventListener('click', async (e) => {
-      const btn = e.target.closest('button');
-      if (!btn) return;
-      const tr = btn.closest('tr');
-      const id = tr?.dataset?.id;
-      if (!id) return;
-
-      // collect current values for convenience in editing
-      const current = {
-        name: tr.children[0]?.textContent?.trim(),
-        projectNumber: tr.children[1]?.textContent?.trim()
-      };
-
-      try {
-        if (btn.classList.contains('js-edit')) {
-          await doEdit(id, current);
-        } else if (btn.classList.contains('js-delete')) {
-          await doDelete(id);
-        }
-      } catch (err) {
-        alert(err.message);
-        console.error(err);
-      }
-    });
-
-    loadCommunities();
   });
 </script>
 
+
 </body>
 </html>
+-->

@@ -379,20 +379,26 @@ router.delete('/:id/lots/:lotId/purchaser', async (req, res) => {
     return res.status(500).json({ error: err.message });
   }
 });
-
-// DELETE /api/communities/:id  → delete an entire community (and its embedded lots)
-router.delete('/:id', async (req, res) => {
-  const { id } = req.params;
+// DELETE /api/communities/:id/lots/:lotId  → remove a single lot by _id
+router.delete('/:id/lots/:lotId', async (req, res) => {
+  const { id, lotId } = req.params;
   try {
-    const deleted = await Community.findByIdAndDelete(id).lean();
-    if (!deleted) return res.status(404).json({ error: 'Community not found' });
-    // Lots are embedded, so removing the doc removes lots as well.
-    res.sendStatus(204);
+    const result = await Community.updateOne(
+      { _id: id },
+      { $pull: { lots: { _id: lotId } } }
+    );
+
+    // result.modifiedCount is 1 if a lot was actually removed
+    if (!result.modifiedCount) {
+      return res.status(404).json({ error: 'Community or lot not found' });
+    }
+    return res.sendStatus(204);
   } catch (err) {
-    console.error('Delete community failed:', err);
-    res.status(400).json({ error: err.message });
+    console.error('Delete lot failed:', err);
+    return res.status(500).json({ error: err.message });
   }
 });
+
 
 
 module.exports = router;

@@ -8,6 +8,29 @@ const Contact = require('../models/Contact');
 const Lender = require('../models/lenderModel');
 const Community = require('../models/Community');
 
+const multer = require('multer');
+const xlsx = require('xlsx');
+const upload = multer({ storage: multer.memoryStorage(), limits: { fileSize: 5 * 1024 * 1024 } });
+
+function toStr(v){ return (v ?? '').toString().trim(); }
+function normalizePhone(v){ const s = toStr(v).replace(/[^\d]/g, ''); return s.length >= 10 ? s.slice(-10) : s; }
+function parseDateMaybe(v){
+  if (!v) return null;
+  if (typeof v === 'number') { // Excel serial
+    const base = new Date(Date.UTC(1899, 11, 30));
+    return new Date(base.getTime() + v * 86400000);
+  }
+  const s = toStr(v);
+  const d = new Date(s);
+  if (!isNaN(d)) return d;
+  const m = s.match(/^(\d{1,2})[\/\-](\d{1,2})[\/\-](\d{2,4})$/);
+  if (m){ const [_, mm, dd, yy] = m; const yr = yy.length === 2 ? 2000 + Number(yy) : Number(yy);
+    return new Date(`${yr}-${mm.padStart(2,'0')}-${dd.padStart(2,'0')}T00:00:00Z`);
+  }
+  return null;
+}
+
+
 // Link a lot to a contact
 router.get('/ping', (req, res) => res.send('pong'));
 
@@ -279,6 +302,62 @@ router.patch('/:id/unlink-lender', async (req, res) => {
   } catch (err) {
     console.error('Unlink error:', err);
     res.status(500).json({ error: 'Failed to unlink lender' });
+  }
+});
+
+// POST /api/contacts/import
+router.post('/import', upload.single('file'), async (req, res) => {
+  if (!req.file) return res.status(400).json({ error: 'Missing file' });
+  try {
+    const wb = xlsx.read(req.file.buffer, { type: 'buffer' });
+    const sheet = wb.SheetNames[0];
+    const rows = xlsx.utils.sheet_to_json(wb.Sheets[sheet], { defval: '' });
+
+    let created = 0, updated = 0, skipped = 0, errors = [];
+
+    for (let i = 0; i < rows.length; i++) {
+      const r = rows[i];
+      const firstName = toStr(r.FirstName || r['First Name'] || r.firstName);
+      const lastName  = toStr(r.LastName  || r['Last Name']  || r.lastName);
+      const email     = toStr(r.Email     || r.email);
+      const phone     = normalizePhone(r.Phone || r.phone);
+      const visitDate = parseDateMaybe(r.VisitDate || r['Visit Date'] || r.visitDate);
+
+      if (!firstName && !lastName && !email && !phone) { skipped++; continue; }
+
+      const filter = email ? { email } : (phone ? { phone } : null);
+      if (!filter) { skipped++; continue; }
+
+      const update = { $set: { firstName, lastName } };
+      if (email) update.$set.email = email;
+      if (phone) update.$set.phone = phone;
+      if (visitDate) update.$set.visitDate = visitDate;
+
+      try {
+        const result = await Contact.updateOne(filter, update, { upsert: true });
+        if (result.upsertedCount && result.upsertedId) created++;
+        else if (result.matchedCount) updated++;
+        else skipped++;
+      } catch (e) {
+        errors.push({ row: i + 1, message: e.message });
+      }
+    }
+
+    res.json({ success: true, created, updated, skipped, errors });
+  } catch (err) {
+    console.error('Import error:', err);
+    res.status(500).json({ error: 'Failed to import contacts', details: err.message });
+  }
+});
+
+router.delete('/:id', async (req, res) => {
+  try {
+    const deleted = await Contact.findByIdAndDelete(req.params.id);
+    if (!deleted) return res.status(404).json({ error: 'Contact not found' });
+    res.json({ success: true });
+  } catch (err) {
+    console.error('Delete contact error:', err);
+    res.status(500).json({ error: 'Failed to delete contact', details: err.message });
   }
 });
 

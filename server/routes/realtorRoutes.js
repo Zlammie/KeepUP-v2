@@ -3,6 +3,14 @@ const mongoose = require('mongoose');
 const router = express.Router();
 const Realtor = require('../models/Realtor');
 
+const multer = require('multer');
+const xlsx = require('xlsx');
+const upload = multer({ storage: multer.memoryStorage(), limits: { fileSize: 5 * 1024 * 1024 } });
+
+function toStr(v){ return (v ?? '').toString().trim(); }
+function normalizePhone(v){ const s = toStr(v).replace(/[^\d]/g, ''); return s.length >= 10 ? s.slice(-10) : s; }
+
+
 // ✅ Create a realtor
 router.post('/', async (req, res) => {
   try {
@@ -13,6 +21,8 @@ router.post('/', async (req, res) => {
     res.status(400).json({ error: 'Failed to save realtor', details: err.message });
   }
 });
+
+
 
 // ✅ Get all realtors
 router.get('/', async (req, res) => {
@@ -84,5 +94,47 @@ router.put('/:id', async (req, res) => {
     res.status(500).json({ error: err.message });
   }
 });
+// POST /api/realtors/import
+router.post('/import', upload.single('file'), async (req, res) => {
+  if (!req.file) return res.status(400).json({ error: 'Missing file' });
+  try {
+    const wb = xlsx.read(req.file.buffer, { type: 'buffer' });
+    const sheet = wb.SheetNames[0];
+    const rows = xlsx.utils.sheet_to_json(wb.Sheets[sheet], { defval: '' });
 
+    let created = 0, updated = 0, skipped = 0, errors = [];
+
+    for (let i = 0; i < rows.length; i++) {
+      const r = rows[i];
+      const firstName = toStr(r.FirstName || r['First Name'] || r.firstName);
+      const lastName  = toStr(r.LastName  || r['Last Name']  || r.lastName);
+      const email     = toStr(r.Email     || r.email);
+      const phone     = normalizePhone(r.Phone || r.phone);
+      const brokerage = toStr(r.Brokerage || r.brokerage || r.Company || r.company);
+
+      if (!firstName && !lastName && !email && !phone) { skipped++; continue; }
+
+      const filter = email ? { email } : (phone ? { phone } : null);
+      if (!filter) { skipped++; continue; }
+
+      const update = { $set: { firstName, lastName, brokerage } };
+      if (email) update.$set.email = email;
+      if (phone) update.$set.phone = phone;
+
+      try {
+        const result = await Realtor.updateOne(filter, update, { upsert: true });
+        if (result.upsertedCount && result.upsertedId) created++;
+        else if (result.matchedCount) updated++;
+        else skipped++;
+      } catch (e) {
+        errors.push({ row: i + 1, message: e.message });
+      }
+    }
+
+    res.json({ success: true, created, updated, skipped, errors });
+  } catch (err) {
+    console.error('Realtor import error:', err);
+    res.status(500).json({ error: 'Failed to import realtors', details: err.message });
+  }
+});
 module.exports = router;

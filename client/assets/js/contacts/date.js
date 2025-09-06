@@ -8,5 +8,5 @@ export function formatDate(input) {
   const month = String(dateObj.getMonth() + 1).padStart(2, '0');
   const year = String(dateObj.getFullYear()).slice(-2); // yy
 
-  return `${day}/${month}/${year}`; // dd/mm/yy
+  return `${month}/${day}/${year}`; // mm/dd/yy
 }

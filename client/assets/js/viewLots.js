@@ -1,144 +1,168 @@
-// public/scripts/viewLots.js
-// Fetches, groups by close month, and renders the lots table for a community with accurate UTC date-only parsing
+(function () {
+  const esc = s => String(s ?? '').replace(/[&<>"]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+  const $ = sel => document.querySelector(sel);
 
-document.addEventListener('DOMContentLoaded', async () => {
-  console.log('✅ viewLots.js loaded');
+  const body = document.body;
+  const communitySel = $('#vl-community');
+  const searchInput  = $('#vl-search');
+  const tbody        = $('#lotsTableBody');
+  const countBadge   = $('#vl-count');
 
-  // Utility functions for UTC date-only parsing + formatting
-  function parseDateUTC(dateStr) {
-    // If it's date-only (YYYY-MM-DD), append Z to treat as UTC
-    const iso = dateStr.length === 10 ? `${dateStr}T00:00:00Z` : dateStr;
-    return new Date(iso);
-  }
+  const filterBtns = [
+    $('#vl-filter-available'),
+    $('#vl-filter-spec'),
+    $('#vl-filter-coming'),
+    $('#vl-filter-sold')
+  ].filter(Boolean);
 
-  function formatDateUTC(dateStr) {
-    const d = parseDateUTC(dateStr);
-    const month = d.getUTCMonth() + 1;
-    const day   = d.getUTCDate();
-    const year  = d.getUTCFullYear();
-    return `${month}/${day}/${year}`;
-  }
+  let state = {
+    communities: [],
+    communityId: null,
+    search: '',
+    filters: new Set(),   // 'available' | 'spec' | 'comingSoon' | 'sold'
+  };
 
-  function formatMonthYearUTC(dateStr) {
-    const d = parseDateUTC(dateStr);
-    return d.toLocaleString('default', {
-      month: 'long',
-      year: 'numeric',
-      timeZone: 'UTC'
-    });
-  }
+  document.addEventListener('DOMContentLoaded', init);
 
-  // Grab communityId from URL or fallback to <body data-community-id>
-  const params = new URLSearchParams(window.location.search);
-  const communityId = params.get('communityId') || document.body.dataset.communityId;
-  if (!communityId) {
-    console.error('Missing communityId in URL and data-community-id');
-    return;
-  }
+  async function init() {
+    await loadCommunities();
 
-  // Load all FloorPlans into a map for lookup
-  let floorPlanMap = {};
-  try {
-    const fpRes = await fetch('/api/floorplans');
-    if (fpRes.ok) {
-      const fps = await fpRes.json();
-      fps.forEach(fp => {
-        floorPlanMap[fp._id] = fp.planName || fp.name || '';
-      });
+    const fromBody = body?.getAttribute('data-community-id') || null;
+    if (fromBody && state.communities.some(c => String(c._id) === String(fromBody))) {
+      state.communityId = fromBody;
+      communitySel.value = fromBody;
+    } else if (state.communities[0]) {
+      state.communityId = state.communities[0]._id;
+      communitySel.value = state.communityId;
     }
-  } catch (err) {
-    console.warn('Error fetching floor plans:', err);
-  }
 
-  try {
-    const res = await fetch(`/api/communities/${communityId}/lots`);
-    if (!res.ok) throw new Error(`Fetch failed ${res.status}`);
-    const lots = await res.json();
+    await loadLots();
 
-    // Sort by closeMonth: defined ascending, then undefined
-    lots.sort((a, b) => {
-      if (!a.closeMonth && !b.closeMonth) return 0;
-      if (!a.closeMonth) return 1;
-      if (!b.closeMonth) return -1;
-      return parseDateUTC(a.closeMonth) - parseDateUTC(b.closeMonth);
+    communitySel?.addEventListener('change', () => {
+      state.communityId = communitySel.value || null;
+      loadLots();
     });
 
-    const tableBody = document.getElementById('lotsTableBody');
-    tableBody.innerHTML = '';
+    // debounce search
+    let t;
+    searchInput?.addEventListener('input', () => {
+      clearTimeout(t);
+      t = setTimeout(() => {
+        state.search = searchInput.value.trim();
+        loadLots();
+      }, 250);
+    });
 
-    // Group by UTC month-year
-    const groups = lots.reduce((acc, lot) => {
-      const key = lot.closeMonth
-        ? formatMonthYearUTC(lot.closeMonth)
-        : 'No Close Month';
-      (acc[key] = acc[key] || []).push(lot);
-      return acc;
-    }, {});
-
-    // Render each group with header and rows
-    Object.entries(groups).forEach(([monthYear, groupLots]) => {
-      // Header row
-      const headerRow = document.createElement('tr');
-      headerRow.classList.add('group-header');
-      headerRow.innerHTML = `<td colspan="19">${monthYear}</td>`;
-      tableBody.appendChild(headerRow);
-
-      groupLots.forEach(lot => {
-        // Determine planName
-        const rawFP = lot.floorPlan;
-        let planName = '';
-        if (rawFP) {
-          planName = typeof rawFP === 'object'
-            ? (rawFP.planName || rawFP.name || '')
-            : (floorPlanMap[rawFP] || '');
-        }
-
-        const link = `/address-details?communityId=${communityId}&lotId=${lot._id}`;
-        const row = document.createElement('tr');
-        row.dataset.lotId = lot._id;
-        row.innerHTML = `
-          <td><a href="${link}">${lot.jobNumber || ''}</a></td>
-          <td><a href="${link}">${lot.lot || ''}/${lot.block || ''}/${lot.phase || ''}</a></td>
-          <td><a href="${link}">${lot.address || ''}</a></td>
-          <td>${planName}</td>
-          <td contenteditable="true" data-field="elevation">${lot.elevation || ''}</td>
-          <td contenteditable="true" data-field="status">${lot.status || ''}</td>
-          <td>${lot.purchaser
-            ? `<a href=\"contact-details.html?id=${lot.purchaser._id}\">${lot.purchaser.lastName}</a>`
-            : ''
-          }</td>
-          <td contenteditable="true" data-field="phone">${lot.phone || ''}</td>
-          <td contenteditable="true" data-field="email">${lot.email || ''}</td>
-          <td contenteditable="true" data-field="releaseDate">${
-            lot.releaseDate ? formatDateUTC(lot.releaseDate) : ''
-          }</td>
-          <td contenteditable="true" data-field="expectedCompletionDate">${
-            lot.expectedCompletionDate ? formatDateUTC(lot.expectedCompletionDate) : ''
-          }</td>
-          <td>${monthYear}</td>
-          <td contenteditable="true" data-field="thirdParty">${
-            lot.thirdParty ? formatDateUTC(lot.thirdParty) : ''
-          }</td>
-          <td contenteditable="true" data-field="firstWalk">${
-            lot.firstWalk ? formatDateUTC(lot.firstWalk) : ''
-          }</td>
-          <td contenteditable="true" data-field="finalSignOff">${
-            lot.finalSignOff ? formatDateUTC(lot.finalSignOff) : ''
-          }</td>
-          <td contenteditable="true" data-field="lender">${lot.lender?.name || ''}</td>
-          <td contenteditable="true" data-field="closeDateTime">${
-            lot.closeDateTime
-              ? parseDateUTC(lot.closeDateTime)
-                  .toLocaleString('en-US', { timeZone: 'UTC' })
-              : ''
-          }</td>
-          <td contenteditable="true" data-field="listPrice">${lot.listPrice || ''}</td>
-          <td contenteditable="true" data-field="salesPrice">${lot.salesPrice || ''}</td>
-        `;
-        tableBody.appendChild(row);
+    // pill visuals (we’ll wire the actual filtering later)
+    filterBtns.forEach(btn => {
+      btn.addEventListener('click', () => {
+        const key = btn.dataset.filter;
+        const active = btn.classList.toggle('active');
+        btn.setAttribute('aria-pressed', String(active));
+        if (active) state.filters.add(key); else state.filters.delete(key);
+        // TODO: apply filters via query params or client-side mapping
       });
     });
-  } catch (err) {
-    console.error('Error loading lots:', err);
   }
-});
+
+  async function loadCommunities() {
+    try {
+      const res = await fetch('/api/communities');
+      if (!res.ok) throw new Error(`GET /api/communities → ${res.status}`);
+      const items = await res.json();
+      state.communities = Array.isArray(items) ? items : [];
+
+      communitySel.innerHTML = state.communities.map(c =>
+        `<option value="${esc(c._id)}">${esc(c.name)}${c.projectNumber ? ' — ' + esc(c.projectNumber) : ''}</option>`
+      ).join('');
+    } catch (err) {
+      console.error('Failed to load communities', err);
+      communitySel.innerHTML = '<option value="">(failed to load)</option>';
+    }
+  }
+
+  async function loadLots() {
+    if (!state.communityId) {
+      tbody.innerHTML = '<tr><td colspan="19" class="text-muted">Select a community</td></tr>';
+      updateCount(0);
+      return;
+    }
+    try {
+      const url = new URL(`/api/communities/${state.communityId}/lots`, location.origin);
+      if (state.search) url.searchParams.set('q', state.search); // server supports ?q= on address
+
+      const res = await fetch(url.toString());
+        if (!res.ok) throw new Error(`GET lots → ${res.status}`);
+        const data = await res.json();              // ✅ parse once
+        const lots = Array.isArray(data) ? data : [];
+        renderRows(lots);
+        updateCount(lots.length);
+    } catch (err) {
+      console.error('Failed to load lots', err);
+      tbody.innerHTML = `<tr><td colspan="19" class="text-danger">Failed to load lots</td></tr>`;
+      updateCount(0);
+    }
+  }
+
+  function updateCount(n) {
+    if (countBadge) countBadge.textContent = `${n}`;
+  }
+
+  function renderRows(lots) {
+    if (!lots.length) {
+      tbody.innerHTML = '<tr><td colspan="19" class="text-muted">No lots found</td></tr>';
+      return;
+    }
+
+    tbody.innerHTML = lots.map(l => {
+  const lotBlockPhase = [l.lot, l.block, l.phase].filter(Boolean).join(' / ');
+  const purchaser = l.purchaser?.lastName || '';
+  const detailsHref = `/address-details?communityId=${encodeURIComponent(state.communityId)}&lotId=${encodeURIComponent(l._id)}`;
+
+  return `
+    <tr>
+      <td>${esc(l.jobNumber)}</td>
+      <td>${esc(lotBlockPhase)}</td>
+      <td><a href="${detailsHref}" class="link">${esc(l.address)}</a></td>
+      <td>${esc(displayPlan(l.floorPlan))}</td>
+      <td>${esc(l.elevation)}</td>
+      <td>${esc(l.status || '')}</td>
+      <td>${esc(purchaser)}</td>
+      <td>${esc(l.phone || '')}</td>
+      <td>${esc(l.email || '')}</td>
+      <td>${esc(displayDate(l.releaseDate))}</td>
+      <td>${esc(displayDate(l.expectedCompletionDate))}</td>
+      <td>${esc(l.closeMonth || '')}</td>
+      <td>${esc(l.thirdParty || '')}</td>
+      <td>${esc(displayDate(l.firstWalk))}</td>
+      <td>${esc(displayDate(l.finalSignOff))}</td>
+      <td>${esc(l.lender || '')}</td>
+      <td>${esc(displayDateTime(l.closeDateTime))}</td>
+      <td>${esc(l.listPrice || '')}</td>
+      <td>${esc(l.salesPrice || '')}</td>
+    </tr>
+  `;
+}).join('');
+  }
+
+  function displayPlan(fp) {
+    if (!fp) return '';
+    if (typeof fp === 'object' && (fp.name || fp.planNumber)) {
+      return [fp.planNumber, fp.name].filter(Boolean).join(' — ');
+    }
+    if (typeof fp === 'string') return fp;
+    return '';
+  }
+
+  function displayDate(d) {
+    if (!d) return '';
+    const dt = new Date(d);
+    return isNaN(dt) ? '' : dt.toLocaleDateString();
+  }
+
+  function displayDateTime(d) {
+    if (!d) return '';
+    const dt = new Date(d);
+    return isNaN(dt) ? '' : dt.toLocaleString();
+  }
+})();

@@ -134,3 +134,22 @@
 .status-pill.deal-lost.active      { color: #B22222; }
 .status-pill.bust.active           { color: #8B0000; }
 /* keep your existing icon styles for the table */
+
+
+/* hide delete column cells unless table is in 'show-delete' mode */
+
+.delete-x {
+  font-weight: 700;
+  line-height: 1;
+  font-size: 1rem;
+  color: #dc3545; /* Bootstrap danger */
+  cursor: pointer;
+}
+.delete-x:hover { opacity: 0.8; }
+#contactsTable th.col-delete,
+#contactsTable td.cell-delete { display: none; }
+#contactsTable.show-delete th.col-delete,
+#contactsTable.show-delete td.cell-delete { display: table-cell !important; }
+
+.delete-x { font-weight:700; line-height:1; font-size:1rem; color:#dc3545; cursor:pointer; }
+.delete-x:hover { opacity:.85; }

@@ -144,6 +144,49 @@ export function renderTable(contacts) {
       row.appendChild(statusCell);
     }
 
+        // 🗑️ Delete cell (hidden by default; shown when table has .show-delete)
+    {
+      const cell = document.createElement('td');
+      cell.classList.add('cell-delete', 'text-center'); // CSS will keep this hidden unless table has .show-delete
+
+      const btn = document.createElement('button');
+      btn.type = 'button';
+      btn.classList.add('delete-x', 'btn', 'btn-link', 'p-0');
+      btn.title = 'Delete';
+      btn.textContent = '×';
+      btn.setAttribute('data-id', contact._id);
+      btn.setAttribute(
+        'data-name',
+        `${contact.firstName || ''} ${contact.lastName || ''}`.trim()
+      );
+
+      btn.addEventListener('click', async () => {
+        const id = contact._id;
+        const name = btn.getAttribute('data-name') || 'this contact';
+        const ok = confirm(`Delete ${name}? This cannot be undone.`);
+        if (!ok) return;
+
+        try {
+          const res = await fetch(`/api/contacts/${id}`, { method: 'DELETE' });
+          if (!res.ok) {
+            const msg = await res.text().catch(() => '');
+            alert(`Failed to delete: ${msg || res.statusText}`);
+            return;
+          }
+          // Remove the row from the DOM
+          row.remove();
+          // TODO: if you show counts in the top bar, decrement them here.
+        } catch (e) {
+          console.error('Delete failed', e);
+          alert('Delete failed. See console for details.');
+        }
+      });
+
+      cell.appendChild(btn);
+      row.appendChild(cell);
+    }
+
+
     tableBody.appendChild(row);
   });
 }
