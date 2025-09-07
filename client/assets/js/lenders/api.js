@@ -14,3 +14,11 @@ export async function updateLender(id, patch) {
   if (!res.ok) throw new Error(`Failed to update lender ${id}`);
   return res.json().catch(() => ({}));
 }
+export async function deleteLender(id) {
+  const res = await fetch(`/api/lenders/${id}`, { method: 'DELETE' });
+  if (!res.ok) {
+    const text = await res.text().catch(() => '');
+    throw new Error(text || `Delete failed with ${res.status}`);
+  }
+  return res.json();
+}

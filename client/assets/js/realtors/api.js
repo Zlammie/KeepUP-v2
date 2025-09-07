@@ -26,3 +26,12 @@ export async function postRealtorComment({ type, content, realtorId }) {
   if (!res.ok) throw new Error('Failed to post realtor comment');
   return res.json().catch(() => ({}));
 }
+
+export async function deleteRealtor(id) {
+  const res = await fetch(`/api/realtors/${id}`, { method: 'DELETE' });
+  if (!res.ok) {
+    const txt = await res.text().catch(() => '');
+    throw new Error(txt || `Delete failed ${res.status}`);
+  }
+  return res.json();
+}

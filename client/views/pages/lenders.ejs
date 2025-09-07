@@ -39,6 +39,12 @@
         <span class="value" data-count="has-purchased">0</span>
       </button>
     </div>
+     <button id="toggleDeleteMode" class="btn btn-sm btn-outline-danger">
+      Delete
+    </button>
+      <button id="resetFilters" class="btn btn-sm btn-outline-secondary">
+      Reset
+    </button>
   </div>
 
   <table class="table table-bordered" id="lendersTable">
@@ -54,8 +60,9 @@
         <th>Phone</th>
         <th>Brokerage</th>
         <th>Invited</th>
-        <th>Purchased not Approved</th>
+        <th>Pending Approval</th>
         <th>Purchased</th>
+        <th class="col-delete d-none"><span class="visually-hidden">Delete</span></th>
       </tr>
     </thead>
     <tbody></tbody>

@@ -5,7 +5,6 @@
   <title>Saved Realtors</title>
   <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet" />
   <link rel="stylesheet" href="/assets/css/main.css">
-  <link rel="stylesheet" href="/assets/css/contact.css"><!-- icon button styles -->
 </head>
 <body class="container mt-5">
   <%- include('../partials/nav') %>
@@ -42,6 +41,7 @@
     </div>
 
     <button id="resetRealtorFilters" class="btn btn-sm btn-outline-secondary">Reset</button>
+    <button id="toggleDeleteMode" class="btn btn-sm btn-outline-danger">Delete</button>
   </div>
 
   <table class="table table-bordered" id="realtorsTable">
@@ -75,6 +75,7 @@
         <th>Purchased</th>
         <th>Negotiation</th>
         <th>Closed</th>
+        <th class="col-delete d-none"><span class="visually-hidden">Delete</span></th>
       </tr>
     </thead>
     <tbody></tbody>

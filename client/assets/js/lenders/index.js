@@ -1,5 +1,5 @@
 // /assets/js/lenders/index.js
-import { fetchLenders } from './api.js';
+import { fetchLenders, deleteLender } from './api.js';
 import { renderTable } from './render.js';
 
 const state = {
@@ -72,6 +72,11 @@ function initTopBar() {
       state.search = searchEl.value.trim();
       applyFilters();
     }, 200);
+  });
+
+  const delToggleBtn = document.getElementById('toggleDeleteMode');
+  delToggleBtn?.addEventListener('click', () => {
+    document.querySelectorAll('.col-delete').forEach(el => el.classList.toggle('d-none'));
   });
 
   // pill filters
@@ -172,6 +177,32 @@ function buildLenderStats(contacts) {
   }
   return stats;
 }
+
+document.addEventListener('click', async (e) => {
+  const btn = e.target.closest('.delete-lender-btn');
+  if (!btn) return;
+
+  const id = btn.dataset.id;
+  if (!confirm('Delete this lender?')) return;
+
+  try {
+    await deleteLender(id);
+
+    // Remove from state
+    state.allLenders = state.allLenders.filter(l => String(l._id) !== String(id));
+    state.statsByLender.delete(id); // optional; keeps stats clean
+
+    // Remove row from DOM OR re-render list to update counts/pills
+    const tr = btn.closest('tr');
+    if (tr) tr.remove();
+
+    // Safer: re-apply filters so counts & pills update
+    applyFilters();
+  } catch (err) {
+    console.error('Delete error:', err);
+    // Optionally show a toast; avoid blocking alert spam
+  }
+});
 
 document.addEventListener('DOMContentLoaded', async () => {
   try {

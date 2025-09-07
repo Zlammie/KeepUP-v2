@@ -1,206 +1,412 @@
-<!-- public/realtors-view.html -->
 <!DOCTYPE html>
 <html lang="en">
 <head>
   <meta charset="UTF-8" />
   <title>Realtor Details</title>
- <link rel="stylesheet" href="/assets/css/main.css">
-  
+  <link rel="stylesheet" href="/assets/css/main.css">
+  <style>
+  :root{
+    --realtor-blue:#2f70c8;        /* tweak to match your brand */
+    --realtor-blue-ink:#ffffff;     /* text on blue */
+    --realtor-blue-soft:#e9f2ff;    /* for chips/hover if needed */
+    --card-radius:16px;
+  }
+
+  .realtor-shell { display:flex; flex-direction:column; gap:1rem; }
+
+  /* Collapsed identity card */
+  .realtor-identity {
+    background: var(--realtor-blue);
+    color: var(--realtor-blue-ink);
+    border-radius: var(--card-radius);
+    padding:.75rem 1rem;
+    box-shadow: 0 1px 0 rgba(0,0,0,.05) inset, 0 1px 4px rgba(0,0,0,.08);
+  }
+  .re-compact {
+    display:flex; align-items:center; gap:1rem; flex-wrap:wrap;
+  }
+  .re-name {
+    font-size:1.25rem; font-weight:700; letter-spacing:.2px;
+  }
+  .re-contact { display:flex; gap:2rem; opacity:.95; }
+  .re-contact a { color: var(--realtor-blue-ink); text-decoration:none; }
+  .re-cta { margin-left:auto; }
+  .btn-ghost {
+    border:1px solid rgba(255,255,255,.65);
+    background: transparent; color:#fff; border-radius:999px;
+    padding:.25rem .75rem; cursor:pointer;
+  }
+  .btn-ghost:hover { background: rgba(255,255,255,.1); }
+
+  /* Expanded editor card */
+  .re-editor {
+    background: var(--realtor-blue);
+    color: var(--realtor-blue-ink);
+    border-radius: var(--card-radius);
+    padding: 1rem 1rem 1.25rem;
+    box-shadow: 0 1px 4px rgba(0,0,0,.08);
+  }
+  .re-title { font-weight:800; margin:.25rem 0 1rem; font-size:1.125rem; }
+  .re-grid {
+    display:grid;
+    grid-template-columns: 1.25fr 1fr; /* left column wider like the sketch */
+    gap: 1rem 2rem;
+  }
+  .re-col { display:grid; grid-template-columns: 1fr 1fr; gap: .75rem 1rem; }
+  .re-col .full { grid-column: 1 / -1; }
+  .re-form label { display:block; font-size:.85rem; opacity:.9; margin-bottom:.25rem; }
+  .re-form input {
+    width:100%; padding:.4rem .55rem; border-radius:10px; border:none;
+    outline:none; background: rgba(255,255,255,.95); color:#111;
+  }
+  .re-form input:disabled { opacity:.7; }
+
+  /* hide/show */
+  .is-hidden { display:none; }
+
+  /* Topbar above table */
+  .topbar { display:flex; gap:.75rem; align-items:center; flex-wrap:wrap; margin:.25rem 0 .5rem; }
+  .topbar .spacer { flex:1; }
+  .chip { border:1px solid var(--border,#ddd); padding:.25rem .5rem; border-radius:999px; cursor:pointer; user-select:none; }
+  .chip.active { background: var(--realtor-blue-soft); border-color:#b9d4ff; }
+</style>
 </head>
 <body>
   <%- include('../partials/nav') %>
-  <%- include('../partials/top-nav-contacts') %>
-  <div class="main-content container">
-    <div class="details-top">
-        <div class="card realtor-info-cont">
-          <form id="realtorForm">
-            <input type="hidden" id="realtorId" />
-            <div class="form-group">
+<%- include('../partials/top-nav-contacts') %>
+
+<div class="container main-content">
+  <div class="realtor-shell">
+
+    <!-- Collapsed Identity Card -->
+    <section class="realtor-identity">
+      <div class="re-compact">
+        <div>
+          <div class="re-name" id="hdrName">REALTOR NAME</div>
+          <div class="re-contact">
+            <a id="hdrPhone" href="#">Phone Number</a>
+            <a id="hdrEmail" href="#">Email</a>
+          </div>
+        </div>
+        <div class="re-cta">
+          <button id="toggleEdit" class="btn-ghost">Edit</button>
+        </div>
+      </div>
+    </section>
+
+    <!-- Expanded Editor (hidden by default) -->
+    <section id="editorCard" class="re-editor is-hidden">
+      <div class="re-title" id="titleName">REALTOR NAME</div>
+
+      <form id="realtorForm" class="re-form">
+        <input type="hidden" id="realtorId" />
+
+        <div class="re-grid">
+          <!-- Left column: name/phone/email/license -->
+          <div class="re-col">
+            <div>
               <label>First Name</label>
               <input type="text" id="realtorFirstName" data-field="firstName" />
             </div>
-            <div class="form-group">
+            <div>
               <label>Last Name</label>
               <input type="text" id="realtorLastName" data-field="lastName" />
             </div>
-            <div class="form-group">
-              <label>Email</label>
-              <input type="email" id="realtorEmail" data-field="email" />
-            </div>
-            <div class="form-group">
+            <div>
               <label>Phone</label>
               <input type="text" id="realtorPhone" data-field="phone" />
             </div>
-            <div class="form-group">
-              <label>Brokerage</label>
-              <input type="text" id="realtorBrokerage" data-field="brokerage" />
+            <div>
+              <label>Email</label>
+              <input type="email" id="realtorEmail" data-field="email" />
             </div>
-          </form>
+            <div class="full">
+              <label>License #</label>
+              <input type="text" id="realtorLicenseNumber" data-field="licenseNumber" />
+            </div>
+          </div>
+
+          <!-- Right column: brokerage address block -->
+          <div class="re-col">
+            <div class="full">
+              <label>Brokerage Address</label>
+              <input type="text" id="realtorBrokerageAddress" data-field="brokerageAddress" />
+            </div>
+            <div>
+              <label>Brokerage City</label>
+              <input type="text" id="realtorBrokerageCity" data-field="brokerageCity" />
+            </div>
+            <div>
+              <label>Brokerage State</label>
+              <input type="text" id="realtorBrokerageState" data-field="brokerageState" />
+            </div>
+            <div class="full">
+              <label>Brokerage Zip</label>
+              <input type="text" id="realtorBrokerageZip" data-field="brokerageZip" />
+            </div>
+          </div>
         </div>
-        <div class="purchased-table">
-          <h2>Purchased Contacts</h2>
-            <table class="table purchased-table">
-              <thead>
-                <tr>
-                  <th>Name</th>
-                  <th>Phone</th>
-                  <th>Email</th>
-                  <th>Communities</th>
-                  <th>Owner</th>
-                </tr>
-              </thead>
-              <tbody id="purchasedContactsBody"></tbody>
-            </table>
+
+        <!-- (Optional) include Brokerage name if you want -->
+        <div style="margin-top:.75rem;">
+          <label>Brokerage</label>
+          <input type="text" id="realtorBrokerage" data-field="brokerage" />
         </div>
+      </form>
+    </section>
+
+    <!-- Related Contacts table card -->
+    <div class="card" style="margin-top:.25rem;">
+      <div class="topbar">
+        <strong>Related Contacts</strong>
+        <span id="resultCount" class="muted"></span>
+        <div class="spacer"></div>
+        <input id="searchInput" type="text" placeholder="Search name, email, phone, community…" />
+        <div id="statusChips" class="muted" title="Filter by status"></div>
+        <select id="communitySelect"><option value="">All Communities</option></select>
+      </div>
+
+      <table class="table related-table">
+        <thead>
+          <tr>
+            <th>Name</th><th>Phone</th><th>Email</th>
+            <th>Status</th><th>Communities</th><th>Owner</th>
+          </tr>
+        </thead>
+        <tbody id="relatedContactsBody" class="relatedContactBody"></tbody>
+      </table>
     </div>
-      <div class="related-table">
-        <h2>Related Contacts</h2>
-            <table class="table related-table">
-              <thead>
-                <tr>
-                  <th>Name</th>
-                  <th>Phone</th>
-                  <th>Email</th>
-                  <th>Communities</th>
-                  <th>Owner</th>
-                </tr>
-              </thead>
-              <tbody id="relatedContactsBody" class="relatedContactBody"></tbody>
-              </table>
-       </div>
+
   </div>
-<script>
- 
+</div>
+
+
+  <script>
   const params = new URLSearchParams(window.location.search);
   const realtorId = params.get('id');
 
+  let allContacts = [];
+  let activeStatuses = new Set();
+  const STATUS_OPTIONS = ['New','Target','Possible','Negotiation','Be-Back','Cold','Purchased','Closed','Not-Interested','Bust'];
+
+  // ===== Identity / Editor =====
   async function loadRealtor() {
     const res = await fetch(`/api/realtors/${realtorId}`);
-    if (!res.ok) {
-      alert('Realtor not found');
-      return;
-    }
+    if (!res.ok) { alert('Realtor not found'); return; }
+    const r = await res.json();
 
-    const realtor = await res.json();
+    // Seed inputs
+    setVal('realtorFirstName', r.firstName);
+    setVal('realtorLastName',  r.lastName);
+    setVal('realtorEmail',     r.email);
+    setVal('realtorPhone',     r.phone);
+    setVal('realtorBrokerage', r.brokerage);
+    setVal('realtorLicenseNumber',    r.licenseNumber);
+    setVal('realtorBrokerageAddress', r.brokerageAddress);
+    setVal('realtorBrokerageCity',    r.brokerageCity);
+    setVal('realtorBrokerageState',   r.brokerageState);
+    setVal('realtorBrokerageZip',     r.brokerageZip);
 
-    // Populate inputs
-    document.getElementById('realtorFirstName').value = realtor.firstName || '';
-    document.getElementById('realtorLastName').value = realtor.lastName || '';
-    document.getElementById('realtorEmail').value = realtor.email || '';
-    document.getElementById('realtorPhone').value = realtor.phone || '';
-    document.getElementById('realtorBrokerage').value = realtor.brokerage || '';
+    // Update header/mini row
+    updateHeaderFromInputs();
+    disableEditor(true); // start collapsed
+  }
+
+  function setVal(id, v) {
+    const el = document.getElementById(id);
+    if (el) el.value = v || '';
+  }
+
+  function fullNameFromInputs() {
+    const first = (document.getElementById('realtorFirstName')?.value || '').trim();
+    const last  = (document.getElementById('realtorLastName')?.value  || '').trim();
+    return (first || last) ? `${first} ${last}`.trim() : 'REALTOR NAME';
+  }
+
+  function updateHeaderFromInputs() {
+    const name  = fullNameFromInputs();
+    const phone = (document.getElementById('realtorPhone')?.value || '').trim() || 'Phone Number';
+    const email = (document.getElementById('realtorEmail')?.value || '').trim() || 'Email';
+
+    document.getElementById('hdrName').textContent = name;
+    document.getElementById('titleName').textContent = name;
+
+    const hdrPhone = document.getElementById('hdrPhone');
+    const hdrEmail = document.getElementById('hdrEmail');
+    hdrPhone.textContent = phone;
+    hdrEmail.textContent = email;
+    hdrPhone.href = phone && phone !== 'Phone Number' ? `tel:${phone}` : '#';
+    hdrEmail.href = email && email !== 'Email' ? `mailto:${email}` : '#';
+  }
+
+  function disableEditor(disabled) {
+    const editor = document.getElementById('editorCard');
+    const inputs = editor.querySelectorAll('input');
+    inputs.forEach(i => {
+      i.disabled = disabled;
+      i.tabIndex = disabled ? -1 : 0;
+    });
+    editor.classList.toggle('is-hidden', disabled);
+    document.getElementById('toggleEdit').textContent = disabled ? 'Edit' : 'Done';
+  }
+
+  function wireEditorToggle() {
+    document.getElementById('toggleEdit').addEventListener('click', () => {
+      const hidden = document.getElementById('editorCard').classList.contains('is-hidden');
+      disableEditor(!hidden ? true : false);
+      if (!hidden) updateHeaderFromInputs(); // closing → refresh header
+    });
   }
 
   function setupAutosave() {
     const inputs = document.querySelectorAll('input[data-field]');
     inputs.forEach(input => {
+      // live update header for identity fields
+      if (['realtorFirstName','realtorLastName','realtorPhone','realtorEmail'].includes(input.id)) {
+        input.addEventListener('input', updateHeaderFromInputs);
+      }
       input.addEventListener('blur', async (e) => {
         const field = e.target.dataset.field;
         const value = e.target.value.trim();
-
-        await fetch(`/api/realtors/${realtorId}`, {
-          method: 'PUT',
-          headers: {
-            'Content-Type': 'application/json'
-          },
-          body: JSON.stringify({ [field]: value })
-        });
+        try {
+          await fetch(`/api/realtors/${realtorId}`, {
+            method: 'PUT',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ [field]: value })
+          });
+        } catch (err) {
+          console.warn('Autosave failed for', field, err);
+        }
       });
     });
   }
 
+  // ===== Related Contacts (unchanged from previous version) =====
   async function loadRelatedContacts() {
     const res = await fetch(`/api/contacts/by-realtor/${realtorId}`);
-    const tbody = document.getElementById('relatedContactsBody');
-    tbody.innerHTML = '';
+    if (!res.ok) { renderEmpty('Error loading related contacts.'); return; }
+    allContacts = await res.json();
+    buildCommunityOptions(allContacts);
+    buildStatusChips(allContacts);
+    applyFiltersAndRender();
+  }
 
-    if (!res.ok) {
-      const row = document.createElement('tr');
-      row.innerHTML = `<td colspan="5">Error loading related contacts.</td>`;
-      tbody.appendChild(row);
-      return;
-    }
+  function buildCommunityOptions(contacts) {
+    const select = document.getElementById('communitySelect');
+    const set = new Set();
+    contacts.forEach(c => {
+      if (Array.isArray(c.communities)) c.communities.forEach(x => x && set.add(x));
+      else if (c.communities) set.add(c.communities);
+    });
+    [...set].sort().forEach(name => {
+      const opt = document.createElement('option');
+      opt.value = name; opt.textContent = name;
+      select.appendChild(opt);
+    });
+    select.addEventListener('change', applyFiltersAndRender);
+  }
 
-    const contacts = await res.json();
-
-    if (contacts.length === 0) {
-      const row = document.createElement('tr');
-      row.innerHTML = `<td colspan="5">No contacts linked to this realtor.</td>`;
-      tbody.appendChild(row);
-      return;
-    }
-
-    contacts.forEach(contact => {
-       console.log('Contact:', contact);
-      const hasName = contact.firstName || contact.lastName;
-      const name = hasName
-        ? `${contact.firstName || ''} ${contact.lastName || ''}`.trim()
-        : '(Unnamed Contact)';
-      const phone = contact.phone || 'N/A';
-      const email = contact.email || 'N/A';
-      const communities = Array.isArray(contact.communities)
-        ? contact.communities.join(', ')
-        : contact.communities || 'N/A';
-      const owner = contact.owner || 'N/A';
-
-      console.log('Rendered Name:', name);
-
-      const row = document.createElement('tr');
-      row.innerHTML = `
-        <td><a href="/contact-details.html?id=${contact._id}">${name}</a></td>
-        <td>${phone}</td>
-        <td>${email}</td>
-        <td>${communities}</td>
-        <td>${owner}</td>
-      `;
-      console.log('Row innerHTML:', row.innerHTML);
-      tbody.appendChild(row);
+  function buildStatusChips(contacts) {
+    const container = document.getElementById('statusChips');
+    container.innerHTML = '';
+    const present = new Set(contacts.map(c => (c.status || '').trim()).filter(Boolean));
+    const union = [...new Set([...STATUS_OPTIONS, ...present])];
+    union.forEach(status => {
+      const chip = document.createElement('span');
+      chip.className = 'chip';
+      chip.textContent = status;
+      chip.dataset.value = status;
+      chip.addEventListener('click', () => {
+        if (activeStatuses.has(status)) { activeStatuses.delete(status); chip.classList.remove('active'); }
+        else { activeStatuses.add(status); chip.classList.add('active'); }
+        applyFiltersAndRender();
+      });
+      container.appendChild(chip);
     });
   }
 
-  async function loadPurchasedContacts() {
-  const res = await fetch(`/api/contacts/by-realtor/${realtorId}`);
-  const tbody = document.getElementById('purchasedContactsBody');
-  tbody.innerHTML = '';
+  function applyFiltersAndRender() {
+    const q = document.getElementById('searchInput').value.trim().toLowerCase();
+    const community = document.getElementById('communitySelect').value;
 
-  if (!res.ok) {
-    tbody.innerHTML = `<tr><td colspan="5">Error loading purchased contacts.</td></tr>`;
-    return;
+    let filtered = allContacts.slice();
+
+    if (q) {
+      filtered = filtered.filter(c => {
+        const name = `${c.firstName || ''} ${c.lastName || ''}`.toLowerCase();
+        const email = (c.email || '').toLowerCase();
+        const phone = (c.phone || '').toLowerCase();
+        const comm = Array.isArray(c.communities) ? c.communities.join(', ').toLowerCase()
+                     : (c.communities || '').toLowerCase();
+        return name.includes(q) || email.includes(q) || phone.includes(q) || comm.includes(q);
+      });
+    }
+
+    if (community) {
+      filtered = filtered.filter(c => {
+        if (Array.isArray(c.communities)) return c.communities.includes(community);
+        return c.communities === community;
+      });
+    }
+
+    if (activeStatuses.size > 0) {
+      filtered = filtered.filter(c => activeStatuses.has((c.status || '').trim()));
+    }
+
+    renderTable(filtered);
+    updateResultCount(filtered.length, allContacts.length);
   }
 
-  const contacts = await res.json();
-  const purchased = contacts.filter(c => c.status === 'purchased');
-
-  if (purchased.length === 0) {
-    tbody.innerHTML = `<tr><td colspan="5">No purchased contacts.</td></tr>`;
-    return;
+  function updateResultCount(n, total) {
+    document.getElementById('resultCount').textContent = `(${n} of ${total})`;
   }
 
-  purchased.forEach(contact => {
-    const name = `${contact.firstName || ''} ${contact.lastName || ''}`.trim() || '(Unnamed)';
-    const phone = contact.phone || 'N/A';
-    const email = contact.email || 'N/A';
-    const communities = Array.isArray(contact.communities)
-      ? contact.communities.join(', ')
-      : contact.communities || 'N/A';
-    const owner = contact.owner || 'N/A';
+  function renderEmpty(msg) {
+    document.getElementById('relatedContactsBody').innerHTML = `<tr><td colspan="6">${msg}</td></tr>`;
+    updateResultCount(0,0);
+  }
 
-    const row = document.createElement('tr');
-    row.innerHTML = `
-      <td><a href="/contact-details.html?id=${contact._id}">${name}</a></td>
-      <td>${phone}</td>
-      <td>${email}</td>
-      <td>${communities}</td>
-      <td>${owner}</td>
-    `;
-    tbody.appendChild(row);
-  });
-}
+  function renderTable(rows) {
+    const tbody = document.getElementById('relatedContactsBody');
+    if (!rows || rows.length === 0) {
+      tbody.innerHTML = `<tr><td colspan="6">No contacts linked to this realtor.</td></tr>`;
+      return;
+    }
+    tbody.innerHTML = '';
+    rows.forEach(c => {
+      const name = (c.firstName || c.lastName) ? `${c.firstName || ''} ${c.lastName || ''}`.trim() : '(Unnamed Contact)';
+      const phone = c.phone || 'N/A';
+      const email = c.email || 'N/A';
+      const status = c.status || '—';
+      const communities = Array.isArray(c.communities) ? c.communities.join(', ') : (c.communities || 'N/A');
+      const owner = c.owner || 'N/A';
+      const tr = document.createElement('tr');
+      tr.innerHTML = `
+        <td><a href="/contact-details.html?id=${c._id}">${escapeHtml(name)}</a></td>
+        <td>${escapeHtml(phone)}</td>
+        <td>${escapeHtml(email)}</td>
+        <td>${escapeHtml(status)}</td>
+        <td>${escapeHtml(communities)}</td>
+        <td>${escapeHtml(owner)}</td>
+      `;
+      tbody.appendChild(tr);
+    });
+  }
 
+  function escapeHtml(str){return String(str).replace(/[&<>"']/g,m=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m]))}
+
+  function wireTopBarSearch() {
+    const input = document.getElementById('searchInput');
+    let t;
+    input.addEventListener('input', () => { clearTimeout(t); t = setTimeout(applyFiltersAndRender, 200); });
+  }
+
+  // Init
   loadRealtor().then(() => {
     setupAutosave();
+    wireEditorToggle();
+    wireTopBarSearch();
     loadRelatedContacts();
-    loadPurchasedContacts();
   });
 </script>
 </body>

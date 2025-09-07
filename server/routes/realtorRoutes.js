@@ -137,4 +137,18 @@ router.post('/import', upload.single('file'), async (req, res) => {
     res.status(500).json({ error: 'Failed to import realtors', details: err.message });
   }
 });
+
+// DELETE /api/realtors/:id
+router.delete('/:id', async (req, res) => {
+  try {
+    const realtor = await Realtor.findByIdAndDelete(req.params.id);
+    if (!realtor) {
+      return res.status(404).json({ error: 'Realtor not found' });
+    }
+    res.json({ ok: true });
+  } catch (err) {
+    console.error('Error deleting realtor:', err);
+    res.status(500).json({ error: 'Server error' });
+  }
+});
 module.exports = router;

@@ -7,3 +7,14 @@
 
 .status-pill.has-purchased          { border-color: #2E8B57; }            /* purchased green */
 .status-pill.has-purchased.active   { color: #2E8B57; }
+
+
+/* assets/css/lenders.css */
+.table .icon-col {
+  width: 40px;         /* small fixed width */
+  text-align: center;
+}
+.table .stats-col {
+  width: 80px;         /* narrower than names/emails */
+  text-align: center;
+}

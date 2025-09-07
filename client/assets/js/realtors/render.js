@@ -134,6 +134,21 @@ export function renderTable(realtors, statsByRealtor = new Map()) {
       row.append(totalTd, purchasedTd, negotiatingTd, closedTd);
     }
 
+    {
+      const cell = document.createElement('td');
+      cell.classList.add('col-delete', 'd-none');
+
+      const btn = document.createElement('button');
+      btn.type = 'button';
+      btn.classList.add('btn', 'btn-sm', 'btn-danger', 'delete-realtor-btn');
+      btn.dataset.id = realtor._id;
+      btn.title = 'Delete';
+      btn.textContent = '✕';
+
+      cell.appendChild(btn);
+      row.appendChild(cell);
+    }
+
     tbody.appendChild(row);
   });
 }

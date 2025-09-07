@@ -18,7 +18,7 @@ export function renderTable(lenders, statsByLender = new Map()) {
     // 📋 Task
     {
       const cell = document.createElement('td');
-      cell.classList.add('text-center');
+      cell.classList.add('icon-col');
       const btn = document.createElement('button');
       btn.type = 'button';
       btn.classList.add('icon-btn', 'btn', 'btn-sm', 'btn-link');
@@ -33,7 +33,7 @@ export function renderTable(lenders, statsByLender = new Map()) {
     // 🚩 Flag
     {
       const cell = document.createElement('td');
-      cell.classList.add('text-center');
+      cell.classList.add('icon-col');
       const btn = document.createElement('button');
       btn.type = 'button';
       btn.classList.add('icon-btn', 'btn', 'btn-sm', 'btn-link');
@@ -64,7 +64,7 @@ export function renderTable(lenders, statsByLender = new Map()) {
     // 💬 Comment
     {
       const cell = document.createElement('td');
-      cell.classList.add('text-center');
+      cell.classList.add('icon-col');
       const btn = document.createElement('button');
       btn.type = 'button';
       btn.classList.add('icon-btn', 'btn', 'btn-sm', 'btn-link');
@@ -124,16 +124,34 @@ export function renderTable(lenders, statsByLender = new Map()) {
     const s = statsByLender.get(lender._id) || { invited: 0, purchasedNotApproved: 0, purchased: 0 };
 
     const invitedTd = document.createElement('td');
+    invitedTd.classList.add('stats-col');
     invitedTd.textContent = s.invited;
 
     const purchasedNotApprovedTd = document.createElement('td');
+    purchasedNotApprovedTd.classList.add('stats-col');
     purchasedNotApprovedTd.textContent = s.purchasedNotApproved;
 
     const purchasedTd = document.createElement('td');
+    purchasedTd.classList.add('stats-col');
     purchasedTd.textContent = s.purchased;
+
 
     row.append(invitedTd, purchasedNotApprovedTd, purchasedTd);
   }
+  {
+  const cell = document.createElement('td');
+  cell.classList.add('col-delete', 'd-none');
+
+  const btn = document.createElement('button');
+  btn.type = 'button';
+  btn.classList.add('btn', 'btn-sm', 'btn-danger', 'delete-lender-btn');
+  btn.dataset.id = lender._id;
+  btn.title = 'Delete';
+  btn.textContent = '✕';
+
+  cell.appendChild(btn);
+  row.appendChild(cell);
+}
 
     tbody.appendChild(row);
   });

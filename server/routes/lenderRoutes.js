@@ -52,4 +52,17 @@ router.get('/:id', async (req, res) => {
   }
 });
 
+router.delete('/:id', async (req, res) => {
+  try {
+    const lender = await Lender.findByIdAndDelete(req.params.id);
+    if (!lender) {
+      return res.status(404).json({ error: 'Lender not found' });
+    }
+    res.json({ ok: true });
+  } catch (err) {
+    console.error('Error deleting lender by ID:', err);
+    res.status(500).json({ error: 'Server error' });
+  }
+});
+
 module.exports = router;
