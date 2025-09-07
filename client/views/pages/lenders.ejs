@@ -10,75 +10,58 @@
   <%- include('../partials/nav') %>
   <%- include('../partials/top-nav-contacts') %>
 
-  <h1>Saved Lenders</h1>
+  <!-- Lenders Top Bar -->
+  <div class="contact-topbar" id="lendersTopBar">
+    <div class="topbar-left" style="gap:12px;">
+      <input id="lenderSearch" class="form-control form-control-sm" type="search"
+            placeholder="Search name, email, phone, company" />
+      <div class="topbar-total">
+        <span class="total-label">Total Lender Contacts:</span>
+        <span id="lenderTotal" class="total-value">0</span>
+      </div>
+    </div>
+
+    <div class="topbar-filters" id="lenderFilters">
+      <button class="status-pill active" data-filter="all">
+        <span class="label">All</span>
+        <span class="value" data-count="all">0</span>
+      </button>
+      <button class="status-pill has-invited" data-filter="has-invited">
+        <span class="label">Invited</span>
+        <span class="value" data-count="has-invited">0</span>
+      </button>
+      <button class="status-pill purchased-not-approved" data-filter="purchased-not-approved">
+        <span class="label">Purchased not Approved</span>
+        <span class="value" data-count="purchased-not-approved">0</span>
+      </button>
+      <button class="status-pill has-purchased" data-filter="has-purchased">
+        <span class="label">Purchased</span>
+        <span class="value" data-count="has-purchased">0</span>
+      </button>
+    </div>
+  </div>
 
   <table class="table table-bordered" id="lendersTable">
     <thead>
       <tr>
-        <th></th>
+        <th><span class="visually-hidden">Task</span></th>     <!-- 📋 -->
+        <th><span class="visually-hidden">Flag</span></th>     <!-- 🚩 -->
+        <th><span class="visually-hidden">Comment</span></th>  <!-- 💬 -->
+        <th><span class="visually-hidden">View</span></th>     <!-- 🔎 -->
         <th>First Name</th>
         <th>Last Name</th>
         <th>Email</th>
         <th>Phone</th>
-        <th>Company</th>
+        <th>Brokerage</th>
+        <th>Invited</th>
+        <th>Purchased not Approved</th>
+        <th>Purchased</th>
       </tr>
     </thead>
     <tbody></tbody>
   </table>
 
-<script>
-
-  async function loadLenders() {
-    const res = await fetch('/api/lenders');
-    const lenders = await res.json();
-
-    const tableBody = document.querySelector('#lendersTable tbody');
-    tableBody.innerHTML = '';
-
-    lenders.forEach(lender => {
-      const row = document.createElement('tr');
-      row.dataset.id = lender._id;
-
-      // View button cell
-      const viewBtnCell = document.createElement('td');
-      const viewBtn = document.createElement('button');
-      viewBtn.textContent = 'View';
-      viewBtn.classList.add('btn', 'btn-primary', 'btn-sm');
-      viewBtn.addEventListener('click', () => {
-        window.location.href = `/lender-view?id=${lender._id}`;
-      });
-      viewBtnCell.appendChild(viewBtn);
-      row.appendChild(viewBtnCell);
-
-      // Editable fields
-      ['firstName', 'lastName', 'email', 'phone', 'company'].forEach(field => {
-        const cell = document.createElement('td');
-        cell.textContent = lender[field] || '';
-        cell.contentEditable = true;
-        cell.dataset.field = field;
-
-        cell.addEventListener('blur', async (e) => {
-          const newValue = e.target.textContent.trim();
-          const id = row.dataset.id;
-          const field = e.target.dataset.field;
-
-          await fetch(`/api/lenders/${id}`, {
-            method: 'PUT',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ [field]: newValue })
-          });
-        });
-
-        row.appendChild(cell);
-      });
-
-      tableBody.appendChild(row);
-    });
-  }
-
-  // Initialize
-  loadLenders();
-</script>
+<script type="module" src="/assets/js/lenders/index.js"></script>
 
 </body>
 </html>
