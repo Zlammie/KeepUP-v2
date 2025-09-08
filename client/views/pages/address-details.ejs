@@ -130,30 +130,35 @@
           </div>
         </div>
 
-          <div class="field">
-              <label for="thirdPartyInput">3rd Party</label>
-            <input
-              id="thirdPartyInput"
-              type="datetime-local"
-              class="value"    
-              />
+          <!-- 3rd Party -->
+        <div class="field">
+          <label for="thirdPartyDate">3rd Party</label>
+          <div class="row-inline">
+            <input id="thirdPartyDate" type="date"  class="value" />
+            <input id="thirdPartyTime" type="time"  class="value" />
           </div>
-          <div class="field">
-            <label for="firstWalkInput">1st Walk</label>
-            <input
-                id="firstWalkInput"
-                type="datetime-local"
-                class="value"
-              />
+          <small class="hint">You can leave time blank for now.</small>
+        </div>
+
+        <!-- 1st Walk -->
+        <div class="field">
+          <label for="firstWalkDate">1st Walk</label>
+          <div class="row-inline">
+            <input id="firstWalkDate" type="date" class="value" />
+            <input id="firstWalkTime" type="time" class="value" />
           </div>
-          <div class="field">
-              <label for="finalSignOffInput">Final Sign Off</label>
-              <input
-                id="finalSignOffInput"
-                type="datetime-local"
-                class="value"
-              />
-      </div>
+          <small class="hint">Time optional.</small>
+        </div>
+
+        <!-- Final Sign Off -->
+        <div class="field">
+          <label for="finalSignOffDate">Final Sign Off</label>
+          <div class="row-inline">
+            <input id="finalSignOffDate" type="date" class="value" />
+            <input id="finalSignOffTime" type="time" class="value" />
+          </div>
+          <small class="hint">Time optional.</small>
+        </div>
       </section>
       
       
@@ -234,12 +239,6 @@
     </div>
   </div>
 
-  <!-- Autosave controls need only blur/change - no save button needed -->
-
-  <script>
-   
-  </script>
-
-  <script src="/assets/js/addressDetails.js"></script>
+  <script type="module" src="/assets/js/address-details/index.js"></script>
 </body>
 </html>

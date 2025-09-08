@@ -1,5 +1,5 @@
-// public/scripts/addressDetails.js
-
+// CAN DELETE 
+/*
 document.addEventListener("DOMContentLoaded", async () => {
   const params = new URLSearchParams(window.location.search);
   const commId = params.get("communityId");
@@ -516,3 +516,5 @@ if (primaryEntry?.closingDateTime) {
     document.getElementById("lotTitle").innerText = "Error loading lot";
   }
 });
+
+*/

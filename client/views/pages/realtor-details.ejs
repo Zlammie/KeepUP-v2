@@ -4,71 +4,113 @@
   <meta charset="UTF-8" />
   <title>Realtor Details</title>
   <link rel="stylesheet" href="/assets/css/main.css">
-  <style>
+ <style>
   :root{
-    --realtor-blue:#2f70c8;        /* tweak to match your brand */
-    --realtor-blue-ink:#ffffff;     /* text on blue */
-    --realtor-blue-soft:#e9f2ff;    /* for chips/hover if needed */
-    --card-radius:16px;
+    --brand:#2f70c8;              /* your blue accent */
+    --ink:#0f172a;                /* dark text */
+    --muted:#64748b;              /* secondary text */
+    --border:#e5e7eb;             /* light border */
+    --surface:#ffffff;
+    --radius:14px;
+    --gutter-x: 2.25rem;   /* space between the two halves (center gutter) */
+  --field-gap-x: 1.25rem;/* space between fields within a half (columns)  */
+  --field-gap-y: 1rem;   /* vertical space between rows                   */
   }
 
   .realtor-shell { display:flex; flex-direction:column; gap:1rem; }
 
-  /* Collapsed identity card */
-  .realtor-identity {
-    background: var(--realtor-blue);
-    color: var(--realtor-blue-ink);
-    border-radius: var(--card-radius);
-    padding:.75rem 1rem;
-    box-shadow: 0 1px 0 rgba(0,0,0,.05) inset, 0 1px 4px rgba(0,0,0,.08);
-  }
-  .re-compact {
-    display:flex; align-items:center; gap:1rem; flex-wrap:wrap;
-  }
+  .is-hidden { display: none !important; }
+[hidden]   { display: none !important; }
+
+  /* Identity (collapsed) */
+ .re-identity,
+.realtor-identity {
+  position: relative;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-left: 3px solid var(--brand);
+  border-radius: var(--radius);
+  padding: .75rem 1.25rem;           /* ⟵ more left/right padding */
+  display: flex; align-items: center; gap: 1rem; flex-wrap: wrap;
+  box-shadow: 0 1px 2px rgba(0,0,0,.03);
+}
+
+.re-compact { display:flex; align-items:center; gap:1rem; width:100%; }
+.re-cta { margin-left:auto; }
+  .re-left { display:flex; flex-direction:column; }
   .re-name {
-    font-size:1.25rem; font-weight:700; letter-spacing:.2px;
+    font-size:1.125rem; line-height:1.25rem;
+    font-weight:700; color:var(--ink);
   }
-  .re-contact { display:flex; gap:2rem; opacity:.95; }
-  .re-contact a { color: var(--realtor-blue-ink); text-decoration:none; }
+  .re-contact {
+    display:flex; align-items:center; gap:1rem;     /* space between phone & email */
+    margin-top:.35rem;                               /* space under the name */
+    color:var(--muted);
+  }
+  .re-contact a { color:inherit; text-decoration:none; }
+  .re-contact a:hover { text-decoration:underline; }
+
   .re-cta { margin-left:auto; }
   .btn-ghost {
-    border:1px solid rgba(255,255,255,.65);
-    background: transparent; color:#fff; border-radius:999px;
-    padding:.25rem .75rem; cursor:pointer;
+    border:1px solid var(--brand);
+    background:transparent; color:var(--brand);
+    border-radius:999px; padding:.3rem .8rem; cursor:pointer;
   }
-  .btn-ghost:hover { background: rgba(255,255,255,.1); }
+  .btn-ghost:hover { background:rgba(47,112,200,.06); }
 
-  /* Expanded editor card */
+  /* Expanded editor */
   .re-editor {
-    background: var(--realtor-blue);
-    color: var(--realtor-blue-ink);
-    border-radius: var(--card-radius);
-    padding: 1rem 1rem 1.25rem;
-    box-shadow: 0 1px 4px rgba(0,0,0,.08);
+    background:var(--surface);
+    border:1px solid var(--border);
+    border-radius:var(--radius);
+    padding:1rem 1rem 1.25rem;
+    box-shadow:0 1px 3px rgba(0,0,0,.04);
   }
-  .re-title { font-weight:800; margin:.25rem 0 1rem; font-size:1.125rem; }
-  .re-grid {
-    display:grid;
-    grid-template-columns: 1.25fr 1fr; /* left column wider like the sketch */
-    gap: 1rem 2rem;
+  .re-title {
+    font-weight:700; color:var(--ink);
+    padding-bottom:.5rem; margin-bottom:.75rem;
+    border-bottom:1px dashed var(--border);
   }
-  .re-col { display:grid; grid-template-columns: 1fr 1fr; gap: .75rem 1rem; }
-  .re-col .full { grid-column: 1 / -1; }
-  .re-form label { display:block; font-size:.85rem; opacity:.9; margin-bottom:.25rem; }
+.d-none { display: none !important; }
+.re-grid{
+  display: grid;
+  grid-template-columns: 1.25fr 1fr;   /* left a bit wider */
+  column-gap: var(--gutter-x);         /* ⟵ widen this gutter */
+  row-gap: var(--field-gap-y);
+  gap: var(--field-gap-y) var(--gutter-x) !important;
+}
+
+.re-grid > .re-col{ min-width: 0; }
+
+.re-grid > .re-col:first-child{ padding-right: .75rem; }
+.re-grid > .re-col:last-child{  padding-left:  .75rem; }
+.re-col{
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+ column-gap: var(--field-gap-x) !important;
+  row-gap: var(--field-gap-y) !important;
+}
+  .re-col .full { grid-column:1 / -1; }
+  .re-form label { display:block; font-size:.85rem; color:var(--muted); margin-bottom:.25rem; }
   .re-form input {
-    width:100%; padding:.4rem .55rem; border-radius:10px; border:none;
-    outline:none; background: rgba(255,255,255,.95); color:#111;
+    width:100%; padding:.45rem .6rem; border-radius:10px;
+    border:1px solid var(--border); outline:none; background:#fff; color:#111;
   }
-  .re-form input:disabled { opacity:.7; }
+  .re-form input:focus { border-color:var(--brand); box-shadow:0 0 0 3px rgba(47,112,200,.12); }
+  .re-form input:disabled { opacity:.7; background:#fafafa; }
 
-  /* hide/show */
-  .is-hidden { display:none; }
-
-  /* Topbar above table */
+  /* Topbar above table (unchanged, slight polish) */
   .topbar { display:flex; gap:.75rem; align-items:center; flex-wrap:wrap; margin:.25rem 0 .5rem; }
   .topbar .spacer { flex:1; }
-  .chip { border:1px solid var(--border,#ddd); padding:.25rem .5rem; border-radius:999px; cursor:pointer; user-select:none; }
-  .chip.active { background: var(--realtor-blue-soft); border-color:#b9d4ff; }
+  .chip { border:1px solid var(--border); padding:.25rem .5rem; border-radius:999px; cursor:pointer; user-select:none; }
+  .chip.active { background:rgba(47,112,200,.08); border-color:#b9d4ff; }
+
+  @media (max-width: 720px) {
+  .re-grid { grid-template-columns: 1fr; }
+  .re-col  { grid-template-columns: 1fr; }
+}
+
+
 </style>
 </head>
 <body>
@@ -104,27 +146,33 @@
         <div class="re-grid">
           <!-- Left column: name/phone/email/license -->
           <div class="re-col">
-            <div>
-              <label>First Name</label>
-              <input type="text" id="realtorFirstName" data-field="firstName" />
+              <div>
+                <label>First Name</label>
+                <input type="text" id="realtorFirstName" data-field="firstName" />
+              </div>
+              <div>
+                <label>Last Name</label>
+                <input type="text" id="realtorLastName" data-field="lastName" />
+              </div>
+
+              <div>
+                <label>Phone</label>
+                <input type="text" id="realtorPhone" data-field="phone" />
+              </div>
+              <div>
+                <label>Email</label>
+                <input type="email" id="realtorEmail" data-field="email" />
+              </div>
+
+              <div>
+                <label>License #</label>
+                <input type="text" id="realtorLicenseNumber" data-field="licenseNumber" />
+              </div>
+              <div>
+                <label>Brokerage</label>
+                <input type="text" id="realtorBrokerage" data-field="brokerage" />
+              </div>
             </div>
-            <div>
-              <label>Last Name</label>
-              <input type="text" id="realtorLastName" data-field="lastName" />
-            </div>
-            <div>
-              <label>Phone</label>
-              <input type="text" id="realtorPhone" data-field="phone" />
-            </div>
-            <div>
-              <label>Email</label>
-              <input type="email" id="realtorEmail" data-field="email" />
-            </div>
-            <div class="full">
-              <label>License #</label>
-              <input type="text" id="realtorLicenseNumber" data-field="licenseNumber" />
-            </div>
-          </div>
 
           <!-- Right column: brokerage address block -->
           <div class="re-col">
@@ -147,24 +195,90 @@
           </div>
         </div>
 
-        <!-- (Optional) include Brokerage name if you want -->
-        <div style="margin-top:.75rem;">
-          <label>Brokerage</label>
-          <input type="text" id="realtorBrokerage" data-field="brokerage" />
-        </div>
       </form>
     </section>
 
     <!-- Related Contacts table card -->
-    <div class="card" style="margin-top:.25rem;">
-      <div class="topbar">
-        <strong>Related Contacts</strong>
-        <span id="resultCount" class="muted"></span>
-        <div class="spacer"></div>
-        <input id="searchInput" type="text" placeholder="Search name, email, phone, community…" />
-        <div id="statusChips" class="muted" title="Filter by status"></div>
-        <select id="communitySelect"><option value="">All Communities</option></select>
-      </div>
+   <div id="realtorTopBar" class="contact-topbar">
+  <div class="topbar-left">
+    <label for="communitySelect" class="visually-hidden">Community</label>
+    <select id="communitySelect" class="form-select form-select-sm">
+      <!-- populated by JS -->
+    </select>
+
+    <div class="topbar-total">
+      <span class="total-label">Total:</span>
+      <span id="countTotal" class="total-value">0</span>
+    </div>
+  </div>
+
+  <!-- Status pills container (two groups; we swap them with the More button) -->
+  <div class="topbar-filters" id="statusFilters">
+    <!-- MAIN GROUP (default visible) -->
+    <div id="statusGroupMain">
+      <button class="status-pill active" data-status="all">
+        <span class="label">All</span>
+        <span class="value" data-count="all">0</span>
+      </button>
+      <button class="status-pill" data-status="new">
+        <span class="label">New</span>
+        <span class="value" data-count="new">0</span>
+      </button>
+      <button class="status-pill" data-status="target">
+        <span class="label">Target</span>
+        <span class="value" data-count="target">0</span>
+      </button>
+      <button class="status-pill" data-status="possible">
+        <span class="label">Possible</span>
+        <span class="value" data-count="possible">0</span>
+      </button>
+      <button class="status-pill" data-status="negotiation">
+        <span class="label">Negotiation</span>
+        <span class="value" data-count="negotiation">0</span>
+      </button>
+      <button class="status-pill" data-status="be-back">
+        <span class="label">Be-Back</span>
+        <span class="value" data-count="be-back">0</span>
+      </button>
+      <button class="status-pill" data-status="purchased">
+        <span class="label">Purchased</span>
+        <span class="value" data-count="purchased">0</span>
+      </button>
+      <button class="status-pill" data-status="closed">
+        <span class="label">Closed</span>
+        <span class="value" data-count="closed">0</span>
+      </button>
+      <button class="status-pill" data-status="deal-lost">
+        <span class="label">Deal-Lost</span>
+        <span class="value" data-count="deal-lost">0</span>
+      </button>
+    </div>
+
+    <!-- MORE GROUP (hidden until you click More) -->
+    <div id="statusGroupMore" class="d-none">
+      <button class="status-pill active" data-status="all">
+        <span class="label">All</span>
+        <span class="value" data-count="all">0</span>
+      </button>
+      <button class="status-pill" data-status="cold">
+        <span class="label">Cold</span>
+        <span class="value" data-count="cold">0</span>
+      </button>
+      <button class="status-pill" data-status="bust">
+        <span class="label">Bust</span>
+        <span class="value" data-count="bust">0</span>
+      </button>
+      <button class="status-pill" data-status="not-interested">
+        <span class="label">Not-Interested</span>
+        <span class="value" data-count="not-interested">0</span>
+      </button>
+    </div>
+  </div>
+
+  <!-- Right-side controls -->
+  <button id="toggleFilterMode" class="btn btn-sm btn-outline-secondary">More</button>
+  <button id="resetFilters" class="btn btn-sm btn-outline-secondary">Reset</button>
+</div>
 
       <table class="table related-table">
         <thead>
@@ -180,234 +294,6 @@
   </div>
 </div>
 
-
-  <script>
-  const params = new URLSearchParams(window.location.search);
-  const realtorId = params.get('id');
-
-  let allContacts = [];
-  let activeStatuses = new Set();
-  const STATUS_OPTIONS = ['New','Target','Possible','Negotiation','Be-Back','Cold','Purchased','Closed','Not-Interested','Bust'];
-
-  // ===== Identity / Editor =====
-  async function loadRealtor() {
-    const res = await fetch(`/api/realtors/${realtorId}`);
-    if (!res.ok) { alert('Realtor not found'); return; }
-    const r = await res.json();
-
-    // Seed inputs
-    setVal('realtorFirstName', r.firstName);
-    setVal('realtorLastName',  r.lastName);
-    setVal('realtorEmail',     r.email);
-    setVal('realtorPhone',     r.phone);
-    setVal('realtorBrokerage', r.brokerage);
-    setVal('realtorLicenseNumber',    r.licenseNumber);
-    setVal('realtorBrokerageAddress', r.brokerageAddress);
-    setVal('realtorBrokerageCity',    r.brokerageCity);
-    setVal('realtorBrokerageState',   r.brokerageState);
-    setVal('realtorBrokerageZip',     r.brokerageZip);
-
-    // Update header/mini row
-    updateHeaderFromInputs();
-    disableEditor(true); // start collapsed
-  }
-
-  function setVal(id, v) {
-    const el = document.getElementById(id);
-    if (el) el.value = v || '';
-  }
-
-  function fullNameFromInputs() {
-    const first = (document.getElementById('realtorFirstName')?.value || '').trim();
-    const last  = (document.getElementById('realtorLastName')?.value  || '').trim();
-    return (first || last) ? `${first} ${last}`.trim() : 'REALTOR NAME';
-  }
-
-  function updateHeaderFromInputs() {
-    const name  = fullNameFromInputs();
-    const phone = (document.getElementById('realtorPhone')?.value || '').trim() || 'Phone Number';
-    const email = (document.getElementById('realtorEmail')?.value || '').trim() || 'Email';
-
-    document.getElementById('hdrName').textContent = name;
-    document.getElementById('titleName').textContent = name;
-
-    const hdrPhone = document.getElementById('hdrPhone');
-    const hdrEmail = document.getElementById('hdrEmail');
-    hdrPhone.textContent = phone;
-    hdrEmail.textContent = email;
-    hdrPhone.href = phone && phone !== 'Phone Number' ? `tel:${phone}` : '#';
-    hdrEmail.href = email && email !== 'Email' ? `mailto:${email}` : '#';
-  }
-
-  function disableEditor(disabled) {
-    const editor = document.getElementById('editorCard');
-    const inputs = editor.querySelectorAll('input');
-    inputs.forEach(i => {
-      i.disabled = disabled;
-      i.tabIndex = disabled ? -1 : 0;
-    });
-    editor.classList.toggle('is-hidden', disabled);
-    document.getElementById('toggleEdit').textContent = disabled ? 'Edit' : 'Done';
-  }
-
-  function wireEditorToggle() {
-    document.getElementById('toggleEdit').addEventListener('click', () => {
-      const hidden = document.getElementById('editorCard').classList.contains('is-hidden');
-      disableEditor(!hidden ? true : false);
-      if (!hidden) updateHeaderFromInputs(); // closing → refresh header
-    });
-  }
-
-  function setupAutosave() {
-    const inputs = document.querySelectorAll('input[data-field]');
-    inputs.forEach(input => {
-      // live update header for identity fields
-      if (['realtorFirstName','realtorLastName','realtorPhone','realtorEmail'].includes(input.id)) {
-        input.addEventListener('input', updateHeaderFromInputs);
-      }
-      input.addEventListener('blur', async (e) => {
-        const field = e.target.dataset.field;
-        const value = e.target.value.trim();
-        try {
-          await fetch(`/api/realtors/${realtorId}`, {
-            method: 'PUT',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ [field]: value })
-          });
-        } catch (err) {
-          console.warn('Autosave failed for', field, err);
-        }
-      });
-    });
-  }
-
-  // ===== Related Contacts (unchanged from previous version) =====
-  async function loadRelatedContacts() {
-    const res = await fetch(`/api/contacts/by-realtor/${realtorId}`);
-    if (!res.ok) { renderEmpty('Error loading related contacts.'); return; }
-    allContacts = await res.json();
-    buildCommunityOptions(allContacts);
-    buildStatusChips(allContacts);
-    applyFiltersAndRender();
-  }
-
-  function buildCommunityOptions(contacts) {
-    const select = document.getElementById('communitySelect');
-    const set = new Set();
-    contacts.forEach(c => {
-      if (Array.isArray(c.communities)) c.communities.forEach(x => x && set.add(x));
-      else if (c.communities) set.add(c.communities);
-    });
-    [...set].sort().forEach(name => {
-      const opt = document.createElement('option');
-      opt.value = name; opt.textContent = name;
-      select.appendChild(opt);
-    });
-    select.addEventListener('change', applyFiltersAndRender);
-  }
-
-  function buildStatusChips(contacts) {
-    const container = document.getElementById('statusChips');
-    container.innerHTML = '';
-    const present = new Set(contacts.map(c => (c.status || '').trim()).filter(Boolean));
-    const union = [...new Set([...STATUS_OPTIONS, ...present])];
-    union.forEach(status => {
-      const chip = document.createElement('span');
-      chip.className = 'chip';
-      chip.textContent = status;
-      chip.dataset.value = status;
-      chip.addEventListener('click', () => {
-        if (activeStatuses.has(status)) { activeStatuses.delete(status); chip.classList.remove('active'); }
-        else { activeStatuses.add(status); chip.classList.add('active'); }
-        applyFiltersAndRender();
-      });
-      container.appendChild(chip);
-    });
-  }
-
-  function applyFiltersAndRender() {
-    const q = document.getElementById('searchInput').value.trim().toLowerCase();
-    const community = document.getElementById('communitySelect').value;
-
-    let filtered = allContacts.slice();
-
-    if (q) {
-      filtered = filtered.filter(c => {
-        const name = `${c.firstName || ''} ${c.lastName || ''}`.toLowerCase();
-        const email = (c.email || '').toLowerCase();
-        const phone = (c.phone || '').toLowerCase();
-        const comm = Array.isArray(c.communities) ? c.communities.join(', ').toLowerCase()
-                     : (c.communities || '').toLowerCase();
-        return name.includes(q) || email.includes(q) || phone.includes(q) || comm.includes(q);
-      });
-    }
-
-    if (community) {
-      filtered = filtered.filter(c => {
-        if (Array.isArray(c.communities)) return c.communities.includes(community);
-        return c.communities === community;
-      });
-    }
-
-    if (activeStatuses.size > 0) {
-      filtered = filtered.filter(c => activeStatuses.has((c.status || '').trim()));
-    }
-
-    renderTable(filtered);
-    updateResultCount(filtered.length, allContacts.length);
-  }
-
-  function updateResultCount(n, total) {
-    document.getElementById('resultCount').textContent = `(${n} of ${total})`;
-  }
-
-  function renderEmpty(msg) {
-    document.getElementById('relatedContactsBody').innerHTML = `<tr><td colspan="6">${msg}</td></tr>`;
-    updateResultCount(0,0);
-  }
-
-  function renderTable(rows) {
-    const tbody = document.getElementById('relatedContactsBody');
-    if (!rows || rows.length === 0) {
-      tbody.innerHTML = `<tr><td colspan="6">No contacts linked to this realtor.</td></tr>`;
-      return;
-    }
-    tbody.innerHTML = '';
-    rows.forEach(c => {
-      const name = (c.firstName || c.lastName) ? `${c.firstName || ''} ${c.lastName || ''}`.trim() : '(Unnamed Contact)';
-      const phone = c.phone || 'N/A';
-      const email = c.email || 'N/A';
-      const status = c.status || '—';
-      const communities = Array.isArray(c.communities) ? c.communities.join(', ') : (c.communities || 'N/A');
-      const owner = c.owner || 'N/A';
-      const tr = document.createElement('tr');
-      tr.innerHTML = `
-        <td><a href="/contact-details.html?id=${c._id}">${escapeHtml(name)}</a></td>
-        <td>${escapeHtml(phone)}</td>
-        <td>${escapeHtml(email)}</td>
-        <td>${escapeHtml(status)}</td>
-        <td>${escapeHtml(communities)}</td>
-        <td>${escapeHtml(owner)}</td>
-      `;
-      tbody.appendChild(tr);
-    });
-  }
-
-  function escapeHtml(str){return String(str).replace(/[&<>"']/g,m=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m]))}
-
-  function wireTopBarSearch() {
-    const input = document.getElementById('searchInput');
-    let t;
-    input.addEventListener('input', () => { clearTimeout(t); t = setTimeout(applyFiltersAndRender, 200); });
-  }
-
-  // Init
-  loadRealtor().then(() => {
-    setupAutosave();
-    wireEditorToggle();
-    wireTopBarSearch();
-    loadRelatedContacts();
-  });
-</script>
+<script type="module" src="/assets/js/realtor-details/index.js"></script>
 </body>
 </html>
