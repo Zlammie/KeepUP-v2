@@ -5,6 +5,11 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
   <title>My Community — Competition</title>
   <link rel="stylesheet" href="/assets/css/main.css">
+
+  <style>
+    .is-hidden { display: none !important; }
+  </style>
+
 </head>
 <body>
   <%- include('../partials/nav') %>
@@ -249,17 +254,23 @@
           </div>
 
           <!-- Linked competitors selector (full width) -->
-          <section class="section-box span-full">
-            <div class="section-box__header">
-              <h4>Linked Competitors</h4>
-            </div>
-            <div class="card card--white" style="padding:1rem;">
-              <input id="competitionSearch" class="form-control mb-2" placeholder="Search competitors...">
-              <div id="competitionResults" class="list-group mb-3"></div>
-              <h6>Selected:</h6>
-              <div id="linkedCompetitors" class="list-group"></div>
-            </div>
-          </section>
+              <section class="section-box span-full">
+                <div class="section-box__header">
+                  <h4>Linked Competitors</h4>
+                </div>
+                <div class="card card--white" style="padding:1rem;">
+                  <div class="row">
+                    <div class="col-md-6">
+                      <h6>All Competitors</h6>
+                      <div id="allCompetitionsList" class="list-group"></div>
+                    </div>
+                    <div class="col-md-6">
+                      <h6>Linked</h6>
+                      <div id="linkedCompetitors" class="list-group"></div>
+                    </div>
+                  </div>
+                </div>
+              </section>
         </div>
       </div>
     </div>

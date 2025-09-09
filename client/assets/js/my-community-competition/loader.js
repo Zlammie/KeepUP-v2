@@ -1,0 +1,160 @@
+// client/assets/js/my-community-competition/loader.js
+import {
+  selectEl, builderTitle, amenityList,
+  statTotalLots, statLotsSold, statLotsRemaining, statQmiAvailable,
+  promoText, hoaDisplay, taxDisplay,
+  salesPerson, salesPersonPhone, salesPersonEmail,
+  address, city, zip, modelPlan, lotSize, totalLots,
+  garageTypeFront, garageTypeRear,
+  schoolISD, elementarySchool, middleSchool, highSchool,
+  hoaFee, hoaFrequency, tax, feeMud, feePid, feeNone,
+  mudFeeGroup, pidFeeGroup, mudFee, pidFee,
+  earnestAmount, realtorCommission
+} from './dom.js';
+
+import { enableUI } from './ui.js';
+import { drawSalesGraph, drawBasePriceGraph, drawQmiSoldsGraph } from './charts.js';
+import { fetchCommunityOptions, fetchCommunityProfile } from './api.js';
+import { setCommunityId, setProfile, setLinked } from './state.js';
+import { bindAutosaveOnce } from './autosave.js';
+import { renderLinked } from './linked.js';
+
+export function wireCommunitySelect() {
+  selectEl.addEventListener('change', async () => {
+    const id = selectEl.value;
+    if (!id) {
+      enableUI(false);
+      setCommunityId(null);
+      return;
+    }
+    await onSelectCommunity(id);
+  });
+}
+
+export async function initialLoad() {
+  try {
+    const list = await fetchCommunityOptions();
+    list.forEach(c => {
+      const opt = document.createElement('option');
+      opt.value = c._id;
+      opt.textContent = c.name || c._id;
+      selectEl.appendChild(opt);
+    });
+
+    const params = new URLSearchParams(window.location.search);
+    const preId = params.get('communityId');
+    if (preId && list.find(x => x._id === preId)) {
+      selectEl.value = preId;
+      await onSelectCommunity(preId);
+    } else {
+      enableUI(false);
+    }
+  } catch (e) {
+    console.error('Failed to load communities', e);
+  }
+}
+
+export async function onSelectCommunity(id) {
+  setCommunityId(id);
+  try {
+    const { community, profile } = await fetchCommunityProfile(id);
+    setProfile(profile);
+
+    // Title
+    builderTitle.textContent = `${community?.builderName || 'Your Builder'} – ${community?.name || community?.communityName || 'Your Community'}`;
+
+    // Amenities
+    amenityList.innerHTML = '';
+    (community?.communityAmenities || []).forEach(group => {
+      (group.items || []).forEach(item => {
+        const li = document.createElement('li');
+        li.className = 'chip';
+        li.textContent = item;
+        amenityList.appendChild(li);
+      });
+    });
+
+    // Stats
+    statTotalLots.textContent = profile?.lotCounts?.total ?? '—';
+    statLotsSold.textContent = profile?.lotCounts?.sold ?? '—';
+    statLotsRemaining.textContent = profile?.lotCounts?.remaining ?? '—';
+    statQmiAvailable.textContent = profile?.lotCounts?.quickMoveInLots ?? '—';
+
+    // Promo & HOA
+    promoText.textContent = (profile?.promotion && profile.promotion.trim()) ? profile.promotion : 'No promotion recorded.';
+    const effHoaFee  = (profile?.hoaFee ?? community?.hoaFee);
+    const effHoaFreq = profile?.hoaFrequency ?? null;
+    hoaDisplay.textContent = (effHoaFee != null && effHoaFee !== '')
+      ? (effHoaFreq ? `$${effHoaFee} / ${effHoaFreq}` : `$${effHoaFee}`)
+      : 'Not specified';
+
+    const effTax = (profile?.tax ?? community?.tax);
+    taxDisplay.textContent = (effTax != null && effTax !== '') ? `${effTax}%` : 'Not specified';
+
+    // Left sidebar inputs
+    salesPerson.value = profile?.salesPerson || '';
+    salesPersonPhone.value = profile?.salesPersonPhone || '';
+    salesPersonEmail.value = profile?.salesPersonEmail || '';
+
+    address.value = (profile?.address ?? community?.address ?? '');
+    city.value    = (profile?.city    ?? community?.city    ?? '');
+    zip.value     = (profile?.zip     ?? community?.zip     ?? '');
+
+    lotSize.value = profile?.lotSize || '';
+    totalLots.value = profile?.lotCounts?.total ?? '';
+    totalLots.setAttribute('readonly', 'readonly');
+
+    (profile?.garageType === 'Front') ? (garageTypeFront.checked = true) :
+    (profile?.garageType === 'Rear')  ? (garageTypeRear.checked  = true) : null;
+
+    schoolISD.value        = (profile?.schoolISD        ?? community?.schoolISD        ?? '');
+    elementarySchool.value = (profile?.elementarySchool ?? community?.elementarySchool ?? '');
+    middleSchool.value     = (profile?.middleSchool     ?? community?.middleSchool     ?? '');
+    highSchool.value       = (profile?.highSchool       ?? community?.highSchool       ?? '');
+
+    hoaFee.value       = (profile?.hoaFee ?? community?.hoaFee ?? '');
+    hoaFrequency.value = (profile?.hoaFrequency ?? '');
+    tax.value          = (profile?.tax ?? community?.tax ?? '');
+
+    const fees = profile?.feeTypes || [];
+    feeMud.checked  = fees.includes('MUD');
+    feePid.checked  = fees.includes('PID');
+    feeNone.checked = fees.includes('None');
+    mudFee.value = profile?.mudFee ?? '';
+    pidFee.value = profile?.pidFee ?? '';
+    mudFeeGroup.style.display = feeMud.checked ? '' : 'none';
+    pidFeeGroup.style.display = feePid.checked ? '' : 'none';
+
+    earnestAmount.value = profile?.earnestAmount ?? '';
+    realtorCommission.value = profile?.realtorCommission ?? '';
+
+    // Linked comps
+ // Linked comps (normalized to minimal fields we render)
+ linked = (profile?.linkedCompetitions || []).map(c => ({
+   _id: c._id, communityName: c.communityName, builderName: c.builderName, city: c.city, state: c.state
+ }));
+ // Load all competitors once, then render both lists
+ allCompetitions = await fetchAllCompetitions();
+ renderLinkedList();
+ renderAllCompetitions();
+
+    enableUI(true);
+    bindAutosaveOnce();
+
+    // Draw active tab
+    const activeTab = document.querySelector('.tab-btn.is-active');
+    const tab = activeTab ? activeTab.dataset.tab : 'sales';
+    if (tab === 'sales') {
+      await drawSalesGraph(id);
+    } else if (tab === 'base') {
+      await drawBasePriceGraph(id);
+    } else if (tab === 'qmi') {
+      await drawQmiSoldsGraph(id);
+    } else {
+      // "sqft" or others: handled by wireTabs default
+    }
+  } catch (e) {
+    console.error('Failed to load profile', e);
+    enableUI(false);
+  }
+}

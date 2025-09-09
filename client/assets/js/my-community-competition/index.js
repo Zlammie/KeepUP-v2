@@ -1,516 +1,100 @@
 // client/assets/js/my-community-competition/index.js
-const selectEl = document.getElementById('communitySelect');
+import { currentCommunityId } from './state.js';
+import { wireCommunitySelect, initialLoad } from './loader.js';
+import { wireTabs } from './ui.js';
+import { drawSalesGraph, drawBasePriceGraph, drawQmiSoldsGraph } from './charts.js';
+import { setupSectionToggles } from './toggles.js';
+import { wireLinkedSearch } from './linked.js';
 
-const leftSidebar = document.getElementById('leftSidebar');
-const rightTop = document.getElementById('rightTop');
-
-const builderTitle = document.getElementById('builderTitle');
-const amenityList = document.getElementById('amenityList');
-const statTotalLots = document.getElementById('statTotalLots');
-const statLotsSold = document.getElementById('statLotsSold');
-const statLotsRemaining = document.getElementById('statLotsRemaining');
-const statQmiAvailable = document.getElementById('statQmiAvailable');
-
-const promoText = document.getElementById('promoText');
-const hoaDisplay = document.getElementById('hoaDisplay');
-const taxDisplay = document.getElementById('taxDisplay');
-
-const salesPerson = document.getElementById('salesPerson');
-const salesPersonPhone = document.getElementById('salesPersonPhone');
-const salesPersonEmail = document.getElementById('salesPersonEmail');
-
-const address = document.getElementById('address');
-const city = document.getElementById('city');
-const zip = document.getElementById('zip');
-const modelPlan = document.getElementById('modelPlan');
-const lotSize = document.getElementById('lotSize');
-const totalLots = document.getElementById('totalLots');
-const garageTypeFront = document.querySelector('input[name="garageType"][value="Front"]');
-const garageTypeRear  = document.querySelector('input[name="garageType"][value="Rear"]');
-
-const schoolISD = document.getElementById('schoolISD');
-const elementarySchool = document.getElementById('elementarySchool');
-const middleSchool = document.getElementById('middleSchool');
-const highSchool = document.getElementById('highSchool');
-
-const hoaFee = document.getElementById('hoaFee');
-const hoaFrequency = document.getElementById('hoaFrequency');
-const tax = document.getElementById('tax');
-const feeMud = document.getElementById('feeMud');
-const feePid = document.getElementById('feePid');
-const feeNone = document.getElementById('feeNone');
-const mudFeeGroup = document.getElementById('mudFeeGroup');
-const pidFeeGroup = document.getElementById('pidFeeGroup');
-const mudFee = document.getElementById('mudFee');
-const pidFee = document.getElementById('pidFee');
-const earnestAmount = document.getElementById('earnestAmount');
-const realtorCommission = document.getElementById('realtorCommission');
-
-const prosUl = document.getElementById('prosUl');
-const consUl = document.getElementById('consUl');
-
-const compSearch = document.getElementById('competitionSearch');
-const compResults = document.getElementById('competitionResults');
-const linkedContainer = document.getElementById('linkedCompetitors');
-
-const graphMount = document.getElementById('graphMount');
-
-let currentCommunityId = null;
-let profileCache = null;
-let linked = [];
-let saveTimer;
-
-// single chart instance holder
-let currentChart = null;
-
-function enableUI(enabled) {
-  const method = enabled ? 'remove' : 'add';
-  leftSidebar?.classList[method]('opacity-50');
-  rightTop?.classList[method]('opacity-50');
-  leftSidebar?.setAttribute('aria-disabled', enabled ? 'false' : 'true');
-  rightTop?.setAttribute('aria-disabled', enabled ? 'false' : 'true');
+async function fetchAllCompetitions() {
+  const res = await fetch('/api/competitions/minimal');
+  if (!res.ok) return [];
+  return res.json(); // [{_id, communityName, builderName, city, state}]
 }
 
-function numOrNull(v) {
-  const n = Number(v);
-  return Number.isFinite(n) ? n : null;
-}
-
-// ---- One-time: load communities into dropdown (select-options endpoint)
-(async function loadCommunities() {
-  try {
-    const list = await fetch('/api/communities/select-options').then(r => r.json());
-    list.forEach(c => {
-      const opt = document.createElement('option');
-      opt.value = c._id;
-      opt.textContent = c.name || c._id;
-      selectEl.appendChild(opt);
-    });
-
-    // Deep link support ?communityId=
-    const params = new URLSearchParams(window.location.search);
-    const preId = params.get('communityId');
-    if (preId && list.find(x => x._id === preId)) {
-      selectEl.value = preId;
-      await onSelectCommunity(preId);
-    } else {
-      enableUI(false);
-    }
-  } catch (e) {
-    console.error('Failed to load communities', e);
-  }
-})();
-
-// One change handler → single source of truth
-selectEl.addEventListener('change', async () => {
-  const id = selectEl.value;
-  if (!id) {
-    enableUI(false);
-    currentCommunityId = null;
-    clearGraph();
-    return;
-  }
-  await onSelectCommunity(id);
-});
-
-// Tabs wiring (call once at load)
-wireTabs();
-
-async function onSelectCommunity(id) {
-  currentCommunityId = id;
-  try {
-    const { community, profile } = await fetch(`/api/my-community-competition/${id}`).then(r => r.json());
-    profileCache = profile;
-
-    // Title
-    builderTitle.textContent = `${community?.builderName || 'Your Builder'} – ${community?.name || community?.communityName || 'Your Community'}`;
-
-    // Amenities chips
-    amenityList.innerHTML = '';
-    (community?.communityAmenities || []).forEach(group => {
-      (group.items || []).forEach(item => {
-        const li = document.createElement('li');
-        li.className = 'chip';
-        li.textContent = item;
-        amenityList.appendChild(li);
-      });
-    });
-
-    // Stats
-    statTotalLots.textContent = profile?.lotCounts?.total ?? '—';
-    statLotsSold.textContent = profile?.lotCounts?.sold ?? '—';
-    statLotsRemaining.textContent = profile?.lotCounts?.remaining ?? '—';
-    statQmiAvailable.textContent = profile?.lotCounts?.quickMoveInLots ?? '—';
-
-    // Promotion & HOA display
-    promoText.textContent = (profile?.promotion && profile.promotion.trim()) ? profile.promotion : 'No promotion recorded.';
-    const effHoaFee  = (profile?.hoaFee ?? community?.hoaFee);
-    const effHoaFreq = profile?.hoaFrequency ?? null;
-    hoaDisplay.textContent = (effHoaFee != null && effHoaFee !== '')
-      ? (effHoaFreq ? `$${effHoaFee} / ${effHoaFreq}` : `$${effHoaFee}`)
-      : 'Not specified';
-
-    const effTax = (profile?.tax ?? community?.tax);
-    taxDisplay.textContent = (effTax != null && effTax !== '') ? `${effTax}%` : 'Not specified';
-
-    // Left sidebar inputs
-    salesPerson.value = profile?.salesPerson || '';
-    salesPersonPhone.value = profile?.salesPersonPhone || '';
-    salesPersonEmail.value = profile?.salesPersonEmail || '';
-
-    address.value = (profile?.address ?? community?.address ?? '');
-    city.value    = (profile?.city    ?? community?.city    ?? '');
-    zip.value     = (profile?.zip     ?? community?.zip     ?? '');
-
-    lotSize.value = profile?.lotSize || '';
-    totalLots.value = profile?.lotCounts?.total ?? '';
-    totalLots.setAttribute('readonly', 'readonly');
-
-    (profile?.garageType === 'Front') ? (garageTypeFront.checked = true) :
-    (profile?.garageType === 'Rear')  ? (garageTypeRear.checked  = true) : null;
-
-    schoolISD.value        = (profile?.schoolISD        ?? community?.schoolISD        ?? '');
-    elementarySchool.value = (profile?.elementarySchool ?? community?.elementarySchool ?? '');
-    middleSchool.value     = (profile?.middleSchool     ?? community?.middleSchool     ?? '');
-    highSchool.value       = (profile?.highSchool       ?? community?.highSchool       ?? '');
-
-    hoaFee.value       = (profile?.hoaFee ?? community?.hoaFee ?? '');
-    hoaFrequency.value = (profile?.hoaFrequency ?? '');
-    tax.value          = (profile?.tax ?? community?.tax ?? '');
-
-    const fees = profile?.feeTypes || [];
-    feeMud.checked  = fees.includes('MUD');
-    feePid.checked  = fees.includes('PID');
-    feeNone.checked = fees.includes('None');
-    mudFee.value = profile?.mudFee ?? '';
-    pidFee.value = profile?.pidFee ?? '';
-    mudFeeGroup.style.display = feeMud.checked ? '' : 'none';
-    pidFeeGroup.style.display = feePid.checked ? '' : 'none';
-
-    earnestAmount.value = profile?.earnestAmount ?? '';
-    realtorCommission.value = profile?.realtorCommission ?? '';
-
-    // Pros & Cons
-    prosUl.innerHTML = '';
-    (profile?.prosCons?.pros || []).forEach(p => {
-      const li = document.createElement('li'); li.textContent = p; prosUl.appendChild(li);
-    });
-    consUl.innerHTML = '';
-    (profile?.prosCons?.cons || []).forEach(c => {
-      const li = document.createElement('li'); li.textContent = c; consUl.appendChild(li);
-    });
-
-    // Linked comps
-    linked = (profile?.linkedCompetitions || []).map(c => ({ _id: c._id, name: c.name, builder: c.builder, market: c.market }));
-    renderLinked();
-
-    enableUI(true);
-    bindAutosaveOnce();
-
-    // Draw the active tab immediately
-    const activeTab = document.querySelector('.tab-btn.is-active');
-    const tab = activeTab ? activeTab.dataset.tab : 'sales';
-    if (tab === 'sales') {
-      await drawSalesGraph(id);
-    } else if (tab === 'base') {
-      await drawBasePriceGraph(id);
-    } 
-     else if (tab === 'qmi') {
-      await drawQmiSoldsGraph(id);
-    }
-    else {
-      clearGraph();
-      mountInfo(`"${tab}" graph coming soon.`);
-    }
-  } catch (e) {
-    console.error('Failed to load profile', e);
-    enableUI(false);
-  }
-}
-
-function bindAutosaveOnce() {
-  if (bindAutosaveOnce._bound) return;
-  bindAutosaveOnce._bound = true;
-  const inputs = [
-    salesPerson, salesPersonPhone, salesPersonEmail,
-    address, city, zip, modelPlan, lotSize, totalLots,
-    schoolISD, elementarySchool, middleSchool, highSchool,
-    hoaFee, hoaFrequency, tax, mudFee, pidFee, earnestAmount, realtorCommission
-  ];
-  inputs.forEach(el => el && el.addEventListener('input', autosave));
-  [feeMud, feePid, feeNone, garageTypeFront, garageTypeRear].forEach(el => el && el.addEventListener('change', autosave));
-}
-
-async function autosave() {
-  if (!currentCommunityId) return;
-  clearTimeout(saveTimer);
-  saveTimer = setTimeout(async () => {
-    const payload = {
-      salesPerson: salesPerson.value,
-      salesPersonPhone: salesPersonPhone.value,
-      salesPersonEmail: salesPersonEmail.value,
-      address: address.value,
-      city: city.value,
-      zip: zip.value,
-      modelPlan: modelPlan.value || null,
-      lotSize: lotSize.value || null,
-      garageType: garageTypeFront.checked ? 'Front' : (garageTypeRear.checked ? 'Rear' : undefined),
-      schoolISD: schoolISD.value,
-      elementarySchool: elementarySchool.value,
-      middleSchool: middleSchool.value,
-      highSchool: highSchool.value,
-      hoaFee: numOrNull(hoaFee.value),
-      hoaFrequency: hoaFrequency.value || null,
-      tax: numOrNull(tax.value),
-      feeTypes: [
-        feeMud.checked ? 'MUD' : null,
-        feePid.checked ? 'PID' : null,
-        feeNone.checked ? 'None' : null
-      ].filter(Boolean),
-      mudFee: feeMud.checked ? numOrNull(mudFee.value) : null,
-      pidFee: feePid.checked ? numOrNull(pidFee.value) : null,
-      earnestAmount: numOrNull(earnestAmount.value),
-      realtorCommission: numOrNull(realtorCommission.value)
-    };
-
-    await fetch(`/api/my-community-competition/${currentCommunityId}`, {
-      method: 'PUT',
-      headers: {'Content-Type': 'application/json'},
-      body: JSON.stringify(payload)
-    });
-  }, 350);
-}
-
-// Linked competitors
-function renderLinked() {
+function renderLinkedList() {
   linkedContainer.innerHTML = '';
   linked.forEach(c => {
     const item = document.createElement('div');
     item.className = 'list-group-item d-flex justify-content-between align-items-center';
-    item.innerHTML = `<div><div><strong>${c.name}</strong></div><small>${c.builder || ''} ${c.market ? '— '+c.market : ''}</small></div>`;
+    item.innerHTML = `
+      <div>
+        <div><strong>${c.builderName}</strong> — ${c.communityName}</div>
+        <small>${c.city}, ${c.state ?? 'TX'}</small>
+      </div>`;
     const btn = document.createElement('button');
     btn.className = 'btn btn-sm btn-outline-danger';
-    btn.textContent = 'Remove';
-    btn.onclick = async () => {
-      linked = linked.filter(x => x._id !== c._id);
-      await saveLinked();
-      renderLinked();
-    };
+    btn.textContent = 'Unlink';
+    btn.onclick = async () => { await unlinkCompetition(c._id); };
     item.appendChild(btn);
     linkedContainer.appendChild(item);
   });
 }
 
-async function saveLinked() {
-  if (!currentCommunityId) return;
-  await fetch(`/api/my-community-competition/${currentCommunityId}/linked-competitions`, {
-    method: 'PUT',
-    headers: {'Content-Type': 'application/json'},
-    body: JSON.stringify({ competitionIds: linked.map(x => x._id) })
-  });
-}
-
-compSearch?.addEventListener('input', async () => {
-  const q = compSearch.value.trim();
-  compResults.innerHTML = '';
-  if (!q) return;
-  const results = await fetch(`/api/competitions/search?q=${encodeURIComponent(q)}`).then(r=>r.json());
-  results.forEach(r => {
+let allCompetitions = [];
+function renderAllCompetitions() {
+  allCompetitionsList.innerHTML = '';
+  const linkedIds = new Set(linked.map(x => x._id));
+  allCompetitions.forEach(c => {
+    const item = document.createElement('div');
+    item.className = 'list-group-item d-flex justify-content-between align-items-center';
+    item.innerHTML = `
+      <div>
+        <div><strong>${c.builderName}</strong> — ${c.communityName}</div>
+        <small>${c.city}, ${c.state ?? 'TX'}</small>
+      </div>`;
     const btn = document.createElement('button');
-    btn.type = 'button';
-    btn.className = 'list-group-item list-group-item-action';
-    btn.textContent = `${r.name} — ${r.builder || ''} ${r.market ? '('+r.market+')' : ''}`;
-    btn.onclick = async () => {
-      if (!linked.find(x => x._id === r._id)) {
-        linked.push(r);
-        await saveLinked();
-        renderLinked();
-      }
-    };
-    compResults.appendChild(btn);
-  });
-});
-
-// ---------- Charts ----------
-function clearGraph() {
-  graphMount.innerHTML = '';
-  if (currentChart) {
-    currentChart.destroy();
-    currentChart = null;
-  }
-}
-
-function mountInfo(text) {
-  graphMount.innerHTML = `<div class="p-3 text-muted">${text}</div>`;
-}
-
-function wireTabs() {
-  const tabs = Array.from(document.querySelectorAll('.tab-btn'));
-  tabs.forEach(btn => {
-    btn.addEventListener('click', async () => {
-      tabs.forEach(b => b.classList.remove('is-active'));
-      btn.classList.add('is-active');
-
-      if (!currentCommunityId) { clearGraph(); return; }
-
-      const tab = btn.dataset.tab;
-      if (tab === 'sales') {
-        await drawSalesGraph(currentCommunityId);
-      } else if (tab === 'base') {
-        await drawBasePriceGraph(currentCommunityId);
-      } else if (tab === 'sqft') {
-        clearGraph(); mountInfo('"Sqft Comparison" coming soon.');
-      } else if (tab === 'qmi') {
-        await drawQmiSoldsGraph(currentCommunityId);
-    }
-      
-    });
+    btn.className = linkedIds.has(c._id) ? 'btn btn-sm btn-secondary' : 'btn btn-sm btn-outline-primary';
+    btn.textContent = linkedIds.has(c._id) ? 'Linked' : 'Link';
+    btn.disabled = linkedIds.has(c._id);
+    btn.onclick = async () => { await linkCompetition(c._id); };
+    item.appendChild(btn);
+    allCompetitionsList.appendChild(item);
   });
 }
 
-async function drawSalesGraph(communityId) {
-  clearGraph();
-  const canvas = document.createElement('canvas');
-  canvas.id = 'salesChart';
-  graphMount.appendChild(canvas);
-
-  const res = await fetch(`/api/community-profiles/${communityId}/sales?months=12`);
-  if (!res.ok) { mountInfo('Could not load sales data.'); return; }
-
-  const { labels, series } = await res.json();
-  const ctx = canvas.getContext('2d');
-  const data = {
-    labels,
-    datasets: [
-      { type: 'bar',  label: 'Sales',   data: series.sales,   borderWidth: 1 },
-      { type: 'bar',  label: 'Cancels', data: series.cancels, borderWidth: 1 },
-      { type: 'bar',  label: 'Closings',data: series.closings,borderWidth: 1 },
-      { type: 'line', label: 'Net (Sales − Cancels)', data: series.net, borderWidth: 2, tension: 0.25 }
-    ]
-  };
-  const options = {
-    responsive: true, maintainAspectRatio: false,
-    plugins: { legend: { position: 'top' }, tooltip: { mode: 'index', intersect: false } },
-    scales: { y: { beginAtZero: true, title: { display: true, text: 'Count' } },
-              x: { title: { display: true, text: 'Month' } } }
-  };
-  currentChart = new Chart(ctx, { data, options });
+async function linkCompetition(competitionId) {
+  if (!currentCommunityId) return;
+  const res = await fetch(`/api/community-competition-profiles/${currentCommunityId}/linked-competitions/${competitionId}`, {
+    method: 'POST'
+  });
+  if (!res.ok) return;
+  const { linkedCompetitions } = await res.json();
+  // Normalized shape to match minimal list fields:
+  linked = linkedCompetitions.map(c => ({
+    _id: c._id, communityName: c.communityName, builderName: c.builderName, city: c.city, state: c.state
+  }));
+  renderLinkedList();
+  renderAllCompetitions();
 }
 
-async function drawBasePriceGraph(communityId) {
-  clearGraph();
-  const canvas = document.createElement('canvas');
-  canvas.id = 'basePriceChart';
-  graphMount.appendChild(canvas);
+async function unlinkCompetition(competitionId) {
+  if (!currentCommunityId) return;
+  const res = await fetch(`/api/community-competition-profiles/${currentCommunityId}/linked-competitions/${competitionId}`, {
+    method: 'DELETE'
+  });
+  if (!res.ok) return;
+  const { linkedCompetitions } = await res.json();
+  linked = linkedCompetitions.map(c => ({
+    _id: c._id, communityName: c.communityName, builderName: c.builderName, city: c.city, state: c.state
+  }));
+  renderLinkedList();
+  renderAllCompetitions();
+}
 
-  const res = await fetch(`/api/community-profiles/${communityId}/base-prices?months=12`);
-  if (!res.ok) { mountInfo('Could not load base price data.'); return; }
-
-  const { labels, datasets } = await res.json();
-  const ctx = canvas.getContext('2d');
-  const chartData = {
-    labels,
-    datasets: datasets.map(d => ({
-      label: d.label,
-      data: d.data,
-      type: 'line',
-      borderWidth: 2,
-      tension: 0.25,
-      spanGaps: true
-    }))
-  };
-  const options = {
-    responsive: true, maintainAspectRatio: false,
-    plugins: {
-      legend: { position: 'top' },
-      tooltip: { mode: 'index', intersect: false, callbacks: {
-        label: (ctx) => {
-          const v = ctx.parsed.y;
-          if (v == null) return `${ctx.dataset.label}: n/a`;
-          return `${ctx.dataset.label}: $${Number(v).toLocaleString()}`;
-        }
-      }}
+function init() {
+  setupSectionToggles();
+  wireCommunitySelect();
+  wireTabs(
+    {
+      sales: drawSalesGraph,
+      base:  drawBasePriceGraph,
+      qmi:   drawQmiSoldsGraph,
+      sqft:  async () => { /* placeholder: coming soon */ }
     },
-    scales: {
-      y: { beginAtZero: false, title: { display: true, text: 'Base Price ($)' },
-           ticks: { callback: v => `$${Number(v).toLocaleString()}` } },
-      x: { title: { display: true, text: 'Month' } }
-    }
-  };
-  currentChart = new Chart(ctx, { data: chartData, options });
+    () => currentCommunityId
+  );
+  initialLoad();
 }
 
-async function drawQmiSoldsGraph(communityId) {
-  clearGraph();
-  const canvas = document.createElement('canvas');
-  canvas.id = 'qmiSoldsChart';
-  graphMount.appendChild(canvas);
-
-  const res = await fetch(`/api/communities/${communityId}/qmi-solds-scatter`);
-  if (!res.ok) { mountInfo('Could not load QMI/SOLD data.'); return; }
-  const { qmi, sold } = await res.json();
-
-  // quick visibility in console
-  console.log('[QMI/SOLD] points:', { qmi: qmi?.length || 0, sold: sold?.length || 0 });
-
-  // ✅ correct spread
-  const sortBySqft = (arr) => [...arr].sort((a, b) => a.x - b.x);
-  const qmiSorted  = sortBySqft(qmi || []);
-  const soldSorted = sortBySqft(sold || []);
-
-  const ctx = canvas.getContext('2d');
-  const data = {
-    datasets: [
-      {
-        label: 'Quick Move-Ins',
-        type: 'scatter',
-        showLine: true,
-        data: qmiSorted,               // each point: { x: sqft, y: ppsf, price, plan, address }
-        pointRadius: 4,
-        tension: 0.25
-      },
-      {
-        label: 'SOLD',
-        type: 'scatter',
-        showLine: true,
-        data: soldSorted,
-        pointRadius: 4,
-        tension: 0.25
-      }
-    ]
-  };
-
-  const options = {
-  responsive: true,
-  maintainAspectRatio: false,
-  parsing: false,
-  plugins: {
-    legend: { position: 'top' },
-    tooltip: {
-      callbacks: {
-        label: (ctx) => {
-          const d = ctx.raw;
-          const sqft  = Number(d.x).toLocaleString();
-          const price = d.y != null ? `$${Number(d.y).toLocaleString()}` : 'n/a'; // now y = price
-          const plan  = d.plan ? ` – ${d.plan}` : '';
-          const addr  = d.address ? `\n${d.address}` : '';
-          return `${ctx.dataset.label}${plan}: ${price} @ ${sqft} sqft${addr}`;
-        }
-      }
-    }
-  },
-  scales: {
-    x: { title: { display: true, text: 'Square Feet' }, ticks: { callback: v => Number(v).toLocaleString() } },
-    y: {
-      title: { display: true, text: 'Price ($)' },          // update axis label
-      ticks: { callback: v => `$${Number(v).toLocaleString()}` }
-    }
-  }
-};
-
-  currentChart = new Chart(ctx, { data, options });
-}
-
-
-
-
+document.addEventListener('DOMContentLoaded', init);

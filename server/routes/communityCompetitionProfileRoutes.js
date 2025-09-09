@@ -38,6 +38,7 @@ router.get('/api/community-competition-profiles/:communityId', async (req, res) 
         { path: 'topPlans.plan1', select: 'name planNumber specs.squareFeet' },
         { path: 'topPlans.plan2', select: 'name planNumber specs.squareFeet' },
         { path: 'topPlans.plan3', select: 'name planNumber specs.squareFeet' },
+        { path: 'linkedCompetitions', select: 'communityName builderName city state' }
       ])
       .lean();
 
@@ -704,6 +705,86 @@ router.put('/api/community-competition-profiles/:communityId/sales-summary', asy
     res.status(500).json({ error: 'Server error' });
   }
 });
+router.put('/api/community-competition-profiles/:communityId/linked-competitions', async (req, res) => {
+  try {
+    const { communityId } = req.params;
+    const { competitionIds = [] } = req.body;
 
+    if (!mongoose.Types.ObjectId.isValid(communityId)) {
+      return res.status(400).json({ error: 'Invalid communityId' });
+    }
+
+    // sanitize ids
+    const cleanIds = competitionIds
+      .filter(mongoose.isValidObjectId)
+      .map(id => new mongoose.Types.ObjectId(id));
+
+    const profile = await CommunityCompetitionProfile.findOneAndUpdate(
+      { community: communityId },
+      { $set: { linkedCompetitions: cleanIds }, $setOnInsert: { community: communityId } },
+      { new: true, upsert: true }
+    ).populate('linkedCompetitions', 'name builder market');
+
+    res.json({ linkedCompetitions: profile.linkedCompetitions });
+  } catch (err) {
+    console.error('PUT linked-competitions error:', err);
+    res.status(500).json({ error: 'Server error' });
+  }
+});
+
+const pathsAdd    = [
+  '/api/community-competition-profiles/:communityId/linked-competitions/:competitionId',
+  '/api/my-community-competition/:communityId/linked-competitions/:competitionId' // alias to match old FE if needed
+];
+const pathsRemove = pathsAdd; // same paths, different method
+
+// POST .../linked-competitions/:competitionId  → LINK
+router.post(pathsAdd, async (req, res) => {
+  try {
+    const { communityId, competitionId } = req.params;
+    if (!mongoose.Types.ObjectId.isValid(communityId) || !mongoose.Types.ObjectId.isValid(competitionId)) {
+      return res.status(400).json({ error: 'Invalid id(s)' });
+    }
+
+    // (Optional) verify they exist
+    const [community, comp] = await Promise.all([
+      Community.findById(communityId).select('_id').lean(),
+      // if Competition model lives elsewhere, import it above
+      require('../models/Competition').findById(competitionId).select('_id').lean()
+    ]);
+    if (!community || !comp) return res.status(404).json({ error: 'Not found' });
+
+    const updated = await CommunityCompetitionProfile.findOneAndUpdate(
+      { community: communityId },
+      { $addToSet: { linkedCompetitions: competitionId } },
+      { new: true, upsert: true }
+    ).populate('linkedCompetitions', 'communityName builderName city state');
+
+    res.json({ linkedCompetitions: updated.linkedCompetitions });
+  } catch (err) {
+    console.error('LINK competitor error:', err);
+    res.status(500).json({ error: 'Server error' });
+  }
+});
+
+// DELETE .../linked-competitions/:competitionId  → UNLINK
+router.delete(pathsRemove, async (req, res) => {
+  try {
+    const { communityId, competitionId } = req.params;
+    if (!mongoose.Types.ObjectId.isValid(communityId) || !mongoose.Types.ObjectId.isValid(competitionId)) {
+      return res.status(400).json({ error: 'Invalid id(s)' });
+    }
+    const updated = await CommunityCompetitionProfile.findOneAndUpdate(
+      { community: communityId },
+      { $pull: { linkedCompetitions: competitionId } },
+      { new: true, upsert: true }
+    ).populate('linkedCompetitions', 'communityName builderName city state');
+
+    res.json({ linkedCompetitions: updated.linkedCompetitions });
+  } catch (err) {
+    console.error('UNLINK competitor error:', err);
+    res.status(500).json({ error: 'Server error' });
+  }
+});
 
 module.exports = router;

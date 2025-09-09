@@ -95,6 +95,19 @@ router.put('/:id/monthly-metrics', async (req, res) => {
   }
 });
 
+router.get('/api/competitions/minimal', async (req, res) => {
+  try {
+    const comps = await Competition.find({})
+      .select('communityName builderName city state') // only what we render
+      .sort({ builderName: 1, communityName: 1 })
+      .lean();
+    res.json(comps);
+  } catch (err) {
+    console.error('GET /competitions/minimal error:', err);
+    res.status(500).json({ error: 'Server error' });
+  }
+});
+
 router.get('/:id/sales', async (req, res) => {
   try {
     const { id } = req.params;
