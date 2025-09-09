@@ -3,7 +3,7 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8">
-  <title>Lot Details</title>
+  <title>Address Details</title>
   <link rel="stylesheet" href="/assets/css/main.css">
 </head>
 <body data-community-id="" data-lot-id="">
@@ -129,36 +129,35 @@
             </select>
           </div>
         </div>
-
           <!-- 3rd Party -->
-        <div class="field">
-          <label for="thirdPartyDate">3rd Party</label>
-          <div class="row-inline">
-            <input id="thirdPartyDate" type="date"  class="value" />
-            <input id="thirdPartyTime" type="time"  class="value" />
+          <div class="field">
+            <label for="thirdPartyDate">3rd Party</label>
+            <div class="row-inline">
+              <input id="thirdPartyDate" type="date" class="value" />
+              <input id="thirdPartyTime"  name="thirdPartyTime"  type="time" class="value" autocomplete="off" />
+              <button id="thirdPartyTimeClear" type="button" class="icon-btn" title="Clear time">×</button>
+            </div>
           </div>
-          <small class="hint">You can leave time blank for now.</small>
-        </div>
 
-        <!-- 1st Walk -->
-        <div class="field">
-          <label for="firstWalkDate">1st Walk</label>
-          <div class="row-inline">
-            <input id="firstWalkDate" type="date" class="value" />
-            <input id="firstWalkTime" type="time" class="value" />
+          <!-- 1st Walk -->
+          <div class="field">
+            <label for="firstWalkDate">1st Walk</label>
+            <div class="row-inline">
+              <input id="firstWalkDate" type="date" class="value" />
+              <input id="firstWalkTime"   name="firstWalkTime"   type="time" class="value" autocomplete="off" />
+              <button id="firstWalkTimeClear" type="button" class="icon-btn" title="Clear time">×</button>
+            </div>
           </div>
-          <small class="hint">Time optional.</small>
-        </div>
 
-        <!-- Final Sign Off -->
-        <div class="field">
-          <label for="finalSignOffDate">Final Sign Off</label>
-          <div class="row-inline">
-            <input id="finalSignOffDate" type="date" class="value" />
-            <input id="finalSignOffTime" type="time" class="value" />
+          <!-- Final Sign Off -->
+          <div class="field">
+            <label for="finalSignOffDate">Final Sign Off</label>
+            <div class="row-inline">
+              <input id="finalSignOffDate" type="date" class="value" />
+              <input id="finalSignOffTime" name="finalSignOffTime" type="time" class="value" autocomplete="off" />
+              <button id="finalSignOffTimeClear" type="button" class="icon-btn" title="Clear time">×</button>
+            </div>
           </div>
-          <small class="hint">Time optional.</small>
-        </div>
       </section>
       
       

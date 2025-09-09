@@ -4,5 +4,6 @@ export const state = {
   communityId: null,
   search: '',
   // keys: 'available' | 'spec' | 'comingSoon' | 'sold'
-  filters: new Set()
+  filters: new Set(),
+  planById: new Map(), 
 };

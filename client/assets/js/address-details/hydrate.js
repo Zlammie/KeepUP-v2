@@ -1,7 +1,7 @@
 // /assets/js/address-details/hydrate.js
 import * as API from './api.js';
 import { els } from './domCache.js';
-import { formatDateTime, toLocalInputDateTime } from './utils.js';
+import { toLocalInputDateTime } from './utils.js';
 import {
   renderTitleAndBasics,
   renderGeneralStatus,
@@ -10,54 +10,89 @@ import {
   setInitialFormValues
 } from './render.js';
 
-// Split an ISO/date value into local "YYYY-MM-DD" + "HH:MM"
+// Helpers
+const pad = (n) => String(n).padStart(2, '0');
 const splitToLocalDateAndTime = (value) => {
   if (!value) return { date: '', time: '' };
   const d = new Date(value);
-  const pad = (n) => String(n).padStart(2, '0');
   return {
-    date: `${d.getFullYear()}-${pad(d.getMonth()+1)}-${pad(d.getDate())}`,
+    date: `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`,
     time: `${pad(d.getHours())}:${pad(d.getMinutes())}`,
   };
 };
+const isDateOnly = v => typeof v === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(v);
+const isLocalDateTime = v => typeof v === 'string' && /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}$/.test(v);
+const isUTCISO = v => typeof v === 'string' && /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}(:\d{2}(\.\d{3})?)?Z$/.test(v);
 
-// Populate the 3 milestone inputs, supporting either split or single fields.
-const hydrateWalkMilestone = (key, isoLike) => {
-  // Split-field IDs
+
+// Populate one milestone (supports split date+time OR legacy single datetime-local)
+// Return {date,time} for inputs without inventing time
+const splitForInputs = (v) => {
+  if (!v) return { date: '', time: '' };
+
+  // Case 1: we stored a plain date string → time is truly blank
+  if (isDateOnly(v)) return { date: v, time: '' };
+
+  // Case 2: we stored a local "YYYY-MM-DDTHH:MM"
+  if (isLocalDateTime(v)) return { date: v.slice(0,10), time: v.slice(11,16) };
+
+  // Case 3: historical data saved as real Date → ISO with Z
+  // Treat midnight Z as a date-only original; otherwise convert to local.
+  if (isUTCISO(v)) {
+    const m = v.match(/^(\d{4}-\d{2}-\d{2})T(\d{2}):(\d{2})/);
+    if (m && m[2] === '00' && m[3] === '00') {
+      return { date: m[1], time: '' }; // date-only legacy
+    }
+    const d = new Date(v);
+    const pad = (n) => String(n).padStart(2,'0');
+    return {
+      date: `${d.getFullYear()}-${pad(d.getMonth()+1)}-${pad(d.getDate())}`,
+      time: `${pad(d.getHours())}:${pad(d.getMinutes())}`,
+    };
+  }
+
+  // Fallback: assume first 10 are date, leave time blank
+  return { date: v.slice(0,10), time: '' };
+};
+
+const hydrateWalkMilestone = (key, storedVal) => {
   const map = {
-    thirdParty:   { date: 'thirdPartyDate',   time: 'thirdPartyTime',   single: 'thirdPartyInput',   statusEl: 'thirdPartyStatusValue' },
-    firstWalk:    { date: 'firstWalkDate',    time: 'firstWalkTime',    single: 'firstWalkInput',    statusEl: 'firstWalkStatusValue' },
-    finalSignOff: { date: 'finalSignOffDate', time: 'finalSignOffTime', single: 'finalSignOffInput', statusEl: 'finalSignOffStatusValue' },
+    thirdParty:   { date: 'thirdPartyDate',   time: 'thirdPartyTime',   statusEl: 'thirdPartyStatusValue' },
+    firstWalk:    { date: 'firstWalkDate',    time: 'firstWalkTime',    statusEl: 'firstWalkStatusValue' },
+    finalSignOff: { date: 'finalSignOffDate', time: 'finalSignOffTime', statusEl: 'finalSignOffStatusValue' },
   };
   const cfg = map[key];
-  if (!cfg) return;
-
   const dEl = document.getElementById(cfg.date);
   const tEl = document.getElementById(cfg.time);
-  const sEl = document.getElementById(cfg.single);
   const status = document.getElementById(cfg.statusEl);
+  if (!dEl || !tEl) return;
 
-  // Top-bar status text
-  if (status) status.textContent = isoLike ? formatDateTime(isoLike) : '';
-
-  // Prefer split fields if present
-  if (dEl && tEl) {
-    const { date, time } = splitToLocalDateAndTime(isoLike);
-    dEl.value = date;
-    tEl.value = time;
+  if (!storedVal) {
+    dEl.value = ''; tEl.value = '';
+    if (status) status.textContent = '';
     return;
   }
-  // Fallback to single datetime-local
-  if (sEl) {
-    sEl.value = isoLike ? toLocalInputDateTime(isoLike) : '';
+
+  const { date, time } = splitForInputs(storedVal);
+  dEl.value = date;
+  tEl.value = time; // '' keeps time truly empty
+
+  // Status text: date-only vs date+time
+  if (status) {
+    if (!time) {
+      const [y, m, d] = date.split('-').map(Number);
+      status.textContent = new Date(y, m - 1, d).toLocaleDateString();
+    } else {
+      status.textContent = new Date(`${date}T${time}`).toLocaleString([], { hour: 'numeric', minute: 'numeric' });
+    }
   }
 };
 
 export const hydrateAll = async ({ communityId, lotId, lot, purchaserContact, realtor, primaryEntry }) => {
-  // 1) Page title + basics
+  // 1) Title & basics
   renderTitleAndBasics(lot);
 
-  // 2) Floor plans select list + set selected
+  // 2) Floor plans
   if (els.floorPlanSelect) {
     els.floorPlanSelect.innerHTML = '<option value="" disabled selected>— Select Floor Plan —</option>';
     try {
@@ -68,7 +103,7 @@ export const hydrateAll = async ({ communityId, lotId, lot, purchaserContact, re
         opt.textContent = `${p.planNumber} – ${p.name}`;
         els.floorPlanSelect.appendChild(opt);
       }
-      // support either stored as ObjectId or embedded object
+      // support either ObjectId or embedded object
       if (lot.floorPlan && lot.floorPlan._id) els.floorPlanSelect.value = lot.floorPlan._id;
       else if (lot.floorPlan) els.floorPlanSelect.value = lot.floorPlan;
     } catch (e) {
@@ -79,23 +114,26 @@ export const hydrateAll = async ({ communityId, lotId, lot, purchaserContact, re
   // 3) Initial form values for general fields
   setInitialFormValues(lot, primaryEntry);
 
-  // 4) Walk milestones (hydrate inputs + top bar date text)
-  hydrateWalkMilestone('thirdParty',   lot.thirdParty || '');
-  hydrateWalkMilestone('firstWalk',    lot.firstWalk || '');
+  // 4) Render the status bars first (uses raw lot values)
+  renderTopBar(lot, primaryEntry);
+
+  // 5) Then hydrate walk milestones and correct the top-bar labels when date-only
+  hydrateWalkMilestone('thirdParty',   lot.thirdParty   || '');
+  hydrateWalkMilestone('firstWalk',    lot.firstWalk    || '');
   hydrateWalkMilestone('finalSignOff', lot.finalSignOff || '');
 
-  // 5) Right column cards
+  // 6) Right column cards
   renderRightColumn(purchaserContact, realtor, primaryEntry);
 
-  // 6) Status bars (building/walk/lender/closing)
-  renderTopBar(lot, primaryEntry);
+  // 7) General status summary
   renderGeneralStatus(lot, purchaserContact, primaryEntry);
 
-  // 7) Closing block (select value + datetime input)
+  // 8) Closing (keep this as datetime-local for now)
   if (els.closingStatusSelect && primaryEntry) {
     els.closingStatusSelect.value = primaryEntry.closingStatus || 'notLocked';
   }
   if (els.closingDateTimeInput && primaryEntry?.closingDateTime) {
+    // uses utils.toLocalInputDateTime → ensure utils formats LOCAL, not UTC
     els.closingDateTimeInput.value = toLocalInputDateTime(primaryEntry.closingDateTime);
   }
 };

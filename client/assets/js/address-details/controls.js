@@ -15,28 +15,67 @@ const restyleSelect = (selectEl, classesMap, newVal) => {
   if (classesMap[newVal]) selectEl.classList.add(classesMap[newVal]);
 };
 
-// create "YYYY-MM-DDTHH:MM" (local) from separate fields; if time missing, default noon
-const combineLocalDateTime = (dateStr, timeStr) => {
-  if (!dateStr) return ''; // don't save anything if no date yet
-  const [y, m, d] = dateStr.split('-').map(Number);
-  let hh = 12, mm = 0;
-  if (timeStr && /^\d{2}:\d{2}$/.test(timeStr)) {
-    [hh, mm] = timeStr.split(':').map(Number);
+// ✅ Build a value without inventing a time.
+// If time is blank, we store just "YYYY-MM-DD"; otherwise "YYYY-MM-DDTHH:MM".
+const buildWalkValue = (dateStr, timeStr) => {
+  if (!dateStr) return { value: '', dateOnly: false };
+  const ds = dateStr.trim(), ts = (timeStr || '').trim();
+  return ts ? { value: `${ds}T${ts}`, dateOnly: false } : { value: ds, dateOnly: true };
+};
+
+const setWalkTopBar = (key, val, dateOnly) => {
+  const map = { thirdParty:'thirdPartyStatusValue', firstWalk:'firstWalkStatusValue', finalSignOff:'finalSignOffStatusValue' };
+  const el = document.getElementById(map[key]);
+  if (!el) return;
+  if (!val) { el.textContent = ''; return; }
+  if (dateOnly) {
+    const [y,m,d] = val.split('-').map(Number);
+    el.textContent = new Date(y, m-1, d).toLocaleDateString();
+  } else {
+    el.textContent = new Date(val).toLocaleString([], { hour:'numeric', minute:'numeric' });
   }
-  const dt = new Date(y, m - 1, d, hh, mm, 0, 0); // local
-  return dt.toISOString().slice(0, 16);
 };
 
-// set a status-bar value showing date-only (if time TBD) or date+time
-const setWalkTopBar = (key, isoLike, dateHadNoTime) => {
-  const pretty = isoLike
-    ? (dateHadNoTime ? new Date(isoLike).toLocaleDateString() : formatDateTime(isoLike))
-    : '';
-  if (key === 'thirdParty')   els.thirdPartyStatusValue.textContent   = pretty;
-  if (key === 'firstWalk')    els.firstWalkStatusValue.textContent    = pretty;
-  if (key === 'finalSignOff') els.finalSignOffStatusValue.textContent = pretty;
-};
+// register a date+time pair + optional clear button
+function registerWalkPair(key, dId, tId, clearId, communityId, lotId) {
+  const dEl = document.getElementById(dId);
+  const tEl = document.getElementById(tId);
+  const clr = clearId ? document.getElementById(clearId) : null;
+  if (!dEl || !tEl) return;
 
+  const save = async () => {
+    const { value, dateOnly } = buildWalkValue(dEl.value, tEl.value);
+    if (!value) return; // no date yet
+    try {
+      console.log('PUT →', `/api/communities/${communityId}/lots/${lotId}`, { [key]: value });
+      await API.putLot(communityId, lotId, { [key]: value });
+      console.log('✅ saved', key, value);
+      setWalkTopBar(key, value, dateOnly);
+    } catch (e) {
+      console.error('❌ save failed', key, value, e);
+    }
+  };
+
+  dEl.addEventListener('change', save);
+  tEl.addEventListener('change', save);
+  dEl.addEventListener('blur', save);
+  tEl.addEventListener('blur', save);
+
+  // Clear just the time → persist date-only
+  if (clr) {
+    clr.addEventListener('click', async () => {
+      if (!dEl.value) return;
+      tEl.value = '';
+      try {
+        await API.putLot(communityId, lotId, { [key]: dEl.value }); // "YYYY-MM-DD"
+        console.log('✅ saved (date-only)', key, dEl.value);
+        setWalkTopBar(key, dEl.value, true);
+      } catch (e) {
+        console.error('❌ save failed (date-only)', key, dEl.value, e);
+      }
+    });
+  }
+}
 // save lot field with error guard
 const saveLotField = async (communityId, lotId, payload) => {
   try {
@@ -48,6 +87,12 @@ const saveLotField = async (communityId, lotId, payload) => {
 
 // --- main attachment ------------------------------------------------
 export const attachAllControls = ({ communityId, lotId, lot, purchaserContact, primaryEntry }) => {
+
+  if (!communityId || !lotId) {
+  const qs = new URLSearchParams(location.search);
+  communityId = communityId || qs.get('communityId') || document.body?.dataset?.communityId || '';
+  lotId      = lotId      || qs.get('lotId')      || document.body?.dataset?.lotId      || '';
+}
   // 1) Generic lot-field autosave (blur/change)
   const generic = [
     { el: els.floorPlanSelect,          key: 'floorPlan',               event: 'change' },
@@ -89,47 +134,11 @@ export const attachAllControls = ({ communityId, lotId, lot, purchaserContact, p
   // 4) Walk fields — support BOTH patterns:
   //    A) Split date+time pair (thirdPartyDate/thirdPartyTime, etc.)
   //    B) Single datetime-local (thirdPartyInput, etc.)
-  const pairs = [
-    { key:'thirdParty',   dId:'thirdPartyDate',   tId:'thirdPartyTime',   single:'thirdPartyInput'   },
-    { key:'firstWalk',    dId:'firstWalkDate',    tId:'firstWalkTime',    single:'firstWalkInput'    },
-    { key:'finalSignOff', dId:'finalSignOffDate', tId:'finalSignOffTime', single:'finalSignOffInput' },
-  ];
+  registerWalkPair('thirdParty',   'thirdPartyDate',   'thirdPartyTime',   'thirdPartyTimeClear',   communityId, lotId);
+  registerWalkPair('firstWalk',    'firstWalkDate',    'firstWalkTime',    'firstWalkTimeClear',    communityId, lotId);
+  registerWalkPair('finalSignOff', 'finalSignOffDate', 'finalSignOffTime', 'finalSignOffTimeClear', communityId, lotId);
 
-  pairs.forEach(({ key, dId, tId, single }) => {
-    const dEl = document.getElementById(dId);
-    const tEl = document.getElementById(tId);
-    const singleEl = document.getElementById(single);
 
-    // A) If you have split fields (preferred)
-    if (dEl && tEl) {
-      const handler = async () => {
-        const dateVal = dEl.value?.trim() || '';
-        const timeVal = tEl.value?.trim() || '';
-        const isoLike = combineLocalDateTime(dateVal, timeVal); // '' if no date yet
-        if (!isoLike) return; // user hasn't picked a date yet
-        await saveLotField(communityId, lotId, { [key]: isoLike });
-        setWalkTopBar(key, isoLike, !timeVal);
-      };
-      dEl.addEventListener('change', handler);
-      tEl.addEventListener('change', handler);
-      dEl.addEventListener('blur', handler);
-      tEl.addEventListener('blur', handler);
-      return; // done
-    }
-
-    // B) Fallback to single datetime-local input
-    if (singleEl) {
-      const handler = async (e) => {
-        const val = e.target.value?.trim() || '';
-        if (!val) return; // nothing to save
-        await saveLotField(communityId, lotId, { [key]: val });
-        // For single field, we don’t know if user omitted time; show full
-        setWalkTopBar(key, val, false);
-      };
-      singleEl.addEventListener('change', handler);
-      singleEl.addEventListener('blur', handler);
-    }
-  });
 
   // 5) Walk status (tint + badge already updated here on change)
   if (els.walkStatusSelect) {

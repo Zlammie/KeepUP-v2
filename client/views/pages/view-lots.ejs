@@ -4,7 +4,72 @@
   <meta charset="UTF-8" />
   <title>View Lots</title>
   <link rel="stylesheet" href="/assets/css/main.css">
+
+  <style>
+    * sticky first three columns */
+.lots-table .sticky-col { position: sticky;  z-index: 1; }
+.lots-table .sc-1 { left: 0;  z-index: 2; }
+.lots-table .sc-2 { left: 80px; }
+.lots-table .sc-3 { left: 230px; }
+
+.lots-table .sc-3,
+.lots-table .sc-3 .cell-col { white-space: normal; }
+.lots-table .sc-3 a.link { display: block; }
+
+/* table look & feel */
+.lots-table td, .lots-table th { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; height: 44px; }
+.lots-table .text-right { text-align: right; }
+
+/* compact two-line cells */
+.cell-col { display: flex; flex-direction: column; line-height: 1.1; }
+.cell-top { font-weight: 600; }
+.cell-sub { opacity: 0.75; font-size: 0.86em; }
+.cell-col.strong .cell-top, .strong { font-weight: 700; }
+
+/* status badges */
+.status-badge { display: inline-block; padding: 2px 8px; border-radius: 999px; font-size: 0.78rem; }
+.badge-available { background: #e6f7f0; color: #107f54; }
+.badge-spec      { background: #eef2ff; color: #4338ca; }
+.badge-coming    { background: #fff7ed; color: #b45309; }
+.badge-sold      { background: #fee2e2; color: #b91c1c; }
+.badge-muted     { background: #f1f5f9; color: #334155; }
+
+/* timeline */
+.timeline { display: flex; gap: 6px; flex-wrap: wrap; align-items: center; }
+.tl-item { font-size: 0.86em; }
+.tl-label { text-transform: uppercase; letter-spacing: .02em; opacity: .7; margin-right: 4px; font-size: .75em; }
+.tl-dot { opacity: .4; padding: 0 4px; }
+
+/* walks */
+.walk-dots { display: inline-flex; gap: 6px; }
+.dot { width: 10px; height: 10px; border-radius: 50%; background: #e5e7eb; display: inline-block; }
+.dot.ok { background: #10b981; } /* green when done */
+
+/* link and hover */
+.lots-table a.link { text-decoration: none; }
+.lots-table tr:hover td { background: rgba(0,0,0,0.02); }
+/* Table header: swap green for a soft gray-on-charcoal look */
+.lots-table thead,
+.lots-table thead tr,
+.lots-table thead th,
+.lots-table thead th.sticky-col {
+  background: #0f172a !important;   /* dark slate */
+  color: #e5e7eb !important;
+  border-bottom: 1px solid #0b1220;
+}
+
+/* 2) Keep sticky WHITE only for BODY cells (not headers) */
+.lots-table tbody td.sticky-col {
+  background: #fff;                 /* body sticky bg */
+}
+
+/* (optional) hover tweak */
+.lots-table thead th:hover { background: #f1f5f9 !important; }
+
+  </style>
 </head>
+
+
 <body>
   <%- include('../partials/nav') %>
   <%- include('../partials/top-nav-community') %>
@@ -47,32 +112,33 @@
 </div>
 
 <div class="table-container">
-  <table id="lotsTable">
+  <table id="lotsTable" class="lots-table">
+    <colgroup>
+      <col style="width: 80px" />   <!-- Job # -->
+      <col style="width: 150px" />  <!-- Lot / Block / Phase -->
+      <col />                        <!-- Address (flex) -->
+      <col style="width: 140px" />  <!-- Plan / Elv -->
+      <col style="width: 120px" />  <!-- Home Status -->
+      <col style="width: 230px" />  <!-- Timeline -->
+      <col style="width: 110px" />  <!-- Walks -->
+      <col style="width: 180px" />  <!-- Closing -->
+      <col style="width: 140px" />  <!-- Price -->
+    </colgroup>
     <thead>
       <tr>
-        <th>Job #</th>
-        <th>Lot / Block / Phase</th>
-        <th>Address</th>
-        <th>Plan</th>
-        <th>Elv</th>
+        <th class="sticky-col sc-1">Job #</th>
+        <th class="sticky-col sc-2">Lot / Block / Phase</th>
+        <th class="sticky-col sc-3">Address</th>
+        <th>Plan / Elv</th>
         <th>Home Status</th>
-        <th>Purchaser</th>
-        <th>Phone</th>
-        <th>Email</th>
-        <th>Release Date</th>
-        <th>Expected Completion</th>
-        <th>Close Month</th>
-        <th>3rd Party</th>
-        <th>1st Walk</th>
-        <th>Final Sign Off</th>
-        <th>Lender</th>
-        <th>Close Date/Time</th>
-        <th>List Price</th>
-        <th>Sales Price</th>
+        <th>Timeline</th>
+        <th>Walks</th>
+        <th>Closing</th>
+        <th class="text-right">Price</th>
       </tr>
     </thead>
     <tbody id="lotsTableBody"></tbody>
-  </table>
+  </Table>
 </div>
 
    <script type="module" src="/assets/js/view-lots/index.js"></script>

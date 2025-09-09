@@ -13,6 +13,7 @@ export const formatDateTime = (value) => {
 
 export const toLocalInputDateTime = (value) => {
   if (!value) return '';
-  // ISO 8601 trimmed for <input type="datetime-local">
-  return new Date(value).toISOString().slice(0, 16);
+  const d = new Date(value);
+  const pad = (n) => String(n).padStart(2, '0');
+  return `${d.getFullYear()}-${pad(d.getMonth()+1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`;
 };

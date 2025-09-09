@@ -109,7 +109,8 @@ router.get('/:id/lots', async (req, res) => {
     const query = req.query.q?.toLowerCase() || '';
 
     const community = await Community.findById(id)
-      .populate('lots.purchaser','lastName');
+      .populate('lots.purchaser','lastName')
+      .populate('lots.floorPlan','name');
 
     if (!community) {
       return res.status(404).json({ error: 'Community not found' });
@@ -261,40 +262,37 @@ router.get('/:id/lots/:lotId', async (req, res) => {
   }
 });
 
-router.put(
-  '/:communityId/lots/:lotId',
-  async (req, res) => {
-    const { communityId, lotId } = req.params;
-    const updates = req.body;    // e.g. { walkStatus: 'datesSentToPurchaser' }
-    if (typeof updates.salesDate === 'string' && updates.salesDate) {
-  updates.salesDate = new Date(updates.salesDate);
-}
-
-    // Build a $set that targets lots.$.<field>
-    const setObj = Object.entries(updates).reduce((acc, [k,v]) => {
-      acc[`lots.$.${k}`] = v;
-      return acc;
-    }, {});
-
-    try {
-      const community = await Community.findOneAndUpdate(
-        { _id: communityId, 'lots._id': lotId },
-        { $set: setObj },
-        { new: true }    // return the updated document
-      );
-      if (!community) {
-        return res.status(404).json({ error: 'Community or Lot not found' });
-      }
-
-      // Extract just the updated lot
-      const updatedLot = community.lots.id(lotId);
-      return res.json(updatedLot);
-    } catch (err) {
-      console.error('Error updating lot:', err);
-      return res.status(500).json({ error: err.message });
-    }
+router.put('/:communityId/lots/:lotId', async (req, res) => {
+  const { communityId, lotId } = req.params;
+  const updates = req.body || {};
+  if (!Object.keys(updates).length) {
+    return res.status(400).json({ error: 'Empty update body' });
   }
-);
+
+  // (keep your salesDate normalization if needed)
+  if (typeof updates.salesDate === 'string' && updates.salesDate) {
+    updates.salesDate = new Date(updates.salesDate);
+  }
+
+  // build the $set for lots.$.<field>
+  const setObj = Object.entries(updates).reduce((acc, [k, v]) => {
+    acc[`lots.$.${k}`] = v;
+    return acc;
+  }, {});
+
+  try {
+    const community = await Community.findOneAndUpdate(
+      { _id: communityId, 'lots._id': lotId },
+      { $set: setObj },
+      { new: true, runValidators: true } // add validators so bad values 400
+    );
+    if (!community) return res.status(404).json({ error: 'Community or Lot not found' });
+    return res.json(community.lots.id(lotId));
+  } catch (err) {
+    console.error('Error updating lot:', err);
+    return res.status(500).json({ error: err.message });
+  }
+});
 // --- End generic update ---
 
 router.put(

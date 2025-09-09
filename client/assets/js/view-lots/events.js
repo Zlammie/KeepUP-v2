@@ -1,6 +1,6 @@
 import { state } from './state.js';
 import { loadLots } from './api.js';
-import { renderRows, updateCount } from './render.js';
+import { updateCount, renderRows } from './render.js';
 
 export function bindEvents() {
   const body = document.body;
@@ -37,8 +37,8 @@ export function bindEvents() {
     t = setTimeout(async () => {
       state.search = searchInput.value.trim();
       const lots = await loadLots();
-      renderRows(lots);
-      updateCount(lots.length);
+     renderRows(lots);
+     updateCount(lots.length);
     }, 250);
   });
 
