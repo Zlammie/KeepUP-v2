@@ -5,6 +5,7 @@ const mongoose = require('mongoose');
 const Community = require('../models/Community');
 const FloorPlan = require('../models/FloorPlan');
 const CommunityCompetitionProfile = require('../models/communityCompetitionProfile');
+const Competition = require('../models/Competition');
 
 const router = express.Router();
 
@@ -55,6 +56,52 @@ router.get('/api/community-competition-profiles/:communityId', async (req, res) 
     res.json(profile);
   } catch (err) {
     console.error('GET /community-competition-profiles error:', err);
+    res.status(500).json({ error: 'Server error' });
+  }
+});
+
+// GET /api/competitions/minimal  → list for the Link/Unlink UI
+// GET: minimal list of competitors for Link/Unlink UI
+router.get('/api/competitions/minimal', async (req, res) => {
+  try {
+    const comps = await Competition.find({})
+      .select('communityName builderName city state')
+      .sort({ builderName: 1, communityName: 1 })
+      .lean();
+    res.json(comps);
+  } catch (err) {
+    console.error('GET /competitions/minimal error:', err);
+    res.status(500).json({ error: 'Server error' });
+  }
+});
+
+router.post('/api/community-competition-profiles/:communityId/linked-competitions/:competitionId', async (req, res) => {
+  try {
+    const { communityId, competitionId } = req.params;
+    const updated = await CommunityCompetitionProfile.findOneAndUpdate(
+      { community: communityId },
+      { $addToSet: { linkedCompetitions: competitionId } },
+      { new: true, upsert: true }
+    ).populate('linkedCompetitions', 'communityName builderName city state');
+    res.json({ linkedCompetitions: updated.linkedCompetitions });
+  } catch (err) {
+    console.error('LINK competitor error:', err);
+    res.status(500).json({ error: 'Server error' });
+  }
+});
+
+// UNLINK one competitor
+router.delete('/api/community-competition-profiles/:communityId/linked-competitions/:competitionId', async (req, res) => {
+  try {
+    const { communityId, competitionId } = req.params;
+    const updated = await CommunityCompetitionProfile.findOneAndUpdate(
+      { community: communityId },
+      { $pull: { linkedCompetitions: competitionId } },
+      { new: true, upsert: true }
+    ).populate('linkedCompetitions', 'communityName builderName city state');
+    res.json({ linkedCompetitions: updated.linkedCompetitions });
+  } catch (err) {
+    console.error('UNLINK competitor error:', err);
     res.status(500).json({ error: 'Server error' });
   }
 });
@@ -723,7 +770,7 @@ router.put('/api/community-competition-profiles/:communityId/linked-competitions
       { community: communityId },
       { $set: { linkedCompetitions: cleanIds }, $setOnInsert: { community: communityId } },
       { new: true, upsert: true }
-    ).populate('linkedCompetitions', 'name builder market');
+    ).populate('linkedCompetitions', 'communityName builderName city state')
 
     res.json({ linkedCompetitions: profile.linkedCompetitions });
   } catch (err) {

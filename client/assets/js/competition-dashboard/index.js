@@ -21,20 +21,31 @@ const lcSold  = document.getElementById('lcSold');
 const lcRem   = document.getElementById('lcRemaining');
 const lcQmi   = document.getElementById('lcQmi');
 
+const salesWindowEl = document.getElementById('dashSalesWindow');
+
 let currentCharts = [];
 
+// ---------- helpers ----------
 function destroyCharts() {
   currentCharts.forEach(ch => ch?.destroy?.());
   currentCharts = [];
 }
-
 function dollars(v) { return v == null ? 'n/a' : `$${Number(v).toLocaleString()}`; }
 function commify(v) { return Number(v).toLocaleString(); }
 
-// --- initial: load communities into selector
+async function getJSON(url) {
+  const r = await fetch(url);
+  if (!r.ok) {
+    const text = await r.text();
+    throw new Error(`HTTP ${r.status} for ${url}\n${text.slice(0, 400)}`);
+  }
+  return r.json();
+}
+
+// ---------- init ----------
 (async function init() {
   try {
-    const list = await fetch('/api/communities/select-options').then(r=>r.json());
+    const list = await getJSON('/api/communities/select-options');
     list.forEach(c => {
       const opt = document.createElement('option');
       opt.value = c._id;
@@ -66,76 +77,41 @@ toggleBaseMode.addEventListener('click', () => {
   }
 });
 
-async function refreshAll() {
-  const id = dd.value;
-  if (!id) return;
-
-  const months = Number(monthsEl.value || 12);
-
-  destroyCharts();
-  // linked builders (+ basic profile)
-  const { profile } = await fetch(`/api/my-community-competition/${id}`).then(r=>r.json());
-  renderLinked(profile?.linkedCompetitions || []);
-
-  // lot counts
-  const stats = await fetch(`/api/communities/${id}/lot-stats`).then(r=>r.json());
-  lcTotal.textContent = stats.total ?? '—';
-  lcSold.textContent  = stats.sold ?? '—';
-  lcRem.textContent   = stats.remaining ?? '—';
-  lcQmi.textContent   = stats.quickMoveInLots ?? '—';
-
-  // QMI/Sold scatter (x = sqft, y = price)
-  await drawQmiSolds(id);
-
-  // Sales pie (12 mo window based on "months" selector)
-  await drawSalesPie(id, months);
-
-  // Base price comparison (line) + build table
-  await drawBasePrice(id, months);
-}
-
-function renderLinked(list) {
-  linkedWrap.innerHTML = '';
-  if (!list.length) {
-    linkedWrap.innerHTML = '<span class="text-muted">No builders linked.</span>';
+// ---------- charts ----------
+async function drawQmiSoldsMulti(communityIds) {
+  if (!Array.isArray(communityIds)) communityIds = [communityIds].filter(Boolean);
+  const url = `/api/communities/multi/qmi-solds-scatter?ids=${communityIds.join(',')}`;
+  const res = await getJSON(url);
+  if (!Array.isArray(res)) {
+    console.warn('Unexpected payload from multi qmi/solds:', res);
     return;
   }
-  list.forEach(c => {
-    const chip = document.createElement('span');
-    chip.className = 'badge rounded-pill text-bg-secondary';
-    chip.textContent = c.name || c.builder || 'Builder';
-    linkedWrap.appendChild(chip);
-  });
-}
 
-async function drawQmiSolds(communityId) {
-  const res = await fetch(`/api/communities/${communityId}/qmi-solds-scatter`).then(r=>r.json());
-  const qmi  = (res.qmi  || []).sort((a,b)=>a.x-b.x);
-  const sold = (res.sold || []).sort((a,b)=>a.x-b.x);
+  const datasets = res.flatMap(entry => ([
+    { label: `${entry.name} – Quick Move-Ins`, type: 'scatter',
+      data: (entry.qmi || []).sort((a,b)=>a.x-b.x), pointRadius: 3, showLine: true, tension: 0.25 },
+    { label: `${entry.name} – SOLD`, type: 'scatter',
+      data: (entry.sold|| []).sort((a,b)=>a.x-b.x), pointRadius: 3, showLine: true, tension: 0.25 }
+  ]));
 
   const ctx = qmiSoldsCanvas.getContext('2d');
   const chart = new Chart(ctx, {
-    data: {
-      datasets: [
-        { label: 'Quick Move-Ins', type: 'scatter', data: qmi,  pointRadius: 4, showLine: true, tension: 0.25 },
-        { label: 'SOLD',           type: 'scatter', data: sold, pointRadius: 4, showLine: true, tension: 0.25 }
-      ]
-    },
+    data: { datasets },
     options: {
       responsive: true, maintainAspectRatio: false, parsing: false,
       plugins: { legend: { position: 'top' }, tooltip: { callbacks: {
         label: (ctx) => {
           const d = ctx.raw;
-          const sqft = commify(d.x);
-          const price = dollars(d.y);       // y is price
-          const plan = d.plan ? ` – ${d.plan}` : '';
-          const addr = d.address ? `\n${d.address}` : '';
+          const sqft = Number(d.x).toLocaleString();
+          const price = `$${Number(d.y).toLocaleString()}`;
+          const plan  = d.plan ? ` – ${d.plan}` : '';
+          const addr  = d.address ? `\n${d.address}` : '';
           return `${ctx.dataset.label}${plan}: ${price} @ ${sqft} sqft${addr}`;
         }
       }}},
       scales: {
-        x: { title: { display: true, text: 'Square Feet' }, ticks: { callback: v => commify(v) } },
-        y: { title: { display: true, text: 'Price ($)' },   ticks: { callback: v => `$${commify(v)}` } }
+        x: { title: { display: true, text: 'Square Feet' }, ticks: { callback: v => Number(v).toLocaleString() } },
+        y: { title: { display: true, text: 'Price ($)' },   ticks: { callback: v => `$${Number(v).toLocaleString()}` } }
       }
     }
   });
@@ -143,7 +119,7 @@ async function drawQmiSolds(communityId) {
 }
 
 async function drawSalesPie(communityId, months) {
-  const res = await fetch(`/api/community-profiles/${communityId}/sales?months=${months}`).then(r=>r.json());
+  const res = await getJSON(`/api/community-profiles/${communityId}/sales?months=${months}`);
   const s = res.series || { sales:[], cancels:[], closings:[] };
   const totalSales   = (s.sales   || []).reduce((a,b)=>a+(+b||0),0);
   const totalCancels = (s.cancels || []).reduce((a,b)=>a+(+b||0),0);
@@ -152,20 +128,59 @@ async function drawSalesPie(communityId, months) {
   const ctx = salesPieCanvas.getContext('2d');
   const chart = new Chart(ctx, {
     type: 'pie',
-    data: {
-      labels: ['Sales', 'Cancels', 'Closings'],
-      datasets: [{ data: [totalSales, totalCancels, totalClose] }]
-    },
+    data: { labels: ['Sales', 'Cancels', 'Closings'], datasets: [{ data: [totalSales, totalCancels, totalClose] }] },
     options: { responsive: true, maintainAspectRatio: false }
   });
   currentCharts.push(chart);
 }
 
-async function drawBasePrice(communityId, months) {
-  const res = await fetch(`/api/community-profiles/${communityId}/base-prices?months=${months}`).then(r=>r.json());
-  const { labels, datasets } = res;
+  async function drawSalesTotalsPie(communityOrCompetitionIds, windowKey) {
+  if (!Array.isArray(communityOrCompetitionIds)) communityOrCompetitionIds = [communityOrCompetitionIds].filter(Boolean);
+  const idsParam = communityOrCompetitionIds.join(',');
+  const { labels, data } = await getJSON(`/api/competitions/multi/sales-totals?ids=${idsParam}&window=${encodeURIComponent(windowKey)}`);
 
-  // line chart
+  const ctx = salesPieCanvas.getContext('2d');
+  const chart = new Chart(ctx, {
+    type: 'pie',
+    data: {
+      labels,
+      datasets: [{ label: 'Sales', data }]
+    },
+    options: { responsive: true, maintainAspectRatio: false }
+  });
+  currentCharts.push(chart);
+}
+async function drawBasePrice(communityId, months) {
+  let res;
+  // 1) Try the path your dashboard originally used
+  try {
+    res = await getJSON(`/api/community-profiles/${communityId}/base-prices?months=${months}`);
+  } catch (e1) {
+    console.warn('fallback to /api/community-competition-profiles/... base-prices:', e1.message);
+    // 2) Fallback: some installs use this namespace
+    try {
+      res = await getJSON(`/api/community-competition-profiles/${communityId}/base-prices?months=${months}`);
+    } catch (e2) {
+      console.error('base-prices failed on both paths:', e2.message);
+      // Show an informative empty state
+      baseTable.innerHTML = `<thead><tr><th>Plan</th><th>${months} mo</th></tr></thead>
+        <tbody><tr><td colspan="2" class="text-muted">No base price data found.</td></tr></tbody>`;
+      return;
+    }
+  }
+
+  const labels = Array.isArray(res?.labels) ? res.labels : [];
+  const datasets = Array.isArray(res?.datasets) ? res.datasets : [];
+
+  if (!labels.length || !datasets.length) {
+    console.warn('Base price payload had no labels/datasets:', res);
+    baseTable.innerHTML = `<thead><tr><th>Plan</th><th>${months} mo</th></tr></thead>
+      <tbody><tr><td colspan="2" class="text-muted">No base price data found.</td></tr></tbody>`;
+    return;
+  }
+
+
+  // ---- Line chart (unchanged) ----
   const ctx = baseCanvas.getContext('2d');
   const chart = new Chart(ctx, {
     data: {
@@ -188,7 +203,6 @@ async function drawBasePrice(communityId, months) {
   currentCharts.push(chart);
 
   // table view
-  // header
   baseTable.innerHTML = '';
   const thead = document.createElement('thead');
   const hrow = document.createElement('tr');
@@ -203,4 +217,51 @@ async function drawBasePrice(communityId, months) {
     tbody.appendChild(tr);
   });
   baseTable.appendChild(tbody);
+}
+
+// ---------- UI ----------
+function renderLinked(list) {
+  linkedWrap.innerHTML = '';
+  if (!list.length) {
+    linkedWrap.innerHTML = '<span class="text-muted">No builders linked.</span>';
+    return;
+  }
+  list.forEach(c => {
+    const chip = document.createElement('span');
+    chip.className = 'badge rounded-pill text-bg-secondary';
+    chip.textContent = c.name || c.builder || 'Builder';
+    linkedWrap.appendChild(chip);
+  });
+}
+
+// ---------- main refresh ----------
+async function refreshAll() {
+  const id = dd.value;
+  if (!id) return;
+  const months = Number(monthsEl.value || 12);
+
+  destroyCharts();
+
+  // 1) profile + linked chips
+  const { profile } = await getJSON(`/api/my-community-competition/${id}`);
+  renderLinked(profile?.linkedCompetitions || []);
+
+  // 2) build id list for multi-scatter
+  const linkedIds = Array.isArray(profile?.linkedCompetitions) ? profile.linkedCompetitions.map(c => c._id) : [];
+  const allIds = [...new Set([id, ...linkedIds].filter(Boolean))];
+
+  // 3) scatter (multi)
+  await drawQmiSoldsMulti(allIds);
+
+  // 4) lot counts (single)
+  const stats = await getJSON(`/api/communities/${id}/lot-stats`);
+  lcTotal.textContent = stats.total ?? '—';
+  lcSold.textContent  = stats.sold ?? '—';
+  lcRem.textContent   = stats.remaining ?? '—';
+  lcQmi.textContent   = stats.quickMoveInLots ?? '—';
+
+  // 5) pie + base price (single)
+  const salesWindow = (salesWindowEl?.value) || '90d';
+await drawSalesTotalsPie(allIds, salesWindow);  // multi-community totals pie
+await drawBasePrice(id, months);
 }

@@ -4,7 +4,11 @@ import { wireCommunitySelect, initialLoad } from './loader.js';
 import { wireTabs } from './ui.js';
 import { drawSalesGraph, drawBasePriceGraph, drawQmiSoldsGraph } from './charts.js';
 import { setupSectionToggles } from './toggles.js';
-import { wireLinkedSearch } from './linked.js';
+
+const allCompetitionsList = document.getElementById('allCompetitionsList');
+const linkedContainer = document.getElementById('linkedCompetitors');
+let linked = [];
+
 
 async function fetchAllCompetitions() {
   const res = await fetch('/api/competitions/minimal');
@@ -94,7 +98,26 @@ function init() {
     },
     () => currentCommunityId
   );
+  fetchAllCompetitions().then(data => {
+    allCompetitions = data;
+    renderAllCompetitions();
+  });
   initialLoad();
 }
+
+window.addEventListener('mcc:profileLoaded', (e) => {
+  const arr = e.detail?.profile?.linkedCompetitions || [];
+  // Normalize to { _id, communityName, builderName, city, state }
+  linked = arr.map(c => ({
+    _id: c._id,
+    communityName: c.communityName,
+    builderName: c.builderName,
+    city: c.city,
+    state: c.state
+  }));
+  renderLinkedList();
+  renderAllCompetitions(); // re-mark already linked items
+  
+});
 
 document.addEventListener('DOMContentLoaded', init);

@@ -15,9 +15,8 @@ import {
 import { enableUI } from './ui.js';
 import { drawSalesGraph, drawBasePriceGraph, drawQmiSoldsGraph } from './charts.js';
 import { fetchCommunityOptions, fetchCommunityProfile } from './api.js';
-import { setCommunityId, setProfile, setLinked } from './state.js';
+import { setCommunityId, setProfile } from './state.js'; // <-- only these two
 import { bindAutosaveOnce } from './autosave.js';
-import { renderLinked } from './linked.js';
 
 export function wireCommunitySelect() {
   selectEl.addEventListener('change', async () => {
@@ -55,8 +54,9 @@ export async function initialLoad() {
 }
 
 export async function onSelectCommunity(id) {
-  setCommunityId(id);
   try {
+    setCommunityId(id);
+
     const { community, profile } = await fetchCommunityProfile(id);
     setProfile(profile);
 
@@ -128,15 +128,8 @@ export async function onSelectCommunity(id) {
     earnestAmount.value = profile?.earnestAmount ?? '';
     realtorCommission.value = profile?.realtorCommission ?? '';
 
-    // Linked comps
- // Linked comps (normalized to minimal fields we render)
- linked = (profile?.linkedCompetitions || []).map(c => ({
-   _id: c._id, communityName: c.communityName, builderName: c.builderName, city: c.city, state: c.state
- }));
- // Load all competitors once, then render both lists
- allCompetitions = await fetchAllCompetitions();
- renderLinkedList();
- renderAllCompetitions();
+    // ➜ Hand off to index.js to hydrate the “Linked Competitors” lists
+    window.dispatchEvent(new CustomEvent('mcc:profileLoaded', { detail: { profile } }));
 
     enableUI(true);
     bindAutosaveOnce();
@@ -150,8 +143,6 @@ export async function onSelectCommunity(id) {
       await drawBasePriceGraph(id);
     } else if (tab === 'qmi') {
       await drawQmiSoldsGraph(id);
-    } else {
-      // "sqft" or others: handled by wireTabs default
     }
   } catch (e) {
     console.error('Failed to load profile', e);

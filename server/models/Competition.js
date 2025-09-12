@@ -1,6 +1,8 @@
 // models/competition.js
 const mongoose = require('mongoose');
 
+
+
 const competitionSchema = new mongoose.Schema({
   communityName: { type: String, required: true },
   builderName:   { type: String, required: true },
@@ -84,7 +86,9 @@ monthlyMetrics: [{
   month: String, // e.g., "2025-07"
   soldLots: { type: Number, default: 0 },
   quickMoveInLots: { type: Number, default: 0 }
-}]
+}],
+
+communityRef: { type: mongoose.Schema.Types.ObjectId, ref: 'Community', default: null }
 
 }, {
   timestamps: true
