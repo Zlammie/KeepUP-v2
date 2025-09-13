@@ -24,7 +24,15 @@
         <option value="">-- Select a community --</option>
       </select>
 
-      <button id="manageCommunityBtn" class="btn btn-sm btn-outline">Manage Communities</button>
+ 
+    </div>
+
+    <div class="horizontal-cont">
+      <!-- LEFT: side bar card (same class names for consistency) -->
+      <div class="side-bar card card--grey main-cont" id="leftSidebar" aria-disabled="true">
+        <!-- Sales-like section (we’ll use it for contact/admin info as needed) -->
+
+             <button id="manageCommunityBtn" class="btn btn-sm btn-outline">Manage Communities</button>
 
         <script>
           document.getElementById('manageCommunityBtn').addEventListener('click', () => {
@@ -36,12 +44,6 @@
             window.location.href = `/manage-my-community-competition/${communityId}`;
           });
         </script>
-    </div>
-
-    <div class="horizontal-cont">
-      <!-- LEFT: side bar card (same class names for consistency) -->
-      <div class="side-bar card card--grey main-cont" id="leftSidebar" aria-disabled="true">
-        <!-- Sales-like section (we’ll use it for contact/admin info as needed) -->
         <section class="card card--white">
           <h2>Primary Community Contact</h2>
           <div class="form-group">

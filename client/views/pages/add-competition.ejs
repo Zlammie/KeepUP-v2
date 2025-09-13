@@ -17,13 +17,14 @@
   <!-- or (static SSI) -->
   <!--# include virtual="/views/partials/navbar.html" -->
 
- <main class="add-lead-wrapper">
+<main class="add-lead-wrapper">
   <h1>Add Competition</h1>
 
-  <form action="/add-competition" method="POST" class="competition-form">
+  <!-- No action/method => JS controls submission -->
+  <form id="competitionForm" class="competition-form">
     <div class="mb-3">
       <label for="communityName">Community Name</label>
-      <input type="text"  class="form-control" id="communityName" name="communityName" required />
+      <input type="text" class="form-control" id="communityName" name="communityName" required />
     </div>
 
     <div class="mb-3">
@@ -41,7 +42,7 @@
       <input type="text" class="form-control" id="city" name="city" required />
     </div>
 
-      <div class="mb-3">
+    <div class="mb-3">
       <label for="state">State</label>
       <input type="text" class="form-control" id="state" name="state" required />
     </div>
@@ -53,12 +54,62 @@
 
     <button type="submit" class="btn btn-primary">Create Competition</button>
   </form>
+
+  <!-- alert placeholder -->
+  <div id="alertBox" class="alert mt-3 d-none" role="alert"></div>
 </main>
 
-  <script>
-   
+<script>
+(function () {
+  const form = document.getElementById("competitionForm");
+  const alertBox = document.getElementById("alertBox");
 
+  function showAlert(msg, type = "success") {
+    alertBox.textContent = msg;
+    alertBox.classList.remove("d-none", "alert-success", "alert-danger");
+    alertBox.classList.add(type === "success" ? "alert-success" : "alert-danger");
 
-  </script>
+    // auto-hide after 4s (optional)
+    setTimeout(() => {
+      alertBox.classList.add("d-none");
+      alertBox.textContent = "";
+    }, 4000);
+  }
+
+  form.addEventListener("submit", async (e) => {
+    e.preventDefault();
+
+    const data = Object.fromEntries(new FormData(form).entries());
+    const submitBtn = form.querySelector('button[type="submit"]');
+    submitBtn.disabled = true;
+
+    try {
+      const res = await fetch("/add-competition", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(data),
+      });
+
+      if (!res.ok) {
+        // try to surface server error message if present
+        let message = "Failed to add competition";
+        try {
+          const errJson = await res.json();
+          if (errJson?.error) message = errJson.error;
+        } catch {}
+        throw new Error(message);
+      }
+
+      // success (no navigation)
+      showAlert("Competition added successfully!", "success");
+      form.reset();
+    } catch (err) {
+      showAlert(`Error: ${err.message}`, "danger");
+    } finally {
+      submitBtn.disabled = false;
+    }
+  });
+})();
+</script>
 </body>
 </html>

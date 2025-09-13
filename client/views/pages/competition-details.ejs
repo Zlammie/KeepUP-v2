@@ -14,9 +14,7 @@
   <%- include('../partials/top-nav-competition') %>
 
   <main>
-    <a href="/update-competition/<%= competition._id %>" class="btn btn-sm btn-warning" style="margin-left:1rem;">
-      Update Monthly Info
-    </a>
+  
 
     <div class="horizontal-cont">
 
@@ -25,6 +23,9 @@
 
         <!-- Sales -->
         <section class="card card--white">
+            <a href="/update-competition/<%= competition._id %>" class="btn btn-sm btn-warning" style="margin-left:1rem;">
+              Update Monthly Info
+            </a>
           <h2>Sales Person Info</h2>
           <div class="form-group">
             <label for="salesPerson">Sales Person</label>

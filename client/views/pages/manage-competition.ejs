@@ -4,73 +4,218 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
   <title>Simple CRM</title>
-   
-  <!-- single entry-point for all your app’s CSS -->
-   <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet"/>
-   <link rel="stylesheet" href="/assets/css/main.css">
+
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet"/>
+  <link rel="stylesheet" href="/assets/css/main.css">
+  <style>
+    .del-col { display: none; width: 1%; white-space: nowrap; text-align: right; }
+    .show-delete .del-col { display: table-cell; }
+    th.actions-col, td.actions-col { width: 120px; }
+    th.num, td.num { text-align: right; white-space: nowrap; }
+  </style>
 </head>
 <body>
-  <!-- include navbar HTML at the top of every page -->
-  <!-- if you’re using EJS: -->
   <%- include('../partials/nav') %>
   <%- include('../partials/top-nav-competition') %>
-  <!-- or (static SSI) -->
-  <!--# include virtual="/views/partials/navbar.html" -->
 
- <main class="container mt-4">
-  <h1>Manage Competitions</h1>
-  <div id="competition-table-container">
-    <p>Loading competitions…</p>
-  </div>
-</main>
+  <main class="container mt-4">
+    <div class="d-flex align-items-center justify-content-between mb-3">
+      <h1 class="m-0">Manage Competitions</h1>
+      <div class="d-flex gap-2">
+        <button id="toggleDeleteBtn" class="btn btn-outline-danger btn-sm">Show Delete</button>
+      </div>
+    </div>
 
-<script>
-  document.addEventListener('DOMContentLoaded', async () => {
-    const res = await fetch('/api/competitions');
-    const comps = await res.json();
+    <div id="flash" class="alert d-none" role="alert"></div>
+
+    <div id="competition-table-container">
+      <p>Loading competitions…</p>
+    </div>
+  </main>
+
+  <script>
     const container = document.getElementById('competition-table-container');
+    const flash = document.getElementById('flash');
+    const toggleDeleteBtn = document.getElementById('toggleDeleteBtn');
 
-    if (!comps.length) {
-      container.innerHTML = '<p>No competitions found.</p>';
-      return;
+    function showFlash(msg, type = 'success', timeout = 3000) {
+      flash.textContent = msg;
+      flash.className = 'alert alert-' + (type === 'success' ? 'success' : 'danger');
+      flash.classList.remove('d-none');
+      if (timeout) setTimeout(() => flash.classList.add('d-none'), timeout);
     }
 
-    let html = `
-      <table class="table table-striped">
-        <thead>
-          <tr>
-            <th>Actions</th>
-            <th>Community</th>
-            <th>Builder</th>
-            <th>Address</th>
-            <th>City</th>
-            <th>ZIP</th>
-          </tr>
-        </thead>
-        <tbody>
-    `;
-    comps.forEach(c => {
-      html += `
-        <tr>
-            <td>
-             <a
-               href="/competition-details/${c._id}"
-               class="btn btn-sm btn-primary"
-             >
-               View
-             </a>
-            </td>
-          <td>${c.communityName}</td>
-          <td>${c.builderName}</td>
-          <td>${c.address}</td>
-          <td>${c.city}</td>
-          <td>${c.zip}</td>
-        </tr>
+    function fmt(n) {
+      if (n === '' || n === null || n === undefined) return '';
+      const num = Number(n);
+      return Number.isFinite(num) ? num.toLocaleString() : n;
+    }
+
+    // Try to compute values if the API doesn't provide them directly
+    function deriveRemainingLots(c) {
+      // prefer server-provided field
+      if (typeof c.remainingLots === 'number') return c.remainingLots;
+
+      // fallbacks
+      if (typeof c.totalLots === 'number' && typeof c.soldLots === 'number') {
+        return Math.max(c.totalLots - c.soldLots, 0);
+      }
+      // if nothing else is known, show totalLots (best available proxy)
+      if (typeof c.totalLots === 'number') return c.totalLots;
+      return 0;
+    }
+
+    function deriveQMI(c) {
+      // prefer server-provided field
+      if (typeof c.qmi === 'number') return c.qmi;
+      if (typeof c.quickMoveIns === 'number') return c.quickMoveIns;
+
+      // look at the last monthlyMetrics entry if present
+      if (Array.isArray(c.monthlyMetrics) && c.monthlyMetrics.length) {
+        const last = c.monthlyMetrics[c.monthlyMetrics.length - 1];
+        if (typeof last?.qmi === 'number') return last.qmi;
+        if (typeof last?.inventory === 'number') return last.inventory; // some schemas name it this way
+      }
+      return 0;
+    }
+
+    function deriveLotSize(c) {
+      // prefer server-provided field
+      if (c.lotSize) return c.lotSize;
+      if (c.avgLotSize) return c.avgLotSize;
+
+      // sometimes lives under communityRef or similar; keep blank if unknown
+      return '';
+    }
+
+    function tableHTML(comps) {
+      let html = `
+        <div class="table-responsive">
+          <table id="compsTable" class="table table-striped align-middle">
+            <thead>
+              <tr>
+                <th class="actions-col">Actions</th>
+                <th>Community</th>
+                <th>Builder</th>
+                <th>City</th>
+                <th class="num">Remaining Lots</th>
+                <th class="num">QMI</th>
+                <th class="num">Lot Size</th>
+                <th class="del-col text-end">Delete</th>
+              </tr>
+            </thead>
+            <tbody>
       `;
+      comps.forEach(c => {
+        const remaining = deriveRemainingLots(c);
+        const qmi = deriveQMI(c);
+        const lotSize = deriveLotSize(c);
+
+        html += `
+          <tr data-id="${c._id}">
+            <td class="actions-col">
+              <a href="/competition-details/${c._id}" class="btn btn-sm btn-primary">View</a>
+            </td>
+            <td>${c.communityName ?? ''}</td>
+            <td>${c.builderName ?? ''}</td>
+            <td>${c.city ?? ''}</td>
+            <td class="num">${fmt(remaining)}</td>
+            <td class="num">${fmt(qmi)}</td>
+            <td class="num">${lotSize ?? ''}</td>
+            <td class="del-col text-end">
+              <button class="btn btn-sm btn-outline-danger delete-btn" data-id="${c._id}" title="Delete competition">
+                &#10005;
+              </button>
+            </td>
+          </tr>
+        `;
+      });
+      html += `</tbody></table></div>`;
+      return html;
+    }
+
+    async function loadTable() {
+      try {
+        const res = await fetch('/api/competitions');
+        if (!res.ok) throw new Error('Failed to load competitions');
+        const comps = await res.json();
+
+        if (!Array.isArray(comps) || !comps.length) {
+          container.innerHTML = '<p>No competitions found.</p>';
+          return;
+        }
+        container.innerHTML = tableHTML(comps);
+
+        // Respect toggle state after reload
+        const table = document.getElementById('compsTable');
+        if (toggleDeleteBtn.dataset.show === '1') {
+          table.classList.add('show-delete');
+          toggleDeleteBtn.textContent = 'Hide Delete';
+          toggleDeleteBtn.classList.replace('btn-outline-danger', 'btn-danger');
+        }
+
+        container.querySelectorAll('.delete-btn').forEach(btn => {
+          btn.addEventListener('click', onDeleteClick);
+        });
+      } catch (err) {
+        container.innerHTML = '<p class="text-danger">Error loading competitions.</p>';
+        showFlash(err.message, 'danger');
+      }
+    }
+
+    async function onDeleteClick(e) {
+      const btn = e.currentTarget;
+      const id = btn.dataset.id;
+      const row = btn.closest('tr');
+      if (!confirm('Delete this competition? This cannot be undone.')) return;
+
+      btn.disabled = true;
+      btn.textContent = '…';
+      try {
+        const res = await fetch(`/api/competitions/${id}`, { method: 'DELETE' });
+        if (!res.ok) {
+          let msg = 'Delete failed';
+          try {
+            const errJson = await res.json();
+            if (errJson?.error) msg = errJson.error;
+          } catch {}
+          throw new Error(msg);
+        }
+        row.parentNode.removeChild(row);
+        showFlash('Competition deleted.', 'success');
+
+        const tbody = container.querySelector('tbody');
+        if (tbody && !tbody.children.length) {
+          container.innerHTML = '<p>No competitions found.</p>';
+        }
+      } catch (err) {
+        showFlash(err.message, 'danger');
+      } finally {
+        if (document.body.contains(btn)) {
+          btn.disabled = false;
+          btn.textContent = '✕';
+        }
+      }
+    }
+
+    toggleDeleteBtn.addEventListener('click', () => {
+      const table = document.getElementById('compsTable');
+      if (!table) return;
+      const showing = toggleDeleteBtn.dataset.show === '1';
+      if (showing) {
+        table.classList.remove('show-delete');
+        toggleDeleteBtn.dataset.show = '0';
+        toggleDeleteBtn.textContent = 'Show Delete';
+        toggleDeleteBtn.classList.replace('btn-danger', 'btn-outline-danger');
+      } else {
+        table.classList.add('show-delete');
+        toggleDeleteBtn.dataset.show = '1';
+        toggleDeleteBtn.textContent = 'Hide Delete';
+        toggleDeleteBtn.classList.replace('btn-outline-danger', 'btn-danger');
+      }
     });
-    html += `</tbody></table>`;
-    container.innerHTML = html;
-  });
-</script>
+
+    document.addEventListener('DOMContentLoaded', loadTable);
+  </script>
 </body>
 </html>

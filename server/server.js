@@ -229,13 +229,13 @@ app.get('/add-competition', (req, res) => {
   });
 });
 
-app.post('/add-competition', async (req, res, next) => {
+app.post('/add-competition', async (req, res) => {
   try {
-    const { communityName, builderName, address, city, zip } = req.body;
-    await Competition.create({ communityName, builderName, address, city, zip });
-    res.redirect('/competition-home');
+    const competition = new Competition(req.body);
+    await competition.save();
+    res.json({ success: true, competition });
   } catch (err) {
-    next(err);
+    res.status(500).json({ success: false, error: err.message });
   }
 });
 
@@ -335,6 +335,16 @@ app.post('/add-competition', async (req, res, next) => {
     res.redirect('/manage-competition');
   } catch (err) {
     next(err);
+  }
+});
+
+app.delete('/api/competitions/:id', async (req, res) => {
+  try {
+    const deleted = await Competition.findByIdAndDelete(req.params.id);
+    if (!deleted) return res.status(404).json({ error: 'Competition not found' });
+    res.json({ success: true });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
   }
 });
 

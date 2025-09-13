@@ -75,14 +75,27 @@ document.addEventListener('DOMContentLoaded', async () => {
   initMetrics(DOM.metricsForm, latestMetrics, saveMetrics);
 
   // 4) MONTHLY LOTS COUNTER
-  DOM.lotCount.value = totalLots;
-  DOM.soldInput.addEventListener('input', () =>
-    updateRemainingLots(totalLots, DOM.soldInput, DOM.remainingEl)
-  );
-  DOM.quickInput.addEventListener('change', () =>
-    saveMonthly({ quickMoveInLots: DOM.quickInput.value })
-  );
+// 4) MONTHLY LOTS COUNTER (replace the whole block)
+DOM.lotCount.value = totalLots;
+
+// Keep live UI math for remaining
+DOM.soldInput.addEventListener('input', () => {
   updateRemainingLots(totalLots, DOM.soldInput, DOM.remainingEl);
+});
+
+// Persist Sold Lots on input/change/blur
+const persistSold = () => saveMonthly({ soldLots: num(DOM.soldInput.value) });
+DOM.soldInput.addEventListener('change', persistSold);
+DOM.soldInput.addEventListener('blur', persistSold);
+
+// Persist Quick Move-Ins on input/change/blur (was only 'change' before)
+const persistQMI = () => saveMonthly({ quickMoveInLots: num(DOM.quickInput.value) });
+DOM.quickInput.addEventListener('input', persistQMI);
+DOM.quickInput.addEventListener('change', persistQMI);
+DOM.quickInput.addEventListener('blur', persistQMI);
+
+// Ensure initial remaining calc
+updateRemainingLots(totalLots, DOM.soldInput, DOM.remainingEl);
 
   // 5) PROS/CONS
   renderBadges(DOM.prosList, pros);
@@ -129,6 +142,13 @@ document.addEventListener('DOMContentLoaded', async () => {
   );
 
   // 8) Trigger initial UI state
+  const metricsLink = DOM.sectionNav.querySelector('a.nav-link[data-section="metrics"]');
+if (metricsLink) {
+  // Clear any pre-set active pill (e.g., Floor Plans) to avoid double-active state
+  DOM.sectionNav.querySelectorAll('a.nav-link').forEach(a => a.classList.remove('active'));
 
+  // Fire the same handlers your nav binding uses
+  metricsLink.click();
+}
 
 });
