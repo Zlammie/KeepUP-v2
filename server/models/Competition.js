@@ -57,8 +57,11 @@ pidFee: {
   type: Number,
   default: null
 },
-  mudFee:             { type: Number },
-  pidFee:             { type: Number },
+pidFeeFrequency: {
+  type: String,
+  enum: ['Monthly', 'Yearly', null],
+  default: null
+},
 
   earnestAmount:      { type: Number },
   realtorCommission:  { type: Number },

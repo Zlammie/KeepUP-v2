@@ -242,3 +242,25 @@
   opacity: 0;
   transition: opacity .15s ease-in-out;
 }
+
+.fee-option {
+  margin-bottom: 0.5rem;
+}
+.fee-option input[type="number"] {
+  margin-top: 0.25rem;
+  max-width: 120px;
+}
+
+.fee-inline {
+  display: flex;
+  align-items: flex-end;
+  gap: 0.75rem;
+  flex-wrap: wrap;
+}
+.fee-field {
+  min-width: 140px;
+}
+.fee-field input[type="number"],
+.fee-field select {
+  max-width: 160px;
+}

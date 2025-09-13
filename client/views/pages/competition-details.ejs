@@ -131,33 +131,61 @@
             <input type="number" id="tax" name="tax" step="0.01" value="<%= competition.tax || '' %>">
           </div>
 
-          <!-- Fee types (MUD/PID/None) -->
+      <!-- Fee types (MUD/PID/None) -->
           <div class="form-group">
             <label>Additional Fees</label><br>
-            <label><input type="checkbox" id="feeMud"  name="feeTypes" value="MUD"  <%= competition.feeTypes?.includes('MUD')  ? 'checked' : '' %>> MUD</label>
-            <label><input type="checkbox" id="feePid"  name="feeTypes" value="PID"  <%= competition.feeTypes?.includes('PID')  ? 'checked' : '' %>> PID</label>
-            <label><input type="checkbox" id="feeNone" name="feeTypes" value="None" <%= competition.feeTypes?.includes('None') ? 'checked' : '' %>> None</label>
-          </div>
 
-          <div class="form-group" id="mudFeeGroup" style="display:none;">
-            <label for="mudFee">MUD Fee</label>
-            <input type="number" id="mudFee" name="mudFee" value="<%= competition.mudFee || '' %>">
-          </div>
+            <!-- MUD -->
+            <div class="fee-option">
+              <label>
+                <input type="checkbox" id="feeMud" name="feeTypes" value="MUD"
+                  <%= competition.feeTypes?.includes('MUD') ? 'checked' : '' %> />
+                MUD
+              </label>
+              <div id="mudFeeGroup" style="display:none; margin-left:1.5rem;">
+                <label for="mudFee" style="display:block;">MUD Fee</label>
+                <input type="number" id="mudFee" name="mudFee" value="<%= competition.mudFee || '' %>" />
+              </div>
+            </div>
 
-          <div class="form-group" id="pidFeeGroup" style="display:none;">
-            <label for="pidFee">PID Fee</label>
-            <input type="number" id="pidFee" name="pidFee" value="<%= competition.pidFee || '' %>">
-          </div>
+            <!-- PID -->
+            <div class="fee-option">
+              <label>
+                <input type="checkbox" id="feePid" name="feeTypes" value="PID"
+                  <%= competition.feeTypes?.includes('PID') ? 'checked' : '' %> />
+                PID
+              </label>
+              <div id="pidFeeGroup" style="display:none; margin-left:1.5rem;">
+                <div class="fee-inline">
+                  <div class="fee-field">
+                    <label for="pidFee" style="display:block;">PID Fee</label>
+                    <input type="number" id="pidFee" name="pidFee" value="<%= competition.pidFee || '' %>" />
+                  </div>
+                  <div class="fee-field">
+                    <label for="pidFeeFrequency" style="display:block;">Frequency</label>
+                    <select id="pidFeeFrequency" name="pidFeeFrequency">
+                      <option value="">— Select —</option>
+                      <option value="Monthly" <%= competition.pidFeeFrequency === 'Monthly' ? 'selected' : '' %>>Monthly</option>
+                      <option value="Yearly"  <%= competition.pidFeeFrequency === 'Yearly'  ? 'selected' : '' %>>Yearly</option>
+                    </select>
+                  </div>
+                </div>
+              </div>
+            </div>
 
-          <div class="form-group">
-            <label for="earnestAmount">Earnest Amount</label>
-            <input type="number" id="earnestAmount" name="earnestAmount" step="0.01" value="<%= competition.earnestAmount || '' %>">
-          </div>
+            <!-- None -->
+            <div class="fee-option">
+              <label>
+                <input type="checkbox" id="feeNone" name="feeTypes" value="None"
+                  <%= competition.feeTypes?.includes('None') ? 'checked' : '' %> />
+                None
+              </label>
+            </div>
+          </div> <!-- ← CLOSES .form-group -->
 
-          <div class="form-group">
-            <label for="realtorCommission">Realtor Commission (%)</label>
-            <input type="number" id="realtorCommission" name="realtorCommission" step="0.01" value="<%= competition.realtorCommission || '' %>">
-          </div>
+          <button id="openAmenitiesBtn" class="btn btn-sm btn-primary" style="margin-left:.5rem;">
+            Edit Amenities
+          </button>
         </section>
       </div>
       <div class="top-content-cont card card--grey top-container">
@@ -227,7 +255,15 @@
                 <div class="kv"><span class="k">Tax Rate</span>
                   <span class="v"><%= competition.tax ? competition.tax + '%' : 'Not specified' %></span>
                 </div>
+                <div class="kv"><span class="k">PID</span>
+                <span class="v">
+                  <% if (competition.pidFee) { %>
+                    $<%= competition.pidFee %><%= competition.pidFeeFrequency ? ' / ' + competition.pidFeeFrequency : '' %>
+                  <% } else { %>Not specified<% } %>
+                </span>
               </div>
+              </div>
+              
             </div>
           </section>
 

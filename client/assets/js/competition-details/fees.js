@@ -5,32 +5,57 @@ export function initFees(onChange) {
   const feeNone = $('#feeNone');
   const feeMud  = $('#feeMud');
   const feePid  = $('#feePid');
+
   const mudGrp  = $('#mudFeeGroup');
   const pidGrp  = $('#pidFeeGroup');
 
-  function sync() {
+  const mudFee  = $('#mudFee');
+  const pidFee  = $('#pidFee');
+
+  const show = (el) => { if (el) el.style.display = '';   };   // let CSS decide (block/flex/grid)
+  const hide = (el) => { if (el) el.style.display = 'none'; };
+
+  function sync(source) {
     if (!feeNone || !feeMud || !feePid) return;
 
-    if (feeNone.checked) {
-      feeMud.checked = false; feePid.checked = false;
-      if (mudGrp) mudGrp.style.display = 'none';
-      if (pidGrp) pidGrp.style.display = 'none';
-    } else {
-      if (feeMud.checked || feePid.checked) feeNone.checked = false;
-      if (mudGrp) mudGrp.style.display = feeMud.checked ? 'block' : 'none';
-      if (pidGrp) pidGrp.style.display = feePid.checked ? 'block' : 'none';
+    // Exclusivity: "None" vs MUD/PID
+    if (source === 'none' && feeNone.checked) {
+      feeMud.checked = false;
+      feePid.checked = false;
     }
-    onChange?.();
+    if ((source === 'mud' && feeMud.checked) || (source === 'pid' && feePid.checked)) {
+      feeNone.checked = false;
+    }
+
+    // Instant visibility
+    feeMud.checked ? show(mudGrp) : hide(mudGrp);
+    feePid.checked ? show(pidGrp) : hide(pidGrp);
+
+    // Notify autosave (debounced) if provided
+    onChange?.(['feeTypes','mudFee','pidFee']);
   }
 
-  [feeNone, feeMud, feePid].forEach(cb => cb?.addEventListener('change', sync));
-  sync(); // initial state
+  // Listeners
+  feeNone?.addEventListener('change', () => sync('none'));
+  feeMud ?.addEventListener('change', () => sync('mud'));
+  feePid ?.addEventListener('change', () => sync('pid'));
+
+  // Save when typing fee amounts too
+  mudFee?.addEventListener('input', () => onChange?.(['mudFee']));
+  pidFee?.addEventListener('input', () => onChange?.(['pidFee']));
+
+  // Initial paint from server-rendered state
+  sync();
 }
 
+/**
+ * Used by autosave to serialize the current fee types into an array.
+ * Keeps autosave.js unchanged.
+ */
 export function collectFeeTypes() {
-  const types = [];
-  if ($('#feeMud')?.checked)  types.push('MUD');
-  if ($('#feePid')?.checked)  types.push('PID');
-  if ($('#feeNone')?.checked) types.push('None');
-  return types;
+  const out = [];
+  if ($('#feeMud')?.checked)  out.push('MUD');
+  if ($('#feePid')?.checked)  out.push('PID');
+  if ($('#feeNone')?.checked) out.push('None');
+  return out;
 }
