@@ -7,10 +7,13 @@
 
   <style>
     * sticky first three columns */
-.lots-table .sticky-col { position: sticky;  z-index: 1; }
-.lots-table .sc-1 { left: 0;  z-index: 2; }
-.lots-table .sc-2 { left: 80px; }
-.lots-table .sc-3 { left: 230px; }
+lots-table .sticky-col { position: sticky; z-index: 1; }
+.lots-table .sc-1 { left: 108px; z-index: 2; }  /* after 3 icon cols          */
+.lots-table .sc-2 { left: 188px; }              /* 108 + 80 (Job #)           */
+.lots-table .sc-3 { left: 338px; }  
+
+/* Give address room, keep it two-line */
+.lots-table .sc-3 { min-width: 300px; } /* widen address */
 
 .lots-table .sc-3,
 .lots-table .sc-3 .cell-col { white-space: normal; }
@@ -66,6 +69,60 @@
 /* (optional) hover tweak */
 .lots-table thead th:hover { background: #f1f5f9 !important; }
 
+.lots-table th.icon-head:nth-child(3),
+.lots-table td.icon-cell:nth-child(3) {
+  width: 28px;
+  min-width: 28px;
+  padding: 0;
+}
+
+.lots-table .sc-3 a.link,
+.lots-table .sc-3 a.link:visited,
+.lots-table .sc-3 a.link:hover,
+.lots-table .sc-3 a.link:active {
+  text-decoration: none;
+  color: inherit;
+}
+
+/* Keep accessibility: visible focus ring without underline */
+.lots-table .sc-3 a.link:focus {
+  outline: 2px solid #0ea5e9;
+  outline-offset: 2px;
+  text-decoration: none;
+}
+
+/* Icon cells: tiny & centered */
+.lots-table td.icon-cell,
+.lots-table th.icon-head {
+  width: 36px;
+  min-width: 36px;
+  text-align: center;
+  padding: 0; /* keep tight */
+}
+
+/* Nuke default button chrome so the icon is visible on dark header and light rows */
+.icon-btn.btn.btn-sm.btn-link {
+  background: transparent !important;
+  border: 0 !important;
+  padding: 0 !important;
+  line-height: 1;
+  box-shadow: none !important;
+}
+
+/* Make the actual SVG small and crisp */
+.icon-btn img {
+  width: 16px;
+  height: 16px;
+  display: block;            /* removes extra inline spacing */
+  filter: none;              /* ensure no unwanted tint */
+}
+
+/* Optional: visible keyboard focus ring without adding a background */
+.icon-btn:focus-visible {
+  outline: 2px solid #0ea5e9;
+  outline-offset: 2px;
+}
+
   </style>
 </head>
 
@@ -113,30 +170,36 @@
 
 <div class="table-container">
   <table id="lotsTable" class="lots-table">
-    <colgroup>
-      <col style="width: 80px" />   <!-- Job # -->
-      <col style="width: 150px" />  <!-- Lot / Block / Phase -->
-      <col />                        <!-- Address (flex) -->
-      <col style="width: 140px" />  <!-- Plan / Elv -->
-      <col style="width: 120px" />  <!-- Home Status -->
-      <col style="width: 230px" />  <!-- Timeline -->
-      <col style="width: 110px" />  <!-- Walks -->
-      <col style="width: 180px" />  <!-- Closing -->
-      <col style="width: 140px" />  <!-- Price -->
-    </colgroup>
+      <colgroup>
+        <col style="width: 32px" />   <!-- Task -->
+        <col style="width: 32px" />   <!-- Flag -->
+        <col style="width: 28px" />   <!-- Comment (narrowest) -->
+        <col style="width: 80px" />   <!-- Job # -->
+        <col style="width: 120px" />  <!-- Lot / Block (slimmer) -->
+        <col />                        <!-- Address (flex / wider) -->
+        <col style="width: 120px" />  <!-- Plan / Elv (slimmer) -->
+        <col style="width: 120px" />  <!-- Home Status -->
+        <col style="width: 230px" />  <!-- Timeline -->
+        <col style="width: 110px" />  <!-- Walks -->
+        <col style="width: 180px" />  <!-- Closing -->
+        <col style="width: 140px" />  <!-- Price -->
+      </colgroup>
     <thead>
-      <tr>
-        <th class="sticky-col sc-1">Job #</th>
-        <th class="sticky-col sc-2">Lot / Block / Phase</th>
-        <th class="sticky-col sc-3">Address</th>
-        <th>Plan / Elv</th>
-        <th>Home Status</th>
-        <th>Timeline</th>
-        <th>Walks</th>
-        <th>Closing</th>
-        <th class="text-right">Price</th>
-      </tr>
-    </thead>
+  <tr>
+    <th class="icon-head"><span class="visually-hidden">Task</span></th>
+    <th class="icon-head"><span class="visually-hidden">Flag</span></th>
+    <th class="icon-head"><span class="visually-hidden">Comment</span></th>
+    <th class="sticky-col sc-1">Job #</th>
+    <th class="sticky-col sc-2">Lot / Block</th>
+    <th class="sticky-col sc-3">Address</th>
+    <th>Plan / Elv</th>
+    <th>Home Status</th>
+    <th>Timeline</th>
+    <th>Walks</th>
+    <th>Closing</th>
+    <th class="text-right">Price</th>
+  </tr>
+</thead>
     <tbody id="lotsTableBody"></tbody>
   </Table>
 </div>

@@ -15,20 +15,23 @@ export function bindEvents() {
 
   // Initial community selection (body[data-community-id] has priority if present)
   const fromBody = body?.getAttribute('data-community-id') || null;
-  if (fromBody && window.__communities?.some(c => String(c._id) === String(fromBody))) {
-    state.communityId = fromBody;
-    if (communitySel) communitySel.value = fromBody;
-  } else if (window.__communities?.[0]?._id) {
-    state.communityId = window.__communities[0]._id;
-    if (communitySel) communitySel.value = state.communityId;
-  }
+    if (fromBody && window.__communities?.some(c => String(c._id) === String(fromBody))) {
+      state.communityId = fromBody;
+      window.__communityId = state.communityId;        // <- add
+      if (communitySel) communitySel.value = fromBody;
+    } else if (window.__communities?.[0]?._id) {
+      state.communityId = window.__communities[0]._id;
+      window.__communityId = state.communityId;        // <- add
+      if (communitySel) communitySel.value = state.communityId;
+    }
 
-  communitySel?.addEventListener('change', async () => {
-    state.communityId = communitySel.value || null;
-    const lots = await loadLots();
-    renderRows(lots);
-    updateCount(lots.length);
-  });
+    communitySel?.addEventListener('change', async () => {
+      state.communityId = communitySel.value || null;
+      window.__communityId = state.communityId;        // <- add
+      const lots = await loadLots();
+      renderRows(lots);
+      updateCount(lots.length);
+    });
 
   // Debounced search
   let t;
