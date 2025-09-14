@@ -1,113 +1,177 @@
+// routes/competitionRoutes.js
 const express = require('express');
 const router = express.Router();
-const Competition = require('../models/Competition'); // adjust path if needed
-const SalesRecord = require('../models/salesRecord'); // adjust path if needed
-const PriceRecord   = require('../models/PriceRecord');   // match file name case
+
+const Competition  = require('../models/Competition');   // adjust if needed
+const SalesRecord  = require('../models/salesRecord');   // adjust if needed
+const PriceRecord  = require('../models/PriceRecord');   // match file case
+
 let FloorPlanComp;
-try {
-  FloorPlanComp = require('../models/floorPlanComp');     // if you have a model for plans per competition
-} catch (e) {
-  // optional: leave undefined; we’ll still work from PriceRecord if this model doesn't exist
-}
+try { FloorPlanComp = require('../models/floorPlanComp'); } catch { /* optional */ }
 
+// ---------- helpers ----------
+const toNumOrNull = v => (v === '' || v == null ? null : Number(v));
+const clean = v => (v === '' ? undefined : v); // avoid saving empty-string enums
 
+// ---------- list / minimal / get one / create ----------
+router.get('/', async (req, res) => {
+  try {
+    const comps = await Competition.find().lean();
+    res.json(comps);
+  } catch (e) { res.status(500).json({ error: e.message }); }
+});
+
+router.get('/minimal', async (req, res) => {
+  try {
+    const comps = await Competition.find({})
+      .select('communityName builderName city state')
+      .sort({ builderName: 1, communityName: 1 })
+      .lean();
+    res.json(comps);
+  } catch (e) { res.status(500).json({ error: e.message }); }
+});
+
+router.get('/:id', async (req, res) => {
+  try {
+    const comp = await Competition.findById(req.params.id).lean();
+    if (!comp) return res.status(404).json({ error: 'Not found' });
+    res.json(comp);
+  } catch (e) { res.status(400).json({ error: e.message }); }
+});
+
+router.post('/', async (req, res) => {
+  try {
+    const comp = await Competition.create(req.body);
+    res.status(201).json(comp);
+  } catch (e) { res.status(400).json({ error: e.message }); }
+});
+
+// ---------- generic update ----------
 router.put('/:id', async (req, res) => {
   try {
-    const competitionId = req.params.id;
-    const update = req.body;
-
-    const updated = await Competition.findByIdAndUpdate(competitionId, update, { new: true });
+    const updated = await Competition.findByIdAndUpdate(
+      req.params.id,
+      req.body,
+      { new: true, runValidators: true }
+    ).lean();
     if (!updated) return res.status(404).json({ message: 'Competition not found' });
-
     res.json(updated);
   } catch (err) {
     console.error('Update error:', err);
-    res.status(500).json({ message: 'Server error' });
+    res.status(400).json({ message: err.message });
   }
 });
 
+// ---------- amenities ----------
 router.put('/:id/amenities', async (req, res) => {
   try {
     const { communityAmenities } = req.body;
     const updated = await Competition.findByIdAndUpdate(
       req.params.id,
-      { communityAmenities },
-      { new: true }
-    );
+      { $set: { communityAmenities } },
+      { new: true, runValidators: true }
+    ).lean();
     res.json(updated);
   } catch (err) {
     console.error('Error updating amenities:', err);
-    res.status(500).json({ error: 'Server error' });
+    res.status(400).json({ error: err.message });
   }
 });
+
+// ---------- metrics (normalize blank enums, coerce numbers) ----------
 router.put('/:id/metrics', async (req, res) => {
-  console.log('💡 Incoming metrics payload:', req.body);
   try {
-    const { id } = req.params;
-    const update = {};
+    const {
+      promotion, topPlan1, topPlan2, topPlan3, pros, cons,
+      totalLots, hoaFee, hoaFrequency, pidFee, pidFeeFrequency
+    } = req.body;
 
-    // Allow multiple fields from metricsForm
-    const fields = ['promotion', 'topPlan1', 'topPlan2', 'topPlan3', 'pros', 'cons'];
-    fields.forEach(key => {
-      if (req.body[key] !== undefined) {
-        update[key] = req.body[key];
-      }
-    });
+    const $set = {
+      ...(promotion  !== undefined ? { promotion } : {}),
+      ...(topPlan1   !== undefined ? { topPlan1 } : {}),
+      ...(topPlan2   !== undefined ? { topPlan2 } : {}),
+      ...(topPlan3   !== undefined ? { topPlan3 } : {}),
+      ...(pros       !== undefined ? { pros } : {}),
+      ...(cons       !== undefined ? { cons } : {}),
+      ...(totalLots  !== undefined ? { totalLots: toNumOrNull(totalLots) } : {}),
+      ...(hoaFee     !== undefined ? { hoaFee: toNumOrNull(hoaFee) } : {}),
+      ...(hoaFrequency     !== undefined ? { hoaFrequency: clean(hoaFrequency) } : {}),
+      ...(pidFee     !== undefined ? { pidFee: toNumOrNull(pidFee) } : {}),
+      ...(pidFeeFrequency  !== undefined ? { pidFeeFrequency: clean(pidFeeFrequency) } : {}),
+    };
+    Object.keys($set).forEach(k => $set[k] === undefined && delete $set[k]);
 
-    const result = await Competition.findByIdAndUpdate(id, update, {
-      new: true
-    });
+    const updated = await Competition.findByIdAndUpdate(
+      req.params.id,
+      { $set },
+      { new: true, runValidators: true }
+    ).lean();
 
-    res.json(result);
+    if (!updated) return res.status(404).json({ error: 'Not found' });
+    res.json(updated);
   } catch (err) {
     console.error('Error updating competition metrics:', err);
-    res.status(500).json({ error: 'Failed to update competition metrics' });
+    res.status(400).json({ error: err.message });
   }
 });
 
+// ---------- monthly metrics (atomic upsert; no full doc save) ----------
 router.put('/:id/monthly-metrics', async (req, res) => {
-  const { id } = req.params;
-  const { soldLots, quickMoveInLots } = req.body;
-  const month = new Date().toISOString().slice(0, 7); // e.g. "2025-07"
-
   try {
-    const competition = await Competition.findById(id);
-    if (!competition) return res.status(404).json({ error: 'Competition not found' });
+    let { month, soldLots, quickMoveInLots } = req.body;
+    if (!month) return res.status(400).json({ error: 'month is required (YYYY-MM)' });
 
-    const existingIndex = competition.monthlyMetrics.findIndex(entry => entry.month === month);
+    if (soldLots        !== undefined) soldLots        = toNumOrNull(soldLots);
+    if (quickMoveInLots !== undefined) quickMoveInLots = toNumOrNull(quickMoveInLots);
 
-    if (existingIndex >= 0) {
-      competition.monthlyMetrics[existingIndex].soldLots = soldLots;
-      competition.monthlyMetrics[existingIndex].quickMoveInLots = quickMoveInLots;
-    } else {
-      competition.monthlyMetrics.push({
-        month,
-        soldLots,
-        quickMoveInLots
-      });
+    const upd = await Competition.updateOne(
+      { _id: req.params.id, 'monthlyMetrics.month': month },
+      {
+        $set: {
+          ...(soldLots !== undefined ? { 'monthlyMetrics.$.soldLots': soldLots } : {}),
+          ...(quickMoveInLots !== undefined ? { 'monthlyMetrics.$.quickMoveInLots': quickMoveInLots } : {}),
+        }
+      },
+      { runValidators: true }
+    );
+
+    if (upd.matchedCount === 0) {
+      await Competition.updateOne(
+        { _id: req.params.id },
+        {
+          $push: {
+            monthlyMetrics: {
+              month,
+              ...(soldLots !== undefined ? { soldLots } : {}),
+              ...(quickMoveInLots !== undefined ? { quickMoveInLots } : {}),
+            }
+          }
+        },
+        { runValidators: true }
+      );
     }
-
-    await competition.save();
-    res.json({ success: true });
+    res.json({ ok: true });
   } catch (err) {
-    console.error('Error saving monthly metrics:', err);
-    res.status(500).json({ error: 'Failed to save monthly metrics' });
+    console.error('💥 monthly-metrics save error:', err);
+    res.status(400).json({ error: err.message });
   }
 });
 
-router.get('/api/competitions/minimal', async (req, res) => {
+// ---------- monthly metrics (GET one month for hydration) ----------
+router.get('/:id/monthly', async (req, res) => {
   try {
-    const comps = await Competition.find({})
-      .select('communityName builderName city state') // only what we render
-      .sort({ builderName: 1, communityName: 1 })
-      .lean();
-    res.json(comps);
-  } catch (err) {
-    console.error('GET /competitions/minimal error:', err);
-    res.status(500).json({ error: 'Server error' });
-  }
+    const { month } = req.query;
+    const doc = await Competition.findById(req.params.id).lean();
+    if (!doc) return res.status(404).json({ error: 'Not found' });
+    const m = (doc.monthlyMetrics || []).find(x => x.month === month) || {};
+    res.json({
+      soldLots: m.soldLots ?? null,
+      quickMoveInLots: m.quickMoveInLots ?? null
+    });
+  } catch (e) { res.status(400).json({ error: e.message }); }
 });
 
+// ---------- sales (unchanged from yours) ----------
 router.get('/:id/sales', async (req, res) => {
   try {
     const { id } = req.params;
@@ -136,74 +200,55 @@ router.get('/:id/sales', async (req, res) => {
     res.status(500).json({ error: 'Failed to load sales records' });
   }
 });
-//base price graph //
+
+// ---------- base prices by plan (unchanged; minor cleanup) ----------
 router.get('/:id/base-prices-by-plan', async (req, res) => {
   try {
     const { id } = req.params;
     let { anchor } = req.query; // "YYYY-MM"
 
-    // default anchor = previous month
     if (!anchor) {
       const d = new Date();
       d.setMonth(d.getMonth() - 1);
-      const y = d.getFullYear();
-      const m = String(d.getMonth() + 1).padStart(2, '0');
-      anchor = `${y}-${m}`;
+      anchor = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`;
     }
 
-    // compute prior = anchor minus 1 month
     const [ay, am] = anchor.split('-').map(Number);
-    const priorDate = new Date(ay, am - 2, 1); // zero-based month: am-1 is anchor; am-2 is prior
+    const priorDate = new Date(ay, am - 2, 1);
     const prior = `${priorDate.getFullYear()}-${String(priorDate.getMonth() + 1).padStart(2, '0')}`;
 
-    // If you have a floor-plan model, use it to list plans; otherwise we’ll derive from PriceRecord.
     let planList = [];
-    if (FloorPlanComp) {
-      planList = await FloorPlanComp.find({ competition: id }).lean();
-    }
+    if (FloorPlanComp) planList = await FloorPlanComp.find({ competition: id }).lean();
 
-    // Pull all price records for the two months in one shot
-    const recs = await PriceRecord.find({
-      competition: id,
-      month: { $in: [prior, anchor] }
-    }).lean();
+    const recs = await PriceRecord.find({ competition: id, month: { $in: [prior, anchor] } }).lean();
 
-    // If we didn't get plans from FloorPlanComp, synthesize from the records we do have
     if (!planList.length) {
       const byPlan = new Map();
       for (const r of recs) {
         const pid = String(r.floorPlan || r.floorPlanId || '');
-        if (!byPlan.has(pid)) {
-          byPlan.set(pid, { _id: pid, name: r.floorPlanName || 'Plan' });
-        }
+        if (!pid) continue;
+        if (!byPlan.has(pid)) byPlan.set(pid, { _id: pid, name: r.floorPlanName || 'Plan' });
       }
       planList = Array.from(byPlan.values());
     }
 
-    // Aggregate price per plan per month (average if multiple records exist)
-    const acc = {}; // key: `${planId}|${month}` => { sum, count }
+    const acc = {};
     for (const r of recs) {
-      const planId = String(r.floorPlan || r.floorPlanId || '');
-      if (!planId) continue;
-      const key = `${planId}|${r.month}`;
+      const pid = String(r.floorPlan || r.floorPlanId || '');
+      if (!pid) continue;
+      const key = `${pid}|${r.month}`;
       if (!acc[key]) acc[key] = { sum: 0, count: 0 };
       acc[key].sum += Number(r.price) || 0;
       acc[key].count++;
     }
 
-    // Build response: every plan present, zeros if missing for a month
     const plans = planList.map(p => {
       const pid = String(p._id || p.id || p.planId || '');
       const priorKey  = `${pid}|${prior}`;
       const anchorKey = `${pid}|${anchor}`;
       const priorAvg  = acc[priorKey]  ? acc[priorKey].sum  / acc[priorKey].count  : 0;
       const anchorAvg = acc[anchorKey] ? acc[anchorKey].sum / acc[anchorKey].count : 0;
-      return {
-        id: pid,
-        name: p.name || p.title || p.planName || 'Unnamed Plan',
-        prior: priorAvg,
-        anchor: anchorAvg
-      };
+      return { id: pid, name: p.name || p.title || p.planName || 'Unnamed Plan', prior: priorAvg, anchor: anchorAvg };
     });
 
     res.json({ prior, anchor, plans });
@@ -212,4 +257,14 @@ router.get('/:id/base-prices-by-plan', async (req, res) => {
     res.status(500).json({ error: 'Failed to load per-plan base prices' });
   }
 });
+
+// ---------- delete ----------
+router.delete('/:id', async (req, res) => {
+  try {
+    const deleted = await Competition.findByIdAndDelete(req.params.id);
+    if (!deleted) return res.status(404).json({ error: 'Not found' });
+    res.json({ success: true });
+  } catch (e) { res.status(400).json({ error: e.message }); }
+});
+
 module.exports = router;

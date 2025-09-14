@@ -458,6 +458,7 @@ app.get('/api/competitions/:id/quick-moveins', async (req, res, next) => {
   }
 });
 
+
 // POST new quick-move-in
 app.post('/api/competitions/:id/quick-moveins', async (req, res, next) => {
   try {

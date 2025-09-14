@@ -22,6 +22,25 @@ import { populateTopPlans } from './plans.js';
 import { initFloorPlansModal, loadFloorPlansList } from './floorPlans.js';
 import { initFloorPlanModal } from './modal.js';
 
+let currentMonth = null;
+
+async function hydrateMonthlyUI(month) {
+  try {
+    const res = await fetch(`/api/competitions/${competitionId}/monthly?month=${encodeURIComponent(month)}`);
+    if (!res.ok) return;
+    const m = await res.json(); // { soldLots, quickMoveInLots }
+    if (DOM.soldInput) {
+      DOM.soldInput.value = m?.soldLots ?? '';
+      updateRemainingLots(totalLots, DOM.soldInput, DOM.remainingEl);
+    }
+    if (DOM.quickInput) {
+      DOM.quickInput.value = m?.quickMoveInLots ?? '';
+    }
+  } catch (e) {
+    console.warn('hydrateMonthlyUI failed', e);
+  }
+}
+
 /**
  * Application entrypoint
  */
@@ -35,20 +54,24 @@ document.addEventListener('DOMContentLoaded', async () => {
   'Nav months →',
   [...DOM.monthNav.querySelectorAll('a.nav-link')].map(a => a.dataset.month)
 );
-  bindMonthNav(DOM.monthNav, month => {
-    loadMonth(month);
-    loadQuickHomes(month);
-    loadSales(month);
-  });
+bindMonthNav(DOM.monthNav, month => {
+  currentMonth = month; // <-- add this
+  loadMonth(month);
+  loadQuickHomes(month);
+  loadSales(month);
+  hydrateMonthlyUI(month);
+});
 
     // ——— initial load for first month pill ———
-  const firstMonthLink = DOM.monthNav.querySelector('a.nav-link');
-  if (firstMonthLink) {
-    const month = firstMonthLink.dataset.month;
-    loadMonth(month);
-    loadQuickHomes(month);
-    loadSales(month);
-  }
+ const firstMonthLink = DOM.monthNav.querySelector('a.nav-link');
+if (firstMonthLink) {
+  const month = firstMonthLink.dataset.month;
+  currentMonth = month; // <-- add this
+  loadMonth(month);
+  loadQuickHomes(month);
+  loadSales(month);
+  hydrateMonthlyUI(month);
+}
 
   // 2) wire your section tabs
   bindSectionNav(DOM.sectionNav);
@@ -84,15 +107,22 @@ DOM.soldInput.addEventListener('input', () => {
 });
 
 // Persist Sold Lots on input/change/blur
-const persistSold = () => saveMonthly({ soldLots: num(DOM.soldInput.value) });
+const persistSold = () => {
+  if (!currentMonth) return console.warn('No active month set');
+  saveMonthly({ month: currentMonth, soldLots: DOM.soldInput.value });
+};
+DOM.soldInput.addEventListener('input',  persistSold); // <-- add this
 DOM.soldInput.addEventListener('change', persistSold);
-DOM.soldInput.addEventListener('blur', persistSold);
+DOM.soldInput.addEventListener('blur',   persistSold);
 
 // Persist Quick Move-Ins on input/change/blur (was only 'change' before)
-const persistQMI = () => saveMonthly({ quickMoveInLots: num(DOM.quickInput.value) });
-DOM.quickInput.addEventListener('input', persistQMI);
+const persistQMI = () => {
+  if (!currentMonth) return console.warn('No active month set');
+  saveMonthly({ month: currentMonth, quickMoveInLots: DOM.quickInput.value });
+};
+DOM.quickInput.addEventListener('input',  persistQMI);
 DOM.quickInput.addEventListener('change', persistQMI);
-DOM.quickInput.addEventListener('blur', persistQMI);
+DOM.quickInput.addEventListener('blur',   persistQMI);
 
 // Ensure initial remaining calc
 updateRemainingLots(totalLots, DOM.soldInput, DOM.remainingEl);

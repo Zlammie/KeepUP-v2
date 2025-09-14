@@ -3,27 +3,28 @@ import { competitionId } from './data.js';
 
 let timer;
 export function initMetrics(formEl, initialData, saveFn) {
-  // populate:
-  Object.entries(initialData).forEach(([k,v])=>{
-    if (formEl.elements[k]) formEl.elements[k].value = v;
+  // Populate only fields marked for metrics
+  formEl.querySelectorAll('[data-metrics]').forEach(input => {
+    const k = input.name;
+    if (k && initialData[k] != null) input.value = initialData[k];
   });
-  // debounce & auto-save
- formEl.addEventListener('input', ()=>{
+
+  formEl.addEventListener('input', () => {
     clearTimeout(timer);
-    timer = setTimeout(()=>{
-      const payload = Object.fromEntries(
-        [...formEl.elements].filter(el=>el.name).map(el=>[el.name,el.value])
-      );
+    timer = setTimeout(() => {
+      const payload = {};
+      formEl.querySelectorAll('[data-metrics]').forEach(el => {
+        if (el.name) payload[el.name] = el.value;
+      });
       saveFn(payload);
     }, 500);
   });
 }
 
 export async function saveMetrics(data) {
-  // imported competitionId from data.js
   await fetch(`/api/competitions/${competitionId}/metrics`, {
-    method:'PUT',
-    headers:{'Content-Type':'application/json'},
+    method: 'PUT',
+    headers: {'Content-Type': 'application/json'},
     body: JSON.stringify(data)
   });
 }

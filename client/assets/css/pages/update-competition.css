@@ -1,0 +1,156 @@
+.month-nav-wrap .btn.nav-prev,
+.month-nav-wrap .btn.nav-next {
+  min-width: 2.2rem;
+  line-height: 1;
+  padding: 0.25rem 0.5rem;
+}
+
+#monthNav {
+  display: flex !important;
+  justify-content: center !important;
+  align-items: center !important;
+}
+
+#monthNav .nav { /* if we render an inner <ul class="nav"> */
+  justify-content: center !important;
+}
+
+#monthNav .month-list {
+  margin-inline-start: 1rem;  /* LTR/RTL-safe; try .75rem–1.25rem */
+   gap: 0.75rem !important;   /* tweak: 0.5–1rem */
+}
+/* (Optional) ensure no legacy margins fight with gap */
+#monthNav .month-list .nav-item + .nav-item {
+  margin-left: 0 !important;
+}
+
+#monthNav .month-list .nav-link {
+  border-radius: 999px;
+  padding: .35rem .9rem;
+  transition: background .15s ease, color .15s ease, box-shadow .15s ease, transform .15s ease;
+}
+
+#monthNav .month-list .nav-link:hover {
+  background: #fff;
+  box-shadow: 0 2px 6px rgba(0,0,0,.05);
+}
+#monthNav .month-list .nav-link.active {
+  font-weight: 600;
+  transform: translateY(-1px);
+  box-shadow: 0 3px 10px rgba(0,0,0,.08);
+}
+
+/* arrow buttons: slightly larger hit area */
+#monthNav .nav-prev,
+#monthNav .nav-next {
+  min-width: 2.25rem;
+  height: 2.25rem;
+  line-height: 1;
+  padding: 0 .5rem;
+  border-radius: .5rem;
+}
+#monthNav .nav-next:disabled {
+  opacity: .45;
+  cursor: not-allowed;
+}
+
+/* optional: faint divider under the whole strip */
+#monthNav .month-nav-wrap {
+  border-bottom: 1px solid #e9ecef;
+  padding-bottom: .25rem;
+}
+
+/* optional: tighter phones view */
+@media (max-width: 576px) {
+  #monthNav .month-list { gap: .5rem !important; }
+  #monthNav .month-list .nav-link { padding: .3rem .7rem; }
+}
+.horizontal-cont {
+  display: flex;          /* if you already set this, this line is harmless */
+  align-items: flex-start; /* <-- top-align the children */
+  gap: 1rem;               /* optional: nice spacing between columns */
+}
+
+/* SECTION NAV */
+:root {
+  --tab-bg:            #f8f9fa;       /* idle tab bg */
+  --tab-border:        #dee2e6;       /* border color for tabs */
+  --tab-text:          #495057;       /* idle text */
+  --tab-active-bg:     #ffffff;       /* active tab bg (matches panel) */
+  --tab-active-text:   #0d6efd;       /* active text color */
+  --tab-active-border: #cfd4da;       /* active border (subtle) */
+  --panel-bg:          #ffffff;       /* content panel bg */
+  --panel-shadow:      0 2px 10px rgba(0,0,0,.06);
+}
+
+/* If you have a dark theme, you can override the vars inside a .dark class or prefers-color-scheme */
+
+/* ---------- Folder Tabs look ---------- */
+.folder-tabs {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-end;            /* tabs sit on the “shelf” */
+  gap: .5rem .75rem;                /* space between tabs (row/col) */
+  margin-bottom: 0;                 /* tabs will overlap panel by 1px */
+  border-bottom: 1px solid var(--tab-border);
+}
+
+/* Space for left arrow if your month nav sits nearby – adjust if needed */
+/* .folder-tabs { padding-inline-start: .25rem; } */
+
+.folder-tabs .nav-link {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+
+  padding: .6rem 1.1rem;            /* wider tabs */
+  min-width: 9.5rem;                /* make them feel “folder-like” */
+  text-align: center;
+
+  background: var(--tab-bg);
+  color: var(--tab-text);
+  border: 1px solid var(--tab-border);
+  border-bottom: 0;                 /* so active tab merges with panel */
+  border-top-left-radius: 12px;
+  border-top-right-radius: 12px;
+
+  margin-bottom: -1px;              /* overlap panel border */
+  transition: background .15s ease, color .15s ease, box-shadow .15s ease, transform .15s ease;
+}
+
+.folder-tabs .nav-link:hover {
+  background: #fff;
+  color: var(--tab-active-text);
+  box-shadow: 0 2px 6px rgba(0,0,0,.05);
+}
+
+.folder-tabs .nav-link.active {
+  background: var(--tab-active-bg);
+  color: var(--tab-active-text);
+  border-color: var(--tab-active-border);
+  z-index: 2;                       /* sit above the panel border */
+  box-shadow: 0 3px 10px rgba(0,0,0,.06);
+  transform: translateY(1px);       /* tiny “pressed” effect */
+}
+
+/* Optional: keyboard focus ring */
+.folder-tabs .nav-link:focus-visible {
+  outline: 0;
+  box-shadow: 0 0 0 .2rem rgba(13,110,253,.25);
+}
+
+/* ---------- Content panel that tabs sit on ---------- */
+.folder-panel {
+  position: relative;
+  background: var(--panel-bg);
+  border: 1px solid var(--tab-active-border);
+  border-radius: 0 12px 12px 12px;  /* top-left corner is “owned” by active tab */
+  padding: 1rem;
+  box-shadow: var(--panel-shadow);
+}
+
+/* If your first child in the panel has a top margin, neutralize it for a tight join */
+.folder-panel > :first-child {
+  margin-top: 0;
+}

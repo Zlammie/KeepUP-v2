@@ -17,8 +17,21 @@
 <%- include('../partials/top-nav-competition') %>
 
 <div class="horizontal-cont">
-  <div class="side-bar card . card--grey main-cont">
+  <div class="side-bar card card--grey main-cont">
      <div class="card card--white">
+
+      <button id="backToDetailsBtn" class="btn btn-outline-secondary btn-sm">
+        ← Back to Details
+      </button>
+
+      <!-- Script (module) -->
+      <script type="module">
+        import { competitionId } from '/assets/js/update-competition/data.js';
+        document.getElementById('backToDetailsBtn')
+          .addEventListener('click', () => {
+            window.location.href = `/competition-details/${competitionId}`;
+          });
+      </script>
           <div class="card-header">
             Competition Info
           </div>
@@ -161,14 +174,14 @@
         </ul>
       </div> 
   </div>
-   <main class="container mt-4">
+   <main class="container mt-0">
     
            <nav class="month-nav-container mt-3">
             <div class="d-flex overflow-auto">
              <ul id="monthNav" class="nav nav-pills flex-nowrap mb-3"></ul>
             </div>
                 <!-- ───────── section tabs ───────── -->
-              <ul id="sectionNav" class="nav nav-tabs mt-3">
+              <ul id="sectionNav" class="nav folder-tabs">
                  <li class="nav-item">
                     <a class="nav-link active" href="#" data-section="metrics">Metrics</a>
                   </li>
