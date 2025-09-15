@@ -1,7 +1,7 @@
 // Entry point — fetch data, seed UI, and wire listeners
 import { state } from './state.js';
 import { loadCommunities, loadLots } from './api.js';
-import { renderRows, updateCount } from './render.js';
+import { renderRows, updateCount, applyClientFilters } from './render.js';
 import { bindEvents } from './events.js';
 
 document.addEventListener('DOMContentLoaded', init);
@@ -17,6 +17,7 @@ async function init() {
 
   // 3) initial lots
   const lots = await loadLots();
-  renderRows(lots);
-  updateCount(lots.length);
+  const filtered = applyClientFilters(lots, state.filters);
+  renderRows(filtered);
+  updateCount(filtered.length);
 }

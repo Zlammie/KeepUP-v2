@@ -38,15 +38,43 @@ lots-table .sticky-col { position: sticky; z-index: 1; }
 .badge-muted     { background: #f1f5f9; color: #334155; }
 
 /* timeline */
-.timeline { display: flex; gap: 6px; flex-wrap: wrap; align-items: center; }
-.tl-item { font-size: 0.86em; }
-.tl-label { text-transform: uppercase; letter-spacing: .02em; opacity: .7; margin-right: 4px; font-size: .75em; }
-.tl-dot { opacity: .4; padding: 0 4px; }
+.timeline2-cell .timeline2-wrap {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  align-items: flex-end;
+  text-align: right;
+}
+.timeline2-cell .timeline2-sec {
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+  align-items: flex-end;
+}
+.timeline2-cell .timeline2-label {
+  font-size: 0.65rem;
+  letter-spacing: .02em;
+  text-transform: uppercase;
+  opacity: .6;
+}
+.timeline2-cell .timeline2-value {
+  font-size: 0.85rem;
+  font-weight: 600;
+}
+.timeline2-cell .timeline2-divider {
+  height: 1px;
+  background: rgba(0,0,0,0.1);
+  width: 100%;
+  margin: 2px 0;
+}
 
 /* walks */
-.walk-dots { display: inline-flex; gap: 6px; }
-.dot { width: 10px; height: 10px; border-radius: 50%; background: #e5e7eb; display: inline-block; }
-.dot.ok { background: #10b981; } /* green when done */
+.walk-dots { display: inline-flex; gap: 8px; align-items: center; }
+.dot { width: 10px; height: 10px; border-radius: 50%; display: inline-block; }
+.dot-none   { background: #ef4444; }  /* red */
+.dot-future { background: #3b82f6; }  /* blue */
+.dot-today  { background: #eab308; }  /* yellow */
+.dot-past   { background: #10b981; }  /* green */
 
 /* link and hover */
 .lots-table a.link { text-decoration: none; }
@@ -121,6 +149,41 @@ lots-table .sticky-col { position: sticky; z-index: 1; }
 .icon-btn:focus-visible {
   outline: 2px solid #0ea5e9;
   outline-offset: 2px;
+}
+
+/* Two-line price cell */
+.price-cell .price-wrap {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  align-items: flex-end; /* align everything right */
+  text-align: right;
+}
+
+.price-cell .price-sec {
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+  align-items: flex-end; /* right-align label + value */
+}
+
+.price-cell .price-label {
+  font-size: 0.65rem;        /* smaller label */
+  letter-spacing: .02em;
+  text-transform: uppercase;
+  opacity: .6;
+}
+
+.price-cell .price-value {
+  font-size: 0.85rem;        /* slightly smaller than before */
+  font-weight: 600;
+}
+
+.price-cell .price-divider {
+  height: 1px;
+  background: rgba(0,0,0,0.1);
+  width: 100%;
+  margin: 2px 0;
 }
 
   </style>

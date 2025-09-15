@@ -1,13 +1,12 @@
 // /assets/js/view-lots/render.js
 
-// ---------- small helpers ----------
+// ---------- tiny DOM & format helpers ----------
 function el(tag, className, text) {
   const n = document.createElement(tag);
   if (className) n.className = className;
   if (text != null) n.textContent = String(text);
   return n;
 }
-
 function fmtDate(d) {
   if (!d) return '';
   const dt = new Date(d);
@@ -19,8 +18,7 @@ function fmtDateTime(d) {
   const dt = new Date(d);
   if (isNaN(dt)) return '';
   return dt.toLocaleString(undefined, {
-    year: 'numeric', month: 'short', day: '2-digit',
-    hour: '2-digit', minute: '2-digit'
+    year: 'numeric', month: 'short', day: '2-digit', hour: '2-digit', minute: '2-digit'
   });
 }
 function fmtCurrency(n) {
@@ -28,8 +26,30 @@ function fmtCurrency(n) {
   return Number(n).toLocaleString(undefined, { style: 'currency', currency: 'USD', maximumFractionDigits: 0 });
 }
 
+// ---------- data extractors ----------
+function getPlanName(lot) {
+  if (lot.planName) return lot.planName;
+  if (lot.plan && typeof lot.plan === 'object') {
+    return lot.plan.name || lot.plan.title || lot.plan.code || lot.plan.planName || '';
+  }
+  if (lot.floorPlanName) return lot.floorPlanName;
+  if (lot.floorPlan && typeof lot.floorPlan === 'object') {
+    return lot.floorPlan.name || lot.floorPlan.title || lot.floorPlan.code || '';
+  }
+  // if plan is an ObjectId string, we can't infer a name client-side
+  return typeof lot.plan === 'string' ? '' : (lot.plan || '');
+}
+function getElevationName(lot) {
+  if (lot.elevationName) return lot.elevationName;
+  if (lot.elevation && typeof lot.elevation === 'object') {
+    return lot.elevation.name || lot.elevation.code || lot.elevation.title || '';
+  }
+  return typeof lot.elevation === 'string' ? lot.elevation : '';
+}
+
+// ---------- cell helpers ----------
 function iconCell(src, alt) {
-   const td = el('td', 'icon-cell text-center');
+  const td = el('td', 'icon-cell text-center');
   const btn = el('button', 'icon-btn btn btn-sm btn-link');
   btn.type = 'button';
   const img = el('img');
@@ -41,7 +61,6 @@ function iconCell(src, alt) {
   td.appendChild(btn);
   return td;
 }
-
 function twoLineCell(top, sub, strong = false) {
   const td = el('td');
   const col = el('div', `cell-col${strong ? ' strong' : ''}`);
@@ -50,7 +69,6 @@ function twoLineCell(top, sub, strong = false) {
   td.appendChild(col);
   return td;
 }
-
 function statusBadge(statusRaw) {
   const status = String(statusRaw || '').toLowerCase();
   const span = el('span', 'status-badge ' + (
@@ -65,84 +83,55 @@ function statusBadge(statusRaw) {
     : '—';
   return span;
 }
-
-function getPlanName(lot) {
-  // Prefer explicit fields
-  if (lot.planName) return lot.planName;
-
-  // If 'plan' is an object, try common name fields
-  if (lot.plan && typeof lot.plan === 'object') {
-    return lot.plan.name || lot.plan.title || lot.plan.code || lot.plan.planName || '';
-  }
-
-  // Other common shapes used in some pages/APIs
-  if (lot.floorPlanName) return lot.floorPlanName;
-  if (lot.floorPlan && typeof lot.floorPlan === 'object') {
-    return lot.floorPlan.name || lot.floorPlan.title || lot.floorPlan.code || '';
-  }
-
-  // If it's a plain string (but not a readable name), you’ll likely need server-side population
-  return typeof lot.plan === 'string' ? '' : '';
-}
-
-function getElevationName(lot) {
-  if (lot.elevationName) return lot.elevationName;
-  if (lot.elevation && typeof lot.elevation === 'object') {
-    return lot.elevation.name || lot.elevation.code || lot.elevation.title || '';
-  }
-  return typeof lot.elevation === 'string' ? lot.elevation : '';
-}
-
 function walksDots(firstDone, finalDone) {
   const td = el('td');
   const wrap = el('div', 'walk-dots');
-  const dot1 = el('span', 'dot' + (firstDone ? ' ok' : ''));
-  dot1.title = '1st Walk';
-  const dot2 = el('span', 'dot' + (finalDone ? ' ok' : ''));
-  dot2.title = 'Final Sign Off';
-  wrap.appendChild(dot1);
-  wrap.appendChild(dot2);
+  const dot1 = el('span', 'dot' + (firstDone ? ' ok' : '')); dot1.title = '1st Walk';
+  const dot2 = el('span', 'dot' + (finalDone ? ' ok' : '')); dot2.title = 'Final Sign Off';
+  wrap.appendChild(dot1); wrap.appendChild(dot2);
+  td.appendChild(wrap);
+  return td;
+}
+function timelineCell({ releaseDate, expectedCompletionDate } = {}) {
+  const td = el('td', 'timeline2-cell');
+
+  const wrap = el('div', 'timeline2-wrap');
+
+  // Top: Release Date
+  const topSec = el('div', 'timeline2-sec');
+  topSec.appendChild(el('div', 'timeline2-label', 'Release Date'));
+  topSec.appendChild(el('div', 'timeline2-value', fmtDate(releaseDate) || '—'));
+  wrap.appendChild(topSec);
+
+  // Divider
+  wrap.appendChild(el('div', 'timeline2-divider'));
+
+  // Bottom: Expected Completion (month)
+  const botSec = el('div', 'timeline2-sec');
+  botSec.appendChild(el('div', 'timeline2-label', 'Expected Completion'));
+  botSec.appendChild(el('div', 'timeline2-value', fmtMonth(expectedCompletionDate) || '—'));
+  wrap.appendChild(botSec);
+
   td.appendChild(wrap);
   return td;
 }
 
-function timelineCell({ releaseDate, expectedCompletionDate, firstWalkDate, finalSignOffDate } = {}) {
-  const td = el('td');
-  const tl = el('div', 'timeline');
-
-  const add = (label, value) => {
-    const item = el('div', 'tl-item');
-    item.appendChild(el('span', 'tl-label', label));
-    item.appendChild(el('span', null, value || '—'));
-    tl.appendChild(item);
-    tl.appendChild(el('span', 'tl-dot', '•'));
-  };
-
-  add('Release', fmtDate(releaseDate));
-  add('Expected', fmtDate(expectedCompletionDate));
-  add('1st', fmtDate(firstWalkDate));
-  // remove trailing dot
-  tl.removeChild(tl.lastChild);
-  // final item (no trailing dot)
-  const last = el('div', 'tl-item');
-  last.appendChild(el('span', 'tl-label', 'Final'));
-  last.appendChild(el('span', null, fmtDate(finalSignOffDate) || '—'));
-  tl.appendChild(last);
-
-  td.appendChild(tl);
-  return td;
+    function fmtMonth(d) {
+  if (!d) return '';
+  const dt = new Date(d);
+  if (isNaN(dt)) return '';
+  return dt.toLocaleString(undefined, { month: 'short', year: 'numeric' }); // e.g., "Sep 2025"
 }
-
 function addressCell(lot) {
   // sticky col #3
   const td = el('td', 'sticky-col sc-3');
   const col = el('div', 'cell-col');
 
+  // Build correct link: /address-details?communityId=...&lotId=...
   const communityId =
     lot.communityId ||
     (lot.community && (lot.community._id || lot.community.id)) ||
-    window.__communityId || '';   // <- fallback to selected community
-
+    window.__communityId || '';
   const lotId = lot._id || '';
 
   const a = el('a', 'link');
@@ -150,37 +139,170 @@ function addressCell(lot) {
   a.textContent = lot.addressLine1 || lot.address || 'Address';
 
   const subLines = [];
-
-  // city/state/zip line
+  // city/state/zip
   {
-    const sub = [];
-    if (lot.city) sub.push(lot.city);
-    if (lot.state) sub.push(lot.state);
-    if (lot.zip) sub.push(lot.zip);
-    if (sub.length) subLines.push(sub.join(', '));
+    const s = [];
+    if (lot.city) s.push(lot.city);
+    if (lot.state) s.push(lot.state);
+    if (lot.zip) s.push(lot.zip);
+    if (s.length) subLines.push(s.join(', '));
   }
-
-  // purchaser line (if available)
+  // purchaser line
   {
     const buyer =
       lot.purchaserName ||
       (lot.purchaser && (lot.purchaser.name || [lot.purchaser.firstName, lot.purchaser.lastName].filter(Boolean).join(' '))) ||
-      lot.buyerName ||
-      '';
+      lot.buyerName || '';
     if (buyer) subLines.push(`Purchaser: ${buyer}`);
   }
 
-  const top = el('div', 'cell-top');
-  top.appendChild(a);
+  const top = el('div', 'cell-top'); top.appendChild(a);
   col.appendChild(top);
-
   subLines.forEach(line => col.appendChild(el('div', 'cell-sub', line)));
 
   td.appendChild(col);
   return td;
 }
 
-// ---------- exports expected by index.js / events.js ----------
+function priceCell(lot) {
+  const td = el('td', 'price-cell text-right');
+
+  const list =
+    lot.listPrice ??
+    lot.list_price ??
+    lot.basePrice ??
+    lot.price ??
+    null;
+
+  const sales =
+    lot.salesPrice ??
+    lot.sales_price ??
+    lot.salePrice ??
+    null;
+
+  const wrap = el('div', 'price-wrap');
+
+  // Top: List Price
+  const topSec = el('div', 'price-sec');
+  topSec.appendChild(el('div', 'price-label', 'List Price'));
+  topSec.appendChild(el('div', 'price-value', list != null ? fmtCurrency(list) : '—'));
+  wrap.appendChild(topSec);
+
+  // Divider
+  wrap.appendChild(el('div', 'price-divider'));
+
+  // Bottom: Sales Price
+  const botSec = el('div', 'price-sec');
+  botSec.appendChild(el('div', 'price-label', 'Sales Price'));
+  botSec.appendChild(el('div', 'price-value', sales != null ? fmtCurrency(sales) : '—'));
+  wrap.appendChild(botSec);
+
+  td.appendChild(wrap);
+  return td;
+}
+
+function isSameDay(a, b) {
+  return a.getFullYear() === b.getFullYear()
+    && a.getMonth() === b.getMonth()
+    && a.getDate() === b.getDate();
+}
+
+function walkStatusFromDate(d) {
+  if (!d) return 'none';                    // not scheduled -> red
+  const dt = new Date(d);
+  if (isNaN(dt)) return 'none';
+  const today = new Date();
+  // strip time on both for “same day”
+  const t0 = new Date(today.getFullYear(), today.getMonth(), today.getDate());
+  const d0 = new Date(dt.getFullYear(), dt.getMonth(), dt.getDate());
+  if (d0.getTime() === t0.getTime()) return 'today'; // yellow
+  if (d0.getTime() > t0.getTime()) return 'future';  // blue
+  return 'past';                                     // green
+}
+
+function walkDot(status, label, dateVal) {
+  const span = document.createElement('span');
+  span.className = `dot dot-${status}`; // dot-none/red, dot-future/blue, dot-today/yellow, dot-past/green
+  const when = dateVal ? fmtDate(dateVal) : 'Not scheduled';
+  span.title = `${label}: ${when}`;
+  return span;
+}
+
+// 3-dot cell: Third Party, 1st Walk, Final Sign Off
+function walksCell(lot) {
+  const td = document.createElement('td');
+  const wrap = document.createElement('div');
+  wrap.className = 'walk-dots';
+
+  // Only “active” if we have a purchaser; otherwise all gray
+  const hasBuyer = hasPurchaser(lot);
+
+  const thirdStatus = hasBuyer ? walkStatusFromDate(lot.thirdPartyDate)     : 'none';
+  const firstStatus = hasBuyer ? walkStatusFromDate(lot.firstWalkDate)      : 'none';
+  const finalStatus = hasBuyer ? walkStatusFromDate(lot.finalSignOffDate)   : 'none';
+
+  wrap.appendChild(walkDot(thirdStatus, '3rd Party', lot.thirdPartyDate));
+  wrap.appendChild(walkDot(firstStatus, '1st Walk', lot.firstWalkDate));
+  wrap.appendChild(walkDot(finalStatus, 'Final Sign Off', lot.finalSignOffDate));
+
+  td.appendChild(wrap);
+  return td;
+}
+
+// ---------- filtering (single source of truth) ----------
+// check if purchaser is linked
+function hasPurchaser(lot) {
+  return Boolean(
+    lot.purchaserName ||
+    (lot.purchaser && (lot.purchaser.name || lot.purchaser.firstName || lot.purchaser.lastName)) ||
+    lot.buyerName
+  );
+}
+
+// SPEC = under construction OR finished, AND no purchaser
+function isSpec(lot) {
+  const statuses = [
+    lot.buildingStatus,
+    lot.constructionStatus,
+    lot.homeStatus,
+    lot.status
+  ].map(v => (v ?? '').toString().toLowerCase());
+
+  const underOrFinished = statuses.some(s =>
+    s.includes('under construction') ||
+    s.includes('under-construction') ||
+    s.includes('construction') ||
+    s.includes('spec') ||
+    s.includes('finished') ||
+    s.includes('complete') ||
+    s.includes('completed')
+  );
+
+  return underOrFinished && !hasPurchaser(lot);
+}
+
+// Sold = any stage, but has purchaser
+function isSold(lot) {
+  return hasPurchaser(lot);
+}
+
+export function applyClientFilters(lots, filtersSet) {
+  if (!filtersSet || filtersSet.size === 0) return lots;
+  const wantSpec = filtersSet.has('spec');
+  const wantSold = filtersSet.has('sold');
+  if (!wantSpec && !wantSold) return lots;
+
+  return lots.filter(lot => {
+    const spec = isSpec(lot);
+    const sold = isSold(lot);
+    if (wantSpec && wantSold) return spec || sold;
+    if (wantSpec) return spec;
+    if (wantSold) return sold;
+    return true;
+  });
+}
+
+// ---------- exports used by index.js / events.js ----------
 export function updateCount(n) {
   const elCount = document.querySelector('#vl-count');
   if (elCount) elCount.textContent = String(n ?? 0);
@@ -195,19 +317,19 @@ export function renderRows(lots = []) {
     const row = el('tr');
     row.dataset.id = lot._id || '';
 
-    // Icons FIRST: Task, Flag, Comment
+    // 1) Icons FIRST: Task, Flag, Comment
     row.appendChild(iconCell('/assets/icons/add_task.svg', 'Task'));
     row.appendChild(iconCell('/assets/icons/exclamation.svg', 'Flag'));
     row.appendChild(iconCell('/assets/icons/comment.svg', 'Comment'));
 
-    // Job # (sticky #1)
+    // 2) Job # (sticky #1)
     {
       const td = twoLineCell(lot.jobNumber || '—', '', true);
       td.classList.add('sticky-col', 'sc-1');
       row.appendChild(td);
     }
 
-    // Lot / Block / Phase (sticky #2)
+    // 3) Lot / Block (Phase as sub) (sticky #2)
     {
       const top = [lot.lot, lot.block].filter(Boolean).join(' • ') || '—';
       const sub = lot.phase ? `Phase ${lot.phase}` : '';
@@ -216,10 +338,10 @@ export function renderRows(lots = []) {
       row.appendChild(td);
     }
 
-    // Address (sticky #3)
+    // 4) Address (with purchaser under) (sticky #3)
     row.appendChild(addressCell(lot));
 
-    // --- Plan / Elv ---
+    // 5) Plan / Elv (object-safe names)
     {
       const plan = getPlanName(lot);
       const elv  = getElevationName(lot);
@@ -227,49 +349,127 @@ export function renderRows(lots = []) {
       row.appendChild(twoLineCell(top, ''));
     }
 
-
-    // Home Status
+    // 6) Home Status (badge)
     {
       const td = el('td');
       td.appendChild(statusBadge(lot.homeStatus || lot.status));
       row.appendChild(td);
     }
 
-    // Timeline
-    row.appendChild(
-      timelineCell({
-        releaseDate: lot.releaseDate,
-        expectedCompletionDate: lot.expectedCompletionDate,
-        firstWalkDate: lot.firstWalkDate,
-        finalSignOffDate: lot.finalSignOffDate
-      })
-    );
 
-    // Walks
-    row.appendChild(
-      walksDots(Boolean(lot.firstWalkDone), Boolean(lot.finalSignOffDone))
-    );
 
-    // Closing
+    // 7) Timeline
+    row.appendChild(timelineCell({
+      releaseDate: lot.releaseDate,
+      expectedCompletionDate: lot.expectedCompletionDate,
+      firstWalkDate: lot.firstWalkDate,
+      finalSignOffDate: lot.finalSignOffDate
+    }));
+function pickDate(...cands) {
+  for (const v of cands) {
+    if (v == null) continue;
+    if (v instanceof Date) return v;
+    if (typeof v === 'number') {
+      const d = new Date(v);
+      if (!isNaN(d)) return d;
+    }
+    if (typeof v === 'string') {
+      const s = v.trim();
+      if (!s) continue;
+      const d = new Date(s);
+      if (!isNaN(d)) return d;
+    }
+    if (typeof v === 'object') {
+      const inner = v.date || v.when || v.start || v.value;
+      if (inner) {
+        const d = new Date(inner);
+        if (!isNaN(d)) return d;
+      }
+    }
+  }
+  return null;
+}
+
+function getWalkDates(lot) {
+  return {
+    third: pickDate(
+      lot.thirdPartyDate,
+      lot.thirdParty,
+      lot.thirdPartyWalkDate,
+      lot.thirdPartyInspectionDate,
+      lot.thirdPartyScheduledDate,
+      lot.walk3Date
+    ),
+    first: pickDate(
+      lot.firstWalkDate,
+      lot.firstWalk,
+      lot.firstWalkScheduledDate,
+      lot.walk1Date
+    ),
+    final: pickDate(
+      lot.finalSignOffDate,
+      lot.finalWalkDate,
+      lot.finalSignOff,
+      lot.finalWalkScheduledDate,
+      lot.walkFinalDate,
+      lot.walk2Date
+    ),
+  };
+}
+
+// map a date to a status token
+function walkStatusFromDate(d) {
+  if (!d) return 'none'; // scheduled? -> red if purchaser, else gray via 'inactive'
+  const dt = d instanceof Date ? d : new Date(d);
+  if (isNaN(dt)) return 'none';
+  const today = new Date();
+  const t0 = new Date(today.getFullYear(), today.getMonth(), today.getDate());
+  const d0 = new Date(dt.getFullYear(), dt.getMonth(), dt.getDate());
+  if (d0.getTime() === t0.getTime()) return 'today';   // yellow
+  if (d0.getTime() > t0.getTime())  return 'future';  // blue
+  return 'past';                                      // green
+}
+
+function walkDot(status, label, dateVal) {
+  const span = document.createElement('span');
+  span.className = `dot dot-${status}`;
+  const when = dateVal ? fmtDate(dateVal) : 'Not scheduled';
+  span.title = `${label}: ${when}`;
+  return span;
+}
+
+// 3-dot cell using purchaser + dates
+function walksCell(lot) {
+  const td = document.createElement('td');
+  const wrap = document.createElement('div');
+  wrap.className = 'walk-dots';
+
+  const hasBuyer = hasPurchaser(lot);
+  const { third, first, final } = getWalkDates(lot);
+
+  const thirdStatus = hasBuyer ? walkStatusFromDate(third) : 'inactive';
+  const firstStatus = hasBuyer ? walkStatusFromDate(first) : 'inactive';
+  const finalStatus = hasBuyer ? walkStatusFromDate(final) : 'inactive';
+
+  wrap.appendChild(walkDot(thirdStatus, '3rd Party', third));
+  wrap.appendChild(walkDot(firstStatus, '1st Walk', first));
+  wrap.appendChild(walkDot(finalStatus, 'Final Sign Off', final));
+
+  td.appendChild(wrap);
+  return td;
+}
+    // 8) Walks
+    row.appendChild(walksCell(lot));
+
+    // 9) Closing
     {
       const top = fmtDate(lot.closeDate) || '—';
       const sub = lot.closeTime ? `@ ${lot.closeTime}` : (lot.closeDate ? fmtDateTime(lot.closeDate) : '');
       row.appendChild(twoLineCell(top, sub || ''));
     }
 
-      // --- Price (right-aligned) ---
-    {
-      const td = el('td', 'text-right strong');
-      const price =
-        lot.salesPrice ??
-        lot.listPrice ??
-        lot.list_price ??
-        lot.basePrice ??
-        lot.price ??
-        null;
-      td.textContent = price != null ? fmtCurrency(price) : '';
-      row.appendChild(td);
-    }
+    // 10) Price (right-aligned, robust fallbacks)
+    row.appendChild(priceCell(lot));
 
     tbody.appendChild(row);
   });
