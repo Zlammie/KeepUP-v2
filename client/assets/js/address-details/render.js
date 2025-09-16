@@ -9,10 +9,13 @@ import {
 } from './statusMaps.js';
 
 export const renderTitleAndBasics = (lot) => {
-  els.lotTitle.textContent = `Lot ${lot.jobNumber ?? ''} – ${lot.address ?? ''}`;
+  els.lotTitle.textContent =  `${lot.address ?? ''}`;
   els.jobNumberValue.textContent = lot.jobNumber ?? '';
   els.lotBlockPhaseValue.textContent = `${lot.lot ?? ''} / ${lot.block ?? ''} / ${lot.phase ?? ''}`;
-  els.addressValue.textContent = lot.address ?? '';
+
+  if (els.addressValue) {
+    els.addressValue.textContent = lot.address ?? '';
+  }
 };
 
 export const renderGeneralStatus = (lot, purchaserContact, primaryEntry) => {
@@ -39,71 +42,103 @@ export const renderTopBar = (lot, primaryEntry) => {
   // Building status badge
   {
     const raw = lot.status || 'Not-Started';
-    els.buildingStatusValue.innerHTML =
-      `<span class="status-badge ${buildingClasses[raw]}">${buildingLabels[raw]}</span>`;
-    els.startDateValue.textContent = lot.releaseDate ?? '';
+    if (els.buildingStatusValue) {
+      els.buildingStatusValue.innerHTML =
+        `<span class="status-badge ${buildingClasses[raw]}">${buildingLabels[raw]}</span>`;
+    }
+    if (els.startDateValue) {
+      els.startDateValue.textContent = lot.releaseDate ?? '';
+    }
   }
 
   // Walks
   {
     const rawWalk = lot.walkStatus || 'waitingOnBuilder';
-    els.walkStatusValue.innerHTML =
-      `<span class="status-badge ${walkStatusClasses[rawWalk]}">${walkStatusLabels[rawWalk]}</span>`;
+    if (els.walkStatusValue) {
+      els.walkStatusValue.innerHTML =
+        `<span class="status-badge ${walkStatusClasses[rawWalk]}">${walkStatusLabels[rawWalk]}</span>`;
+    }
 
-    els.thirdPartyStatusValue.textContent = lot.thirdParty ? formatDateTime(lot.thirdParty) : '';
-    els.firstWalkStatusValue.textContent  = lot.firstWalk ? formatDateTime(lot.firstWalk) : '';
-    els.finalSignOffStatusValue.textContent = lot.finalSignOff ? formatDateTime(lot.finalSignOff) : '';
+    if (els.thirdPartyStatusValue) {
+      els.thirdPartyStatusValue.textContent = lot.thirdParty ? formatDateTime(lot.thirdParty) : '';
+    }
+    if (els.firstWalkStatusValue) {
+      els.firstWalkStatusValue.textContent  = lot.firstWalk ? formatDateTime(lot.firstWalk) : '';
+    }
+    if (els.finalSignOffStatusValue) {
+      els.finalSignOffStatusValue.textContent = lot.finalSignOff ? formatDateTime(lot.finalSignOff) : '';
+    }
   }
 
   // Lender + Closing
   if (primaryEntry) {
     const rawLS = primaryEntry.status || 'invite';
-    els.lenderStatusValue.innerHTML =
-      `<span class="status-badge ${lenderStatusClasses[rawLS]}">${lenderStatusLabels[rawLS]}</span>`;
+    if (els.lenderStatusValue) {
+      els.lenderStatusValue.innerHTML =
+        `<span class="status-badge ${lenderStatusClasses[rawLS]}">${lenderStatusLabels[rawLS]}</span>`;
+    }
 
     const rawCS = primaryEntry.closingStatus || 'notLocked';
-    els.closingStatusValue.innerHTML =
-      `<span class="status-badge ${closingStatusClasses[rawCS]}">${closingStatusLabels[rawCS]}</span>`;
+    if (els.closingStatusValue) {
+      els.closingStatusValue.innerHTML =
+        `<span class="status-badge ${closingStatusClasses[rawCS]}">${closingStatusLabels[rawCS]}</span>`;
+    }
 
-    els.closingDateValue.textContent = primaryEntry.closingDateTime
-      ? formatDateTime(primaryEntry.closingDateTime)
-      : '';
+    if (els.closingDateValue) {
+      els.closingDateValue.textContent = primaryEntry.closingDateTime
+        ? formatDateTime(primaryEntry.closingDateTime)
+        : '';
+    }
   }
 };
 
 export const renderRightColumn = (purchaser, realtor, primaryEntry) => {
-  // Purchaser
-  if (purchaser) {
-    els.purchaserValue.textContent = purchaser.lastName ?? '';
-    els.purchaserPhoneValue.textContent = purchaser.phone ?? '';
-    els.purchaserEmailValue.textContent = purchaser.email ?? '';
-  } else {
-    els.purchaserValue.textContent = '';
-    els.purchaserPhoneValue.textContent = '';
-    els.purchaserEmailValue.textContent = '';
+  // helpers
+  const el = (id) => document.getElementById(id);           // fallback if els.* isn't mapped
+  const set = (node, v) => { if (node) node.textContent = v ?? ''; };
+  const nameFrom = (obj) => {
+    if (!obj) return '';
+    // accept many shapes: {firstName,lastName}, {name}, {fullName}
+    const byParts = `${obj.firstName ?? ''} ${obj.lastName ?? ''}`.trim();
+    return byParts || obj.name || obj.fullName || '';
+  };
+  const phoneFrom = (obj) => obj?.phone ?? obj?.mobile ?? obj?.cell ?? obj?.primaryPhone ?? '';
+  const emailFrom = (obj) => obj?.email ?? obj?.emailAddress ?? '';
+
+  // --- Purchaser: Full Name + Phone + Email
+  {
+    const full   = nameFrom(purchaser);
+    const phone  = phoneFrom(purchaser);
+    const email  = emailFrom(purchaser);
+
+    set(els?.purchaserValue || el('purchaserValue'), full);
+    set(els?.purchaserPhoneValue || el('purchaserPhoneValue'), phone);
+    set(els?.purchaserEmailValue || el('purchaserEmailValue'), email);
   }
 
-  // Realtor
-  if (realtor) {
-    els.realtorNameValue.textContent  = `${realtor.firstName ?? ''} ${realtor.lastName ?? ''}`.trim();
-    els.realtorPhoneValue.textContent = realtor.phone ?? '';
-    els.realtorEmailValue.textContent = realtor.email ?? '';
-  } else {
-    els.realtorNameValue.textContent = '';
-    els.realtorPhoneValue.textContent = '';
-    els.realtorEmailValue.textContent = '';
+  // --- Realtor: Full Name + Phone + Email
+  {
+    const full   = nameFrom(realtor);
+    const phone  = phoneFrom(realtor);
+    const email  = emailFrom(realtor);
+
+    set(els?.realtorNameValue || el('realtorNameValue'), full);
+    set(els?.realtorPhoneValue || el('realtorPhoneValue'), phone);
+    set(els?.realtorEmailValue || el('realtorEmailValue'), email);
   }
 
-  // Lender contact card
-  if (primaryEntry?.lender) {
-    const L = primaryEntry.lender;
-    els.lenderNameFinance.textContent  = L.name || `${L.firstName ?? ''} ${L.lastName ?? ''}`.trim();
-    els.lenderPhoneFinance.textContent = L.phone ?? '';
-    els.lenderEmailFinance.textContent = L.email ?? '';
-  } else {
-    els.lenderNameFinance.textContent = '';
-    els.lenderPhoneFinance.textContent = '';
-    els.lenderEmailFinance.textContent = '';
+  // --- Lender (from primaryEntry.lender): Name — Brokerage + Phone + Email
+  {
+    const L = primaryEntry?.lender;
+    const displayName = nameFrom(L);
+    const brokerage   = L?.brokerage ?? L?.company ?? L?.organization ?? '';
+    const nameLine    = brokerage ? `${displayName} — ${brokerage}` : displayName;
+    const phone       = phoneFrom(L);
+    const email       = emailFrom(L);
+
+    set(els?.lenderNameFinance  || el('lenderNameFinance'),  nameLine);
+    set(els?.lenderPhoneFinance || el('lenderPhoneFinance'), phone);
+    set(els?.lenderEmailFinance || el('lenderEmailFinance'), email);
   }
 };
 

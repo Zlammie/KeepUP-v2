@@ -1,91 +1,140 @@
-<!-- address-details.html: updated inputs/selects for auto-save fields -->
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8">
+  <meta charset="UTF-8" />
   <title>Address Details</title>
-  <link rel="stylesheet" href="/assets/css/main.css">
+  <link rel="stylesheet" href="/assets/css/main.css" />
+  <link rel="stylesheet" href="/assets/css/pages/address-details.css"/>
 </head>
-<body data-community-id="" data-lot-id="">
- <%- include('../partials/nav') %>
+<body data-community-id="<%= communityId %>" data-lot-id="<%= lotId %>">
+  <%- include('../partials/nav') %>
   <%- include('../partials/top-nav-community') %>
 
-  <h1 id="lotTitle">Loading…</h1>
+  <header class="addr-header">
+    <div>
+      <h1 id="lotTitle">Loading…</h1>
+      <div class="sub-info">
+        <span id="jobNumberValue" class="value readonly"></span> •
+        <span id="lotBlockPhaseValue" class="value readonly"></span>
+      </div>
+    </div>
 
-  <!-- Status Bar -->
-<section class="section status-section">
-    <div class="status-bar">
-      <div class="status-general">
-        <label>General Status</label>
-        <div id="generalStatusValue" class="value readonly"></div>
-      </div>
-      <div class="status-building">
-        <label>Building Status</label>
-        <div id="buildingStatusValue" class="value readonly"></div>
-        <label class="sub-label">Start Date</label>
-        <div id="startDateValue" class="value readonly"></div>
-      </div>
-      <div class="status-walk">
-        <label>Walk Status</label>
-        <div id="walkStatusValue" class="value readonly"></div>
-        <div class="walk-details">
-          <div class="field small">
-            <label>3rd Party</label>
-            <div id="thirdPartyStatusValue" class="value readonly"></div>
-          </div>
-          <div class="field small">
-            <label>1st Walk</label>
-            <div id="firstWalkStatusValue" class="value readonly"></div>
-          </div>
-          <div class="field small">
-            <label>Final Sign Off</label>
-            <div id="finalSignOffStatusValue" class="value readonly"></div>
-          </div>
+    
+
+   <div class="price-card card card--grey">
+      <div class="row two">
+        <div class="field">
+          <label for="listPriceInput">List Price</label>
+          <input id="listPriceInput" class="value" inputmode="numeric" placeholder="$450,000" />
+        </div>
+        <div class="field">
+          <label class="sub">Sales Price</label>
+          <div id="salesPriceValue" class="value readonly"></div>
         </div>
       </div>
-      <div class="status-lender">
-        <label>Lender Status</label>
-        <div id="lenderStatusValue" class="value readonly"></div>
+      <div class="row three">
+        <div class="field"><label>Closing Date</label><div id="closingDateValue" class="value readonly"></div></div>
+        <div class="field"><label>Closing Time</label><div id="closingTimeValue" class="value readonly"></div></div>
+        <div class="field"><label>Sales Date</label><div id="salesDateValue" class="value readonly"></div></div>
       </div>
-      <div class="status-closing">
-        <label>Closing Status</label>
-        <div id="closingStatusValue" class="value readonly"></div>
-        <label class="sub-label">Closing Date</label>
-        <div id="closingDateValue" class="value readonly"></div>
+    </div>
+
+ <div class="addr-right">
+    <!-- STATUS CHIP BAR -->
+    <section class="chipbar card card--grey">
+      <div class="chip chip--general">
+        <span class="chip__label">General Status</span>
+        <div id="generalStatusValue" class="chip__value readonly"></div>
       </div>
+      <div class="chip chip--building">
+        <span class="chip__label">Building Status</span>
+        <div id="buildingStatusValue" class="chip__value readonly"></div>
+      </div>
+      <div class="chip chip--dc">
+        <span class="chip__label">Design Status</span>
+        <div id="designCenterStatusValue" class="chip__value readonly"></div>
+      </div>
+      <div class="chip chip--lender">
+        <span class="chip__label">Lender Status</span>
+        <div id="lenderStatusValue" class="chip__value readonly"></div>
+      </div>
+      <div class="chip chip--walk">
+        <span class="chip__label">Walk Status</span>
+        <div id="walkStatusValue" class="chip__value readonly"></div>
+      </div>
+      <div class="chip chip--closing">
+        <span class="chip__label">Closing Status</span>
+        <div id="closingStatusValue" class="chip__value readonly"></div>
+      </div>
+    </section>
+  </div>
+  </header>
+  <!-- CONTACT STRIP: Purchaser / Realtor / Lender -->
+  <section class="contact-strip card card--grey">
+    <div class="contact-card card card--white">
+      <h3><div class="value readonly" id="purchaserValue"></div></h3>
+      <div class="row two">
+        <div class="field icon-field">
+          <span class="field icon-field">
+          <img class="icon" src="/assets/icons/phone.svg" alt="" aria-hidden="true">
+          </span>
+          <div id="purchaserPhoneValue" class="value readonly one-line"></div>
+        </div>
+        <div class="field">
+          <span class="field icon-field">
+          <img class="icon" src="/assets/icons/email.svg" alt="" aria-hidden="true">
+          </span>
+          <div id="purchaserEmailValue" class="value readonly"></div>
+        </div>
+      </div>
+      
+    </div>
+    <div class="contact-card card card--white">
+      <h3><div class="value readonly" id="realtorNameValue"></div></h3>
+      <div class="row two">
+        <div class="field">
+          <span class="field icon-field">
+          <img class="icon" src="/assets/icons/phone.svg" alt="" aria-hidden="true">
+          </span>   
+          <div id="realtorPhoneValue" class="value readonly"></div>
+        </div>
+        <div class="field">
+          <span class="field icon-field">
+          <img class="icon" src="/assets/icons/email.svg" alt="" aria-hidden="true">
+          </span>
+          <div id="realtorEmailValue" class="value readonly"></div>
+        </div>
+      </div>
+      
+    </div>
+    <div class="contact-card card card--white">
+      <h3><div class="value readonly" id="lenderNameFinance"></div></h3>
+      <div class="row two">
+        <div class="field">
+          <span class="field icon-field">
+          <img class="icon" src="/assets/icons/phone.svg" alt="" aria-hidden="true">
+          </span>
+          <div id="lenderPhoneFinance" class="value readonly"></div></div>
+        <div class="field">
+          <span class="field icon-field">
+          <img class="icon" src="/assets/icons/email.svg" alt="" aria-hidden="true">
+          </span>
+          <div id="lenderEmailFinance" class="value readonly"></div>
+       </div>
+      </div>
+      
     </div>
   </section>
 
-  <!-- Main details container -->
-  <div class="details-container">
-    <!-- Left column: General Info + Walks & Close -->
-      <div class="info-walk-wrapper">
-      <section class="section general-section" id="section1">
-        <h2>General Info</h2>
-        <div class="general-grid">
-          <div class="field job-area">
-            <label for="jobNumberValue">Job Number</label>
-            <div id="jobNumberValue" class="value readonly"></div>
-          </div>
-          <div class="field lot-area">
-            <label for="lotBlockPhaseValue">Lot / Block / Phase</label>
-            <div id="lotBlockPhaseValue" class="value readonly"></div>
-          </div>
-          <div class="field address-area">
-            <label for="addressValue">Address</label>
-            <div id="addressValue" class="value readonly"></div>
-          </div>
-         <div class="field">
-          <label for="floorPlanSelect">Floor Plan</label>
-          <select id="floorPlanSelect" class="value">
-            <option value="" disabled selected>— Select Floor Plan —</option>
-          </select>
-        </div>
-          <div class="field">
-            <label for="elevationInput">Elevation</label>
-            <input id="elevationInput" class="value" />
-          </div>
-          <div class="field">
+  <!-- MAIN GRID: Left (Building Info), Right (Design Center) -->
+  <main class="grid">
+    <!-- LEFT COLUMN: Building Info (stacked cards) -->
+    <section class="pane pane--left">
+     <div class="card">
+        <h2>Building Info</h2>
+        <div class="form-grid">
+
+           <div class="field wide">
             <label for="buildingStatusSelect">Building Status</label>
             <select id="buildingStatusSelect" class="value">
               <option value="Not-Started">Not Started</option>
@@ -93,32 +142,40 @@
               <option value="Finished">Finished</option>
             </select>
           </div>
+          <!-- Row 1: Floor Plan | Elevation -->
+          <div class="field">
+            <label for="floorPlanSelect">Floor Plan</label>
+            <select id="floorPlanSelect" class="value">
+              <option value="" disabled selected>— Select Floor Plan —</option>
+            </select>
+          </div>
+          <div class="field">
+            <label for="elevationInput">Elevation</label>
+            <input id="elevationInput" class="value" />
+          </div>
+
+          <!-- Row 2: Release Date | Expected Completion -->
           <div class="field">
             <label for="releaseDateInput">Release Date</label>
             <input id="releaseDateInput" type="date" class="value" />
           </div>
           <div class="field">
-            <label for="expectedCompletionInput">Expected Completion</label>
+            <label for="expectedCompletionInput">Expected Completion Date</label>
             <input id="expectedCompletionInput" type="date" class="value" />
           </div>
+
+          <!-- Row 3: Building Status (full width so it doesn't break the pairs) -->
+         
+        </div>
+      </div>
+
+  
+
+      <div class="card">
+        <h2>Walk Status</h2>
+        <div class="row two">
           <div class="field">
-            <label for="closeMonthInput">Close Month</label>
-            <input id="closeMonthInput" type="month" class="value" />
-          </div>
-        </div>
-
-        <div class="field">
-          <label for="listPriceInput">List Price</label>
-          <input id="listPriceInput" class="value" inputmode="numeric" placeholder="$450,000" />
-          <small class="hint">Autosaves as you type</small>
-        </div>
-      </section>
-
-      <section class="section walks-section" id="walks-close">
-        <div class="walks-header">
-          <h2>Walks & Close</h2>
-          <div class="field inline">
-            <label for="walkStatusSelect">Walk Status</label>
+            <label for="walkStatusSelect">Overall</label>
             <select id="walkStatusSelect" class="value">
               <option value="waitingOnBuilder">Waiting on Builder</option>
               <option value="datesSentToPurchaser">Dates Sent to Purchaser</option>
@@ -127,93 +184,6 @@
               <option value="firstWalkComplete">1st Walk Complete</option>
               <option value="finalSignOffComplete">Final Sign Off Complete</option>
             </select>
-          </div>
-        </div>
-          <!-- 3rd Party -->
-          <div class="field">
-            <label for="thirdPartyDate">3rd Party</label>
-            <div class="row-inline">
-              <input id="thirdPartyDate" type="date" class="value" />
-              <input id="thirdPartyTime"  name="thirdPartyTime"  type="time" class="value" autocomplete="off" />
-              <button id="thirdPartyTimeClear" type="button" class="icon-btn" title="Clear time">×</button>
-            </div>
-          </div>
-
-          <!-- 1st Walk -->
-          <div class="field">
-            <label for="firstWalkDate">1st Walk</label>
-            <div class="row-inline">
-              <input id="firstWalkDate" type="date" class="value" />
-              <input id="firstWalkTime"   name="firstWalkTime"   type="time" class="value" autocomplete="off" />
-              <button id="firstWalkTimeClear" type="button" class="icon-btn" title="Clear time">×</button>
-            </div>
-          </div>
-
-          <!-- Final Sign Off -->
-          <div class="field">
-            <label for="finalSignOffDate">Final Sign Off</label>
-            <div class="row-inline">
-              <input id="finalSignOffDate" type="date" class="value" />
-              <input id="finalSignOffTime" name="finalSignOffTime" type="time" class="value" autocomplete="off" />
-              <button id="finalSignOffTimeClear" type="button" class="icon-btn" title="Clear time">×</button>
-            </div>
-          </div>
-      </section>
-      
-      
-   
-
-    <!-- Right column: Purchaser, Realtor, Lender Info -->
-    <aside class="section info-box side-column" id="purchaser-realtor-box">
-      <h2>Purchaser & Realtor Info</h2>
-      <div class="info-grid">
-        <!-- Purchaser -->
-        <div class="purchaser-col">
-          <h3>Purchaser</h3>
-          <div class="field">
-            <label>Last Name</label>
-            <div id="purchaserValue" class="value readonly"></div>
-          </div>
-          <div class="field">
-            <label>Phone</label>
-            <div id="purchaserPhoneValue" class="value readonly"></div>
-          </div>
-          <div class="field">
-            <label>Email</label>
-            <div id="purchaserEmailValue" class="value readonly"></div>
-          </div>
-        </div>
-        <!-- Realtor -->
-        <div class="realtor-col">
-          <h3>Realtor</h3>
-          <div class="field">
-            <label>Name</label>
-            <div id="realtorNameValue" class="value readonly"></div>
-          </div>
-          <div class="field">
-            <label>Phone</label>
-            <div id="realtorPhoneValue" class="value readonly"></div>
-          </div>
-          <div class="field">
-            <label>Email</label>
-            <div id="realtorEmailValue" class="value readonly"></div>
-          </div>
-        </div>
-        <!-- Lender -->
-        <div class="lender-col">
-          <h3>Lender</h3>
-          <div class="field">
-            <label>Name</label>
-            <div id="lenderNameFinance" class="value readonly"></div>
-          </div>
-          <div class="field">
-            <label>Phone</label>
-            <div id="lenderPhoneFinance" class="value readonly"></div>
-
-          </div>
-          <div class="field">
-            <label>Email</label>
-            <div id="lenderEmailFinance" class="value readonly"></div>
           </div>
           <div class="field">
             <label for="closingStatusSelect">Closing Status</label>
@@ -224,19 +194,44 @@
               <option value="clearToClose">Clear to Close</option>
             </select>
           </div>
+        </div>
+        <div class="walks-grid">
           <div class="field">
-            <label for="closingDateTimeInput">Closing Date & Time</label>
-            <input
-              id="closingDateTimeInput"
-              type="datetime-local"
-              class="value"
-            />
+            <label for="thirdPartyDate">3rd Party</label>
+            <div class="row inline">
+              <input id="thirdPartyDate" type="date" class="value" />
+              <input id="thirdPartyTime" name="thirdPartyTime" type="time" class="value" autocomplete="off" />
+              <button id="thirdPartyTimeClear" type="button" class="icon-btn" title="Clear time">×</button>
+            </div>
+          </div>
+          <div class="field">
+            <label for="firstWalkDate">1st Walk</label>
+            <div class="row inline">
+              <input id="firstWalkDate" type="date" class="value" />
+              <input id="firstWalkTime" name="firstWalkTime" type="time" class="value" autocomplete="off" />
+              <button id="firstWalkTimeClear" type="button" class="icon-btn" title="Clear time">×</button>
+            </div>
+          </div>
+          <div class="field">
+            <label for="finalSignOffDate">Final Sign Off</label>
+            <div class="row inline">
+              <input id="finalSignOffDate" type="date" class="value" />
+              <input id="finalSignOffTime" name="finalSignOffTime" type="time" class="value" autocomplete="off" />
+              <button id="finalSignOffTimeClear" type="button" class="icon-btn" title="Clear time">×</button>
+            </div>
           </div>
         </div>
       </div>
+    </section>
+
+    <!-- RIGHT COLUMN: Design Center / Selections -->
+    <aside class="pane pane--right">
+      <div class="card fill">
+        <h2>Design Center / Selections</h2>
+        <div id="designNotes" class="notes" contenteditable></div>
+      </div>
     </aside>
-    </div>
-  </div>
+  </main>
 
   <script type="module" src="/assets/js/address-details/index.js"></script>
 </body>
