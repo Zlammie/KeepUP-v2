@@ -1,244 +1,338 @@
-/* ===========================
-   Address Details — FULL CSS
-   Layout: Address | Price | Chips
-   Theme: Light cards / light chips
-   =========================== */
+/* =========================================
+   Address Details — FULL STYLESHEET (light)
+   Layout: Header (Address | Price | Chips)
+           Contact strip (3 cards)
+           Main grid (left forms | right notes)
+   ========================================= */
 
-/* ---------- Header: 3 named areas ---------- */
-.addr-header {
+/* ---------- Theme tokens (tweak to taste) ---------- */
+:root{
+  --card-bg: #fff;
+  --card-border: #ddd;
+  --text: #222;
+  --muted: #666;
+
+  /* contact icon pills */
+  --icon-pill: 28px;        /* pill size */
+  --icon-glyph: 18px;       /* glyph inside pill */
+  --icon-gap: 8px;          /* spacing between pill and text */
+  --icon-pill-bg: #dbe4ee;
+  --icon-pill-border: #b8c6d8;
+  --icon-color: #0f172a;
+}
+
+/* helpers */
+* { box-sizing: border-box; }
+
+/* =========================================
+   HEADER: Address | Price | Chips
+   ========================================= */
+.addr-header{
   display: grid;
-  grid-template-columns: 1fr 1.2fr 1.2fr;          /* address | price | chips */
-  grid-template-areas: "addr-left price-card addr-right";
+  grid-template-columns: 1.25fr 0.9fr 1.2fr;  /* address | price | chips */
   align-items: start;
   gap: 16px;
   padding: 8px 16px;
 }
+.addr-header > * { min-width: 0; } /* allow shrink without overflow */
 
-/* Map areas and allow shrink without overflow */
-.addr-header > * { min-width: 0; }
-.addr-left    { grid-area: addr-left;  min-width: 0; }
-.price-card   { grid-area: price-card; min-width: 0; }
-.addr-right   { grid-area: addr-right; min-width: 0; }
+/* Map header children by position (works with your current EJS) */
+.addr-header > :nth-child(1) { /* address block */ }
+.addr-header > :nth-child(2) { /* price block  */ }
+/* third child already has .addr-right in your EJS */
 
-/* ----- Address block (title + subline) ----- */
-.addr-left h1,
-.addr-left #lotTitle,
-.addr-left #addressValue {
+/* Address typography */
+.addr-header > :nth-child(1) h1,
+.addr-header > :nth-child(1) #lotTitle,
+.addr-header > :nth-child(1) #addressValue{
   font-size: 1.6rem;
   margin: 0;
   line-height: 1.2;
+  color: var(--text);
   white-space: normal;
   word-break: break-word;
 }
-
-.addr-left .sub-info {
+.addr-header > :nth-child(1) .sub-info{
   margin-top: 4px;
-  font-size: 0.9rem;
-  color: #666;
+  font-size: 0.92rem;
+  color: var(--muted);
   font-weight: 400;
 }
 
-/* ---------- Price card (compact) ---------- */
-.price-card .card {
-  background: #fff;
-  border: 1px solid #ddd;
-  color: #222;
+/* Price card (the .card inside header second column) */
+.addr-header > :nth-child(2) .card{
+  background: var(--card-bg);
+  border: 1px solid var(--card-border);
+  color: var(--text);
   border-radius: 12px;
   padding: 10px 12px;
-  overflow: hidden; /* no bleed into neighbors */
+  overflow: hidden; /* never overlap neighbors */
 }
-
-.price-card .row.two {
+.addr-header > :nth-child(2) .row.two{
   display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
+  grid-template-columns: repeat(2, minmax(0,1fr));
   gap: 12px;
 }
-
-.price-card .row.three {
+.addr-header > :nth-child(2) .row.three{
   display: grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
+  grid-template-columns: repeat(3, minmax(0,1fr));
   gap: 12px;
 }
+.addr-header > :nth-child(2) .field label{ font-size: .78rem; color: #555; }
+.addr-header > :nth-child(2) .value,
+.addr-header > :nth-child(2) input{ padding: 6px 8px; }
 
-.price-card .field label { font-size: 0.78rem; color: #555; }
-.price-card .value, .price-card input {
-  padding: 6px 8px;
-}
-
-/* ---------- Chipbar (fixed stacking, no overlap) ---------- */
-.chipbar {
+/* Chip bar (third column) */
+.addr-right .chipbar{
   display: grid;
   gap: 8px;
   padding: 8px;
-  grid-template-columns: repeat(3, minmax(180px, 1fr));  /* sane minimums */
+  background: var(--card-bg);
+  border: 1px solid var(--card-border);
+  border-radius: 12px;
+  /* exact stacking */
+  grid-template-columns: repeat(3, minmax(180px, 1fr));
   grid-template-areas:
     "general  general  general"
     "building dc       lender"
     "walk     closing  closing";
   align-items: stretch;
   box-sizing: border-box;
-  background: #fff;
-  border: 1px solid #ddd;
-  border-radius: 12px;
 }
-
-.chip--general  { grid-area: general;  }
+.chip--general  { grid-area: general; }
 .chip--building { grid-area: building; }
-.chip--dc       { grid-area: dc;       }
-.chip--lender   { grid-area: lender;   }
-.chip--walk     { grid-area: walk;     }
-.chip--closing  { grid-area: closing;  }
+.chip--dc       { grid-area: dc; }
+.chip--lender   { grid-area: lender; }
+.chip--walk     { grid-area: walk; }
+.chip--closing  { grid-area: closing; }
 
-/* Chip visual + safe content sizing */
-.chip {
+.chip{
   display: grid;
-  grid-template-columns: auto 1fr;     /* label | value */
+  grid-template-columns: auto 1fr;  /* label | value */
   align-items: center;
   gap: 6px;
   width: 100%;
   padding: 6px 10px;
   border-radius: 8px;
   background: #f9f9f9;
-  border: 1px solid #ddd;
-  color: #222;
-  box-sizing: border-box;
+  border: 1px solid var(--card-border);
+  color: var(--text);
 }
-
-.chip__label {
-  font-size: 0.8rem;
-  opacity: 0.8;
-  white-space: nowrap;
-}
-
-.chip__value {
+.chip__label{ font-size: .8rem; opacity: .8; white-space: nowrap; }
+.chip__value{
   font-weight: 600;
-  min-width: 0;                /* allow truncation */
+  min-width: 0;
   overflow: hidden;
   text-overflow: ellipsis;
-  white-space: nowrap;         /* change to normal if you prefer wrap */
+  white-space: nowrap;              /* change to normal to wrap long statuses */
 }
 
-/* Remove any old flex/max-width rules that squashed chips */
-.addr-left, .addr-right { flex: initial; max-width: none; }
-.addr-right .chipbar    { max-width: none; margin-left: 0; }
+/* Optional badge style for statuses rendered as innerHTML */
+.status-badge{
+  display:inline-block;
+  padding:2px 6px;
+  border-radius:999px;
+  font-size:.78rem;
+  border:1px solid #e5e7eb;
+  background:#f3f4f6;
+}
 
-/* ---------- Contact strip ---------- */
-.contact-strip {
-  display: grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
+/* =========================================
+   CONTACT STRIP (3 cards in a row)
+   ========================================= */
+.contact-strip{
+  display: grid;                                      /* ensure a row */
+  grid-template-columns: repeat(3, minmax(260px, 1fr));
   gap: 12px;
   padding: 8px 16px 16px;
-  background: #fff;
-  border: 1px solid #ddd;
+  background: var(--card-bg);
+  border: 1px solid var(--card-border);
   border-radius: 12px;
 }
-
-.contact-card {
-  background: #fff;
-  border: 1px solid #ddd;
-  color: #222;
+.contact-card{
+  background: var(--card-bg);
+  border: 1px solid var(--card-border);
+  color: var(--text);
   border-radius: 12px;
   padding: 12px;
 }
-.contact-card h3 { font-size: 0.95rem; margin: 0 0 8px; opacity: 0.9; }
+.contact-card h3{ font-size:.95rem; margin:0 0 8px; opacity:.9; }
 
-/* ---------- Main two-column grid ---------- */
-.grid {
+/* Phone | Email row: give Email a bit more room than Phone */
+.contact-card .row.two{
+  display: grid;
+  grid-template-columns: 0.85fr 1.15fr;
+  gap: 8px;
+}
+.contact-card .field{ min-width: 0; }
+
+/* Flatten read-only values in contact cards (look like text, not inputs) */
+.contact-card .field .value.readonly{
+  padding: 0 !important;
+  border: 0 !important;
+  min-height: 0 !important;
+  background: transparent !important;
+  margin: 0 !important;
+  line-height: 1.2;
+  color: var(--text);
+}
+
+/* Icon + value layout inside each field */
+.contact-card .row.two .field{
+  display: grid;
+  grid-template-columns: var(--icon-pill) 1fr; /* pill | value */
+  align-items: center;
+  column-gap: var(--icon-gap);
+}
+
+/* The first child icon becomes a rounded pill.
+   Works for <img class="icon">, <svg class="icon">, or <i class="icon"> */
+.contact-card .row.two .field > .icon,
+.contact-card .row.two .field > img.icon,
+.contact-card .row.two .field > svg.icon,
+.contact-card .row.two .field > i.icon{
+  display: inline-grid;
+  place-items: center;
+  width: var(--icon-pill);
+  height: var(--icon-pill);
+  border-radius: 999px;
+  background: var(--icon-pill-bg);
+  border: 1px solid var(--icon-pill-border);
+  color: var(--icon-color);         /* for inline SVGs / icon fonts */
+  line-height: 1;
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+}
+
+/* Size the glyph itself */
+.contact-card .row.two .field > svg.icon{
+  width: var(--icon-glyph);
+  height: var(--icon-glyph);
+  fill: currentColor;
+}
+.contact-card .row.two .field > img.icon{
+  width: var(--icon-glyph);
+  height: var(--icon-glyph);
+  object-fit: contain;
+}
+.contact-card .row.two .field > i.icon{
+  font-size: var(--icon-glyph);
+  line-height: 1;
+}
+
+/* Phone stays one line; Email can wrap nicely */
+.one-line{
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  font-variant-numeric: tabular-nums;
+}
+.wrap{
+  white-space: normal;
+  overflow-wrap: anywhere;
+  word-break: break-word;
+}
+
+/* =========================================
+   MAIN GRID (left forms | right notes)
+   ========================================= */
+.grid{
   display: grid;
   grid-template-columns: 1.2fr 0.8fr;
   gap: 16px;
   padding: 0 16px 32px;
 }
-
-.pane .card {
-  background: #fff;
-  border: 1px solid #ddd;
-  color: #222;
+.pane .card{
+  background: var(--card-bg);
+  border: 1px solid var(--card-border);
+  color: var(--text);
   border-radius: 14px;
   padding: 14px;
   margin-bottom: 16px;
 }
-
-.card.fill {
+.card.fill{
   height: 100%;
   display: flex;
   flex-direction: column;
 }
+.card h2{ font-size:1rem; margin:0 0 10px; }
 
-.card h2 { font-size: 1rem; margin: 0 0 10px; }
-
-/* ---------- Forms / fields ---------- */
-.form-grid {
+/* Forms / fields */
+.form-grid{
   display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
+  grid-template-columns: repeat(2, minmax(0,1fr));
   gap: 12px;
 }
-.form-grid .field.wide { grid-column: span 2; }
+.form-grid .field.wide{ grid-column: span 2; }
 
-.row.two   { display: grid; grid-template-columns: repeat(2, 1fr); gap: 12px; }
-.row.three { display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px; }
-.row.inline { display: flex; gap: 8px; align-items: center; }
+.row.two   { display:grid; grid-template-columns: repeat(2, 1fr); gap:12px; }
+.row.three { display:grid; grid-template-columns: repeat(3, 1fr); gap:12px; }
+.row.inline{ display:flex; gap:8px; align-items:center; }
 
-.field label {
-  display: block;
-  font-size: 0.8rem;
-  color: #555;
-  margin-bottom: 4px;
+.field label{
+  display:block;
+  font-size:.8rem;
+  color: var(--muted);
+  margin-bottom:4px;
 }
-.field .value.readonly {
-  padding: 8px 10px;
-  border: 1px dashed rgba(0,0,0,0.18);
-  border-radius: 8px;
-  min-height: 36px;
-  display: flex;
-  align-items: center;
+.field .value.readonly{
+  padding:8px 10px;
+  border:1px dashed rgba(0,0,0,.18);
+  border-radius:8px;
+  min-height:36px;
+  display:flex;
+  align-items:center;
+  background:#fafafa;
 }
 
-/* Light inputs to match the light theme */
+/* Light inputs to match cards */
 .field input,
 .field select,
-.notes {
+.notes{
   width: 100%;
   padding: 8px 10px;
   border-radius: 8px;
-  border: 1px solid #ccc;        /* light border */
-  background: #fff;              /* white input background */
-  color: #222;
-  box-sizing: border-box;
+  border: 1px solid #ccc;
+  background: #fff;
+  color: var(--text);
 }
 
 /* Walks block */
-.walks-grid {
+.walks-grid{
   display: grid;
   grid-template-columns: 1fr;
   gap: 12px;
 }
 
 /* Notes area */
-.notes {
-  background: #fafafa;
-  border: 1px dashed #bbb;
-  color: #222;
+.notes{
   min-height: 420px;
+  border: 1px dashed #bbb;
 }
 
-/* ---------- Responsive behavior ---------- */
-/* Give chips more room sooner by stacking the middle column under address */
-@media (max-width: 1200px) {
-  .addr-header {
-    grid-template-columns: 1.1fr 0.9fr;         /* address | right stack */
-    grid-template-areas:
-      "addr-left  addr-right"
-      "price-card addr-right";
-  }
-  .addr-left   { grid-area: addr-left; }
-  .price-card  { grid-area: price-card; }
-  .addr-right  { grid-area: addr-right; }
+.placeholder:empty::before {
+  content: attr(data-placeholder);
+  color: var(--muted, #666);
+  font-style: italic;
+  opacity: .9;
 }
 
-/* Chipbar moves to 2 columns when space tightens */
-@media (max-width: 1350px) {
-  .chipbar {
+/* Keep layout tidy even when empty (no input-box styling) */
+.contact-card .placeholder.value.readonly {
+  padding: 0 !important;
+  border: 0 !important;
+  min-height: 0 !important;
+  background: transparent !important;
+}
+
+/* =========================================
+   RESPONSIVE
+   ========================================= */
+
+/* Chipbar tightens to two columns when space is limited */
+@media (max-width: 1350px){
+  .addr-right .chipbar{
     grid-template-columns: repeat(2, minmax(180px, 1fr));
     grid-template-areas:
       "general  general"
@@ -248,9 +342,24 @@
   }
 }
 
-/* One-column header stack on small screens */
-@media (max-width: 900px) {
-  .addr-header {
+/* At ~1200px, stack the price card under the address (chips keep the right column) */
+@media (max-width: 1200px){
+  .addr-header{
+    grid-template-columns: 1.1fr 0.9fr;        /* address | right stack */
+    grid-auto-flow: row;
+    grid-template-areas:
+      "addr-left  addr-right"
+      "price-card addr-right";
+  }
+  /* map by position since EJS doesn’t name the first two blocks */
+  .addr-header > :nth-child(1){ grid-area: addr-left;  }
+  .addr-header > :nth-child(2){ grid-area: price-card; }
+  .addr-right{ grid-area: addr-right; }
+}
+
+/* One-column header on smaller screens */
+@media (max-width: 900px){
+  .addr-header{
     grid-template-columns: 1fr;
     grid-template-areas:
       "addr-left"
@@ -259,187 +368,15 @@
   }
 }
 
-/* Single-column chipbar on mobile */
-@media (max-width: 640px) {
-  .chipbar {
-    grid-template-columns: 1fr;
-    grid-template-areas:
-      "general"
-      "building"
-      "dc"
-      "lender"
-      "walk"
-      "closing";
-  }
+/* Contact strip columns collapse */
+@media (max-width: 1200px){
+  .contact-strip{ grid-template-columns: repeat(2, minmax(260px, 1fr)); }
+}
+@media (max-width: 700px){
+  .contact-strip{ grid-template-columns: 1fr; }
 }
 
-/* Main content collapses to one column */
-@media (max-width: 1100px) {
-  .grid { grid-template-columns: 1fr; }
-}
-
-.contact-strip {
-  grid-template-columns: repeat(3, minmax(260px, 1fr));
-}
-
-/* On tighter screens, let cards grow wider so text fits */
-@media (max-width: 1200px) {
-  .contact-strip { grid-template-columns: repeat(2, minmax(260px, 1fr)); }
-}
-@media (max-width: 700px) {
-  .contact-strip { grid-template-columns: 1fr; }
-}
-
-/* --- Inside each contact card --- */
-/* Make the two info columns (Phone | Email) give a bit more room to Email */
-.contact-card .row.two {
-  /* give Email more room than Phone + shrink the gap */
-  grid-template-columns: 0.5fr 1.18fr;
-  gap: 6px;
-}
-
-/* Let grid children actually shrink instead of overflowing */
-.contact-card .field { min-width: 0; }
-.contact-card .field .value.readonly {
-  padding: 0;                 /* kill input-like padding */
-  border: 0;                  /* remove dashed border */
-  min-height: 0;              /* remove tall box */
-  background: transparent;    /* no input background */
-  display: block;             /* stacked under label */
-  line-height: 1.25;
-  color: #222;
-}
-
-/* Wrap long emails; keep phone tidy */
-.contact-card .field label {
-  margin-bottom: 2px;
-  font-size: 0.78rem;
-  color: #666;
-}
-#purchaserPhoneValue, #realtorPhoneValue, #lenderPhoneFinance {
-  white-space: nowrap;
-  font-variant-numeric: tabular-nums;
-}
-#purchaserEmailValue, #realtorEmailValue, #lenderEmailFinance {
-  white-space: normal;
-  overflow-wrap: anywhere;
-  word-break: break-word;
-  line-height: 1.2;
-}
-
-/* Also make the name line robust (it’s inside <h3> with a .value div) */
-.contact-card h3 .value.readonly {
-  padding: 0;
-  border: 0;
-  font-size: 1rem;
-  font-weight: 600;
-  white-space: normal;
-  overflow-wrap: anywhere;
-  word-break: break-word;
-}
-
-.contact-card .field input,
-.contact-card .field select {
-  background: #fff;
-  border-color: #ccc;
-  color: #222;
-}
-
-.icon-field {
-  display: grid;
-  grid-template-columns: 22px 1fr;  /* pill | value */
-  align-items: center;              /* centers icon with the text */
-  column-gap: 6px;
-  min-width: 0;
-}
-.icon { padding-right:10px; width: 18px; height: 18px;  }
-.one-line { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-
-.icon-badge,
-.icon-field > i,
-.icon-field > svg,
-.icon-field > img {
-  /* pill container (works whether you used .icon-badge or the raw icon) */
-  display: inline-grid;
-  place-items: center;
-  width: 22px;
-  height: 22px;
-  border-radius: 999px;
-  background: #e6ecf3;          /* darker than before */
-  border: 1px solid #c7d2df;     /* slightly darker outline */
-  line-height: 1;                /* no extra vertical space */
-  box-sizing: border-box;
-}
-
-.icon-field > svg {
-  padding: 3px;              /* gives breathing room inside the pill */
-  width: 22px; height: 22px; /* maintain circle */
-}
-
-/* If using <img> icons, constrain the image inside the pill */
-.icon-field > img {
-  padding: 3px;
-  object-fit: contain;
-}
-
-.icon-badge {
-  display: grid;
-  place-items: center;
-  width: 22px;
-  height: 22px;
-  border-radius: 999px;
-  background: #eef2f7;        /* pill color */
-  border: 1px solid #d8e0ea;  /* subtle outline */
-  box-shadow: 0 0 0 1px rgba(255,255,255,.6) inset; /* crisp on white cards */
-}
-
-/* Normalize whatever you put inside (svg, img, icon font) */
-.icon-badge > svg,
-.icon-badge > img,
-.icon-badge > i {
-  width: 14px;
-  height: 14px;
-  display: block;
-  opacity: .8;
-}
-
-.icon-badge > svg,
-.icon-badge > img,
-.icon-badge > i,
-.icon-field > svg,
-.icon-field > img,
-.icon-field > i {
-  width: 14px;
-  height: 14px;
-  display: block;
-  margin: 0;
-}
-
-/* Make SVGs dark via currentColor (best approach) */
-.icon-badge,
-.icon-field > svg,
-.icon-field > i {
-  color: #1f2937;                  /* dark slate */
-}
-.icon-badge > svg,
-.icon-field > svg {
-  fill: currentColor;              /* SVG will inherit the color above */
-}
-
-/* If you're using <img> .svg files and can't recolor them, you can fake it: */
-/* .icon-field > img { filter: brightness(0) saturate(100%) invert(14%) sepia(7%) saturate(820%) hue-rotate(176deg) brightness(92%) contrast(92%); } */
-
-/* Keep the values vertically centered and close to the pill */
-.contact-card .field .value.readonly {
-  line-height: 1.2;
-  padding: 0 !important;
-  margin: 0 !important;
-}
-
-/* Optional micro-nudge if the icon still looks a hair high due to the SVG's viewBox */
-.icon-field > svg,
-.icon-field > img,
-.icon-badge > svg,
-.icon-badge > img {
-  transform: translateY(0.5px);    /* try 0.5–1px to taste */
+/* Main content collapses to single column */
+@media (max-width: 1100px){
+  .grid{ grid-template-columns: 1fr; }
 }

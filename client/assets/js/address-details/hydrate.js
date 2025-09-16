@@ -30,20 +30,28 @@ const isUTCISO = v => typeof v === 'string' && /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}(:
 const splitForInputs = (v) => {
   if (!v) return { date: '', time: '' };
 
-  // Case 1: we stored a plain date string → time is truly blank
-  if (isDateOnly(v)) return { date: v, time: '' };
+  // --- Normalize to string ---
+  let s = v;
+  if (v instanceof Date) {
+    s = v.toISOString();           // e.g., 2025-09-16T15:30:00.000Z
+  } else if (typeof v === 'number') {
+    s = new Date(v).toISOString(); // epoch ms → ISO
+  } else if (typeof v !== 'string') {
+    s = String(v);
+  }
 
-  // Case 2: we stored a local "YYYY-MM-DDTHH:MM"
-  if (isLocalDateTime(v)) return { date: v.slice(0,10), time: v.slice(11,16) };
+  // --- Existing branches, now against a string ---
+  const isDateOnly      = (x) => /^\d{4}-\d{2}-\d{2}$/.test(x);
+  const isLocalDateTime = (x) => /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}$/.test(x);
+  const isUTCISO        = (x) => /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}(:\d{2}(\.\d{3})?)?Z$/.test(x);
 
-  // Case 3: historical data saved as real Date → ISO with Z
-  // Treat midnight Z as a date-only original; otherwise convert to local.
-  if (isUTCISO(v)) {
-    const m = v.match(/^(\d{4}-\d{2}-\d{2})T(\d{2}):(\d{2})/);
-    if (m && m[2] === '00' && m[3] === '00') {
-      return { date: m[1], time: '' }; // date-only legacy
-    }
-    const d = new Date(v);
+  if (isDateOnly(s)) return { date: s,              time: '' };
+  if (isLocalDateTime(s)) return { date: s.slice(0,10), time: s.slice(11,16) };
+
+  if (isUTCISO(s)) {
+    const m = s.match(/^(\d{4}-\d{2}-\d{2})T(\d{2}):(\d{2})/);
+    if (m && m[2] === '00' && m[3] === '00') return { date: m[1], time: '' }; // date-only legacy
+    const d = new Date(s);
     const pad = (n) => String(n).padStart(2,'0');
     return {
       date: `${d.getFullYear()}-${pad(d.getMonth()+1)}-${pad(d.getDate())}`,
@@ -51,8 +59,8 @@ const splitForInputs = (v) => {
     };
   }
 
-  // Fallback: assume first 10 are date, leave time blank
-  return { date: v.slice(0,10), time: '' };
+  // Fallback: take YYYY-MM-DD; try HH:MM if present
+  return { date: s.slice(0,10), time: s.length >= 16 ? s.slice(11,16) : '' };
 };
 
 const hydrateWalkMilestone = (key, storedVal) => {

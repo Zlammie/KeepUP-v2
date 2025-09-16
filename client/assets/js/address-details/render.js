@@ -93,52 +93,41 @@ export const renderTopBar = (lot, primaryEntry) => {
 };
 
 export const renderRightColumn = (purchaser, realtor, primaryEntry) => {
-  // helpers
-  const el = (id) => document.getElementById(id);           // fallback if els.* isn't mapped
+  const el = (id) => document.getElementById(id);
   const set = (node, v) => { if (node) node.textContent = v ?? ''; };
-  const nameFrom = (obj) => {
-    if (!obj) return '';
-    // accept many shapes: {firstName,lastName}, {name}, {fullName}
-    const byParts = `${obj.firstName ?? ''} ${obj.lastName ?? ''}`.trim();
-    return byParts || obj.name || obj.fullName || '';
+  const nameFrom = (o) => {
+    if (!o) return '';
+    const parts = `${o.firstName ?? ''} ${o.lastName ?? ''}`.trim();
+    return parts || o.name || o.fullName || '';
   };
-  const phoneFrom = (obj) => obj?.phone ?? obj?.mobile ?? obj?.cell ?? obj?.primaryPhone ?? '';
-  const emailFrom = (obj) => obj?.email ?? obj?.emailAddress ?? '';
+  const phoneFrom = (o) => o?.phone ?? o?.mobile ?? o?.cell ?? o?.primaryPhone ?? '';
+  const emailFrom = (o) => o?.email ?? o?.emailAddress ?? '';
 
-  // --- Purchaser: Full Name + Phone + Email
+  // Purchaser
   {
-    const full   = nameFrom(purchaser);
-    const phone  = phoneFrom(purchaser);
-    const email  = emailFrom(purchaser);
-
+    const full  = nameFrom(purchaser) || 'No purchaser linked';
     set(els?.purchaserValue || el('purchaserValue'), full);
-    set(els?.purchaserPhoneValue || el('purchaserPhoneValue'), phone);
-    set(els?.purchaserEmailValue || el('purchaserEmailValue'), email);
+    set(els?.purchaserPhoneValue || el('purchaserPhoneValue'), phoneFrom(purchaser));
+    set(els?.purchaserEmailValue || el('purchaserEmailValue'), emailFrom(purchaser));
   }
 
-  // --- Realtor: Full Name + Phone + Email
+  // Realtor
   {
-    const full   = nameFrom(realtor);
-    const phone  = phoneFrom(realtor);
-    const email  = emailFrom(realtor);
-
+    const full  = nameFrom(realtor) || 'No realtor linked';
     set(els?.realtorNameValue || el('realtorNameValue'), full);
-    set(els?.realtorPhoneValue || el('realtorPhoneValue'), phone);
-    set(els?.realtorEmailValue || el('realtorEmailValue'), email);
+    set(els?.realtorPhoneValue || el('realtorPhoneValue'), phoneFrom(realtor));
+    set(els?.realtorEmailValue || el('realtorEmailValue'), emailFrom(realtor));
   }
 
-  // --- Lender (from primaryEntry.lender): Name — Brokerage + Phone + Email
+  // Lender
   {
     const L = primaryEntry?.lender;
-    const displayName = nameFrom(L);
-    const brokerage   = L?.brokerage ?? L?.company ?? L?.organization ?? '';
-    const nameLine    = brokerage ? `${displayName} — ${brokerage}` : displayName;
-    const phone       = phoneFrom(L);
-    const email       = emailFrom(L);
-
-    set(els?.lenderNameFinance  || el('lenderNameFinance'),  nameLine);
-    set(els?.lenderPhoneFinance || el('lenderPhoneFinance'), phone);
-    set(els?.lenderEmailFinance || el('lenderEmailFinance'), email);
+    const display = nameFrom(L) || 'No lender linked';
+    const brokerage = L?.brokerage ?? L?.company ?? L?.organization ?? '';
+    set(els?.lenderNameFinance || el('lenderNameFinance'),
+        brokerage && display !== 'No lender linked' ? `${display} — ${brokerage}` : display);
+    set(els?.lenderPhoneFinance || el('lenderPhoneFinance'), phoneFrom(L));
+    set(els?.lenderEmailFinance || el('lenderEmailFinance'), emailFrom(L));
   }
 };
 
