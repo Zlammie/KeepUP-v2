@@ -11,62 +11,84 @@
   <%- include('../partials/top-nav-community') %>
 
   <header class="addr-header">
-    <div>
-      <h1 id="lotTitle">Loading…</h1>
+    <div class="addr-left">
+      <!-- Row 1: Address + General -->
+      <div class="address-row">
+        <h1 id="lotTitle">Loading…</h1>
+
+      <div class="general-select-wrap">
+        <label class="visually-hidden" for="generalStatusSelect">General</label>
+        <select id="generalStatusSelect" class="status-select in-header">
+          <option>Available</option>
+          <option>SPEC</option>
+          <option>Sold</option>
+          <option>Closed</option>
+          <option>Coming Soon</option>
+          <option>Model</option>
+          <option>Hold</option>
+        </select>
+      </div>
+      </div>
+
+      <!-- Subline -->
       <div class="sub-info">
         <span id="jobNumberValue" class="value readonly"></span> •
         <span id="lotBlockPhaseValue" class="value readonly"></span>
       </div>
-    </div>
 
-    
-
-   <div class="price-card card card--grey">
-      <div class="row two">
-        <div class="field">
-          <label for="listPriceInput">List Price</label>
-          <input id="listPriceInput" class="value" inputmode="numeric" placeholder="$450,000" />
+      <!-- Row 2: Building + Walk -->
+      <div class="status-row">
+        <div class="chip chip--building in-header">
+          <span class="chip__label">Building</span>
+          <div id="buildingStatusValue" class="chip__value readonly"></div>
         </div>
-        <div class="field">
-          <label class="sub">Sales Price</label>
-          <div id="salesPriceValue" class="value readonly"></div>
+
+        <div class="chip chip--walk in-header">
+          <span class="chip__label">Walk</span>  <!-- ← you were missing the opening < on this span -->
+          <div id="walkStatusValue" class="chip__value readonly"></div>
         </div>
       </div>
-      <div class="row three">
-        <div class="field"><label>Closing Date</label><div id="closingDateValue" class="value readonly"></div></div>
-        <div class="field"><label>Closing Time</label><div id="closingTimeValue" class="value readonly"></div></div>
-        <div class="field"><label>Sales Date</label><div id="salesDateValue" class="value readonly"></div></div>
+    </div>
+
+    <div class="price-card card">
+      <!-- Top: List Price -->
+      <div class="field wide">
+        <label for="listPriceInput">List Price</label>
+        <input id="listPriceInput" class="value" inputmode="numeric" placeholder="$450,000" />
+      </div>
+
+      <!-- Bottom: Sales Price | Sales Date -->
+      <div class="price-row">
+        <div class="field">
+          <label>Sales Price</label>
+          <div id="salesPriceValue" class="value readonly price-figure"></div>
+        </div>
+        <div class="field">
+          <label>Sales Date</label>
+          <div id="salesDateValue" class="value readonly"></div>
+        </div>
       </div>
     </div>
 
  <div class="addr-right">
-    <!-- STATUS CHIP BAR -->
-    <section class="chipbar card card--grey">
-      <div class="chip chip--general">
-        <span class="chip__label">General Status</span>
-        <div id="generalStatusValue" class="chip__value readonly"></div>
-      </div>
-      <div class="chip chip--building">
-        <span class="chip__label">Building Status</span>
-        <div id="buildingStatusValue" class="chip__value readonly"></div>
-      </div>
-      <div class="chip chip--dc">
-        <span class="chip__label">Design Status</span>
-        <div id="designCenterStatusValue" class="chip__value readonly"></div>
-      </div>
-      <div class="chip chip--lender">
-        <span class="chip__label">Lender Status</span>
-        <div id="lenderStatusValue" class="chip__value readonly"></div>
-      </div>
-      <div class="chip chip--walk">
-        <span class="chip__label">Walk Status</span>
-        <div id="walkStatusValue" class="chip__value readonly"></div>
-      </div>
-      <div class="chip chip--closing">
-        <span class="chip__label">Closing Status</span>
-        <div id="closingStatusValue" class="chip__value readonly"></div>
-      </div>
-    </section>
+
+   <section class="closing-card card card--grey">
+  <!-- Top: status -->
+  <div class="chip chip--closing"> 
+    <div id="closingStatusValue" class="chip__value readonly"></div>
+  </div>
+  <!-- Bottom: date | time -->
+  <div class="row two">
+    <div class="field">
+      <label>Closing Date</label>
+      <div id="closingDateValue" class="value readonly"></div>
+    </div>
+    <div class="field">
+      <label>Closing Time</label>
+      <div id="closingTimeValue" class="value readonly"></div>
+    </div>
+  </div>
+</section>
   </div>
   </header>
   <!-- CONTACT STRIP: Purchaser / Realtor / Lender -->
@@ -93,12 +115,12 @@
       <h3><span class="value readonly" id="realtorNameValue" data-placeholder="No realtor linked"></span></h3>
       <div class="row two">
         <div class="field icon-field">
-          <span class=icon-pill>
+          <span class="icon-pill">
           <img class="icon" src="/assets/icons/phone.svg" alt="" aria-hidden="true">
           </span>   
           <div id="realtorPhoneValue" class="value readonly" ></div>
         </div>
-        <div class="fiel icon-field">
+        <div class="field icon-field">
           <span class="icon-pill">
           <img class="icon" src="/assets/icons/email.svg" alt="" aria-hidden="true">
           </span>
@@ -107,8 +129,18 @@
       </div>
       
     </div>
-    <div class="contact-card card card--white">
-      <h3><span class="value readonly" id="lenderNameFinance" data-placeholder="No Lender"></span></h3>
+      <div class="contact-card card card--white lender-card">
+      <!-- Header row: Name (with brokerage) + Status chip on the right -->
+      <div class="lender-header">
+        <h3>
+          <span id="lenderNameFinance" class="value readonly"></span>
+        </h3>
+
+        <!-- No label; same ID so your JS keeps populating it -->
+        <div class="chip in-header" id="lenderStatusChip">
+          <div id="lenderStatusValue" class="chip__value readonly"></div>
+        </div>
+      </div>
       <div class="row two">
         <div class="field icon-field">
           <span class="icon-pill">
@@ -200,7 +232,7 @@
             <label for="thirdPartyDate">3rd Party</label>
             <div class="row inline">
               <input id="thirdPartyDate" type="date" class="value" />
-              <input id="thirdPartyTime" name="thirdPartyTime" type="time" class="value" autocomplete="off" />
+              <input id="thirdPartyTime"    type="time" class="value" step="60" min="00:00" max="23:59" autocomplete="off" />
               <button id="thirdPartyTimeClear" type="button" class="icon-btn" title="Clear time">×</button>
             </div>
           </div>
@@ -208,7 +240,7 @@
             <label for="firstWalkDate">1st Walk</label>
             <div class="row inline">
               <input id="firstWalkDate" type="date" class="value" />
-              <input id="firstWalkTime" name="firstWalkTime" type="time" class="value" autocomplete="off" />
+              <input id="firstWalkTime"     type="time" class="value" step="60" min="00:00" max="23:59" autocomplete="off" />
               <button id="firstWalkTimeClear" type="button" class="icon-btn" title="Clear time">×</button>
             </div>
           </div>
@@ -216,7 +248,7 @@
             <label for="finalSignOffDate">Final Sign Off</label>
             <div class="row inline">
               <input id="finalSignOffDate" type="date" class="value" />
-              <input id="finalSignOffTime" name="finalSignOffTime" type="time" class="value" autocomplete="off" />
+              <input id="finalSignOffTime"  type="time" class="value" step="60" min="00:00" max="23:59" autocomplete="off" />
               <button id="finalSignOffTimeClear" type="button" class="icon-btn" title="Clear time">×</button>
             </div>
           </div>
@@ -229,6 +261,10 @@
       <div class="card fill">
         <h2>Design Center / Selections</h2>
         <div id="designNotes" class="notes" contenteditable></div>
+        <div class="chip chip--dc">
+        <span class="chip__label">Design Status</span>
+        <div id="designCenterStatusValue" class="chip__value readonly"></div>
+      </div>
       </div>
     </aside>
   </main>

@@ -380,3 +380,549 @@
 @media (max-width: 1100px){
   .grid{ grid-template-columns: 1fr; }
 }
+.addr-left .address-row{
+  display: flex;                 /* was grid */
+  align-items: center;           /* vertical center vs tall H1 */
+  justify-content: space-between;
+  gap: 12px;
+}
+.addr-left .address-row h1{
+  flex: 1 1 auto;                /* let the title take the row */
+  min-width: 0;                  /* prevent overflow pushing chip down */
+}
+.addr-left .address-row .chip.in-header{
+  flex: 0 0 auto;                /* keep chip compact on the right */
+  margin: 0;                     /* no stray top margin */
+}
+
+.visually-hidden {
+  position:absolute !important; width:1px; height:1px; padding:0; margin:-1px;
+  overflow:hidden; clip:rect(0 0 0 0); white-space:nowrap; border:0;
+}
+
+.status-select.in-header{
+  appearance: none; -webkit-appearance: none;
+  --gs-bg:#f9f9f9; --gs-bd:#ddd; --gs-fg:#111;         /* defaults */
+  background: var(--gs-bg) !important;
+  border: 1px solid var(--gs-bd) !important;
+  color: var(--gs-fg) !important;
+  border-radius: 999px;
+  padding: 4px 28px 4px 10px;                           /* room for chevron */
+  font-size: .85rem; font-weight: 700; line-height: 1.2;
+  white-space: nowrap;
+}
+
+.status-select.in-header{
+  background-image:
+    linear-gradient(45deg, transparent 50%, currentColor 50%),
+    linear-gradient(135deg, currentColor 50%, transparent 50%),
+    linear-gradient(var(--gs-bg), var(--gs-bg));
+  background-position:
+    calc(100% - 16px) 55%,
+    calc(100% - 12px) 55%,
+    100% 0;
+  background-size: 5px 5px, 5px 5px, 2.2em 100%;
+  background-repeat: no-repeat;
+}
+.status-select.in-header:focus{
+  outline:none;
+  border-color:#7aa5ff !important;
+  box-shadow:0 0 0 3px rgba(122,165,255,.25);
+}
+
+.addr-left .status-row{
+  display: flex;                 /* was grid; flex is simpler here */
+  align-items: center;
+  gap: 8px;
+  margin-top: 6px;
+  flex-wrap: wrap;               /* if it gets tight, wrap cleanly */
+}
+/* override the global .chip { width:100% } so header chips don't expand */
+.addr-left .status-row .chip.in-header,
+.addr-left .address-row .chip.in-header{
+  width: auto !important;
+}
+
+.addr-left .status-row {
+  display: grid;
+  grid-template-columns: max-content max-content; /* Building | Walk */
+  gap: 8px;
+  margin-top: 6px;
+}
+
+/* Compact chip look inside the header */
+.chip.in-header {
+  background: #f9f9f9;
+  border: 1px solid #ddd;
+  border-radius: 8px;
+  padding: 4px 8px;
+}
+.chip.in-header .chip__label { font-size: .78rem; opacity: .75; }
+.chip.in-header .chip__value {
+  font-weight: 600;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+/* (If needed) ensure header still lays out 3 columns total */
+.addr-header {
+  display: grid;
+  grid-template-columns: 1.25fr 0.9fr 1.2fr; /* left | price | right chips */
+  align-items: start;
+  gap: 16px;
+  padding: 8px 16px;
+}
+.addr-header > * { min-width: 0; }
+
+/* Responsive: stack the General chip under the title on narrow screens */
+@media (max-width: 900px) {
+  .addr-left .address-row { grid-template-columns: 1fr; row-gap: 8px; }
+  .addr-left .status-row  { grid-template-columns: 1fr 1fr; }
+}
+
+/* FORCE: Building + Walk chips inline (side-by-side) */
+.addr-left .status-row {
+  display: flex !important;      /* override the earlier grid rule */
+  align-items: center;
+  gap: 8px;
+  margin-top: 6px;
+  flex-wrap: nowrap;             /* change to wrap if you prefer */
+}
+
+/* Header chips should not expand to full width */
+.addr-left .status-row > .chip,
+.addr-left .status-row > .chip.in-header {
+  width: auto !important;
+  flex: 0 0 auto;
+}
+
+.price-card { padding: 12px; }
+.price-card .field.wide {
+  display: flex;
+  flex-direction: column;
+  align-items: center;      /* centers label + input */
+}
+.price-card .field.wide label{
+  display: block !important;
+  margin: 0 0 6px !important;
+  font-weight: 600 !important;
+}
+
+/* Bottom row: Sales Price | Sales Date */
+.price-row {
+  display: grid;
+  grid-template-columns: 1fr max-content; /* price grows, date hugs content */
+  gap: 12px;
+  align-items: end;
+}
+.price-row .field { min-width: 0; }
+
+/* Make the price read clearly */
+.price-figure {
+  font-weight: 700;
+  font-size: 1.1rem;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  font-variant-numeric: tabular-nums;
+}
+
+/* Nice right-aligned numeric typing for List Price */
+#listPriceInput{
+  display: block !important;
+  margin: 0 auto !important;
+  font-size: 1.25rem !important;
+  font-weight: 700 !important;
+  text-align: center !important;
+  padding: 6px 10px !important;
+  line-height: 1.1 !important;
+  width: clamp(220px, 52%, 380px) !important;
+}
+
+
+.price-card .price-row {
+  display: grid;
+  grid-template-columns: 1fr max-content; /* price grows, date hugs content */
+  align-items: end;
+  gap: 12px;
+  max-width: 560px;
+  margin: 0 auto;                  /* keep the row from spanning super wide */
+}
+
+.price-card { padding: 12px; }
+
+.price-card .field.wide{
+  display: block !important;
+  text-align: center !important;
+  margin: 0 0 10px !important;
+}
+
+.price-card .price-row .value.readonly {
+  padding: 0;
+  border: 0;
+  min-height: 0;
+  background: transparent;
+}
+
+/* Price typography */
+.price-figure {
+  font-weight: 500;
+  font-size: 1.0rem;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  font-variant-numeric: tabular-nums;
+}
+
+.price-card .price-row{
+  display: grid !important;
+  grid-template-columns: 1fr minmax(120px, 180px) !important; /* price grows, date capped */
+  align-items: end !important;
+  column-gap: 6px !important;
+  row-gap: 4px !important;
+}
+
+
+.price-card .row.two > .field:first-child{
+  grid-column: 1 / -1 !important;
+}
+
+.price-card .price-row .field{
+  display: flex !important;
+  align-items: baseline !important;
+  gap: 6px !important;
+  min-width: 0 !important;
+}
+
+/* Compact labels specifically in this card */
+.price-card .price-row .field label{
+  display: inline-block !important;
+  flex: 0 0 auto !important;
+  margin: 0 !important;
+  padding: 0 !important;
+  width: auto !important;
+  white-space: nowrap !important;
+  font-size: .78rem !important;
+  line-height: 1.1 !important;
+}
+
+/* Make the values look like text (not dashed boxes) in this card */
+.price-card .price-row .field .value.readonly{
+  flex: 1 1 auto !important;
+  min-width: 0 !important;
+  padding: 0 !important;
+  border: 0 !important;
+  min-height: 0 !important;
+  background: transparent !important;
+}
+
+/* Stronger Sales Price styling but still compact */
+#salesPriceValue{
+  font-weight: 700 !important;
+  font-size: 1.06rem !important;
+  white-space: nowrap !important;
+  overflow: hidden !important;
+  text-overflow: ellipsis !important;
+  font-variant-numeric: tabular-nums !important;
+}
+
+.price-card .row.two > .field:last-child{
+  justify-content: flex-end !important;  /* push date to the right column edge */
+}
+
+/* Keep Sales Date snug and on one line */
+#salesDateValue{
+  white-space: nowrap !important;
+  text-align: right !important;
+}
+
+
+/* CLosig CARD */
+.closing-card{
+  display: flex !important;
+  flex-direction: column !important;
+  align-items: center !important;   /* center the chip horizontally */
+  gap: 8px !important;
+  padding: 8px !important;
+}
+
+/* The global .chip is full-width; override just inside closing-card */
+.closing-card .chip{
+  width: auto !important;
+  align-self: center !important;
+  margin: 0 !important;
+}
+
+/* Bottom row: Closing Date | Closing Time */
+.closing-card .row.two{
+  align-self: stretch !important;   /* make the row span the card width */
+  display: grid !important;
+  grid-template-columns: 1fr 1fr !important;
+  column-gap: 10px !important;
+  row-gap: 4px !important;
+  align-items: end !important;
+}
+
+/* Compact label/value spacing, no dashed boxes */
+.closing-card .field{
+  display: flex !important;
+  align-items: baseline !important;
+  gap: 6px !important;
+  min-width: 0 !important;
+}
+.closing-card .field label{
+  margin: 0 !important;
+  white-space: nowrap !important;
+  font-size: .8rem !important;
+  line-height: 1.1 !important;
+}
+.closing-card .value.readonly{
+  padding: 0 !important;
+  border: 0 !important;
+  min-height: 0 !important;
+  background: transparent !important;
+  min-width: 0 !important;
+}
+
+/* Keep time tidy on the right */
+.closing-card .row.two .field:last-child{ justify-content: flex-end !important; }
+#closingTimeValue{ white-space: nowrap !important; text-align: right !important; }
+
+
+.lender-card .lender-header{
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  flex-wrap: wrap;                 /* on narrow screens chip will wrap to next line */
+}
+#lenderStatusChip{ margin-left:auto; }
+
+.lender-card h3{
+  margin: 0;
+}
+
+.lender-card #lenderNameFinance{
+  padding: 0;                      /* look like text */
+  border: 0;
+  min-height: 0;
+  background: transparent;
+  font-weight: 600;
+  white-space: normal;             /* allow brokerage to wrap if long */
+  overflow-wrap: anywhere;
+}
+
+/* compact chip in header, no “label” element */
+.lender-card .chip.in-header{
+  width: auto;
+  padding: 4px 8px;
+  border: 1px solid #ddd;
+  border-radius: 8px;
+  background: #f9f9f9;
+}
+
+/* Walk Dates */
+
+.walks-grid .field label{
+  margin: 0 0 4px;
+  font-size: .8rem;
+  color: #556;
+}
+
+.walks-grid .value.value,             /* just in case .value is reused as a class */
+.walks-grid input[type="date"],
+.walks-grid input[type="time"]{
+  appearance: none;
+  -webkit-appearance: none;
+  background: #fff;
+  color: #111;
+  font-size: 0.95rem;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+  border: 1px solid #cfd8e3;
+  border-radius: 8px;
+  padding: 8px 10px;
+  height: 38px;
+  line-height: 1.2;
+  box-shadow: 0 1px 0 rgba(16,24,40,.03) inset;
+}
+
+.walks-grid input[type="date"]:focus,
+.walks-grid input[type="time"]:focus{
+  outline: none;
+  border-color: #7aa5ff;
+  box-shadow: 0 0 0 3px rgba(122,165,255,.25);
+}
+
+/* Tidy widths so text doesn't feel cramped */
+.walks-grid input[type="date"]{ min-width: 160px; }
+.walks-grid input[type="time"]{ min-width: 110px; text-align: center; }
+
+/* If the browser insists on showing seconds, hide them (WebKit) */
+.walks-grid input[type="time"]::-webkit-datetime-edit-second-field{ display:none; }
+.walks-grid input[type="time"]::-webkit-datetime-edit-millisecond-field{ display:none; }
+.walks-grid input[type="time"]::-webkit-datetime-edit-ampm-field{ text-transform: uppercase; }
+
+/* Remove spinners/clear to keep it clean (WebKit) */
+.walks-grid input[type="time"]::-webkit-clear-button,
+.walks-grid input[type="time"]::-webkit-inner-spin-button{ display:none; }
+
+#thirdPartyDate, #firstWalkDate, #finalSignOffDate,
+#thirdPartyTime, #firstWalkTime, #finalSignOffTime{
+  appearance: none;
+  -webkit-appearance: none;
+  font-size: 0.95rem;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+  background: #fff;
+  color: #111;
+  border: 1px solid #cfd8e3;
+  border-radius: 8px;
+  padding: 8px 10px;
+  height: 38px;
+  line-height: 1.2;
+  box-shadow: 0 1px 0 rgba(16,24,40,.03) inset;
+}
+
+#thirdPartyTime, #firstWalkTime, #finalSignOffTime {
+  width: 88px !important;   /* tweak 84–96px to taste */
+  text-align: center;
+  font-variant-numeric: tabular-nums;
+}
+
+#thirdPartyTime.is-blank::-webkit-datetime-edit-second-field,
+#firstWalkTime.is-blank::-webkit-datetime-edit-second-field,
+#finalSignOffTime.is-blank::-webkit-datetime-edit-second-field,
+#thirdPartyTime.is-blank::-webkit-datetime-edit-millisecond-field,
+#firstWalkTime.is-blank::-webkit-datetime-edit-millisecond-field,
+#finalSignOffTime.is-blank::-webkit-datetime-edit-millisecond-field {
+  display: none !important;
+}
+
+#thirdPartyTime.is-blank::-webkit-datetime-edit-fields-wrapper,
+#firstWalkTime.is-blank::-webkit-datetime-edit-fields-wrapper,
+#finalSignOffTime.is-blank::-webkit-datetime-edit-fields-wrapper {
+  padding-right: 0 !important; /* prevents leftover ":" gutter */
+}
+
+/* WebKit: hide seconds/millis/AMPM (if shown) */
+#thirdPartyTime::-webkit-datetime-edit-second-field,
+#firstWalkTime::-webkit-datetime-edit-second-field,
+#finalSignOffTime::-webkit-datetime-edit-second-field,
+#thirdPartyTime::-webkit-datetime-edit-millisecond-field,
+#firstWalkTime::-webkit-datetime-edit-millisecond-field,
+#finalSignOffTime::-webkit-datetime-edit-millisecond-field{
+  display: none !important;
+}
+#thirdPartyTime::-webkit-inner-spin-button,
+#firstWalkTime::-webkit-inner-spin-button,
+#finalSignOffTime::-webkit-inner-spin-button,
+#thirdPartyTime::-webkit-clear-button,
+#firstWalkTime::-webkit-clear-button,
+#finalSignOffTime::-webkit-clear-button{
+  display: none !important;
+}
+
+/* Focus ring */
+/* Base badge (kept neutral; variants below handle colors) */
+.status-badge{
+  display:inline-flex;
+  align-items:center;
+  gap:6px;
+  padding:2px 8px;
+  border-radius:999px;
+  font-size:.78rem;
+  font-weight:600;
+  line-height:1.2;
+  border:1px solid transparent;
+  white-space:nowrap;
+}
+
+/* Building Status variants */
+.status-badge.not-started{
+  background:#f3f4f6;   /* soft gray */
+  border-color:#e5e7eb;
+  color:#374151;
+}
+
+.status-badge.under-construction{
+  background:#fff7e6;   /* warm amber */
+  border-color:#ffe4b5;
+  color:#92400e;
+}
+
+.status-badge.finished{
+  background:#eaf7ef;   /* success green */
+  border-color:#ccebd7;
+  color:#166534;
+}
+
+/* Walk Status palette */
+.status-badge.waiting-on-builder{
+  background:#f3f4f6;  border-color:#e5e7eb; color:#374151;   /* muted gray */
+}
+.status-badge.dates-sent-to-purchaser{
+  background:#e5f0ff;  border-color:#cfe0ff; color:#1d4ed8;   /* info blue */
+}
+.status-badge.dates-confirmed{
+  background:#efeaff;  border-color:#ddd4ff; color:#4f46e5;   /* indigo */
+}
+.status-badge.third-party-complete{
+  background:#f3e8ff;  border-color:#e9d5ff; color:#6b21a8;   /* purple */
+}
+.status-badge.first-walk-complete{
+  background:#fff7e6;  border-color:#ffe4b5; color:#92400e;   /* warm amber */
+}
+.status-badge.final-sign-off-complete{
+  background:#eaf7ef;  border-color:#ccebd7; color:#166534;   /* success green */
+}
+
+/* Closing Status variants */
+.status-badge.not-locked{
+  background:#f3f4f6;   /* muted gray */
+  border-color:#e5e7eb;
+  color:#374151;
+}
+.status-badge.locked{
+  background:#e5f0ff;   /* info blue */
+  border-color:#cfe0ff;
+  color:#1d4ed8;
+}
+.status-badge.underwriting{
+  background:#fff7e6;   /* warm amber */
+  border-color:#ffe4b5;
+  color:#92400e;
+}
+.status-badge.clear-to-close{
+  background:#eaf7ef;   /* success green */
+  border-color:#ccebd7;
+  color:#166534;
+}
+
+/* make sure badges don’t get ellipsized inside chips */
+.chip .chip__value .status-badge{ max-width:100%; }
+
+
+.status-select.in-header.gs--available{
+  --gs-bg:#eaf7ef; --gs-bd:#ccebd7; --gs-fg:#166534;   /* green */
+}
+.status-select.in-header.gs--spec{
+  --gs-bg:#fff7e6; --gs-bd:#ffe4b5; --gs-fg:#92400e;   /* yellow/amber */
+}
+.status-select.in-header.gs--sold{
+  --gs-bg:#fdecec; --gs-bd:#f9caca; --gs-fg:#991b1b;   /* red */
+}
+.status-select.in-header.gs--closed{
+  --gs-bg:#f3f4f6; --gs-bd:#e5e7eb; --gs-fg:#374151;   /* gray */
+}
+.status-select.in-header.gs--coming-soon{
+  --gs-bg:#f3e8ff; --gs-bd:#e9d5ff; --gs-fg:#6b21a8;   /* purple */
+}
+.status-select.in-header.gs--model{
+  --gs-bg:#e5f0ff; --gs-bd:#cfe0ff; --gs-fg:#1d4ed8;   /* blue */
+}
+/* Hold: different blue so it’s distinct from Model */
+.status-select.in-header.gs--hold{
+  --gs-bg:#dbeafe; --gs-bd:#bfdbfe; --gs-fg:#1e40af;   /* deep blue */
+}

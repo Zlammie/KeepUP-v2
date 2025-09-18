@@ -22,3 +22,21 @@ export const putContact = (contactId, payload) =>
 
 export const getRealtor = (realtorId) =>
   fetch(`/api/realtors/${realtorId}`).then(j);
+
+// Supports both signatures used by hydrate.js:
+//   updateLot(communityId, lotId, patch)
+//   updateLot(lotId, patch)
+export async function updateLot(communityId, lotId, patch) {
+  if (!communityId || !lotId) throw new Error('updateLot: missing ids');
+  const url = `/api/communities/${encodeURIComponent(communityId)}/lots/${encodeURIComponent(lotId)}`;
+  const res = await fetch(url, {
+    method: 'PUT',                 // ← was PATCH
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(patch),
+  });
+  if (!res.ok) {
+    const text = await res.text().catch(() => '');
+    throw new Error(`updateLot → ${res.status} ${res.statusText} ${text}`.trim());
+  }
+  return res.json().catch(() => ({}));
+}

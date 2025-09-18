@@ -18,25 +18,6 @@ export const renderTitleAndBasics = (lot) => {
   }
 };
 
-export const renderGeneralStatus = (lot, purchaserContact, primaryEntry) => {
-  const rawBuilding = lot.status || 'Not-Started';
-  const hasPurchaser = Boolean(purchaserContact);
-  const closingDateTime = primaryEntry?.closingDateTime;
-  let generalStatus = '';
-
-  if (hasPurchaser && closingDateTime && new Date(closingDateTime) < new Date()) {
-    generalStatus = 'Closed';
-  } else if (hasPurchaser) {
-    if (rawBuilding === 'Not-Started') generalStatus = 'Not Started & Sold';
-    else if (rawBuilding === 'Under-Construction') generalStatus = 'Under Construction';
-    else if (rawBuilding === 'Finished') generalStatus = 'Finished & Sold';
-  } else {
-    if (rawBuilding === 'Not-Started') generalStatus = 'Not Started';
-    else if (rawBuilding === 'Under-Construction') generalStatus = 'Under Construction & Available';
-    else if (rawBuilding === 'Finished') generalStatus = 'Finished & Available';
-  }
-  els.generalStatusValue.textContent = generalStatus;
-};
 
 export const renderTopBar = (lot, primaryEntry) => {
   // Building status badge
@@ -71,7 +52,7 @@ export const renderTopBar = (lot, primaryEntry) => {
   }
 
   // Lender + Closing
-  if (primaryEntry) {
+    if (primaryEntry) {
     const rawLS = primaryEntry.status || 'invite';
     if (els.lenderStatusValue) {
       els.lenderStatusValue.innerHTML =
@@ -84,10 +65,15 @@ export const renderTopBar = (lot, primaryEntry) => {
         `<span class="status-badge ${closingStatusClasses[rawCS]}">${closingStatusLabels[rawCS]}</span>`;
     }
 
-    if (els.closingDateValue) {
-      els.closingDateValue.textContent = primaryEntry.closingDateTime
-        ? formatDateTime(primaryEntry.closingDateTime)
-        : '';
+    // Date (existing) + Time (new)
+    const dt = primaryEntry.closingDateTime ? new Date(primaryEntry.closingDateTime) : null;
+    if (dt && !isNaN(dt)) {
+      if (els.closingDateValue) els.closingDateValue.textContent = dt.toLocaleDateString();
+      if (els.closingTimeValue) els.closingTimeValue.textContent =
+        dt.toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' });  // <-- NEW
+    } else {
+      if (els.closingDateValue) els.closingDateValue.textContent = '';
+      if (els.closingTimeValue) els.closingTimeValue.textContent = '';       // <-- NEW
     }
   }
 };
@@ -120,33 +106,109 @@ export const renderRightColumn = (purchaser, realtor, primaryEntry) => {
   }
 
   // Lender
-  {
-    const L = primaryEntry?.lender;
-    const display = nameFrom(L) || 'No lender linked';
-    const brokerage = L?.brokerage ?? L?.company ?? L?.organization ?? '';
-    set(els?.lenderNameFinance || el('lenderNameFinance'),
-        brokerage && display !== 'No lender linked' ? `${display} — ${brokerage}` : display);
-    set(els?.lenderPhoneFinance || el('lenderPhoneFinance'), phoneFrom(L));
-    set(els?.lenderEmailFinance || el('lenderEmailFinance'), emailFrom(L));
-  }
+{
+  const el  = (id) => document.getElementById(id);
+  const set = (node, v) => { if (node) node.textContent = v ?? ''; };
+  const all = (css) => Array.from(document.querySelectorAll(css));
+
+  const L = primaryEntry?.lender ?? {};
+
+  // helpers
+  const nonEmpty = (v) => v != null && String(v).trim() !== '';
+  const first = (...vals) => {
+    for (const v of vals) if (nonEmpty(v)) return String(v).trim();
+    return '';
+  };
+
+  // Name: first/last → name/fullName → primaryEntry fallbacks
+  const displayName = first(
+    `${L.firstName ?? ''} ${L.lastName ?? ''}`.trim(),
+    L.name, L.fullName,
+    primaryEntry?.lenderName,
+    `${primaryEntry?.lenderFirstName ?? ''} ${primaryEntry?.lenderLastName ?? ''}`.trim()
+  );
+
+  // Brokerage: include lenderBrokerage + common variants (flat & nested)
+  const brokerage = first(
+    L.lenderBrokerage,             // <— THIS was missing before
+    L.brokerage, L.brokerageName, L?.brokerage?.name,
+    L.company, L.companyName, L?.company?.name,
+    L.organization, L.organizationName, L.org, L?.org?.name,
+    primaryEntry?.lenderBrokerage, primaryEntry?.lenderCompany, primaryEntry?.lenderOrganization
+  );
+
+  // Compose final line
+  const nameLine = displayName
+    ? (brokerage ? `${displayName} — ${brokerage}` : displayName)
+    : (brokerage || 'No lender linked');
+
+  // Write to DOM (support both cached els.* and direct lookup)
+  const target = els?.lenderNameFinance || el('lenderNameFinance');
+  set(target, nameLine);
+
+  // If somehow there are duplicate IDs in the page, set them all defensively
+  if (!target) all('#lenderNameFinance').forEach(n => set(n, nameLine));
+
+  // Phone / Email (with a few extra fallbacks)
+  const phone = first(L.phone, L.mobile, L.cell, L.primaryPhone, primaryEntry?.lenderPhone);
+  const email = first(L.email, L.emailAddress, primaryEntry?.lenderEmail);
+  set(els?.lenderPhoneFinance || el('lenderPhoneFinance'), phone);
+  set(els?.lenderEmailFinance || el('lenderEmailFinance'), email);
+}
+
 };
 
 export const setInitialFormValues = (lot, primaryEntry) => {
-  // General & dates
+  // ----- helpers (local, no imports needed)
+  const $ = (el) => el || null;
+  const getEl = (k) => els[k] || document.getElementById(k);
+  const asMoney = (v) => {
+    if (v == null || v === '') return '';
+    // accept "$379,000", numbers, or numeric strings
+    const n = typeof v === 'string' ? Number(v.replace(/[^\d.-]/g, '')) : Number(v);
+    return Number.isFinite(n)
+      ? n.toLocaleString(undefined, { style: 'currency', currency: 'USD', maximumFractionDigits: 0 })
+      : String(v);
+  };
+  const asLocalDate = (v) => {
+    if (!v) return '';
+    try {
+      const d = (v instanceof Date) ? v : new Date(v);
+      return isNaN(d.getTime()) ? '' : d.toLocaleDateString();
+    } catch { return ''; }
+  };
+
+  // ----- General & dates (existing)
   if (els.elevationInput) els.elevationInput.value = lot.elevation ?? '';
   if (els.releaseDateInput) els.releaseDateInput.value = lot.releaseDate ?? '';
   if (els.expectedCompletionInput) els.expectedCompletionInput.value = lot.expectedCompletionDate ?? '';
   if (els.closeMonthInput) els.closeMonthInput.value = lot.closeMonth ?? '';
 
-  // Walks
+  // ----- Walks (existing)
   if (els.thirdPartyInput) els.thirdPartyInput.value = lot.thirdParty ? toLocalInputDateTime(lot.thirdParty) : '';
   if (els.firstWalkInput) els.firstWalkInput.value = lot.firstWalk ? toLocalInputDateTime(lot.firstWalk) : '';
   if (els.finalSignOffInput) els.finalSignOffInput.value = lot.finalSignOff ? toLocalInputDateTime(lot.finalSignOff) : '';
 
-  // List price (schema stored as string => don’t format too aggressively)
+  // ----- List price (existing)
   if (els.listPriceInput) els.listPriceInput.value = lot.listPrice ?? '';
 
-  // Selects
+  // ===== NEW: Sales Price & Sales Date (read-only display nodes) =====
+  // Try primaryEntry first, then lot, with common field-name fallbacks.
+  const salesPriceRaw =
+      primaryEntry?.salesPrice ?? primaryEntry?.contractPrice ?? primaryEntry?.purchasePrice ??
+      lot.salesPrice ?? lot.contractPrice ?? lot.purchasePrice ?? '';
+
+  const salesDateRaw =
+      primaryEntry?.salesDate ?? primaryEntry?.contractDate ?? primaryEntry?.salesDateTime ??
+      lot.salesDate ?? lot.salesDateTime ?? '';
+
+  const spEl = getEl('salesPriceValue');
+  const sdEl = getEl('salesDateValue');
+
+  if ($(spEl)) spEl.textContent = asMoney(salesPriceRaw);
+  if ($(sdEl)) sdEl.textContent = asLocalDate(salesDateRaw);
+
+  // ----- Selects (existing)
   if (els.buildingStatusSelect) els.buildingStatusSelect.value = lot.status || 'Not-Started';
   if (els.walkStatusSelect) els.walkStatusSelect.value = lot.walkStatus || 'waitingOnBuilder';
   if (els.closingStatusSelect && primaryEntry) {
@@ -155,4 +217,8 @@ export const setInitialFormValues = (lot, primaryEntry) => {
   if (els.closingDateTimeInput && primaryEntry?.closingDateTime) {
     els.closingDateTimeInput.value = toLocalInputDateTime(primaryEntry.closingDateTime);
   }
+  {
+  const gSel = els.generalStatusSelect || document.getElementById('generalStatusSelect');
+  if (gSel) gSel.value = lot.generalStatus ?? 'Available';
+}
 };

@@ -14,7 +14,13 @@ const LotSchema = new mongoose.Schema({
     default: null
   },
   elevation: String,
+    // BUILDING status (you already use this)
   status: String,
+    generalStatus: {
+    type: String,
+    enum: ['Available', 'SPEC', 'Sold', 'Closed', 'Coming Soon', 'Model', 'Hold'],
+    default: 'Available'
+  },
   purchaser: {
     type: mongoose.Schema.Types.ObjectId,
     ref: 'Contact',

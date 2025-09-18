@@ -4,7 +4,6 @@ import { els } from './domCache.js';
 import { toLocalInputDateTime } from './utils.js';
 import {
   renderTitleAndBasics,
-  renderGeneralStatus,
   renderTopBar,
   renderRightColumn,
   setInitialFormValues
@@ -63,6 +62,18 @@ const splitForInputs = (v) => {
   return { date: s.slice(0,10), time: s.length >= 16 ? s.slice(11,16) : '' };
 };
 
+const applyGeneralSelectClass = (sel) => {
+  if (!sel) return;
+  const v = String(sel.value || '').toLowerCase().replace(/\s+/g, '-'); // "Coming Soon" → "coming-soon"
+  const classes = [
+    'gs--available','gs--spec','gs--sold','gs--closed',
+    'gs--coming-soon','gs--model','gs--hold'
+  ];
+  sel.classList.remove(...classes);
+  const match = classes.find(c => c.endsWith(v));
+  if (match) sel.classList.add(match);
+};
+
 const hydrateWalkMilestone = (key, storedVal) => {
   const map = {
     thirdParty:   { date: 'thirdPartyDate',   time: 'thirdPartyTime',   statusEl: 'thirdPartyStatusValue' },
@@ -75,25 +86,38 @@ const hydrateWalkMilestone = (key, storedVal) => {
   const status = document.getElementById(cfg.statusEl);
   if (!dEl || !tEl) return;
 
+  // ensure minutes-only UI even if HTML wasn't updated
+  try { if (tEl.step !== '60') tEl.step = '60'; } catch {}
+
+  // nothing stored → clear
   if (!storedVal) {
-    dEl.value = ''; tEl.value = '';
+    dEl.value = '';
+    tEl.value = '';
     if (status) status.textContent = '';
     return;
   }
 
-  const { date, time } = splitForInputs(storedVal);
-  dEl.value = date;
-  tEl.value = time; // '' keeps time truly empty
+  // split existing value, then force minutes-only time
+const { date, time } = splitForInputs(storedVal);
+const minutesOnly = (time || '').slice(0, 5); // force "HH:MM"
+dEl.value = date || '';
+tEl.value = minutesOnly;                      // '' keeps time truly empty
+try { tEl.step = '60'; } catch {}             // minutes-only UI
 
-  // Status text: date-only vs date+time
-  if (status) {
-    if (!time) {
-      const [y, m, d] = date.split('-').map(Number);
-      status.textContent = new Date(y, m - 1, d).toLocaleDateString();
-    } else {
-      status.textContent = new Date(`${date}T${time}`).toLocaleString([], { hour: 'numeric', minute: 'numeric' });
-    }
+// Status text: MM/DD/YYYY or MM/DD/YYYY HH:MM
+if (status) {
+  if (!minutesOnly) {
+    const [y, m, d] = (date || '').split('-').map(Number);
+    status.textContent = (isFinite(y) && isFinite(m) && isFinite(d))
+      ? new Date(y, m - 1, d).toLocaleDateString(undefined, { year:'numeric', month:'2-digit', day:'2-digit' })
+      : '';
+  } else {
+    const dt = new Date(`${date}T${minutesOnly}`);
+    status.textContent = isNaN(dt) ? '' : dt.toLocaleString(undefined, {
+      year:'numeric', month:'2-digit', day:'2-digit', hour:'numeric', minute:'2-digit'
+    });
   }
+}
 };
 
 export const hydrateAll = async ({ communityId, lotId, lot, purchaserContact, realtor, primaryEntry }) => {
@@ -133,8 +157,45 @@ export const hydrateAll = async ({ communityId, lotId, lot, purchaserContact, re
   // 6) Right column cards
   renderRightColumn(purchaserContact, realtor, primaryEntry);
 
-  // 7) General status summary
-  renderGeneralStatus(lot, purchaserContact, primaryEntry);
+ // Manual General Status dropdown
+const updateLotSafe = async (patch) => {
+  try { return await API.updateLot(communityId, lotId, patch); }
+  catch (e) {
+    try { return await API.updateLot(lotId, patch); }
+    catch (e2) { console.warn('[generalStatus] updateLot failed (both signatures)', e, e2); }
+  }
+};
+
+// some backends accept different keys; try a tolerant patch
+const generalPatch = (v) => ({
+  generalStatus: v,       // our schema field
+  general: v,             // alt key seen in some codebases
+  statusGeneral: v        // another common variant
+});
+
+{
+  const gSel = els.generalStatusSelect || document.getElementById('generalStatusSelect');
+  if (gSel) {
+    // hydrate value from lot (keeps old fallbacks just in case)
+    gSel.value = lot.generalStatus || lot.general || lot.statusGeneral || 'Available';
+    applyGeneralSelectClass(gSel);  // color on load
+
+    gSel.addEventListener('change', async (e) => {
+      const v = e.target.value;
+      applyGeneralSelectClass(gSel);  // recolor on change
+      try {
+        // Option A path (server expects PUT /api/communities/:communityId/lots/:lotId)
+        await API.updateLot(communityId, lotId, { generalStatus: v });
+        lot.generalStatus = v; // keep local model in sync
+      } catch (err) {
+        console.warn('[generalStatus] save failed:', err);
+      }
+    });
+  } else {
+    console.warn('[generalStatus] #generalStatusSelect not found in DOM');
+  }
+}
+
 
   // 8) Closing (keep this as datetime-local for now)
   if (els.closingStatusSelect && primaryEntry) {
@@ -145,3 +206,14 @@ export const hydrateAll = async ({ communityId, lotId, lot, purchaserContact, re
     els.closingDateTimeInput.value = toLocalInputDateTime(primaryEntry.closingDateTime);
   }
 };
+['thirdPartyTime','firstWalkTime','finalSignOffTime'].forEach(id => {
+  const el = document.getElementById(id);
+  if (!el) return;
+  el.step = '60';
+  el.min = '00:00';
+  el.max = '23:59';
+  const sync = () => el.classList.toggle('is-blank', !el.value);
+  sync();
+  el.addEventListener('input', sync);
+  el.addEventListener('change', sync);
+});
