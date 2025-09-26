@@ -10,7 +10,7 @@
   <link rel="stylesheet" href="/assets/css/main.css">
 </head>
 
-<body data-community-id="<%= communityId %>">
+<body data-community-id="<%= (communityId || '') %>">
   <%- include('../partials/nav') %>
   <%- include('../partials/top-nav-competition') %>
 
@@ -58,7 +58,7 @@ const zip  = (profile && profile.zip)     || (community && community.zip)     ||
       >
         Add / Update Floor Plans
       </button>
-      <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js" nonce="<%= cspNonce %>"></script>
       <!-- Floor Plans Modal -->
       <div
         class="modal fade"
@@ -287,7 +287,7 @@ const zip  = (profile && profile.zip)     || (community && community.zip)     ||
                       <th>Price</th>
                     </tr>
                   </thead>
-                  <tbody></tbody>
+                  <tbody id="monthTableBody"></tbody>
                 </table>
               </div>
             </div>
@@ -306,7 +306,7 @@ const zip  = (profile && profile.zip)     || (community && community.zip)     ||
                       <th>Status</th>
                     </tr>
                   </thead>
-                  <tbody></tbody>
+                  <tbody id="quickHomesBody"></tbody>
                 </table>
               </div>
               <h3 class="mt-5">Sold Homes</h3>
@@ -325,7 +325,7 @@ const zip  = (profile && profile.zip)     || (community && community.zip)     ||
                       <th>Sold Price</th>
                     </tr>
                   </thead>
-                  <tbody></tbody>
+                  <tbody id="soldHomesBody"></tbody>
                 </table>
               </div>
             </div>
@@ -342,7 +342,7 @@ const zip  = (profile && profile.zip)     || (community && community.zip)     ||
                       <th>Closings</th>
                     </tr>
                   </thead>
-                  <tbody></tbody>
+                  <tbody id="salesTableBody"></tbody>
                 </table>
               </div>
             </div>
@@ -362,14 +362,20 @@ const zip  = (profile && profile.zip)     || (community && community.zip)     ||
 </div>
 
   <!-- Initial data for JS -->
-  <script id="community-data" type="application/json">
-    <%- JSON.stringify({
-      communityId: communityId,
-      community: community || {}
-    }) %>
-  </script>
+<script id="community-data" type="application/json" nonce="<%= cspNonce %>">
+  <%- JSON.stringify({
+    // force a string so JSON always has the key, never “missing”
+    communityId: String(communityId || ''),
+    community: community || {}
+  }) %>
+</script>
+<script nonce="<%= cspNonce %>">
+  window.MCC_BOOT = window.MCC_BOOT || {};
+  window.MCC_BOOT.communityId = document.body.dataset.communityId ||
+    (function(){ try { return JSON.parse(document.getElementById('community-data')?.textContent||'{}').communityId || '' } catch(_) { return '' } })();
+</script>
 
   <!-- Page script -->
-  <script type="module" src="/assets/js/manage-my-community-competition/init.js"></script>
+  <script type="module" nonce="<%= cspNonce %>" src="/assets/js/mcc/boot.js"></script>
 </body>
 </html>

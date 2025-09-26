@@ -2,12 +2,15 @@
 import { DOM } from './domCache.js';
 import { updateTopBarSummary } from './hydrate.js';
 
-let communitiesAbort;   // prevents stale community lists
-let floorplansAbort;    // prevents stale floorplan seeds
-let lastSeedToken = 0;  // tie async results to the latest request
+let communitiesAbort;
+let floorplansAbort;
+let lastSeedToken = 0;
 
 export function initCommunitySection() {
   if (DOM.communitySelect) {
+    // make sure it’s multi-select in case the EJS didn’t set it
+    DOM.communitySelect.multiple = true;
+    DOM.communitySelect.size = DOM.communitySelect.size || 6;
     DOM.communitySelect.addEventListener('change', handleCommunityChange);
   }
 }
@@ -16,36 +19,51 @@ export function initCommunitySection() {
 export async function populateCommunities({ contact }) {
   if (!DOM.communitySelect) return;
 
-  // abort any in-flight fetch
   communitiesAbort?.abort();
   communitiesAbort = new AbortController();
 
   setLoading(DOM.communitySelect, true);
   try {
+    // Either keep /api/communities (server filters by allowed) or switch to /api/my/communities
     const res = await fetch('/api/communities', { signal: communitiesAbort.signal });
     if (!res.ok) throw new Error(`GET /api/communities → ${res.status}`);
-    const comms = await res.json();
+    const comms = await res.json(); // [{_id, name}]
 
-    // Rebuild options
-    DOM.communitySelect.innerHTML = '<option value="">-- Select Community --</option>';
+    // Build options (no placeholder in multi-select)
+    DOM.communitySelect.innerHTML = '';
     const frag = document.createDocumentFragment();
     for (const c of comms) {
       const opt = document.createElement('option');
-      opt.value = c._id;
+      opt.value = String(c._id);
       opt.textContent = c.name;
       frag.appendChild(opt);
     }
     DOM.communitySelect.appendChild(frag);
 
-    // Preselect saved community
-    const savedComm = contact?.communityId?._id || contact?.communityId || '';
-    if (savedComm) {
-      DOM.communitySelect.value = savedComm;
-      // Seed floorplans for the pre-selected community
-      await seedFloorplans(savedComm, normalizeIdArray(contact?.floorplans || []));
+    // Preselect saved communities
+    const preselectedIds =
+      normalizeIdArray(
+        (contact?.communities || contact?.communityIds || [])
+      );
+
+    // select matching options
+    const set = new Set(preselectedIds.map(String));
+    for (const opt of DOM.communitySelect.options) {
+      opt.selected = set.has(opt.value);
+    }
+
+    // Seed floorplans for the last selected (if any)
+    const targetId = lastSelectedId(DOM.communitySelect);
+    if (targetId) {
+      await seedFloorplans(targetId, normalizeIdArray(contact?.floorplans || []));
     } else {
       clearFloorplans();
     }
+
+    // Keep a hidden input in sync for your save handler (if present)
+    syncHiddenCommunities();
+    DOM.communitySelect.addEventListener('change', syncHiddenCommunities);
+
   } catch (err) {
     if (err.name !== 'AbortError') {
       console.error('Failed to load communities:', err);
@@ -57,16 +75,22 @@ export async function populateCommunities({ contact }) {
 }
 
 export async function handleCommunityChange(e) {
-  const commId = e.target.value;
+  const ids = getSelectedIds(e.target);
   clearFloorplans();
-  if (!commId) return;
-  await seedFloorplans(commId, []); // no pre-checked plans on manual change
+  if (!ids.length) return;
+  // Seed using the most recently selected (last in document order)
+  await seedFloorplans(ids[ids.length - 1], []);
+}
+
+function syncHiddenCommunities() {
+  const hidden = document.getElementById('communities'); // optional hidden input
+  if (!hidden) return;
+  hidden.value = JSON.stringify(getSelectedIds(DOM.communitySelect));
 }
 
 async function seedFloorplans(commId, preCheckedIds = []) {
   if (!DOM.floorplansContainer) return;
 
-  // Abort any previous seed
   floorplansAbort?.abort();
   floorplansAbort = new AbortController();
   const token = ++lastSeedToken;
@@ -77,7 +101,6 @@ async function seedFloorplans(commId, preCheckedIds = []) {
     if (!res.ok) throw new Error(`GET /api/communities/${commId}/floorplans → ${res.status}`);
     const plans = await res.json();
 
-    // If a newer request started while we awaited, drop this result
     if (token !== lastSeedToken) return;
 
     const checked = new Set(normalizeIdArray(preCheckedIds));
@@ -101,12 +124,10 @@ async function seedFloorplans(commId, preCheckedIds = []) {
     DOM.floorplansContainer.innerHTML = '';
     DOM.floorplansContainer.appendChild(frag);
 
-    // Update summary on change
     DOM.floorplansContainer
       .querySelectorAll('input[type="checkbox"]')
       .forEach(cb => cb.addEventListener('change', updateTopBarSummary));
 
-    // First summary sync
     updateTopBarSummary();
   } catch (err) {
     if (err.name !== 'AbortError') {
@@ -125,13 +146,22 @@ function clearFloorplans() {
 }
 
 function normalizeIdArray(arr) {
-  // Handles strings, ObjectIds, and objects like {_id: '...'}
+  if (!Array.isArray(arr)) return [];
   return arr.map(x => {
     if (!x) return '';
     if (typeof x === 'string') return x;
     if (typeof x === 'object' && x._id) return String(x._id);
     return String(x);
-  });
+  }).filter(Boolean);
+}
+
+function getSelectedIds(selectEl) {
+  return Array.from(selectEl.selectedOptions).map(o => o.value);
+}
+
+function lastSelectedId(selectEl) {
+  const ids = getSelectedIds(selectEl);
+  return ids.length ? ids[ids.length - 1] : '';
 }
 
 function setLoading(selectEl, isLoading) {

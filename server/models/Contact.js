@@ -1,68 +1,121 @@
+// server/models/Contact.js
 const mongoose = require('mongoose');
+const { Schema } = mongoose;
 
-const contactSchema = new mongoose.Schema({
-  firstName: String,
-  lastName: String,
-  email: String,
-  phone: String,
-  visitDate: { type: Date, default: null },
-  status: String,
-  source: String,
-  investor: Boolean,
-  owner: String,
-   communityId: {
-    type: mongoose.Schema.Types.ObjectId,
-    ref: 'Community'
-  },
-  linkedLot: {
-    jobNumber: String,
-    address: String,
-    lot: String,
-    block: String,
-    phase: String
-  },Date: String,
-   lotLineUp: String,
-    buyTime:    { type: String,   default: '' },
-    buyMonth:   { type: String,   default: '' },
-    facing:     [String],                   // array of selected facings
-    renting:    { type: Boolean,  default: false },
-    ownSelling: { type: Boolean,  default: false },
-    ownNotSelling: { type: Boolean, default: false },
-    floorplans: [
-    { type: mongoose.Schema.Types.ObjectId, ref: 'FloorPlan' }
-      ],
-    realtor: { type: mongoose.Schema.Types.ObjectId, ref: 'Realtor' },
-   lenders: [
-    {
-      lender: { type: mongoose.Schema.Types.ObjectId, ref: 'Lender' },
-      status: {
-        type: String,
-        enum: [
-          'invite',
-          'subApplication',
-          'subDocs',
-          'missingDocs',
-          'approved',
-          'cannotQualify'
-        ],
-        lowercase: true,
-        default: 'invite'   // ← add this
-      },
-      inviteDate:  { type: Date, default: null },
-      approvedDate:{ type: Date, default: null },
-      isPrimary: { type: Boolean, default: false },
-        closingStatus: {
+/**
+ * Contact (master identity per company)
+ * - Tenant scoped by `company`
+ * - NOT per-user/per-community context (put that in ContactAssignment)
+ * - Can be related to many communities via `communityIds` (union tag)
+ */
+
+const ContactSchema = new Schema(
+  {
+    // ── Tenant / provenance ────────────────────────────────────────────────────
+    company:   { type: Schema.Types.ObjectId, ref: 'Company', required: true, index: true },
+
+    // Optional: who created the contact (audit only; do not use for visibility)
+    ownerId:   { type: Schema.Types.ObjectId, ref: 'User', index: true }, // optional now
+
+    // ── Communities (union of all communities this identity is tied to) ────────
+    communityIds: [{ type: Schema.Types.ObjectId, ref: 'Community', index: true }],
+
+    // ── Identity fields (used for dedupe) ──────────────────────────────────────
+    firstName: { type: String, trim: true },
+    lastName:  { type: String, trim: true },
+    email:     { type: String, lowercase: true, trim: true, index: true },
+    phone:     { type: String, set: v => (v || '').toString().trim() },
+
+    // ── Legacy / transitional fields (per-user/per-community context) ─────────
+    // NOTE: Keep these for now so current pages don’t break; migrate them into
+    // ContactAssignment (userId + communityId scoped) and remove later.
+    status:    {
       type: String,
-      enum: ['notLocked','locked','underwriting','clearToClose'],
-      default: 'notLocked'
+      enum: [
+        'New','Target','Possible','Negotiation','Be-Back','Cold',
+        'Purchased','Closed'
+      ],
+      default: 'New'
     },
-    closingDateTime: {
-      type: Date,
-      default: null
-    }
-      
-    }
-  ],
-  comments: [{ type: mongoose.Schema.Types.ObjectId, ref: 'Comment' }]
+    notes:           { type: String, trim: true },
+    realtorId:       { type: Schema.Types.ObjectId, ref: 'Realtor' },
+    lenderId:        { type: Schema.Types.ObjectId, ref: 'Lender' },
+    lotId:           { type: Schema.Types.ObjectId, ref: 'Lot' },
+    lenderStatus:    { type: String, enum: ['Invite','Submitted Application','Submitted Docs','Missing Docs','Approved','Cannot Qualify'] },
+    lenderInviteDate:{ type: Date },
+    lenderApprovedDate:{ type: Date },
+  },
+  { timestamps: true, toJSON: { virtuals: true }, toObject: { virtuals: true } }
+);
+
+// ── Virtuals (compat + display) ───────────────────────────────────────────────
+
+// Back-compat alias: some code may still do populate('realtor') / ('lender')
+ContactSchema.virtual('realtor', {
+  ref: 'Realtor',
+  localField: 'realtorId',
+  foreignField: '_id',
+  justOne: true
 });
-module.exports = mongoose.model('Contact', contactSchema);
+
+ContactSchema.virtual('lender', {
+  ref: 'Lender',
+  localField: 'lenderId',
+  foreignField: '_id',
+  justOne: true
+});
+
+// Display communities from the array
+ContactSchema.virtual('communities', {
+  ref: 'Community',
+  localField: 'communityIds',
+  foreignField: '_id',
+  justOne: false
+});
+
+// Convenience full name
+ContactSchema.virtual('fullName').get(function () {
+  const a = (this.firstName || '').trim();
+  const b = (this.lastName || '').trim();
+  return [a, b].filter(Boolean).join(' ');
+});
+
+// Back-compat for old single `communityId` usage (setter writes to array)
+ContactSchema.virtual('communityId')
+  .get(function () {
+    return Array.isArray(this.communityIds) && this.communityIds.length ? this.communityIds[0] : null;
+  })
+  .set(function (v) {
+    if (!v) { this.communityIds = []; return; }
+    const arr = Array.isArray(v) ? v : [v];
+    const uniq = [...new Set(arr.map(x => x.toString()))];
+    this.communityIds = uniq;
+  });
+
+// ── Indexes (dedupe per tenant + common lookups) ─────────────────────────────
+
+// Unique email per company (allow blank/absent)
+ContactSchema.index(
+  { company: 1, email: 1 },
+  { unique: true, partialFilterExpression: { email: { $type: 'string', $ne: '' } } }
+);
+
+// Unique phone per company (allow blank/absent)
+ContactSchema.index(
+  { company: 1, phone: 1 },
+  { unique: true, partialFilterExpression: { phone: { $type: 'string', $ne: '' } } }
+);
+
+// Helpful query indexes
+ContactSchema.index({ company: 1, lastName: 1, firstName: 1 });
+ContactSchema.index({ company: 1, updatedAt: -1 });
+
+// Keep communityIds de-duped even on direct updates
+ContactSchema.pre('save', function (next) {
+  if (Array.isArray(this.communityIds)) {
+    this.communityIds = [...new Set(this.communityIds.map(id => id.toString()))];
+  }
+  next();
+});
+
+module.exports = mongoose.model('Contact', ContactSchema);

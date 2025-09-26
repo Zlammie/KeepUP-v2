@@ -1,0 +1,86 @@
+<!DOCTYPE html>
+<html>
+<head><title>Users</title></head>
+<body>
+
+  <p>
+  <a href="/admin/companies" class="btn btn-primary">+ Add Company</a>
+</p>
+  <h1>Users</h1>
+
+  
+  <table border="1" cellpadding="4" cellspacing="0">
+  <tr>
+    <th>Email</th>
+    <th>Roles</th>
+    <th>Company</th>
+    <th>Communities</th>
+    <th>Active</th>
+    <th>Actions</th>
+    <th>Manage</th>
+  </tr>
+
+  <% users.forEach(u => { %>
+    <tr>
+      <td><%= u.email %></td>
+      <td><%= Array.isArray(u.roles) ? u.roles.join(', ') : (u.role || '') %></td>
+      <td><%= u.company?.name || '' %></td>
+
+     <td>
+      <% if (Array.isArray(u.allowedCommunityIds) && u.allowedCommunityIds.length) { %>
+        <%= u.allowedCommunityIds.map(c => c.name).join(', ') %>
+      <% } else { %>
+        <em>All (company)</em>
+      <% } %>
+    </td>
+
+      <td><%= u.isActive ? 'Yes' : 'No' %></td>
+
+      <td>
+        <form method="POST" action="/admin/users/<%= u._id %>" style="display:inline">
+          <select name="role">
+            <option value="USER" <%= (u.roles||[]).includes('USER')?'selected':'' %>>USER</option>
+            <option value="COMPANY_ADMIN" <%= (u.roles||[]).includes('COMPANY_ADMIN')?'selected':'' %>>COMPANY_ADMIN</option>
+            <% /* SUPER option omitted on purpose in UI */ %>
+          </select>
+          <select name="isActive">
+            <option value="true"  <%= u.isActive?'selected':'' %>>Active</option>
+            <option value="false" <%= !u.isActive?'selected':'' %>>Inactive</option>
+          </select>
+          <input name="password" type="password" placeholder="(optional) new password"/>
+          <button type="submit">Update</button>
+        </form>
+      </td>
+
+      <td class="text-nowrap">
+        <a class="btn btn-sm btn-outline-secondary"
+           href="/admin/users/<%= u._id %>/communities">Manage</a>
+      </td>
+    </tr>
+  <% }) %>
+</table>
+
+  <h2>Create User</h2>
+  <form method="POST" action="/admin/users">
+    <input name="email" type="email" placeholder="email" required />
+    <input name="password" type="password" placeholder="temp password" required />
+    <select name="role">
+      <option value="USER">USER</option>
+      <option value="COMPANY_ADMIN">COMPANY_ADMIN</option>
+    </select>
+
+    <% if (companies && companies.length) { %>
+      <select name="companyId" required>
+        <option value="">-- Select company --</option>
+        <% companies.forEach(c => { %>
+          <option value="<%= c._id %>" <%= String(c._id) === String(companyId) ? 'selected' : '' %>><%= c.name %></option>
+        <% }) %>
+      </select>
+    <% } else if (companyId) { %>
+      <input type="hidden" name="companyId" value="<%= companyId %>" />
+    <% } %>
+
+    <button type="submit">Create</button>
+  </form>
+</body>
+</html>

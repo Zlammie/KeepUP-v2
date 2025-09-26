@@ -18,10 +18,21 @@
 
   <h1>HOME</h1>
 
-  <script>
-   
+  
+  <div class="container mt-3">
+  <div class="alert alert-light d-flex align-items-center gap-3">
+    <div>
+      <div class="fw-semibold">
+        Welcome, <%= (currentUser && currentUser.name) || 'Guest' %>
+      </div>
+      <div class="text-muted">
+        Company: <%= (currentUser && currentUser.company) || 'N/A' %>
+      </div>
+    </div>
+  </div>
+</div>
 
 
-  </script>
+ 
 </body>
 </html>

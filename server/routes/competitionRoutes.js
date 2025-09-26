@@ -1,270 +1,327 @@
 // routes/competitionRoutes.js
 const express = require('express');
-const router = express.Router();
+const mongoose = require('mongoose');
+const ensureAuth = require('../middleware/ensureAuth');
 
-const Competition  = require('../models/Competition');   // adjust if needed
-const SalesRecord  = require('../models/salesRecord');   // adjust if needed
-const PriceRecord  = require('../models/PriceRecord');   // match file case
+const Competition = require('../models/Competition');
+const SalesRecord = require('../models/salesRecord');
+const PriceRecord = require('../models/PriceRecord');
 
 let FloorPlanComp;
 try { FloorPlanComp = require('../models/floorPlanComp'); } catch { /* optional */ }
 
-// ---------- helpers ----------
+const router = express.Router();
+router.use(ensureAuth);
+
+// ───────────────────────────────── helpers ────────────────────────────────
+const asyncHandler = fn => (req, res, next) => Promise.resolve(fn(req, res, next)).catch(next);
+const isObjectId = (v) => mongoose.Types.ObjectId.isValid(String(v));
 const toNumOrNull = v => (v === '' || v == null ? null : Number(v));
 const clean = v => (v === '' ? undefined : v); // avoid saving empty-string enums
+const pick = (obj, keys) => {
+  const out = {};
+  for (const k of keys) if (Object.prototype.hasOwnProperty.call(obj, k)) out[k] = obj[k];
+  return out;
+};
 
-// ---------- list / minimal / get one / create ----------
-router.get('/', async (req, res) => {
-  try {
-    const comps = await Competition.find().lean();
-    res.json(comps);
-  } catch (e) { res.status(500).json({ error: e.message }); }
+// Attach a param guard for :id
+router.param('id', (req, res, next, id) => {
+  if (!isObjectId(id)) return res.status(400).json({ error: 'Invalid id' });
+  next();
 });
 
-router.get('/minimal', async (req, res) => {
-  try {
-    const comps = await Competition.find({})
-      .select('communityName builderName city state')
-      .sort({ builderName: 1, communityName: 1 })
-      .lean();
-    res.json(comps);
-  } catch (e) { res.status(500).json({ error: e.message }); }
-});
+// ───────────────────────────────── list / minimal / get ───────────────────
 
-router.get('/:id', async (req, res) => {
-  try {
-    const comp = await Competition.findById(req.params.id).lean();
-    if (!comp) return res.status(404).json({ error: 'Not found' });
-    res.json(comp);
-  } catch (e) { res.status(400).json({ error: e.message }); }
-});
+// GET /api/competitions?limit=25&page=1&sort=builderName,-communityName&fields=communityName,builderName,city
+router.get('/', asyncHandler(async (req, res) => {
+  const limit = Math.min(Math.max(Number(req.query.limit) || 25, 1), 200);
+  const page  = Math.max(Number(req.query.page) || 1, 1);
+  const skip  = (page - 1) * limit;
 
-router.post('/', async (req, res) => {
-  try {
-    const comp = await Competition.create(req.body);
-    res.status(201).json(comp);
-  } catch (e) { res.status(400).json({ error: e.message }); }
-});
+  // simple search: q matches builder/community/city/state
+  const q = String(req.query.q || '').trim();
+  const filter = q
+    ? {
+        $or: [
+          { communityName: { $regex: q, $options: 'i' } },
+          { builderName:   { $regex: q, $options: 'i' } },
+          { city:          { $regex: q, $options: 'i' } },
+          { state:         { $regex: q, $options: 'i' } },
+        ]
+      }
+    : {};
 
-// ---------- generic update ----------
-router.put('/:id', async (req, res) => {
-  try {
-    const updated = await Competition.findByIdAndUpdate(
-      req.params.id,
-      req.body,
-      { new: true, runValidators: true }
-    ).lean();
-    if (!updated) return res.status(404).json({ message: 'Competition not found' });
-    res.json(updated);
-  } catch (err) {
-    console.error('Update error:', err);
-    res.status(400).json({ message: err.message });
+  // fields (projection)
+  const fields = String(req.query.fields || '').trim();
+  const select = fields ? fields.replace(/\s+/g, '').split(',').join(' ') : '';
+
+  // sort
+  const sortStr = String(req.query.sort || 'builderName,communityName').replace(/\s+/g, '');
+  const sort = Object.fromEntries(
+    sortStr.split(',').filter(Boolean).map(s => [s.replace(/^-/, ''), s.startsWith('-') ? -1 : 1])
+  );
+
+  const [items, total] = await Promise.all([
+    Competition.find(filter).select(select).sort(sort).skip(skip).limit(limit).lean(),
+    Competition.countDocuments(filter)
+  ]);
+
+  res.json({
+    items,
+    page,
+    limit,
+    total,
+    pages: Math.ceil(total / limit)
+  });
+}));
+
+// GET /api/competitions/minimal
+router.get('/minimal', asyncHandler(async (req, res) => {
+  const comps = await Competition.find({})
+    .select('communityName builderName city state')
+    .sort({ builderName: 1, communityName: 1 })
+    .lean();
+
+  res.json(comps.map(c => ({
+    id: c._id,
+    label: [c.builderName, c.communityName].filter(Boolean).join(' — ')
+  })));
+}));
+
+// GET /api/competitions/:id
+router.get('/:id', asyncHandler(async (req, res) => {
+  const comp = await Competition.findById(req.params.id).lean();
+  if (!comp) return res.status(404).json({ error: 'Not found' });
+  res.json(comp);
+}));
+
+// ───────────────────────────────── create / update / delete ───────────────
+
+// POST /api/competitions
+router.post('/', asyncHandler(async (req, res) => {
+  const allowed = [
+    'communityName','builderName','city','state','totalLots','hoaFee','hoaFrequency',
+    'pidFee','pidFeeFrequency','promotion','topPlan1','topPlan2','topPlan3','pros','cons',
+    // add other top-level fields you allow on create
+  ];
+  const body = pick(req.body, allowed);
+  if (body.totalLots !== undefined) body.totalLots = toNumOrNull(body.totalLots);
+  if (body.hoaFee    !== undefined) body.hoaFee    = toNumOrNull(body.hoaFee);
+  if (body.pidFee    !== undefined) body.pidFee    = toNumOrNull(body.pidFee);
+
+  const comp = await Competition.create(body);
+  res.status(201).json(comp);
+}));
+
+// PATCH /api/competitions/:id  (partial update; safer than PUT*)
+router.patch('/:id', asyncHandler(async (req, res) => {
+  const allowed = [
+    'communityName','builderName','city','state','promotion','topPlan1','topPlan2','topPlan3',
+    'pros','cons','totalLots','hoaFee','hoaFrequency','pidFee','pidFeeFrequency'
+  ];
+  const body = pick(req.body, allowed);
+
+  if ('totalLots' in body) body.totalLots = toNumOrNull(body.totalLots);
+  if ('hoaFee'    in body) body.hoaFee    = toNumOrNull(body.hoaFee);
+  if ('pidFee'    in body) body.pidFee    = toNumOrNull(body.pidFee);
+  if ('hoaFrequency'     in body) body.hoaFrequency     = clean(body.hoaFrequency);
+  if ('pidFeeFrequency'  in body) body.pidFeeFrequency  = clean(body.pidFeeFrequency);
+
+  const updated = await Competition.findByIdAndUpdate(
+    req.params.id, { $set: body }, { new: true, runValidators: true }
+  ).lean();
+
+  if (!updated) return res.status(404).json({ error: 'Not found' });
+  res.json(updated);
+}));
+
+// keep your dedicated helpers as targeted endpoints (clear intent)
+router.put('/:id/amenities', asyncHandler(async (req, res) => {
+  const { communityAmenities } = req.body;
+  const updated = await Competition.findByIdAndUpdate(
+    req.params.id,
+    { $set: { communityAmenities } },
+    { new: true, runValidators: true }
+  ).lean();
+  if (!updated) return res.status(404).json({ error: 'Not found' });
+  res.json(updated);
+}));
+
+router.put('/:id/metrics', asyncHandler(async (req, res) => {
+  const {
+    promotion, topPlan1, topPlan2, topPlan3, pros, cons,
+    totalLots, hoaFee, hoaFrequency, pidFee, pidFeeFrequency
+  } = req.body;
+
+  const $set = {
+    ...(promotion   !== undefined ? { promotion } : {}),
+    ...(topPlan1    !== undefined ? { topPlan1 }  : {}),
+    ...(topPlan2    !== undefined ? { topPlan2 }  : {}),
+    ...(topPlan3    !== undefined ? { topPlan3 }  : {}),
+    ...(pros        !== undefined ? { pros }      : {}),
+    ...(cons        !== undefined ? { cons }      : {}),
+    ...(totalLots   !== undefined ? { totalLots: toNumOrNull(totalLots) } : {}),
+    ...(hoaFee      !== undefined ? { hoaFee:    toNumOrNull(hoaFee)    } : {}),
+    ...(hoaFrequency     !== undefined ? { hoaFrequency:    clean(hoaFrequency)    } : {}),
+    ...(pidFee      !== undefined ? { pidFee:    toNumOrNull(pidFee)    } : {}),
+    ...(pidFeeFrequency  !== undefined ? { pidFeeFrequency: clean(pidFeeFrequency) } : {}),
+  };
+  Object.keys($set).forEach(k => $set[k] === undefined && delete $set[k]);
+
+  const updated = await Competition.findByIdAndUpdate(
+    req.params.id, { $set }, { new: true, runValidators: true }
+  ).lean();
+
+  if (!updated) return res.status(404).json({ error: 'Not found' });
+  res.json(updated);
+}));
+
+// DELETE /api/competitions/:id
+router.delete('/:id', asyncHandler(async (req, res) => {
+  const deleted = await Competition.findByIdAndDelete(req.params.id);
+  if (!deleted) return res.status(404).json({ error: 'Not found' });
+  res.json({ success: true });
+}));
+
+// ───────────────────────────────── monthly metrics ─────────────────────────
+
+// PUT /api/competitions/:id/monthly-metrics  (atomic upsert)
+router.put('/:id/monthly-metrics', asyncHandler(async (req, res) => {
+  let { month, soldLots, quickMoveInLots } = req.body;
+  if (!month || !/^\d{4}-\d{2}$/.test(month)) {
+    return res.status(400).json({ error: 'month is required (YYYY-MM)' });
   }
-});
 
-// ---------- amenities ----------
-router.put('/:id/amenities', async (req, res) => {
-  try {
-    const { communityAmenities } = req.body;
-    const updated = await Competition.findByIdAndUpdate(
-      req.params.id,
-      { $set: { communityAmenities } },
-      { new: true, runValidators: true }
-    ).lean();
-    res.json(updated);
-  } catch (err) {
-    console.error('Error updating amenities:', err);
-    res.status(400).json({ error: err.message });
-  }
-});
+  if (soldLots        !== undefined) soldLots        = toNumOrNull(soldLots);
+  if (quickMoveInLots !== undefined) quickMoveInLots = toNumOrNull(quickMoveInLots);
 
-// ---------- metrics (normalize blank enums, coerce numbers) ----------
-router.put('/:id/metrics', async (req, res) => {
-  try {
-    const {
-      promotion, topPlan1, topPlan2, topPlan3, pros, cons,
-      totalLots, hoaFee, hoaFrequency, pidFee, pidFeeFrequency
-    } = req.body;
+  const upd = await Competition.updateOne(
+    { _id: req.params.id, 'monthlyMetrics.month': month },
+    {
+      $set: {
+        ...(soldLots        !== undefined ? { 'monthlyMetrics.$.soldLots': soldLots } : {}),
+        ...(quickMoveInLots !== undefined ? { 'monthlyMetrics.$.quickMoveInLots': quickMoveInLots } : {}),
+      }
+    },
+    { runValidators: true }
+  );
 
-    const $set = {
-      ...(promotion  !== undefined ? { promotion } : {}),
-      ...(topPlan1   !== undefined ? { topPlan1 } : {}),
-      ...(topPlan2   !== undefined ? { topPlan2 } : {}),
-      ...(topPlan3   !== undefined ? { topPlan3 } : {}),
-      ...(pros       !== undefined ? { pros } : {}),
-      ...(cons       !== undefined ? { cons } : {}),
-      ...(totalLots  !== undefined ? { totalLots: toNumOrNull(totalLots) } : {}),
-      ...(hoaFee     !== undefined ? { hoaFee: toNumOrNull(hoaFee) } : {}),
-      ...(hoaFrequency     !== undefined ? { hoaFrequency: clean(hoaFrequency) } : {}),
-      ...(pidFee     !== undefined ? { pidFee: toNumOrNull(pidFee) } : {}),
-      ...(pidFeeFrequency  !== undefined ? { pidFeeFrequency: clean(pidFeeFrequency) } : {}),
-    };
-    Object.keys($set).forEach(k => $set[k] === undefined && delete $set[k]);
-
-    const updated = await Competition.findByIdAndUpdate(
-      req.params.id,
-      { $set },
-      { new: true, runValidators: true }
-    ).lean();
-
-    if (!updated) return res.status(404).json({ error: 'Not found' });
-    res.json(updated);
-  } catch (err) {
-    console.error('Error updating competition metrics:', err);
-    res.status(400).json({ error: err.message });
-  }
-});
-
-// ---------- monthly metrics (atomic upsert; no full doc save) ----------
-router.put('/:id/monthly-metrics', async (req, res) => {
-  try {
-    let { month, soldLots, quickMoveInLots } = req.body;
-    if (!month) return res.status(400).json({ error: 'month is required (YYYY-MM)' });
-
-    if (soldLots        !== undefined) soldLots        = toNumOrNull(soldLots);
-    if (quickMoveInLots !== undefined) quickMoveInLots = toNumOrNull(quickMoveInLots);
-
-    const upd = await Competition.updateOne(
-      { _id: req.params.id, 'monthlyMetrics.month': month },
+  if (upd.matchedCount === 0) {
+    await Competition.updateOne(
+      { _id: req.params.id },
       {
-        $set: {
-          ...(soldLots !== undefined ? { 'monthlyMetrics.$.soldLots': soldLots } : {}),
-          ...(quickMoveInLots !== undefined ? { 'monthlyMetrics.$.quickMoveInLots': quickMoveInLots } : {}),
+        $push: {
+          monthlyMetrics: {
+            month,
+            ...(soldLots        !== undefined ? { soldLots }        : {}),
+            ...(quickMoveInLots !== undefined ? { quickMoveInLots } : {}),
+          }
         }
       },
       { runValidators: true }
     );
-
-    if (upd.matchedCount === 0) {
-      await Competition.updateOne(
-        { _id: req.params.id },
-        {
-          $push: {
-            monthlyMetrics: {
-              month,
-              ...(soldLots !== undefined ? { soldLots } : {}),
-              ...(quickMoveInLots !== undefined ? { quickMoveInLots } : {}),
-            }
-          }
-        },
-        { runValidators: true }
-      );
-    }
-    res.json({ ok: true });
-  } catch (err) {
-    console.error('💥 monthly-metrics save error:', err);
-    res.status(400).json({ error: err.message });
   }
-});
+  res.json({ ok: true });
+}));
 
-// ---------- monthly metrics (GET one month for hydration) ----------
-router.get('/:id/monthly', async (req, res) => {
-  try {
-    const { month } = req.query;
-    const doc = await Competition.findById(req.params.id).lean();
-    if (!doc) return res.status(404).json({ error: 'Not found' });
-    const m = (doc.monthlyMetrics || []).find(x => x.month === month) || {};
-    res.json({
-      soldLots: m.soldLots ?? null,
-      quickMoveInLots: m.quickMoveInLots ?? null
-    });
-  } catch (e) { res.status(400).json({ error: e.message }); }
-});
+// GET /api/competitions/:id/monthly?month=YYYY-MM
+router.get('/:id/monthly', asyncHandler(async (req, res) => {
+  const { month } = req.query;
+  const doc = await Competition.findById(req.params.id).lean();
+  if (!doc) return res.status(404).json({ error: 'Not found' });
+  const m = (doc.monthlyMetrics || []).find(x => x.month === month) || {};
+  res.json({
+    soldLots: m.soldLots ?? null,
+    quickMoveInLots: m.quickMoveInLots ?? null
+  });
+}));
 
-// ---------- sales (unchanged from yours) ----------
-router.get('/:id/sales', async (req, res) => {
-  try {
-    const { id } = req.params;
-    const year = Number(req.query.year) || new Date().getFullYear();
+// ───────────────────────────────── analytics ───────────────────────────────
 
-    const recs = await SalesRecord.find({
-      competition: id,
-      month: { $regex: `^${year}-` }
-    }).sort({ month: 1 }).lean();
+// GET /api/competitions/:id/sales?year=YYYY
+router.get('/:id/sales', asyncHandler(async (req, res) => {
+  const { id } = req.params;
+  const year = Number(req.query.year) || new Date().getFullYear();
 
-    const months = Array.from({ length: 12 }, (_, i) => {
-      const mm = String(i + 1).padStart(2, '0');
-      const key = `${year}-${mm}`;
-      const hit = recs.find(r => r.month === key);
-      return {
-        month: key,
-        sales:    hit?.sales    ?? 0,
-        cancels:  hit?.cancels  ?? 0,
-        closings: hit?.closings ?? 0,
-      };
-    });
+  const recs = await SalesRecord.find({
+    competition: id,
+    month: { $regex: `^${year}-` }
+  }).sort({ month: 1 }).lean();
 
-    res.json({ year, months });
-  } catch (err) {
-    console.error('GET sales error:', err);
-    res.status(500).json({ error: 'Failed to load sales records' });
+  const months = Array.from({ length: 12 }, (_, i) => {
+    const mm = String(i + 1).padStart(2, '0');
+    const key = `${year}-${mm}`;
+    const hit = recs.find(r => r.month === key);
+    return {
+      month: key,
+      sales:    hit?.sales    ?? 0,
+      cancels:  hit?.cancels  ?? 0,
+      closings: hit?.closings ?? 0,
+    };
+  });
+
+  res.json({ year, months });
+}));
+
+// GET /api/competitions/:id/base-prices-by-plan?anchor=YYYY-MM
+router.get('/:id/base-prices-by-plan', asyncHandler(async (req, res) => {
+  const { id } = req.params;
+  let { anchor } = req.query; // "YYYY-MM"
+
+  if (!anchor || !/^\d{4}-\d{2}$/.test(anchor)) {
+    const d = new Date(); d.setMonth(d.getMonth() - 1);
+    anchor = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`;
   }
-});
 
-// ---------- base prices by plan (unchanged; minor cleanup) ----------
-router.get('/:id/base-prices-by-plan', async (req, res) => {
-  try {
-    const { id } = req.params;
-    let { anchor } = req.query; // "YYYY-MM"
+  const [ay, am] = anchor.split('-').map(Number);
+  const priorDate = new Date(ay, am - 2, 1);
+  const prior = `${priorDate.getFullYear()}-${String(priorDate.getMonth() + 1).padStart(2, '0')}`;
 
-    if (!anchor) {
-      const d = new Date();
-      d.setMonth(d.getMonth() - 1);
-      anchor = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`;
-    }
+  let planList = [];
+  if (FloorPlanComp) planList = await FloorPlanComp.find({ competition: id }).lean();
 
-    const [ay, am] = anchor.split('-').map(Number);
-    const priorDate = new Date(ay, am - 2, 1);
-    const prior = `${priorDate.getFullYear()}-${String(priorDate.getMonth() + 1).padStart(2, '0')}`;
+  const recs = await PriceRecord.find({ competition: id, month: { $in: [prior, anchor] } }).lean();
 
-    let planList = [];
-    if (FloorPlanComp) planList = await FloorPlanComp.find({ competition: id }).lean();
-
-    const recs = await PriceRecord.find({ competition: id, month: { $in: [prior, anchor] } }).lean();
-
-    if (!planList.length) {
-      const byPlan = new Map();
-      for (const r of recs) {
-        const pid = String(r.floorPlan || r.floorPlanId || '');
-        if (!pid) continue;
-        if (!byPlan.has(pid)) byPlan.set(pid, { _id: pid, name: r.floorPlanName || 'Plan' });
-      }
-      planList = Array.from(byPlan.values());
-    }
-
-    const acc = {};
+  if (!planList.length) {
+    const byPlan = new Map();
     for (const r of recs) {
       const pid = String(r.floorPlan || r.floorPlanId || '');
       if (!pid) continue;
-      const key = `${pid}|${r.month}`;
-      if (!acc[key]) acc[key] = { sum: 0, count: 0 };
-      acc[key].sum += Number(r.price) || 0;
-      acc[key].count++;
+      if (!byPlan.has(pid)) byPlan.set(pid, { _id: pid, name: r.floorPlanName || 'Plan' });
     }
-
-    const plans = planList.map(p => {
-      const pid = String(p._id || p.id || p.planId || '');
-      const priorKey  = `${pid}|${prior}`;
-      const anchorKey = `${pid}|${anchor}`;
-      const priorAvg  = acc[priorKey]  ? acc[priorKey].sum  / acc[priorKey].count  : 0;
-      const anchorAvg = acc[anchorKey] ? acc[anchorKey].sum / acc[anchorKey].count : 0;
-      return { id: pid, name: p.name || p.title || p.planName || 'Unnamed Plan', prior: priorAvg, anchor: anchorAvg };
-    });
-
-    res.json({ prior, anchor, plans });
-  } catch (err) {
-    console.error('GET /:id/base-prices-by-plan error:', err);
-    res.status(500).json({ error: 'Failed to load per-plan base prices' });
+    planList = Array.from(byPlan.values());
   }
-});
 
-// ---------- delete ----------
-router.delete('/:id', async (req, res) => {
-  try {
-    const deleted = await Competition.findByIdAndDelete(req.params.id);
-    if (!deleted) return res.status(404).json({ error: 'Not found' });
-    res.json({ success: true });
-  } catch (e) { res.status(400).json({ error: e.message }); }
+  const acc = {};
+  for (const r of recs) {
+    const pid = String(r.floorPlan || r.floorPlanId || '');
+    if (!pid) continue;
+    const key = `${pid}|${r.month}`;
+    if (!acc[key]) acc[key] = { sum: 0, count: 0 };
+    acc[key].sum += Number(r.price) || 0;
+    acc[key].count++;
+  }
+
+  const plans = planList.map(p => {
+    const pid = String(p._id || p.id || p.planId || '');
+    const priorKey  = `${pid}|${prior}`;
+    const anchorKey = `${pid}|${anchor}`;
+    const priorAvg  = acc[priorKey]  ? acc[priorKey].sum  / acc[priorKey].count  : 0;
+    const anchorAvg = acc[anchorKey] ? acc[anchorKey].sum / acc[anchorKey].count : 0;
+    return { id: pid, name: p.name || p.title || p.planName || 'Unnamed Plan', prior: priorAvg, anchor: anchorAvg };
+  });
+
+  res.json({ prior, anchor, plans });
+}));
+
+// ───────────────────────────────── error handling ──────────────────────────
+
+// If you have a global error handler, remove the handler below.
+// Keeping a small local one in case this router is mounted standalone.
+router.use((err, _req, res, _next) => {
+  console.error('Competition router error:', err);
+  if (res.headersSent) return;
+  res.status(500).json({ error: 'Server error' });
 });
 
 module.exports = router;

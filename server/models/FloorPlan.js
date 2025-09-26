@@ -1,52 +1,39 @@
-// models/FloorPlan.js
 const mongoose = require('mongoose');
+const { Schema } = mongoose;
 
-const FloorPlanSchema = new mongoose.Schema({
-  // 1️⃣ Floor Plan #: a unique code or number
-  planNumber: {
-    type: String,
-    required: true,
-    unique: true,
-    trim: true
-  },
+// tiny coercers so old string inputs still work
+const toNum = v => (v === '' || v == null ? undefined : Number(v));
 
-  // 2️⃣ Floor Plan Name
-  name: {
-    type: String,
-    required: true,
-    trim: true
-  },
+const FloorPlanSchema = new Schema({
+  // 🔐 tenant
+  company: { type: Schema.Types.ObjectId, ref: 'Company', required: true, index: true },
 
-  // 3️⃣ Specs: square footage and counts
+  // 1) human/system identifiers
+  planNumber: { type: String, required: true, trim: true },
+  name:       { type: String, required: true, trim: true },
+
+  // 2) specs — coerce strings -> numbers without exploding
   specs: {
-    squareFeet: {
-      type: Number,
-      required: true,
-      min: 0
-    },
-    beds: {
-      type: Number,
-      required: true,
-      min: 0
-    },
-    baths: {
-      type: Number,
-      required: true,
-      min: 0
-    },
-    garage: {
-      type: Number,
-      required: true,
-      min: 0
-    }
+    squareFeet: { type: Number, min: 0, set: toNum, required: true },
+    beds:       { type: Number, min: 0, set: toNum, required: true },
+    baths:      { type: Number, min: 0, set: toNum, required: true },
+    garage:     { type: Number, min: 0, set: toNum, required: true }
   },
 
-  // Optional: which communities offer this plan
-  communities: [
-    { type: mongoose.Schema.Types.ObjectId, ref: 'Community' }
-  ]
-}, {
-  timestamps: true
-});
+  // 3) relationships
+  // keep your existing link to which communities offer this plan
+  communities: [{ type: Schema.Types.ObjectId, ref: 'Community', index: true }],
+
+  // 4) lifecycle flags (handy in UI)
+  isActive: { type: Boolean, default: true }
+}, { timestamps: true });
+
+// 🔎 indexes
+// make planNumber unique WITHIN a company (replaces global unique on planNumber)
+FloorPlanSchema.index({ company: 1, planNumber: 1 }, { unique: true });
+FloorPlanSchema.index({ company: 1, name: 1 });
+
+// optional: quick search
+// FloorPlanSchema.index({ name: 'text', planNumber: 'text' });
 
 module.exports = mongoose.model('FloorPlan', FloorPlanSchema);

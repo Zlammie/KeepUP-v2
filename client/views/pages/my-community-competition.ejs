@@ -34,16 +34,16 @@
 
              <button id="manageCommunityBtn" class="btn btn-sm btn-outline">Manage Communities</button>
 
-        <script>
-          document.getElementById('manageCommunityBtn').addEventListener('click', () => {
-            const communityId = document.getElementById('communitySelect').value;
-            if (!communityId) {
-              alert('Please select a community first.');
-              return;
-            }
-            window.location.href = `/manage-my-community-competition/${communityId}`;
-          });
-        </script>
+          <script nonce="<%= cspNonce %>">
+              document.getElementById('manageCommunityBtn').addEventListener('click', () => {
+                const communityId = document.getElementById('communitySelect').value;
+                if (!communityId) {
+                  alert('Please select a community first.');
+                  return;
+                }
+                window.location.href = `/manage-my-community-competition/${communityId}`;
+              });
+          </script>
         <section class="card card--white">
           <h2>Primary Community Contact</h2>
           <div class="form-group">
@@ -279,7 +279,7 @@
   </main>
 
   <!-- Page script -->
-  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.4/dist/chart.umd.min.js"></script>
+   <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.4/dist/chart.umd.min.js" nonce="<%= cspNonce %>"></script>
   <script type="module" src="/assets/js/my-community-competition/index.js"></script>
 </body>
 </html>

@@ -27,12 +27,13 @@
             <input type="text" id="owner" />
           </div>
           <div class="form-group">
-            <label for="community-select">Community</label>
-              <select id="community-select" class="select-standard">
-                <option value="">-- Select Community --</option>
-                <!-- dynamically filled -->
-              </select>
-              <input type="hidden" id="communities" />
+            <label for="community-select">Communities</label>
+            <select id="community-select" class="select-standard" multiple size="6" aria-label="Select one or more communities">
+              <!-- dynamically filled by JS -->
+            </select>
+            <div class="form-text">Hold Ctrl/Cmd to select more than one.</div>
+            <!-- keep this if your existing save code expects it; our JS will fill it -->
+            <input type="hidden" id="communities" />
           </div>
           <div class="form-group">
             <label for="visit-date">Visit Date</label>

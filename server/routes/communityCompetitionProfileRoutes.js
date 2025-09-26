@@ -1,837 +1,718 @@
-// server/routes/communityCompetitionProfileRoutes.js
+// routes/communityCompetitionProfileRoutes.js (secured & tenant-scoped)
 const express = require('express');
 const mongoose = require('mongoose');
+const router = express.Router();
 
 const Community = require('../models/Community');
 const FloorPlan = require('../models/FloorPlan');
-const CommunityCompetitionProfile = require('../models/communityCompetitionProfile');
 const Competition = require('../models/Competition');
+const CommunityCompetitionProfile = require('../models/communityCompetitionProfile');
 
-const router = express.Router();
+const ensureAuth  = require('../middleware/ensureAuth');
+const requireRole = require('../middleware/requireRole');
 
-// helpers
-function toArray(v) {
+// ───────── helpers ─────────
+const isObjectId = v => mongoose.Types.ObjectId.isValid(String(v));
+const isSuper = req => (req.user?.roles || []).includes('SUPER_ADMIN');
+const baseFilter = req => (isSuper(req) ? {} : { company: req.user.company });
+
+const toArray = v => {
   if (Array.isArray(v)) return v.filter(Boolean).map(s => s.toString().trim()).filter(Boolean);
-  if (typeof v === 'string') {
-    return v.split('\n').map(s => s.trim()).filter(Boolean);
-  }
+  if (typeof v === 'string') return v.split('\n').map(s => s.trim()).filter(Boolean);
   return [];
-}
-
-/**
- * GET profile for a communityId
- * Returns just the profile doc (no community wrapper) with a default shape if not present yet.
- */
-router.get('/api/community-competition-profiles/:communityId', async (req, res) => {
-  try {
-    const { communityId } = req.params;
-    if (!mongoose.Types.ObjectId.isValid(communityId)) {
-      return res.status(400).json({ error: 'Invalid communityId' });
-    }
-
-    // ensure community exists
-    const exists = await Community.findById(communityId).select('_id').lean();
-    if (!exists) return res.status(404).json({ error: 'Community not found' });
-
-    // populate topPlans.* if a profile exists
-    let profile = await CommunityCompetitionProfile.findOne({ community: communityId })
-      .populate([
-        { path: 'topPlans.plan1', select: 'name planNumber specs.squareFeet' },
-        { path: 'topPlans.plan2', select: 'name planNumber specs.squareFeet' },
-        { path: 'topPlans.plan3', select: 'name planNumber specs.squareFeet' },
-        { path: 'linkedCompetitions', select: 'communityName builderName city state' }
-      ])
-      .lean();
-
-    // return a default shape if none exists yet
-    if (!profile) {
-      profile = {
-        community: communityId,
-        promotion: '',
-        prosCons: { pros: [], cons: [] },
-        topPlans: { plan1: null, plan2: null, plan3: null },
-      };
-    }
-
-    res.json(profile);
-  } catch (err) {
-    console.error('GET /community-competition-profiles error:', err);
-    res.status(500).json({ error: 'Server error' });
-  }
-});
-
-// GET /api/competitions/minimal  → list for the Link/Unlink UI
-// GET: minimal list of competitors for Link/Unlink UI
-router.get('/api/competitions/minimal', async (req, res) => {
-  try {
-    const comps = await Competition.find({})
-      .select('communityName builderName city state')
-      .sort({ builderName: 1, communityName: 1 })
-      .lean();
-    res.json(comps);
-  } catch (err) {
-    console.error('GET /competitions/minimal error:', err);
-    res.status(500).json({ error: 'Server error' });
-  }
-});
-
-router.post('/api/community-competition-profiles/:communityId/linked-competitions/:competitionId', async (req, res) => {
-  try {
-    const { communityId, competitionId } = req.params;
-    const updated = await CommunityCompetitionProfile.findOneAndUpdate(
-      { community: communityId },
-      { $addToSet: { linkedCompetitions: competitionId } },
-      { new: true, upsert: true }
-    ).populate('linkedCompetitions', 'communityName builderName city state');
-    res.json({ linkedCompetitions: updated.linkedCompetitions });
-  } catch (err) {
-    console.error('LINK competitor error:', err);
-    res.status(500).json({ error: 'Server error' });
-  }
-});
-
-// UNLINK one competitor
-router.delete('/api/community-competition-profiles/:communityId/linked-competitions/:competitionId', async (req, res) => {
-  try {
-    const { communityId, competitionId } = req.params;
-    const updated = await CommunityCompetitionProfile.findOneAndUpdate(
-      { community: communityId },
-      { $pull: { linkedCompetitions: competitionId } },
-      { new: true, upsert: true }
-    ).populate('linkedCompetitions', 'communityName builderName city state');
-    res.json({ linkedCompetitions: updated.linkedCompetitions });
-  } catch (err) {
-    console.error('UNLINK competitor error:', err);
-    res.status(500).json({ error: 'Server error' });
-  }
-});
-
-// GET /api/community-competition-profiles/:communityId/sales?month=YYYY-MM
-router.get('/api/community-competition-profiles/:communityId/sales', async (req, res) => {
-  try {
-    const { communityId } = req.params;
-    const { month } = req.query;
-
-    if (!mongoose.Types.ObjectId.isValid(communityId)) {
-      return res.status(400).json({ error: 'Invalid communityId' });
-    }
-    if (!month || !/^\d{4}-(0[1-9]|1[0-2])$/.test(month)) {
-      return res.status(400).json({ error: 'month=YYYY-MM is required' });
-    }
-
-    // Load community (raw lots, no populate)
-    const community = await Community.findById(communityId)
-      .select('lots createdAt')
-      .lean();
-    if (!community) return res.status(404).json({ error: 'Community not found' });
-
-    // Helpers
-    const ymStrToInt = (ym) => {
-      if (typeof ym !== 'string' || !/^\d{4}-(0[1-9]|1[0-2])$/.test(ym)) return null;
-      const [y, m] = ym.split('-').map(Number);
-      return y * 100 + m; // YYYYMM
-    };
-    const soldDateStrToYMInt = (s) => {
-      if (!s || typeof s !== 'string') return null;
-      const t = s.trim();
-
-      // 1) YYYY-MM
-      let m = t.match(/^(\d{4})-(0[1-9]|1[0-2])$/);
-      if (m) return Number(m[1]) * 100 + Number(m[2]);
-
-      // 2) YYYY-MM-DD
-      m = t.match(/^(\d{4})-(0[1-9]|1[0-2])-\d{1,2}$/);
-      if (m) return Number(m[1]) * 100 + Number(m[2]);
-
-      // 3) MM/DD/YYYY
-      m = t.match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})$/);
-      if (m) return Number(m[3]) * 100 + Math.min(12, Math.max(1, Number(m[1])));
-
-      // 4) Fallback Date.parse (e.g., "Jul 16 2025")
-      const d = new Date(t);
-      if (!Number.isNaN(d.getTime())) return d.getFullYear() * 100 + (d.getMonth() + 1);
-
-      return null;
-    };
-    const selectedYM = ymStrToInt(month);
-    const soldStatuses = new Set(['closed', 'purchased', 'sold']); // extend if you use other labels
-
-    const lots = Array.isArray(community.lots) ? community.lots : [];
-    const results = [];
-    const planIds = new Set();
-
-    for (const l of lots) {
-      if (!l) continue;
-
-      // Determine "is sold": purchaser linked OR status in a sold bucket
-      const status = String(l.status || '').toLowerCase().trim();
-      const isSold = Boolean(l.purchaser) || soldStatuses.has(status);
-      if (!isSold) continue;
-
-      // Determine the SOLD month (prefer closeMonth, then closeDateTime)
-      const soldYM =
-        (typeof l.closeMonth === 'string' ? ymStrToInt(l.closeMonth) : null) ??
-        soldDateStrToYMInt(l.closeDateTime);
-
-      if (soldYM == null) continue;        // no sold month → skip
-      if (selectedYM != null && soldYM !== selectedYM) continue; // show ONLY the selected month
-
-      results.push(l);
-      if (l.floorPlan) planIds.add(String(l.floorPlan));
-    }
-
-    // Fetch plan details once
-    let planMap = {};
-    if (planIds.size > 0) {
-      const plans = await FloorPlan.find({ _id: { $in: Array.from(planIds) } })
-        .select('name planNumber specs.squareFeet')
-        .lean();
-      planMap = Object.fromEntries(
-        plans.map(p => [String(p._id), {
-          _id: p._id,
-          name: p.name,
-          planNumber: p.planNumber,
-          sqft: p?.specs?.squareFeet ?? null
-        }])
-      );
-    }
-
-    // Shape rows
-    const sales = results.map(l => ({
-      lotId: l._id,
-      address: l.address || l.streetAddress || '',
-      listDate: l.releaseDate || null,    // your schema stores release/list on lots.releaseDate
-      floorPlan: l.floorPlan ? planMap[String(l.floorPlan)] || null : null,
-      listPrice: l.listPrice ?? null,
-      sqft: l.squareFeet ?? l.sqft ?? (planMap[String(l.floorPlan)]?.sqft ?? null),
-      status: l.status || '',
-      soldDate: l.closeDateTime || l.closeMonth || null,
-      soldPrice: l.salesPrice ?? null
-    }));
-
-    // Sort by soldDate within the month (optional nice-to-have)
-    sales.sort((a, b) => String(a.soldDate || '').localeCompare(String(b.soldDate || '')));
-
-    res.json({ month, sales });
-  } catch (err) {
-    console.error('GET /sales error:', err);
-    res.status(500).json({ error: 'Server error' });
-  }
-});
-
-
-router.get('/api/communities/:communityId/floorplans', async (req, res) => {
-  try {
-    const { communityId } = req.params;
-    if (!mongoose.Types.ObjectId.isValid(communityId)) {
-      return res.status(400).json({ error: 'Invalid communityId' });
-    }
-
-    // 1) Prefer FloorPlan → communities link
-    let plans = await FloorPlan.find({ communities: communityId })
-      .select('_id name planNumber specs.squareFeet specs.beds specs.baths specs.garage')
-      .sort({ name: 1 })
-      .lean();
-
-    // 2) Fallback: dedupe from Community.lots.floorPlan
-    if (!plans.length) {
-      const community = await Community.findById(communityId)
-        .populate('lots.floorPlan', 'name planNumber specs.squareFeet specs.beds specs.baths specs.garage')
-        .lean();
-
-      const uniq = new Map();
-      for (const lot of (community?.lots || [])) {
-        const fp = lot.floorPlan;
-        if (fp && fp._id) uniq.set(fp._id.toString(), fp);
-      }
-      plans = Array.from(uniq.values()).sort((a,b) => (a.name || '').localeCompare(b.name || ''));
-    }
-
-    res.json(plans);
-  } catch (err) {
-    console.error('GET /communities/:id/floorplans error:', err);
-    res.status(500).json({ error: 'Server error' });
-  }
-});
-
-// Total lot count for a community
-router.get('/api/communities/:communityId/lot-count', async (req, res) => {
-  try {
-    const { communityId } = req.params;
-    if (!mongoose.Types.ObjectId.isValid(communityId)) {
-      return res.status(400).json({ error: 'Invalid communityId' });
-    }
-
-    // Pull what we need; prefer a maintained totalLots field, otherwise fall back to subdoc count
-    const comm = await Community.findById(communityId).select('totalLots lots').lean();
-    if (!comm) return res.status(404).json({ error: 'Community not found' });
-
-    const totalLots =
-      typeof comm.totalLots === 'number'
-        ? comm.totalLots
-        : (Array.isArray(comm.lots) ? comm.lots.length : 0);
-
-    res.json({ totalLots });
-  } catch (err) {
-    console.error('GET /api/communities/:communityId/lot-count error:', err);
-    res.status(500).json({ error: 'Server error' });
-  }
-});
-
-// --- Aggregate lot stats for a community ---
-// total = totalLots (if present) else lots.length
-// sold  = count of lots that have a linked Contact (purchaser)
-// remaining = total - sold
-// quickMoveInLots = 0 for now (wire later)
-router.get('/api/communities/:communityId/lot-stats', async (req, res) => {
-  try {
-    const { communityId } = req.params;
-    if (!mongoose.Types.ObjectId.isValid(communityId)) {
-      return res.status(400).json({ error: 'Invalid communityId' });
-    }
-
-    // We only need purchaser + totalLots to compute stats
-    const community = await Community.findById(communityId)
-      .select('totalLots lots.purchaser lots') // adjust if your ref field is named differently
-      .lean();
-
-    if (!community) return res.status(404).json({ error: 'Community not found' });
-
-    const lots = Array.isArray(community.lots) ? community.lots : [];
-    const total = (typeof community.totalLots === 'number')
-      ? community.totalLots
-      : lots.length;
-
-    // IMPORTANT: 'purchaser' is assumed to be the ObjectId of Contact on each lot.
-    // If your field name differs (e.g., 'buyerContact' or 'contact'), change the line below.
-    const sold = lots.filter(l => !!l && !!l.purchaser).length;
-
-    const remaining = Math.max(0, total - sold);
-
-    return res.json({
-      total,
-      sold,
-      remaining,
-      quickMoveInLots: 0, // TODO: compute later when you define the rule
-    });
-  } catch (err) {
-    console.error('GET /api/communities/:communityId/lot-stats error:', err);
-    res.status(500).json({ error: 'Server error' });
-  }
-});
-
-// GET /api/community-competition-profiles/:communityId/prices?month=YYYY-MM
-router.get('/api/community-competition-profiles/:communityId/prices', async (req, res) => {
-  try {
-    const { communityId } = req.params;
-    const { month } = req.query;
-
-    if (!mongoose.Types.ObjectId.isValid(communityId)) {
-      return res.status(400).json({ error: 'Invalid communityId' });
-    }
-    if (!month || !/^\d{4}-(0[1-9]|1[0-2])$/.test(month)) {
-      return res.status(400).json({ error: 'month query param required as YYYY-MM' });
-    }
-
-    const exists = await Community.findById(communityId).select('_id').lean();
-    if (!exists) return res.status(404).json({ error: 'Community not found' });
-
-    const profile = await CommunityCompetitionProfile.findOne({ community: communityId }).lean();
-    if (!profile || !Array.isArray(profile.monthlyPrices)) {
-      return res.json({ month, prices: {} });
-    }
-
-    const entry = profile.monthlyPrices.find(mp => mp.month === month);
-    // entry.prices might be a Map or a plain object (when lean)
-    const out = entry?.prices
-      ? (entry.prices instanceof Map ? Object.fromEntries(entry.prices) : entry.prices)
-      : {};
-    return res.json({ month, prices: out });
-  } catch (err) {
-    console.error('GET month prices error:', err);
-    res.status(500).json({ error: 'Server error' });
-  }
-});
-
-// GET /api/community-competition-profiles/:communityId/qmi?month=YYYY-MM
-router.get('/api/community-competition-profiles/:communityId/qmi', async (req, res) => {
-  try {
-    const { communityId } = req.params;
-    const { month } = req.query;
-
-    if (!mongoose.Types.ObjectId.isValid(communityId)) {
-      return res.status(400).json({ error: 'Invalid communityId' });
-    }
-    if (!month || !/^\d{4}-(0[1-9]|1[0-2])$/.test(month)) {
-      return res.status(400).json({ error: 'month=YYYY-MM is required' });
-    }
-
-    // Load community (raw lots, no populate)
-    const community = await Community.findById(communityId)
-      .select('lots createdAt')
-      .lean();
-    if (!community) return res.status(404).json({ error: 'Community not found' });
-
-    // Load per-month exclusions
-    const profile = await CommunityCompetitionProfile.findOne({ community: communityId })
-      .select('monthlyQMI')
-      .lean();
-    const excludedThisMonth = new Set(
-      (profile?.monthlyQMI || [])
-        .find(m => m.month === month)?.excludedLots
-        ?.map(id => id.toString()) || []
-    );
-
-    // GET /api/community-competition-profiles/:communityId/sales-summary?month=YYYY-MM
-router.get('/api/community-competition-profiles/:communityId/sales-summary', async (req, res) => {
-  try {
-    const { communityId } = req.params;
-    const { month } = req.query;
-
-    if (!mongoose.Types.ObjectId.isValid(communityId)) {
-      return res.status(400).json({ error: 'Invalid communityId' });
-    }
-    if (!month || !/^\d{4}-(0[1-9]|1[0-2])$/.test(month)) {
-      return res.status(400).json({ error: 'month=YYYY-MM is required' });
-    }
-
-    // ensure the community exists (avoid orphan profiles)
-    const exists = await Community.findById(communityId).select('_id').lean();
-    if (!exists) return res.status(404).json({ error: 'Community not found' });
-
-    const profile = await CommunityCompetitionProfile.findOne({ community: communityId })
-      .select('monthlySalesSummary')
-      .lean();
-
-    const entry = (profile?.monthlySalesSummary || []).find(s => s.month === month);
-    const out = entry ? { sales: entry.sales ?? 0, cancels: entry.cancels ?? 0, closings: entry.closings ?? 0 }
-                      : { sales: 0, cancels: 0, closings: 0 };
-
-    return res.json({ month, ...out });
-  } catch (err) {
-    console.error('GET /sales-summary error:', err);
-    res.status(500).json({ error: 'Server error' });
-  }
-});
-
-    // Helpers
-   // Helpers (replace your current ym() helper with this pair)
-// Helpers (keep these near the top of the route)
-const ymStrToInt = (ym /* "YYYY-MM" */) => {
-  if (typeof ym !== 'string' || !/^\d{4}-(0[1-9]|1[0-2])$/.test(ym)) return null;
-  const [y, m] = ym.split('-').map(Number);
-  return y * 100 + m; // YYYYMM
 };
 
-// releaseDate is a STRING in your schema. Parse into YYYYMM int.
-const releaseStrToYMInt = (s) => {
-  if (!s || typeof s !== 'string') return null;
-  const t = s.trim();
+const isYYYYMM = s => typeof s === 'string' && /^\d{4}-(0[1-9]|1[0-2])$/.test(s);
 
-  // 1) "YYYY-MM"
+// parse close/release month → YYYYMM int (tolerant)
+const ymStrToInt = (ym) => {
+  if (!isYYYYMM(ym)) return null;
+  const [y, m] = ym.split('-').map(Number);
+  return y * 100 + m;
+};
+const dateLikeToYMInt = (s) => {
+  if (!s) return null;
+  const t = String(s).trim();
   let m = t.match(/^(\d{4})-(0[1-9]|1[0-2])$/);
   if (m) return Number(m[1]) * 100 + Number(m[2]);
-
-  // 2) "YYYY-MM-DD"
   m = t.match(/^(\d{4})-(0[1-9]|1[0-2])-\d{1,2}$/);
   if (m) return Number(m[1]) * 100 + Number(m[2]);
-
-  // 3) "MM/DD/YYYY"
   m = t.match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})$/);
-  if (m) {
-    const mm = Math.min(12, Math.max(1, Number(m[1])));
-    const yyyy = Number(m[3]);
-    return yyyy * 100 + mm;
-  }
-
-  // 4) Fallback: Date.parse (handles "Jun 2025", "June 1, 2025", etc.)
+  if (m) return Number(m[3]) * 100 + Math.min(12, Math.max(1, Number(m[1])));
   const d = new Date(t);
-  if (!Number.isNaN(d.getTime())) {
-    return d.getFullYear() * 100 + (d.getMonth() + 1);
-  }
-
-  return null; // unknown format
+  return Number.isNaN(d.getTime()) ? null : d.getFullYear() * 100 + (d.getMonth() + 1);
 };
 
-const selectedYM = ymStrToInt(month);
-
-// more inclusive status checks
-const isUC = (s) => s.includes('under') && s.includes('construction'); // "under construction"
-const isFinished = (s) => s.includes('finished');
-
-// --- Filter lots ---
-const lots = Array.isArray(community.lots) ? community.lots : [];
-const candidates = [];
-const planIds = new Set();
-
-for (const l of lots) {
-  if (!l || excludedThisMonth.has(String(l._id))) continue;
-
-  const s = String(l.status || '').toLowerCase().trim();
-
-  // Must be UC or Finished (contains-based, case-insensitive)
-  if (!(isUC(s) || isFinished(s))) continue;
-
-  // Must NOT have a buyer / be closed/purchased
-  if (l.purchaser) continue;                       // buyer linked ⇒ not QMI
-  if (s === 'closed' || s === 'purchased') continue;
-
-  // --- KEY: use lots.releaseDate (String) as the release month only ---
-  const releaseYM = releaseStrToYMInt(l.releaseDate);  // e.g., "2025-06", "06/15/2025", "Jun 2025"
-  if (releaseYM == null) continue; // if no release date, don't show yet
-
-  // Show from release month forward
-  if (selectedYM != null && selectedYM < releaseYM) continue;
-
-  candidates.push(l);
-  if (l.floorPlan) planIds.add(String(l.floorPlan));
-}
-
-let planMap = {};
-if (planIds.size > 0) {
-  const plans = await FloorPlan.find({ _id: { $in: Array.from(planIds) } })
-    .select('name planNumber specs.squareFeet')
-    .lean();
-
-  planMap = Object.fromEntries(
-    plans.map(p => [String(p._id), {
-      _id: p._id,
-      name: p.name,
-      planNumber: p.planNumber,
-      sqft: p?.specs?.squareFeet ?? null,
-    }])
-  );
-}
-
-
-    // Shape response
-    const homes = candidates.map(l => ({
-      lotId: l._id,
-      address: l.address || l.streetAddress || '',
-      listDate: l.listDate || null,
-      floorPlan: l.floorPlan ? planMap[String(l.floorPlan)] || null : null,
-      listPrice: l.listPrice ?? l.price ?? null, // may be string in your schema
-      sqft: l.squareFeet ?? l.sqft ?? (planMap[String(l.floorPlan)]?.sqft ?? null),
-      status: l.status || '',
-    }));
-
-    res.json({ month, homes });
-  } catch (err) {
-    console.error('GET /qmi error:', err);
-    res.status(500).json({ error: 'Server error' });
+// tenant guards for referenced parents
+async function assertCommunityInTenant(req, communityId, fields='') {
+  const filter = { _id: communityId, ...baseFilter(req) };
+  const doc = await Community.findOne(filter).select(fields || '_id company').lean();
+  if (!doc) {
+    const err = new Error('Community not found');
+    err.status = 404;
+    throw err;
   }
-});
+  return doc;
+}
+async function assertCompetitionInTenant(req, competitionId, fields='') {
+  const filter = { _id: competitionId, ...baseFilter(req) };
+  const doc = await Competition.findOne(filter).select(fields || '_id').lean();
+  if (!doc) {
+    const err = new Error('Competition not found');
+    err.status = 404;
+    throw err;
+  }
+  return doc;
+}
+async function assertPlansInTenant(req, planIds=[]) {
+  if (!planIds.length) return;
+  const filter = { _id: { $in: planIds }, ...baseFilter(req) };
+  const found = await FloorPlan.countDocuments(filter);
+  if (found !== planIds.length) {
+    const err = new Error('One or more floor plans are not in your company');
+    err.status = 400;
+    throw err;
+  }
+}
 
-
-
+// all routes require auth
+router.use(ensureAuth);
 
 /**
- * PUT (upsert) profile fields (promotion + pros/cons for now).
- * Accepts:
- *  {
- *    promotion: string,
- *    prosCons: { pros: string[]|string, cons: string[]|string }
- *  }
- * Returns the updated profile.
+ * GET /api/community-competition-profiles/:communityId
+ * Read profile (or default shape) — READONLY+
  */
-router.put('/api/community-competition-profiles/:communityId', async (req, res) => {
-  try {
-    const { communityId } = req.params;
-    if (!mongoose.Types.ObjectId.isValid(communityId)) {
-      return res.status(400).json({ error: 'Invalid communityId' });
-    }
+router.get('/api/community-competition-profiles/:communityId',
+  requireRole('READONLY','USER','MANAGER','COMPANY_ADMIN','SUPER_ADMIN'),
+  async (req, res) => {
+    try {
+      const { communityId } = req.params;
+      if (!isObjectId(communityId)) return res.status(400).json({ error: 'Invalid communityId' });
 
-    const exists = await Community.findById(communityId).select('_id').lean();
-    if (!exists) return res.status(404).json({ error: 'Community not found' });
+      await assertCommunityInTenant(req, communityId);
 
-    const promotion = (req.body?.promotion ?? '').toString();
-    const pros = toArray(req.body?.prosCons?.pros ?? []);
-    const cons = toArray(req.body?.prosCons?.cons ?? []);
+      let profile = await CommunityCompetitionProfile.findOne({ community: communityId, ...baseFilter(req) })
+        .populate([
+          { path: 'topPlans.plan1', select: 'name planNumber specs.squareFeet' },
+          { path: 'topPlans.plan2', select: 'name planNumber specs.squareFeet' },
+          { path: 'topPlans.plan3', select: 'name planNumber specs.squareFeet' },
+          { path: 'linkedCompetitions', select: 'communityName builderName city state' }
+        ])
+        .lean();
 
-    const normalizeId = (v) => {
-      if (!v) return null;
-      if (typeof v === 'object' && v._id) v = v._id;   // accept populated object
-      return mongoose.Types.ObjectId.isValid(v) ? v : null;
-    };
-
-    const topPlansIn = req.body?.topPlans || {};
-
-    const update = {
-      promotion,
-      prosCons: { pros, cons },
-      // only set topPlans if present in the body
-      ...(req.body.topPlans ? {
-        topPlans: {
-          plan1: normalizeId(topPlansIn.plan1),
-          plan2: normalizeId(topPlansIn.plan2),
-          plan3: normalizeId(topPlansIn.plan3),
-        }
-      } : {})
-    };
-
-    const profile = await CommunityCompetitionProfile.findOneAndUpdate(
-      { community: communityId },
-      { $set: update, $setOnInsert: { community: communityId } },
-      { new: true, upsert: true }
-    )
-    .populate([
-      { path: 'topPlans.plan1', select: 'name planNumber specs.squareFeet' },
-      { path: 'topPlans.plan2', select: 'name planNumber specs.squareFeet' },
-      { path: 'topPlans.plan3', select: 'name planNumber specs.squareFeet' },
-    ])
-    .lean();
-
-    res.json(profile);
-  } catch (err) {
-    console.error('PUT /community-competition-profiles error:', err);
-    res.status(500).json({ error: 'Server error' });
-  }
-});
-
-// PUT /api/community-competition-profiles/:communityId/prices
-// Body: { month:"YYYY-MM", plan:"<planId>", price:<number|null> }  (single)
-//    or { month:"YYYY-MM", prices: { "<planId>": <number|null>, ... } } (bulk)
-router.put('/api/community-competition-profiles/:communityId/prices', async (req, res) => {
-  try {
-    const { communityId } = req.params;
-    const { month, plan, price, prices } = req.body || {};
-
-    if (!mongoose.Types.ObjectId.isValid(communityId)) {
-      return res.status(400).json({ error: 'Invalid communityId' });
-    }
-    if (!month || !/^\d{4}-(0[1-9]|1[0-2])$/.test(month)) {
-      return res.status(400).json({ error: 'month (YYYY-MM) is required' });
-    }
-
-    const doc = await CommunityCompetitionProfile.findOneAndUpdate(
-      { community: communityId },
-      { $setOnInsert: { community: communityId } },
-      { new: true, upsert: true }
-    );
-
-    if (!Array.isArray(doc.monthlyPrices)) doc.monthlyPrices = [];
-    let entry = doc.monthlyPrices.find(mp => mp.month === month);
-    if (!entry) {
-      entry = { month, prices: new Map() };
-      doc.monthlyPrices.push(entry);
-    }
-
-    if (!(entry.prices instanceof Map)) {
-      entry.prices = new Map(Object.entries(entry.prices || {}));
-    }
-
-    if (plan) {
-      // single
-      if (price == null || price === '') entry.prices.delete(String(plan));
-      else {
-        const n = Number(price);
-        entry.prices.set(String(plan), Number.isFinite(n) ? n : 0);
+      if (!profile) {
+        profile = {
+          company: req.user.company, // helpful for the client
+          community: communityId,
+          promotion: '',
+          prosCons: { pros: [], cons: [] },
+          topPlans: { plan1: null, plan2: null, plan3: null }
+        };
       }
-    } else if (prices && typeof prices === 'object') {
-      // bulk
-      for (const [pid, val] of Object.entries(prices)) {
+      res.json(profile);
+    } catch (err) {
+      const code = err.status || 500;
+      res.status(code).json({ error: err.message || 'Server error' });
+    }
+  }
+);
+
+/**
+ * GET /api/competitions/minimal
+ * List competitors for link/unlink — READONLY+
+ */
+router.get('/api/competitions/minimal',
+  requireRole('READONLY','USER','MANAGER','COMPANY_ADMIN','SUPER_ADMIN'),
+  async (req, res) => {
+    try {
+      const comps = await Competition.find({ ...baseFilter(req) })
+        .select('communityName builderName city state')
+        .sort({ builderName: 1, communityName: 1 })
+        .lean();
+      res.json(comps);
+    } catch (err) {
+      res.status(500).json({ error: 'Server error' });
+    }
+  }
+);
+
+/**
+ * POST link one competitor
+ */
+router.post('/api/community-competition-profiles/:communityId/linked-competitions/:competitionId',
+  requireRole('USER','MANAGER','COMPANY_ADMIN','SUPER_ADMIN'),
+  async (req, res) => {
+    try {
+      const { communityId, competitionId } = req.params;
+      if (!isObjectId(communityId) || !isObjectId(competitionId)) {
+        return res.status(400).json({ error: 'Invalid id(s)' });
+      }
+      const community = await assertCommunityInTenant(req, communityId);
+      await assertCompetitionInTenant(req, competitionId);
+
+      const updated = await CommunityCompetitionProfile.findOneAndUpdate(
+        { community: community._id, ...baseFilter(req) },
+        { $addToSet: { linkedCompetitions: competitionId }, $setOnInsert: { company: community.company, community: community._id } },
+        { new: true, upsert: true }
+      ).populate('linkedCompetitions', 'communityName builderName city state');
+      res.json({ linkedCompetitions: updated.linkedCompetitions });
+    } catch (err) {
+      res.status(err.status || 500).json({ error: err.message || 'Server error' });
+    }
+  }
+);
+
+/**
+ * DELETE unlink one competitor
+ */
+router.delete('/api/community-competition-profiles/:communityId/linked-competitions/:competitionId',
+  requireRole('USER','MANAGER','COMPANY_ADMIN','SUPER_ADMIN'),
+  async (req, res) => {
+    try {
+      const { communityId, competitionId } = req.params;
+      if (!isObjectId(communityId) || !isObjectId(competitionId)) {
+        return res.status(400).json({ error: 'Invalid id(s)' });
+      }
+      await assertCommunityInTenant(req, communityId);
+      await assertCompetitionInTenant(req, competitionId);
+
+      const updated = await CommunityCompetitionProfile.findOneAndUpdate(
+        { community: communityId, ...baseFilter(req) },
+        { $pull: { linkedCompetitions: competitionId }, $setOnInsert: { company: req.user.company, community: communityId } },
+        { new: true, upsert: true }
+      ).populate('linkedCompetitions', 'communityName builderName city state');
+      res.json({ linkedCompetitions: updated.linkedCompetitions });
+    } catch (err) {
+      res.status(err.status || 500).json({ error: err.message || 'Server error' });
+    }
+  }
+);
+
+/**
+ * PUT bulk set linked competitors
+ * Body: { competitionIds: ObjectId[] }
+ */
+router.put('/api/community-competition-profiles/:communityId/linked-competitions',
+  requireRole('USER','MANAGER','COMPANY_ADMIN','SUPER_ADMIN'),
+  async (req, res) => {
+    try {
+      const { communityId } = req.params;
+      if (!isObjectId(communityId)) return res.status(400).json({ error: 'Invalid communityId' });
+      const ids = (req.body?.competitionIds || []).filter(isObjectId).map(id => new mongoose.Types.ObjectId(id));
+
+      await assertCommunityInTenant(req, communityId);
+      // verify all competitions are tenant-scoped
+      if (ids.length) await assertPlansInTenant(req, []); // no-op here; left as pattern
+      const compsCount = await Competition.countDocuments({ _id: { $in: ids }, ...baseFilter(req) });
+      if (compsCount !== ids.length) return res.status(400).json({ error: 'One or more competitions are not in your company' });
+
+      const profile = await CommunityCompetitionProfile.findOneAndUpdate(
+        { community: communityId, ...baseFilter(req) },
+        { $set: { linkedCompetitions: ids }, $setOnInsert: { company: req.user.company, community: communityId } },
+        { new: true, upsert: true }
+      ).populate('linkedCompetitions', 'communityName builderName city state');
+
+      res.json({ linkedCompetitions: profile.linkedCompetitions });
+    } catch (err) {
+      res.status(err.status || 500).json({ error: err.message || 'Server error' });
+    }
+  }
+);
+
+/**
+ * GET /api/community-competition-profiles/:communityId/prices?month=YYYY-MM
+ */
+router.get('/api/community-competition-profiles/:communityId/prices',
+  requireRole('READONLY','USER','MANAGER','COMPANY_ADMIN','SUPER_ADMIN'),
+  async (req, res) => {
+    try {
+      const { communityId } = req.params;
+      const { month } = req.query;
+      if (!isObjectId(communityId)) return res.status(400).json({ error: 'Invalid communityId' });
+      if (!isYYYYMM(month)) return res.status(400).json({ error: 'month=YYYY-MM is required' });
+
+      await assertCommunityInTenant(req, communityId);
+      const profile = await CommunityCompetitionProfile.findOne({ community: communityId, ...baseFilter(req) }).lean();
+
+      if (!profile || !Array.isArray(profile.monthlyPrices)) return res.json({ month, prices: {} });
+
+      const entry = profile.monthlyPrices.find(mp => mp.month === month);
+      const out = entry?.prices
+        ? (entry.prices instanceof Map ? Object.fromEntries(entry.prices) : entry.prices)
+        : {};
+      res.json({ month, prices: out });
+    } catch (err) {
+      res.status(500).json({ error: 'Server error' });
+    }
+  }
+);
+
+/**
+ * PUT /api/community-competition-profiles/:communityId/prices
+ * Body: { month, plan, price } OR { month, prices: { [planId]: price } }
+ */
+router.put('/api/community-competition-profiles/:communityId/prices',
+  requireRole('USER','MANAGER','COMPANY_ADMIN','SUPER_ADMIN'),
+  async (req, res) => {
+    try {
+      const { communityId } = req.params;
+      const { month, plan, price, prices } = req.body || {};
+      if (!isObjectId(communityId)) return res.status(400).json({ error: 'Invalid communityId' });
+      if (!isYYYYMM(month)) return res.status(400).json({ error: 'month=YYYY-MM is required' });
+
+      const community = await assertCommunityInTenant(req, communityId);
+
+      // planId tenant guard (single or bulk)
+      const planIds = plan ? [plan] : Object.keys(prices || {});
+      if (planIds.length) await assertPlansInTenant(req, planIds);
+
+      const doc = await CommunityCompetitionProfile.findOneAndUpdate(
+        { community: community._id, ...baseFilter(req) },
+        { $setOnInsert: { company: community.company, community: community._id } },
+        { new: true, upsert: true }
+      );
+
+      if (!Array.isArray(doc.monthlyPrices)) doc.monthlyPrices = [];
+      let entry = doc.monthlyPrices.find(mp => mp.month === month);
+      if (!entry) {
+        entry = { month, prices: new Map() };
+        doc.monthlyPrices.push(entry);
+      }
+      if (!(entry.prices instanceof Map)) {
+        entry.prices = new Map(Object.entries(entry.prices || {}));
+      }
+
+      const put = (pid, val) => {
         if (val == null || val === '') entry.prices.delete(String(pid));
         else {
           const n = Number(val);
           entry.prices.set(String(pid), Number.isFinite(n) ? n : 0);
         }
+      };
+
+      if (plan) put(plan, price);
+      else if (prices && typeof prices === 'object') {
+        for (const [pid, val] of Object.entries(prices)) put(pid, val);
+      } else {
+        return res.status(400).json({ error: 'Provide {plan, price} or {prices}' });
       }
-    } else {
-      return res.status(400).json({ error: 'Provide {plan, price} or {prices}' });
+
+      await doc.save();
+      res.json({ month, prices: Object.fromEntries(entry.prices) });
+    } catch (err) {
+      const code = err.status || 500;
+      res.status(code).json({ error: err.message || 'Server error' });
     }
-
-    await doc.save();
-
-    const out = Object.fromEntries(entry.prices);
-    return res.json({ month, prices: out });
-  } catch (err) {
-    console.error('PUT month prices error:', err);
-    res.status(500).json({ error: 'Server error' });
   }
-});
+);
 
-// Body: { month:"YYYY-MM", excludeLotId:"<lotSubdocId>" }  // hide for that month
-//    or { month:"YYYY-MM", includeLotId:"<lotSubdocId>" }  // unhide for that month
-router.put('/api/community-competition-profiles/:communityId/qmi', async (req, res) => {
-  try {
-    const { communityId } = req.params;
-    const { month, excludeLotId, includeLotId } = req.body || {};
+/**
+ * GET /api/community-competition-profiles/:communityId/qmi?month=YYYY-MM
+ * Compute Quick-Move-In list for the month, honoring exclusions.
+ */
+router.get('/api/community-competition-profiles/:communityId/qmi',
+  requireRole('READONLY','USER','MANAGER','COMPANY_ADMIN','SUPER_ADMIN'),
+  async (req, res) => {
+    try {
+      const { communityId } = req.params;
+      const { month } = req.query;
+      if (!isObjectId(communityId)) return res.status(400).json({ error: 'Invalid communityId' });
+      if (!isYYYYMM(month)) return res.status(400).json({ error: 'month=YYYY-MM is required' });
 
-    if (!mongoose.Types.ObjectId.isValid(communityId)) {
-      return res.status(400).json({ error: 'Invalid communityId' });
-    }
-    if (!month || !/^\d{4}-(0[1-9]|1[0-2])$/.test(month)) {
-      return res.status(400).json({ error: 'month (YYYY-MM) is required' });
-    }
-    if (!excludeLotId && !includeLotId) {
-      return res.status(400).json({ error: 'Provide excludeLotId or includeLotId' });
-    }
+      await assertCommunityInTenant(req, communityId);
 
-    const doc = await CommunityCompetitionProfile.findOneAndUpdate(
-      { community: communityId },
-      { $setOnInsert: { community: communityId } },
-      { new: true, upsert: true }
-    );
+      const community = await Community.findOne({ _id: communityId, ...baseFilter(req) })
+        .select('lots createdAt')
+        .lean();
+      if (!community) return res.status(404).json({ error: 'Community not found' });
 
-    if (!Array.isArray(doc.monthlyQMI)) doc.monthlyQMI = [];
-    let entry = doc.monthlyQMI.find(m => m.month === month);
-    if (!entry) {
-      entry = { month, excludedLots: [] };
-      doc.monthlyQMI.push(entry);
-    }
+      const profile = await CommunityCompetitionProfile.findOne({ community: communityId, ...baseFilter(req) })
+        .select('monthlyQMI')
+        .lean();
 
-    const toId = (v) => (mongoose.Types.ObjectId.isValid(v) ? v : null);
+      const excludedThisMonth = new Set(
+        (profile?.monthlyQMI || []).find(m => m.month === month)?.excludedLots?.map(id => String(id)) || []
+      );
 
-    if (excludeLotId) {
-      const id = toId(excludeLotId);
-      if (id && !entry.excludedLots.some(x => x.equals(id))) {
-        entry.excludedLots.push(id);
+      const selectedYM = ymStrToInt(month);
+      const lots = Array.isArray(community.lots) ? community.lots : [];
+      const candidates = [];
+      const planIds = new Set();
+
+      for (const l of lots) {
+        if (!l || excludedThisMonth.has(String(l._id))) continue;
+
+        const s = String(l.status || '').toLowerCase().trim();
+        const ucOrFinished = (s.includes('under') && s.includes('construction')) || s.includes('finished');
+        if (!ucOrFinished) continue;
+
+        // not already sold/closed and no purchaser linked
+        if (l.purchaser) continue;
+        if (s === 'closed' || s === 'purchased' || s === 'sold') continue;
+
+        // use releaseDate as the gate for month display
+        const releaseYM = dateLikeToYMInt(l.releaseDate);
+        if (releaseYM == null) continue;
+        if (selectedYM != null && selectedYM < releaseYM) continue;
+
+        candidates.push(l);
+        if (l.floorPlan) planIds.add(String(l.floorPlan));
       }
-    }
-    if (includeLotId) {
-      const id = toId(includeLotId);
-      if (id) entry.excludedLots = entry.excludedLots.filter(x => !x.equals(id));
-    }
 
-    await doc.save();
-    res.json({ month, excludedLots: entry.excludedLots.map(x => x.toString()) });
-  } catch (err) {
-    console.error('PUT QMI error:', err);
-    res.status(500).json({ error: 'Server error' });
+      let planMap = {};
+      if (planIds.size) {
+        const plans = await FloorPlan.find({ _id: { $in: [...planIds] }, ...baseFilter(req) })
+          .select('name planNumber specs.squareFeet')
+          .lean();
+        planMap = Object.fromEntries(
+          plans.map(p => [String(p._id), {
+            _id: p._id, name: p.name, planNumber: p.planNumber, sqft: p?.specs?.squareFeet ?? null
+          }])
+        );
+      }
+
+      const homes = candidates.map(l => ({
+        lotId: l._id,
+        address: l.address || l.streetAddress || '',
+        listDate: l.listDate || l.releaseDate || null,
+        floorPlan: l.floorPlan ? (planMap[String(l.floorPlan)] || null) : null,
+        listPrice: l.listPrice ?? l.price ?? null,
+        sqft: l.squareFeet ?? l.sqft ?? (planMap[String(l.floorPlan)]?.sqft ?? null),
+        status: l.status || ''
+      }));
+
+      res.json({ month, homes });
+    } catch (err) {
+      const code = err.status || 500;
+      res.status(code).json({ error: err.message || 'Server error' });
+    }
   }
-});
+);
 
-// PUT /api/community-competition-profiles/:communityId/sales-summary
-// Body: { month:"YYYY-MM", sales?:<num>, cancels?:<num>, closings?:<num> }
-router.put('/api/community-competition-profiles/:communityId/sales-summary', async (req, res) => {
-  try {
-    const { communityId } = req.params;
-    const { month, sales, cancels, closings } = req.body || {};
+/**
+ * PUT /api/community-competition-profiles/:communityId/qmi
+ * Body: { month, excludeLotId } OR { month, includeLotId }
+ */
+router.put('/api/community-competition-profiles/:communityId/qmi',
+  requireRole('USER','MANAGER','COMPANY_ADMIN','SUPER_ADMIN'),
+  async (req, res) => {
+    try {
+      const { communityId } = req.params;
+      const { month, excludeLotId, includeLotId } = req.body || {};
+      if (!isObjectId(communityId)) return res.status(400).json({ error: 'Invalid communityId' });
+      if (!isYYYYMM(month)) return res.status(400).json({ error: 'month=YYYY-MM is required' });
+      if (!excludeLotId && !includeLotId) return res.status(400).json({ error: 'Provide excludeLotId or includeLotId' });
 
-    if (!mongoose.Types.ObjectId.isValid(communityId)) {
-      return res.status(400).json({ error: 'Invalid communityId' });
+      const community = await assertCommunityInTenant(req, communityId);
+
+      const doc = await CommunityCompetitionProfile.findOneAndUpdate(
+        { community: community._id, ...baseFilter(req) },
+        { $setOnInsert: { company: community.company, community: community._id } },
+        { new: true, upsert: true }
+      );
+
+      if (!Array.isArray(doc.monthlyQMI)) doc.monthlyQMI = [];
+      let entry = doc.monthlyQMI.find(m => m.month === month);
+      if (!entry) {
+        entry = { month, excludedLots: [] };
+        doc.monthlyQMI.push(entry);
+      }
+
+      const toId = v => (isObjectId(v) ? new mongoose.Types.ObjectId(v) : null);
+
+      if (excludeLotId) {
+        const id = toId(excludeLotId);
+        if (id && !entry.excludedLots.some(x => x.equals(id))) entry.excludedLots.push(id);
+      }
+      if (includeLotId) {
+        const id = toId(includeLotId);
+        if (id) entry.excludedLots = entry.excludedLots.filter(x => !x.equals(id));
+      }
+
+      await doc.save();
+      res.json({ month, excludedLots: entry.excludedLots.map(x => x.toString()) });
+    } catch (err) {
+      const code = err.status || 500;
+      res.status(code).json({ error: err.message || 'Server error' });
     }
-    if (!month || !/^\d{4}-(0[1-9]|1[0-2])$/.test(month)) {
-      return res.status(400).json({ error: 'month (YYYY-MM) is required' });
-    }
-
-    const doc = await CommunityCompetitionProfile.findOneAndUpdate(
-      { community: communityId },
-      { $setOnInsert: { community: communityId } },
-      { new: true, upsert: true }
-    );
-
-    if (!Array.isArray(doc.monthlySalesSummary)) doc.monthlySalesSummary = [];
-
-    let entry = doc.monthlySalesSummary.find(s => s.month === month);
-    if (!entry) {
-      entry = { month, sales: 0, cancels: 0, closings: 0 };
-      doc.monthlySalesSummary.push(entry);
-    }
-
-    // apply partial updates if provided
-    const toInt = (v) => (v === '' || v == null ? null : Number(v));
-    const s = toInt(sales);
-    const c = toInt(cancels);
-    const cl = toInt(closings);
-
-    if (s != null && Number.isFinite(s)) entry.sales = s;
-    if (c != null && Number.isFinite(c)) entry.cancels = c;
-    if (cl != null && Number.isFinite(cl)) entry.closings = cl;
-
-    await doc.save();
-
-    return res.json({
-      month: entry.month,
-      sales: entry.sales ?? 0,
-      cancels: entry.cancels ?? 0,
-      closings: entry.closings ?? 0
-    });
-  } catch (err) {
-    console.error('PUT /sales-summary error:', err);
-    res.status(500).json({ error: 'Server error' });
   }
-});
-router.put('/api/community-competition-profiles/:communityId/linked-competitions', async (req, res) => {
-  try {
-    const { communityId } = req.params;
-    const { competitionIds = [] } = req.body;
+);
 
-    if (!mongoose.Types.ObjectId.isValid(communityId)) {
-      return res.status(400).json({ error: 'Invalid communityId' });
+/**
+ * GET /api/community-competition-profiles/:communityId/sales?month=YYYY-MM
+ * Return sold/closed lots within that month
+ */
+router.get('/api/community-competition-profiles/:communityId/sales',
+  requireRole('READONLY','USER','MANAGER','COMPANY_ADMIN','SUPER_ADMIN'),
+  async (req, res) => {
+    try {
+      const { communityId } = req.params;
+      const { month } = req.query;
+      if (!isObjectId(communityId)) return res.status(400).json({ error: 'Invalid communityId' });
+      if (!isYYYYMM(month)) return res.status(400).json({ error: 'month=YYYY-MM is required' });
+
+      await assertCommunityInTenant(req, communityId);
+
+      const community = await Community.findOne({ _id: communityId, ...baseFilter(req) })
+        .select('lots createdAt')
+        .lean();
+      if (!community) return res.status(404).json({ error: 'Community not found' });
+
+      const selectedYM = ymStrToInt(month);
+      const soldStatuses = new Set(['closed', 'purchased', 'sold']);
+      const results = [];
+      const planIds = new Set();
+
+      for (const l of (community.lots || [])) {
+        const s = String(l?.status || '').toLowerCase().trim();
+        const isSold = Boolean(l?.purchaser) || soldStatuses.has(s);
+        if (!isSold) continue;
+
+        const soldYM = (typeof l.closeMonth === 'string' ? ymStrToInt(l.closeMonth) : null) ?? dateLikeToYMInt(l.closeDateTime);
+        if (soldYM == null) continue;
+        if (selectedYM != null && soldYM !== selectedYM) continue;
+
+        results.push(l);
+        if (l.floorPlan) planIds.add(String(l.floorPlan));
+      }
+
+      let planMap = {};
+      if (planIds.size) {
+        const plans = await FloorPlan.find({ _id: { $in: [...planIds] }, ...baseFilter(req) })
+          .select('name planNumber specs.squareFeet')
+          .lean();
+        planMap = Object.fromEntries(
+          plans.map(p => [String(p._id), {
+            _id: p._id, name: p.name, planNumber: p.planNumber, sqft: p?.specs?.squareFeet ?? null
+          }])
+        );
+      }
+
+      const sales = results.map(l => ({
+        lotId: l._id,
+        address: l.address || l.streetAddress || '',
+        listDate: l.releaseDate || null,
+        floorPlan: l.floorPlan ? (planMap[String(l.floorPlan)] || null) : null,
+        listPrice: l.listPrice ?? null,
+        sqft: l.squareFeet ?? l.sqft ?? (planMap[String(l.floorPlan)]?.sqft ?? null),
+        status: l.status || '',
+        soldDate: l.closeDateTime || l.closeMonth || null,
+        soldPrice: l.salesPrice ?? null
+      })).sort((a, b) => String(a.soldDate || '').localeCompare(String(b.soldDate || '')));
+
+      res.json({ month, sales });
+    } catch (err) {
+      const code = err.status || 500;
+      res.status(code).json({ error: err.message || 'Server error' });
     }
-
-    // sanitize ids
-    const cleanIds = competitionIds
-      .filter(mongoose.isValidObjectId)
-      .map(id => new mongoose.Types.ObjectId(id));
-
-    const profile = await CommunityCompetitionProfile.findOneAndUpdate(
-      { community: communityId },
-      { $set: { linkedCompetitions: cleanIds }, $setOnInsert: { community: communityId } },
-      { new: true, upsert: true }
-    ).populate('linkedCompetitions', 'communityName builderName city state')
-
-    res.json({ linkedCompetitions: profile.linkedCompetitions });
-  } catch (err) {
-    console.error('PUT linked-competitions error:', err);
-    res.status(500).json({ error: 'Server error' });
   }
-});
+);
 
-const pathsAdd    = [
-  '/api/community-competition-profiles/:communityId/linked-competitions/:competitionId',
-  '/api/my-community-competition/:communityId/linked-competitions/:competitionId' // alias to match old FE if needed
-];
-const pathsRemove = pathsAdd; // same paths, different method
+/**
+ * GET /api/communities/:communityId/floorplans
+ * Plans available to a community (tenant-scoped)
+ */
+router.get('/api/communities/:communityId/floorplans',
+  requireRole('READONLY','USER','MANAGER','COMPANY_ADMIN','SUPER_ADMIN'),
+  async (req, res) => {
+    try {
+      const { communityId } = req.params;
+      if (!isObjectId(communityId)) return res.status(400).json({ error: 'Invalid communityId' });
 
-// POST .../linked-competitions/:competitionId  → LINK
-router.post(pathsAdd, async (req, res) => {
-  try {
-    const { communityId, competitionId } = req.params;
-    if (!mongoose.Types.ObjectId.isValid(communityId) || !mongoose.Types.ObjectId.isValid(competitionId)) {
-      return res.status(400).json({ error: 'Invalid id(s)' });
+      await assertCommunityInTenant(req, communityId);
+
+      // Prefer explicit relation on FloorPlan
+      let plans = await FloorPlan.find({ communities: communityId, ...baseFilter(req) })
+        .select('_id name planNumber specs.squareFeet specs.beds specs.baths specs.garage')
+        .sort({ name: 1 })
+        .lean();
+
+      if (!plans.length) {
+        const community = await Community.findOne({ _id: communityId, ...baseFilter(req) })
+          .populate('lots.floorPlan', 'name planNumber specs.squareFeet specs.beds specs.baths specs.garage company')
+          .lean();
+
+        const uniq = new Map();
+        for (const lot of (community?.lots || [])) {
+          const fp = lot.floorPlan;
+          if (fp && fp._id && (!fp.company || isSuper(req) || String(fp.company) === String(req.user.company))) {
+            uniq.set(String(fp._id), fp);
+          }
+        }
+        plans = [...uniq.values()].sort((a,b) => (a.name || '').localeCompare(b.name || ''));
+      }
+
+      res.json(plans);
+    } catch (err) {
+      res.status(500).json({ error: 'Server error' });
     }
-
-    // (Optional) verify they exist
-    const [community, comp] = await Promise.all([
-      Community.findById(communityId).select('_id').lean(),
-      // if Competition model lives elsewhere, import it above
-      require('../models/Competition').findById(competitionId).select('_id').lean()
-    ]);
-    if (!community || !comp) return res.status(404).json({ error: 'Not found' });
-
-    const updated = await CommunityCompetitionProfile.findOneAndUpdate(
-      { community: communityId },
-      { $addToSet: { linkedCompetitions: competitionId } },
-      { new: true, upsert: true }
-    ).populate('linkedCompetitions', 'communityName builderName city state');
-
-    res.json({ linkedCompetitions: updated.linkedCompetitions });
-  } catch (err) {
-    console.error('LINK competitor error:', err);
-    res.status(500).json({ error: 'Server error' });
   }
-});
+);
 
-// DELETE .../linked-competitions/:competitionId  → UNLINK
-router.delete(pathsRemove, async (req, res) => {
-  try {
-    const { communityId, competitionId } = req.params;
-    if (!mongoose.Types.ObjectId.isValid(communityId) || !mongoose.Types.ObjectId.isValid(competitionId)) {
-      return res.status(400).json({ error: 'Invalid id(s)' });
+/**
+ * GET lot counts / stats — READONLY+
+ */
+router.get('/api/communities/:communityId/lot-count',
+  requireRole('READONLY','USER','MANAGER','COMPANY_ADMIN','SUPER_ADMIN'),
+  async (req, res) => {
+    try {
+      const { communityId } = req.params;
+      if (!isObjectId(communityId)) return res.status(400).json({ error: 'Invalid communityId' });
+      const comm = await Community.findOne({ _id: communityId, ...baseFilter(req) }).select('totalLots lots').lean();
+      if (!comm) return res.status(404).json({ error: 'Community not found' });
+      const totalLots = typeof comm.totalLots === 'number' ? comm.totalLots : (Array.isArray(comm.lots) ? comm.lots.length : 0);
+      res.json({ totalLots });
+    } catch (err) {
+      res.status(500).json({ error: 'Server error' });
     }
-    const updated = await CommunityCompetitionProfile.findOneAndUpdate(
-      { community: communityId },
-      { $pull: { linkedCompetitions: competitionId } },
-      { new: true, upsert: true }
-    ).populate('linkedCompetitions', 'communityName builderName city state');
-
-    res.json({ linkedCompetitions: updated.linkedCompetitions });
-  } catch (err) {
-    console.error('UNLINK competitor error:', err);
-    res.status(500).json({ error: 'Server error' });
   }
-});
+);
+
+router.get('/api/communities/:communityId/lot-stats',
+  requireRole('READONLY','USER','MANAGER','COMPANY_ADMIN','SUPER_ADMIN'),
+  async (req, res) => {
+    try {
+      const { communityId } = req.params;
+      if (!isObjectId(communityId)) return res.status(400).json({ error: 'Invalid communityId' });
+      const community = await Community.findOne({ _id: communityId, ...baseFilter(req) })
+        .select('totalLots lots.purchaser lots')
+        .lean();
+      if (!community) return res.status(404).json({ error: 'Community not found' });
+
+      const lots = Array.isArray(community.lots) ? community.lots : [];
+      const total = typeof community.totalLots === 'number' ? community.totalLots : lots.length;
+      const sold = lots.filter(l => !!l && !!l.purchaser).length;
+      const remaining = Math.max(0, total - sold);
+
+      res.json({ total, sold, remaining, quickMoveInLots: 0 });
+    } catch (err) {
+      res.status(500).json({ error: 'Server error' });
+    }
+  }
+);
+
+/**
+ * GET/PUT monthly sales summary — READONLY+/USER+
+ */
+router.get('/api/community-competition-profiles/:communityId/sales-summary',
+  requireRole('READONLY','USER','MANAGER','COMPANY_ADMIN','SUPER_ADMIN'),
+  async (req, res) => {
+    try {
+      const { communityId } = req.params;
+      const { month } = req.query;
+      if (!isObjectId(communityId)) return res.status(400).json({ error: 'Invalid communityId' });
+      if (!isYYYYMM(month)) return res.status(400).json({ error: 'month=YYYY-MM is required' });
+
+      await assertCommunityInTenant(req, communityId);
+
+      const profile = await CommunityCompetitionProfile.findOne({ community: communityId, ...baseFilter(req) })
+        .select('monthlySalesSummary')
+        .lean();
+
+      const entry = (profile?.monthlySalesSummary || []).find(s => s.month === month);
+      const out = entry ? { sales: entry.sales ?? 0, cancels: entry.cancels ?? 0, closings: entry.closings ?? 0 }
+                        : { sales: 0, cancels: 0, closings: 0 };
+      res.json({ month, ...out });
+    } catch (err) {
+      res.status(500).json({ error: 'Server error' });
+    }
+  }
+);
+
+router.put('/api/community-competition-profiles/:communityId/sales-summary',
+  requireRole('USER','MANAGER','COMPANY_ADMIN','SUPER_ADMIN'),
+  async (req, res) => {
+    try {
+      const { communityId } = req.params;
+      const { month, sales, cancels, closings } = req.body || {};
+      if (!isObjectId(communityId)) return res.status(400).json({ error: 'Invalid communityId' });
+      if (!isYYYYMM(month)) return res.status(400).json({ error: 'month=YYYY-MM is required' });
+
+      const community = await assertCommunityInTenant(req, communityId);
+
+      const doc = await CommunityCompetitionProfile.findOneAndUpdate(
+        { community: community._id, ...baseFilter(req) },
+        { $setOnInsert: { company: community.company, community: community._id } },
+        { new: true, upsert: true }
+      );
+
+      if (!Array.isArray(doc.monthlySalesSummary)) doc.monthlySalesSummary = [];
+      let entry = doc.monthlySalesSummary.find(s => s.month === month);
+      if (!entry) {
+        entry = { month, sales: 0, cancels: 0, closings: 0 };
+        doc.monthlySalesSummary.push(entry);
+      }
+
+      const toInt = v => (v === '' || v == null ? null : Number(v));
+      const S = toInt(sales), C = toInt(cancels), CL = toInt(closings);
+      if (Number.isFinite(S)) entry.sales = S;
+      if (Number.isFinite(C)) entry.cancels = C;
+      if (Number.isFinite(CL)) entry.closings = CL;
+
+      await doc.save();
+      res.json({ month: entry.month, sales: entry.sales ?? 0, cancels: entry.cancels ?? 0, closings: entry.closings ?? 0 });
+    } catch (err) {
+      const code = err.status || 500;
+      res.status(code).json({ error: err.message || 'Server error' });
+    }
+  }
+);
+
+/**
+ * PUT profile basics (promotion, pros/cons, topPlans)
+ * Body: { promotion, prosCons: { pros, cons }, topPlans?: { plan1, plan2, plan3 } }
+ */
+router.put('/api/community-competition-profiles/:communityId',
+  requireRole('USER','MANAGER','COMPANY_ADMIN','SUPER_ADMIN'),
+  async (req, res) => {
+    try {
+      const { communityId } = req.params;
+      if (!isObjectId(communityId)) return res.status(400).json({ error: 'Invalid communityId' });
+      const community = await assertCommunityInTenant(req, communityId);
+
+      const promotion = String(req.body?.promotion ?? '');
+      const pros = toArray(req.body?.prosCons?.pros ?? []);
+      const cons = toArray(req.body?.prosCons?.cons ?? []);
+      const topPlansIn = req.body?.topPlans || {};
+
+      // normalize top plan ids; ensure they belong to tenant
+      const normalizeId = v => (v && typeof v === 'object' && v._id ? v._id : v);
+      const planIds = ['plan1','plan2','plan3']
+        .map(k => normalizeId(topPlansIn[k]))
+        .filter(Boolean);
+
+      await assertPlansInTenant(req, planIds);
+
+      const update = {
+        promotion,
+        prosCons: { pros, cons },
+        ...(req.body.topPlans ? {
+          topPlans: {
+            plan1: isObjectId(topPlansIn.plan1) ? topPlansIn.plan1 : null,
+            plan2: isObjectId(topPlansIn.plan2) ? topPlansIn.plan2 : null,
+            plan3: isObjectId(topPlansIn.plan3) ? topPlansIn.plan3 : null
+          }
+        } : {})
+      };
+
+      const profile = await CommunityCompetitionProfile.findOneAndUpdate(
+        { community: community._id, ...baseFilter(req) },
+        { $set: update, $setOnInsert: { company: community.company, community: community._id } },
+        { new: true, upsert: true }
+      )
+      .populate([
+        { path: 'topPlans.plan1', select: 'name planNumber specs.squareFeet' },
+        { path: 'topPlans.plan2', select: 'name planNumber specs.squareFeet' },
+        { path: 'topPlans.plan3', select: 'name planNumber specs.squareFeet' },
+      ])
+      .lean();
+
+      res.json(profile);
+    } catch (err) {
+      const code = err.status || 500;
+      res.status(code).json({ error: err.message || 'Server error' });
+    }
+  }
+);
 
 module.exports = router;

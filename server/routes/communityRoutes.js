@@ -1,402 +1,459 @@
+// routes/communityRoutes.js (hardened for tenants + roles)
 const express = require('express');
 const mongoose = require('mongoose');
 const multer = require('multer');
 const xlsx = require('xlsx');
+
 const router = express.Router();
 
-const Community = require('../models/Community'); // ✅ Only declared once
+const Community = require('../models/Community');
 const FloorPlan = require('../models/FloorPlan');
-const Contact = require('../models/Contact'); 
+const Contact = require('../models/Contact');
+
+const ensureAuth  = require('../middleware/ensureAuth');
+const requireRole = require('../middleware/requireRole');
 
 const upload = multer({ dest: 'uploads/' });
 
-// 📥 Import Communities from Excel/CSV
-router.post('/import', upload.single('file'), async (req, res) => {
-  try {
-    const workbook = xlsx.readFile(req.file.path);
-    const sheet = workbook.Sheets[workbook.SheetNames[0]];
-    const data = xlsx.utils.sheet_to_json(sheet);
+// ───────────────────────── helpers ─────────────────────────
+const isObjectId = v => mongoose.Types.ObjectId.isValid(String(v));
+const isSuper = req => (req.user?.roles || []).includes('SUPER_ADMIN');
+const companyFilter = req => (isSuper(req) ? {} : { company: req.user.company });
 
-    const communitiesMap = {};
-    const plans = await FloorPlan.find({}, 'name planNumber').lean();
-    const planByName   = new Map(plans.map(p => [String(p.name).toLowerCase(), String(p._id)]));
-    const planByNumber = new Map(plans.map(p => [String(p.planNumber).toLowerCase(), String(p._id)]));
+async function loadScopedCommunity(req, res) {
+  const { id } = req.params;
+  if (!isObjectId(id)) {
+    res.status(400).json({ error: 'Invalid community id' });
+    return null;
+  }
+  const filter = { _id: id, ...companyFilter(req) };
+  const doc = await Community.findOne(filter).lean();
+  if (!doc) {
+    res.status(404).json({ error: 'Community not found' });
+    return null;
+  }
+  return doc;
+}
 
-    data.forEach(row => {
-      const name = row['Community Name'];
-      const projectNumber = row['Project Number'];
+// All community routes require auth
+router.use(ensureAuth);
 
-      const fpRaw = (row['Floor Plan'] || '').toString().trim().toLowerCase();
-      const fpId  = planByName.get(fpRaw) || planByNumber.get(fpRaw) || null;
+// ───────────────────────── import ─────────────────────────
+// POST /api/communities/import  (MANAGER+)
+router.post('/import',
+  requireRole('MANAGER','COMPANY_ADMIN','SUPER_ADMIN'),
+  upload.single('file'),
+  async (req, res) => {
+    try {
+      const workbook = xlsx.readFile(req.file.path);
+      const sheet = workbook.Sheets[workbook.SheetNames[0]];
+      const rows = xlsx.utils.sheet_to_json(sheet);
 
-      const lot = {
-        jobNumber: String(row['Job Number']).padStart(4, '0'),
-        lot: row['Lot'],
-        block: row['Block'],
-        phase: row['Phase'],
-        address: row['Address'],
-        floorPlan: fpId,                 // ✅ store ObjectId (or null)
-        elevation: row['Elevation'] || ''
+      // Preload plans for lookup by name/number (scoped to company if you tenant FloorPlan; else global)
+      const plans = await FloorPlan.find({}, 'name planNumber').lean();
+      const planByName   = new Map(plans.map(p => [String(p.name || '').toLowerCase(), String(p._id)]));
+      const planByNumber = new Map(plans.map(p => [String(p.planNumber || '').toLowerCase(), String(p._id)]));
+
+      const grouped = new Map(); // key: name|projectNumber
+      for (const row of rows) {
+        const name = row['Community Name'];
+        const projectNumber = row['Project Number'];
+
+        if (!name || !projectNumber) continue;
+
+        const fpRaw = String(row['Floor Plan'] || '').trim().toLowerCase();
+        const fpId  = planByName.get(fpRaw) || planByNumber.get(fpRaw) || null;
+
+        const lot = {
+          jobNumber: String(row['Job Number'] || '').padStart(4, '0'),
+          lot: row['Lot'] || '',
+          block: row['Block'] || '',
+          phase: row['Phase'] || '',
+          address: row['Address'] || '',
+          floorPlan: isObjectId(fpId) ? fpId : null,
+          elevation: row['Elevation'] || ''
+        };
+
+        const key = `${name}|${projectNumber}`;
+        if (!grouped.has(key)) grouped.set(key, { name, projectNumber, lots: [] });
+        grouped.get(key).lots.push(lot);
+      }
+
+      const inserted = [];
+      for (const { name, projectNumber, lots } of grouped.values()) {
+        // uniqueness within tenant
+        const filter = { name, projectNumber, ...companyFilter(req) };
+
+        let doc = await Community.findOne(filter);
+        if (!doc) {
+          doc = new Community({
+            company: isSuper(req) ? (req.body.company || req.user.company) : req.user.company,
+            name, projectNumber, lots
+          });
+        } else {
+          doc.lots.push(...lots);
+        }
+        await doc.save();
+        inserted.push(doc);
+      }
+
+      res.json({ success: true, inserted });
+    } catch (err) {
+      console.error('Import failed:', err);
+      res.status(500).json({ error: 'Import failed' });
+    }
+  }
+);
+
+// ───────────────────────── create ─────────────────────────
+// POST /api/communities  (USER+)
+router.post('/',
+  requireRole('USER','MANAGER','COMPANY_ADMIN','SUPER_ADMIN'),
+  async (req, res) => {
+    try {
+      const { name, projectNumber } = req.body;
+      if (!name || !projectNumber) return res.status(400).json({ error: 'Missing required fields' });
+
+      const filter = { name, projectNumber, ...companyFilter(req) };
+      const existing = await Community.findOne(filter).lean();
+      if (existing) return res.status(409).json({ error: 'Community already exists' });
+
+      const doc = await Community.create({
+        company: isSuper(req) ? (req.body.company || req.user.company) : req.user.company,
+        name, projectNumber, lots: []
+      });
+      res.status(201).json(doc);
+    } catch (err) {
+      console.error('Create community error:', err);
+      res.status(500).json({ error: 'Server error' });
+    }
+  }
+);
+
+// ───────────────────────── list ─────────────────────────
+// GET /api/communities  (READONLY+)
+router.get('/',
+  requireRole('READONLY','USER','MANAGER','COMPANY_ADMIN','SUPER_ADMIN'),
+  async (req, res) => {
+    try {
+      const q = String(req.query.q || '').trim();
+      const filter = {
+        ...companyFilter(req),
+        ...(q ? { $or: [
+          { name:   { $regex: q, $options: 'i' } },
+          { city:   { $regex: q, $options: 'i' } },
+          { state:  { $regex: q, $options: 'i' } },
+          { market: { $regex: q, $options: 'i' } },
+        ] } : {})
+      };
+      const communities = await Community.find(filter).lean();
+      res.json(communities);
+    } catch (err) {
+      console.error('Fetch communities error:', err);
+      res.status(500).json({ error: 'Failed to fetch communities' });
+    }
+  }
+);
+
+// ───────────────────────── lots search ─────────────────────────
+// GET /api/communities/:id/lots?q=address  (READONLY+)
+router.get('/:id/lots',
+  requireRole('READONLY','USER','MANAGER','COMPANY_ADMIN','SUPER_ADMIN'),
+  async (req, res) => {
+    try {
+      const community = await loadScopedCommunity(req, res);
+      if (!community) return;
+
+      const q = (req.query.q || '').toLowerCase();
+      const lots = (community.lots || []).filter(l => (l.address || '').toLowerCase().includes(q));
+      res.json(lots);
+    } catch (err) {
+      console.error('Fetch lots error:', err);
+      res.status(500).json({ error: 'Failed to fetch lots' });
+    }
+  }
+);
+
+// ───────────────────────── lot by purchaser ─────────────────────────
+// GET /api/communities/lot-by-purchaser/:contactId  (READONLY+)
+router.get('/lot-by-purchaser/:contactId',
+  requireRole('READONLY','USER','MANAGER','COMPANY_ADMIN','SUPER_ADMIN'),
+  async (req, res) => {
+    try {
+      const { contactId } = req.params;
+      if (!isObjectId(contactId)) return res.json({ found: false });
+
+      const community = await Community.findOne(
+        { 'lots.purchaser': contactId, ...companyFilter(req) },
+        { lots: 1 }
+      ).populate('lots.purchaser', 'lastName').lean();
+
+      if (!community) return res.json({ found: false });
+
+      const lot = (community.lots || []).find(l => String(l.purchaser?._id || l.purchaser) === String(contactId));
+      if (!lot) return res.json({ found: false });
+
+      res.json({
+        found: true,
+        communityId: community._id,
+        lot: {
+          _id: lot._id,
+          address: lot.address,
+          jobNumber: lot.jobNumber,
+          salesDate: lot.salesDate,
+          salesPrice: lot.salesPrice
+        }
+      });
+    } catch (err) {
+      console.error('lot-by-purchaser error:', err);
+      res.status(500).json({ error: 'Server error' });
+    }
+  }
+);
+
+// ───────────────────────── add lot ─────────────────────────
+// POST /api/communities/:id/lots  (USER+)
+router.post('/:id/lots',
+  requireRole('USER','MANAGER','COMPANY_ADMIN','SUPER_ADMIN'),
+  async (req, res) => {
+    try {
+      const community = await loadScopedCommunity(req, res);
+      if (!community) return;
+
+      const {
+        jobNumber, lot, block, phase, address, floorPlan = '', elevation = ''
+      } = req.body;
+
+      const newLot = {
+        jobNumber: String(jobNumber || '').padStart(4, '0'),
+        lot: lot || '', block: block || '', phase: phase || '', address: address || '',
+        floorPlan: isObjectId(floorPlan) ? floorPlan : null,
+        elevation: elevation || '',
+        status: '',
+        purchaser: null,
+        phone: '', email: '',
+        releaseDate: null,
+        expectedCompletionDate: null,
+        closeMonth: '',
+        walkStatus: 'waitingOnBuilder',
+        thirdParty: null, firstWalk: null, finalSignOff: null,
+        lender: '',
+        closeDateTime: null,
+        listPrice: null, salesPrice: null
       };
 
-      const key = `${name}|${projectNumber}`;
-      if (!communitiesMap[key]) {
-        communitiesMap[key] = { name, projectNumber, lots: [] };
+      const upd = await Community.findOneAndUpdate(
+        { _id: community._id, ...companyFilter(req) },
+        { $push: { lots: newLot } },
+        { new: true, runValidators: true }
+      ).lean();
+
+      const created = (upd?.lots || []).slice(-1)[0];
+      res.status(201).json({ message: 'Lot added', lot: created || newLot });
+    } catch (err) {
+      console.error('Add lot error:', err);
+      res.status(500).json({ error: err.message });
+    }
+  }
+);
+
+// ───────────────────────── select options ─────────────────────────
+// GET /api/communities/select-options  (READONLY+)
+router.get('/select-options',
+  requireRole('READONLY','USER','MANAGER','COMPANY_ADMIN','SUPER_ADMIN'),
+  async (req, res, next) => {
+    try {
+      const rows = await Community.find({ ...companyFilter(req) })
+        .select('name communityName builder builderName')
+        .sort({ name: 1, communityName: 1 })
+        .lean();
+
+      const data = rows.map(c => {
+        const name = c.name || c.communityName || '(unnamed)';
+        const builder = c.builder || c.builderName || '';
+        return { id: c._id, label: builder ? `${builder} — ${name}` : name };
+      });
+      res.json(data);
+    } catch (e) { next(e); }
+  }
+);
+
+// ───────────────────────── plans for community ─────────────────────────
+// GET /api/communities/:id/floorplans  (READONLY+)
+router.get('/:id/floorplans',
+  requireRole('READONLY','USER','MANAGER','COMPANY_ADMIN','SUPER_ADMIN'),
+  async (req, res) => {
+    try {
+      const community = await loadScopedCommunity(req, res);
+      if (!community) return;
+
+      const plans = await FloorPlan.find({ communities: community._id }).lean();
+      res.json(plans);
+    } catch (err) {
+      console.error('Fetch floorplans error:', err);
+      res.status(500).json({ error: 'Server error' });
+    }
+  }
+);
+
+// ───────────────────────── get single lot ─────────────────────────
+// GET /api/communities/:id/lots/:lotId  (READONLY+)
+router.get('/:id/lots/:lotId',
+  requireRole('READONLY','USER','MANAGER','COMPANY_ADMIN','SUPER_ADMIN'),
+  async (req, res) => {
+    try {
+      const community = await loadScopedCommunity(req, res);
+      if (!community) return;
+
+      const { lotId } = req.params;
+      const lot = (community.lots || []).find(l => String(l._id) === String(lotId));
+      if (!lot) return res.status(404).json({ error: 'Lot not found' });
+
+      // Normalize floorPlan payload for client (works for ObjectId or legacy string)
+      let planPayload = null;
+      const planId = (lot.floorPlan && typeof lot.floorPlan === 'object') ? lot.floorPlan._id : lot.floorPlan;
+      if (planId && isObjectId(planId)) {
+        const fp = await FloorPlan.findById(planId).select('name planNumber').lean();
+        if (fp) planPayload = fp;
+      } else if (typeof lot.floorPlan === 'string' && lot.floorPlan.trim()) {
+        planPayload = { name: lot.floorPlan };
       }
-      communitiesMap[key].lots.push(lot);
-    });
-
-    const inserted = [];
-
-    for (const key in communitiesMap) {
-      const { name, projectNumber, lots } = communitiesMap[key];
-
-      let community = await Community.findOne({ name, projectNumber });
-      if (!community) {
-        community = new Community({ name, projectNumber, lots });
-      } else {
-        community.lots.push(...lots);
-      }
-      await community.save();
-      inserted.push(community);
+      return res.json({ ...lot, floorPlan: planPayload });
+    } catch (err) {
+      console.error('Get lot error:', err);
+      res.status(500).json({ error: err.message });
     }
-
-    res.json({ success: true, inserted });
-  } catch (err) {
-    console.error(err);
-    res.status(500).json({ error: 'Import failed' });
   }
-});
-// POST /api/communities — Create new community
-router.post('/', async (req, res) => {
-  try {
-    const { name, projectNumber } = req.body;
-    if (!name || !projectNumber) {
-      return res.status(400).json({ error: 'Missing required fields' });
-    }
+);
 
-    const existing = await Community.findOne({ name, projectNumber });
-    if (existing) {
-      return res.status(409).json({ error: 'Community already exists' });
-    }
-
-    const newCommunity = new Community({ name, projectNumber, lots: [] });
-    await newCommunity.save();
-    res.status(201).json(newCommunity);
-  } catch (err) {
-    console.error('Error creating community:', err);
-    res.status(500).json({ error: 'Server error' });
-  }
-});
-
-
-
-// 📤 Get all Communities
-router.get('/', async (req, res) => {
-  try {
-    const communities = await Community.find();
-    res.json(communities);
-  } catch (err) {
-    console.error(err);
-    res.status(500).json({ error: 'Failed to fetch communities' });
-  }
-});
-
-// 🔍 Search lots in a community by address
-router.get('/:id/lots', async (req, res) => {
-  try {
-    const { id } = req.params;
-    const query = req.query.q?.toLowerCase() || '';
-
-    const community = await Community.findById(id)
-      .populate('lots.purchaser','lastName')
-      .populate('lots.floorPlan','name');
-
-    if (!community) {
-      return res.status(404).json({ error: 'Community not found' });
-    }
-
-    const matchingLots = community.lots.filter(lot =>
-      lot.address?.toLowerCase().includes(query)
-    );
-
-    res.json(matchingLots);
-  } catch (err) {
-    console.error('Failed to fetch lots:', err);
-    res.status(500).json({ error: 'Failed to fetch lots' });
-  }
-});
-
-// GET /api/communities/lot-by-purchaser/:contactId
-router.get('/lot-by-purchaser/:contactId', async (req, res) => {
-  try {
-    const { contactId } = req.params;
-    // Find any community that has a lot purchased by this contact
-    const community = await Community.findOne({ 'lots.purchaser': contactId }, { lots: 1 })
-      .populate('lots.purchaser', 'lastName');
-
-    if (!community) return res.json({ found: false });
-
-    const lot = community.lots.find(l => String(l.purchaser?._id || l.purchaser) === String(contactId));
-    if (!lot) return res.json({ found: false });
-
-    res.json({
-      found: true,
-      communityId: community._id,
-      lot: {
-        _id: lot._id,
-        address: lot.address,
-        jobNumber: lot.jobNumber,
-        salesDate: lot.salesDate,
-        salesPrice: lot.salesPrice
-      }
-    });
-  } catch (err) {
-    console.error('lot-by-purchaser error', err);
-    res.status(500).json({ error: 'Server error' });
-  }
-});
-
-router.post('/:id/lots', async (req, res) => {
-  try {
-    const { id } = req.params;
-    const {
-      jobNumber, lot, block, phase, address, floorPlan = '', elevation = ''
-    } = req.body;
-
-    const community = await Community.findById(id);
-    if (!community) {
-      return res.status(404).json({ error: 'Community not found' });
-    }
-
-    const newLot = {
-      jobNumber: String(jobNumber).padStart(4, '0'),
-      lot,
-      block,
-      phase,
-      address,
-      floorPlan: mongoose.Types.ObjectId.isValid(floorPlan) ? floorPlan : null,
-      elevation,
-      status: '',
-      purchaser: null,
-      phone: '',
-      email: '',
-      releaseDate: '',
-      expectedCompletionDate: '',
-      closeMonth: '',
-      walkStatus: 'waitingOnBuilder',
-      thirdParty: null,
-      firstWalk: null,
-      finalSignOff: null,
-      lender: '',
-      closeDateTime: '',
-      listPrice: '',
-      salesPrice: ''
-    };
-
-    community.lots.push(newLot);
-    await community.save();
-
-    res.status(201).json({ message: 'Lot added', lot: newLot });
-  } catch (err) {
-    console.error('Error adding lot:', err);
-    res.status(500).json({ error: err.message });  // ⬅️ add this line
-    
-  }
-});
-
-
-// GET all floor plans for a specific community
-router.get('/:id/floorplans', async (req, res) => {
-  try {
-    const communityId = req.params.id;
-    // find all plans that include this community ID in their communities array
-    const plans = await FloorPlan.find({ communities: communityId });
-    res.json(plans);
-  } catch (err) {
-    console.error('Error fetching floor plans for community:', err);
-    res.status(500).json({ error: 'Server error' });
-  }
-});
-
-// GET /api/communities/:id/lots/:lotId
-router.get('/:id/lots/:lotId', async (req, res) => {
-  try {
-    const { id, lotId } = req.params;
-
-    // Keep purchaser populate if you want; avoid populating floorPlan here
-    const community = await Community
-      .findById(id)
-      .populate('lots.purchaser', 'lastName')
-      .lean();
-
-    if (!community) return res.status(404).json({ error: 'Community not found' });
-
-    const lot = (community.lots || []).find(l => String(l._id) === String(lotId));
-    if (!lot) return res.status(404).json({ error: 'Lot not found' });
-
-    // --- Normalize floorPlan for the client without throwing ---
-    // Cases we handle: ObjectId string, populated object, legacy string, or empty
-    let planId = null;
-    if (lot.floorPlan && typeof lot.floorPlan === 'object') {
-      planId = lot.floorPlan._id; // already an object for some records
-    } else if (typeof lot.floorPlan === 'string') {
-      planId = lot.floorPlan;
-    }
-
-    let planPayload = null;
-    if (planId && mongoose.isValidObjectId(planId)) {
-      // valid ObjectId → fetch plan details
-      const fp = await FloorPlan.findById(planId).select('name planNumber').lean();
-      if (fp) planPayload = fp;
-    } else if (typeof lot.floorPlan === 'string' && lot.floorPlan.trim()) {
-      // legacy plain string (e.g., "Harper" or "1234")
-      planPayload = { name: lot.floorPlan };
-    }
-    lot.floorPlan = planPayload; // object or null
-
-    return res.json(lot);
-  } catch (err) {
-    console.error(err);
-    return res.status(500).json({ error: err.message });
-  }
-});
-
-router.put('/:communityId/lots/:lotId', async (req, res) => {
-  const { communityId, lotId } = req.params;
-  const updates = req.body || {};
-  if (!Object.keys(updates).length) {
-    return res.status(400).json({ error: 'Empty update body' });
-  }
-
-  // (keep your salesDate normalization if needed)
-  if (typeof updates.salesDate === 'string' && updates.salesDate) {
-    updates.salesDate = new Date(updates.salesDate);
-  }
-
-  // build the $set for lots.$.<field>
-  const setObj = Object.entries(updates).reduce((acc, [k, v]) => {
-    acc[`lots.$.${k}`] = v;
-    return acc;
-  }, {});
-
-  try {
-    const community = await Community.findOneAndUpdate(
-      { _id: communityId, 'lots._id': lotId },
-      { $set: setObj },
-      { new: true, runValidators: true } // add validators so bad values 400
-    );
-    if (!community) return res.status(404).json({ error: 'Community or Lot not found' });
-    return res.json(community.lots.id(lotId));
-  } catch (err) {
-    console.error('Error updating lot:', err);
-    return res.status(500).json({ error: err.message });
-  }
-});
-// --- End generic update ---
-
-router.put(
-  '/:communityId/lots/:lotId/purchaser',
-  
+// ───────────────────────── update lot (generic) ─────────────────────────
+// PUT /api/communities/:communityId/lots/:lotId  (USER+)
+router.put('/:communityId/lots/:lotId',
+  requireRole('USER','MANAGER','COMPANY_ADMIN','SUPER_ADMIN'),
   async (req, res) => {
     const { communityId, lotId } = req.params;
-    const { contactId } = req.body;
-    if (!contactId) {
-      return res.status(400).json({ error: 'Missing contactId' });
+    const updates = req.body || {};
+    if (!Object.keys(updates).length) return res.status(400).json({ error: 'Empty update body' });
+
+    if (typeof updates.salesDate === 'string' && updates.salesDate) {
+      updates.salesDate = new Date(updates.salesDate);
     }
+
+    const setObj = Object.entries(updates).reduce((acc, [k, v]) => {
+      acc[`lots.$.${k}`] = v; return acc;
+    }, {});
+
     try {
-      const community = await Community.findByIdAndUpdate(
-        communityId,
-        { $set: { 'lots.$[lot].purchaser': contactId } },
-        {
-          new: true,
-          arrayFilters: [{ 'lot._id': lotId }]
-        }
-      ).populate('lots.purchaser', 'lastName');
-      if (!community) return res.status(404).json({ error: 'Community not found' });
-
-      const updatedLot = community.lots.find(l => l._id.toString() === lotId);
-      if (!updatedLot)    return res.status(404).json({ error: 'Lot not found' });
-
-      return res.json(updatedLot);
+      const filter = { _id: communityId, ...companyFilter(req), 'lots._id': lotId };
+      const community = await Community.findOneAndUpdate(filter, { $set: setObj }, { new: true, runValidators: true });
+      if (!community) return res.status(404).json({ error: 'Community or Lot not found' });
+      return res.json(community.lots.id(lotId));
     } catch (err) {
-      console.error(err);
+      console.error('Update lot error:', err);
       return res.status(500).json({ error: err.message });
     }
   }
 );
 
-// PUT /api/communities/:id  → update name/projectNumber
-router.put('/:id', async (req, res) => {
-  const { id } = req.params;
-  const { name, projectNumber } = req.body;
+// ───────────────────────── set purchaser ─────────────────────────
+// PUT /api/communities/:communityId/lots/:lotId/purchaser  (USER+)
+router.put('/:communityId/lots/:lotId/purchaser',
+  requireRole('USER','MANAGER','COMPANY_ADMIN','SUPER_ADMIN'),
+  async (req, res) => {
+    const { communityId, lotId } = req.params;
+    const { contactId } = req.body;
+    if (!contactId || !isObjectId(contactId)) {
+      return res.status(400).json({ error: 'Missing/invalid contactId' });
+    }
+    try {
+      // Optional: ensure contact in same tenant
+      const contact = await Contact.findOne({ _id: contactId, ...companyFilter(req) }).select('_id').lean();
+      if (!contact) return res.status(404).json({ error: 'Contact not found' });
 
-  try {
-    // Optional: basic validation
-    const update = {};
-    if (typeof name === 'string') update.name = name.trim();
-    if (typeof projectNumber === 'string') update.projectNumber = projectNumber.trim();
+      const filter = { _id: communityId, ...companyFilter(req) };
+      const community = await Community.findOneAndUpdate(
+        filter,
+        { $set: { 'lots.$[lot].purchaser': contactId } },
+        { new: true, arrayFilters: [{ 'lot._id': lotId }] }
+      ).populate('lots.purchaser', 'lastName');
+      if (!community) return res.status(404).json({ error: 'Community not found' });
 
-    const updated = await Community.findByIdAndUpdate(
-      id,
-      { $set: update },
-      { new: true, runValidators: true }
-    ).lean();
-
-    if (!updated) return res.status(404).json({ error: 'Community not found' });
-    res.json(updated);
-  } catch (err) {
-    console.error('Update community failed:', err);
-    res.status(400).json({ error: err.message });
+      const updatedLot = community.lots.find(l => String(l._id) === String(lotId));
+      if (!updatedLot) return res.status(404).json({ error: 'Lot not found' });
+      return res.json(updatedLot);
+    } catch (err) {
+      console.error('Set purchaser error:', err);
+      return res.status(500).json({ error: err.message });
+    }
   }
-});
+);
 
+// ───────────────────────── update community meta ─────────────────────────
+// PUT /api/communities/:id  (MANAGER+)
+router.put('/:id',
+  requireRole('MANAGER','COMPANY_ADMIN','SUPER_ADMIN'),
+  async (req, res) => {
+    const { id } = req.params;
+    const { name, projectNumber } = req.body;
 
-// DELETE /api/communities/:id/lots/:lotId/purchaser
-router.delete('/:id/lots/:lotId/purchaser', async (req, res) => {
-  try {
+    try {
+      const update = {};
+      if (typeof name === 'string') update.name = name.trim();
+      if (typeof projectNumber === 'string') update.projectNumber = projectNumber.trim();
+
+      const updated = await Community.findOneAndUpdate(
+        { _id: id, ...companyFilter(req) },
+        { $set: update },
+        { new: true, runValidators: true }
+      ).lean();
+
+      if (!updated) return res.status(404).json({ error: 'Community not found' });
+      res.json(updated);
+    } catch (err) {
+      console.error('Update community failed:', err);
+      res.status(400).json({ error: err.message });
+    }
+  }
+);
+
+// ───────────────────────── unlink purchaser ─────────────────────────
+// DELETE /api/communities/:id/lots/:lotId/purchaser  (USER+)
+router.delete('/:id/lots/:lotId/purchaser',
+  requireRole('USER','MANAGER','COMPANY_ADMIN','SUPER_ADMIN'),
+  async (req, res) => {
+    try {
+      const filter = { _id: req.params.id, ...companyFilter(req), 'lots._id': req.params.lotId };
+      const doc = await Community.findOne(filter, { 'lots.$': 1 }).lean();
+      if (!doc || !doc.lots || !doc.lots[0]) return res.status(404).json({ error: 'Community or lot not found' });
+
+      await Community.updateOne(filter, { $unset: { 'lots.$.purchaser': '' } });
+      return res.json({ ok: true });
+    } catch (err) {
+      console.error('Unlink purchaser failed:', err);
+      return res.status(500).json({ error: err.message });
+    }
+  }
+);
+
+// ───────────────────────── delete lot ─────────────────────────
+// DELETE /api/communities/:id/lots/:lotId  (MANAGER+)
+router.delete('/:id/lots/:lotId',
+  requireRole('MANAGER','COMPANY_ADMIN','SUPER_ADMIN'),
+  async (req, res) => {
     const { id, lotId } = req.params;
+    try {
+      const result = await Community.updateOne(
+        { _id: id, ...companyFilter(req) },
+        { $pull: { lots: { _id: lotId } } }
+      );
 
-    const doc = await Community.findOne(
-      { _id: id, 'lots._id': lotId },
-      { 'lots.$': 1 }
-    ).lean();
-
-    if (!doc || !doc.lots || !doc.lots[0]) {
-      return res.status(404).json({ error: 'Community or lot not found' });
+      if (!result.modifiedCount) return res.status(404).json({ error: 'Community or lot not found' });
+      return res.sendStatus(204);
+    } catch (err) {
+      console.error('Delete lot failed:', err);
+      return res.status(500).json({ error: err.message });
     }
-
-    await Community.updateOne(
-      { _id: id, 'lots._id': lotId },
-      { $unset: { 'lots.$.purchaser': '' } }
-    );
-
-    return res.json({ ok: true });
-  } catch (err) {
-    console.error('unlink purchaser failed:', err);
-    return res.status(500).json({ error: err.message });
   }
-});
-// DELETE /api/communities/:id/lots/:lotId  → remove a single lot by _id
-router.delete('/:id/lots/:lotId', async (req, res) => {
-  const { id, lotId } = req.params;
-  try {
-    const result = await Community.updateOne(
-      { _id: id },
-      { $pull: { lots: { _id: lotId } } }
-    );
-
-    // result.modifiedCount is 1 if a lot was actually removed
-    if (!result.modifiedCount) {
-      return res.status(404).json({ error: 'Community or lot not found' });
-    }
-    return res.sendStatus(204);
-  } catch (err) {
-    console.error('Delete lot failed:', err);
-    return res.status(500).json({ error: err.message });
-  }
-});
-
-
+);
 
 module.exports = router;

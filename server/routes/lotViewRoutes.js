@@ -1,61 +1,164 @@
-// routes/lotViewRoutes.js
 const express = require('express');
+const mongoose = require('mongoose');
 const router  = express.Router();
+
 const Community = require('../models/Community');
+const FloorPlan = require('../models/FloorPlan'); // tenant-scoped
+const Contact   = require('../models/Contact');   // tenant-scoped
 
-// GET all lots for a community, populated with purchaser lastName
-router.get('/communities/:communityId/lots', async (req, res) => {
-  
-  try {
-    const community = await Community
-      .findById(req.params.communityId)
-      .populate('lots.purchaser',  'firstName lastName')
-      .populate('lots.floorPlan',   'name');
-      
+const ensureAuth  = require('../middleware/ensureAuth');
+const requireRole = require('../middleware/requireRole');
 
-    if (!community) {
-      return res.status(404).json({ error: 'Community not found' });
+// ───────── helpers ─────────
+const isObjectId = v => mongoose.Types.ObjectId.isValid(String(v));
+const isSuper = req => (req.user?.roles || []).includes('SUPER_ADMIN');
+const companyFilter = req => (isSuper(req) ? {} : { company: req.user.company });
+
+// allow updates only to these nested lot keys (expand as needed)
+const ALLOWED_LOT_FIELDS = new Set([
+  'status', 'address', 'streetAddress', 'lot', 'block', 'phase', 'jobNumber',
+  'listPrice', 'salesPrice', 'salesDate', 'releaseDate', 'listDate',
+  'squareFeet', 'sqft', 'notes',
+  'floorPlan',  // ObjectId -> FloorPlan (guarded)
+  'purchaser'   // ObjectId -> Contact   (guarded)
+]);
+
+const sanitizeLotUpdates = (updates) => {
+  const out = {};
+  for (const [k, v] of Object.entries(updates || {})) {
+    if (!ALLOWED_LOT_FIELDS.has(k)) continue;           // drop unknown keys
+    if (k === 'listPrice' || k === 'salesPrice' || k === 'squareFeet' || k === 'sqft') {
+      if (v === '' || v == null) out[k] = undefined;
+      else out[k] = Number(v);
+      continue;
     }
-
-    // ✅ Return the array of lots here
-    return res.json(community.lots);
-  } catch (err) {
-    console.error('Error fetching lots:', err);
-    return res.status(500).json({ error: 'Server error' });
+    out[k] = v;
   }
-});
+  return out;
+};
 
-router.put(
-  '/communities/:communityId/lots/:lotId',
+async function assertCommunityInTenant(req, communityId, fields = '') {
+  const filter = { _id: communityId, ...companyFilter(req) };
+  const doc = await Community.findOne(filter).select(fields || '_id company').lean();
+  if (!doc) {
+    const err = new Error('Community not found');
+    err.status = 404;
+    throw err;
+  }
+  return doc;
+}
+
+async function assertFloorPlanInTenant(req, floorPlanId) {
+  if (!isObjectId(floorPlanId)) {
+    const err = new Error('Invalid floorPlan id');
+    err.status = 400;
+    throw err;
+  }
+  const fp = await FloorPlan.findOne({ _id: floorPlanId, ...companyFilter(req) })
+    .select('_id')
+    .lean();
+  if (!fp) {
+    const err = new Error('FloorPlan not found');
+    err.status = 404;
+    throw err;
+  }
+}
+
+async function assertContactInTenant(req, contactId) {
+  if (!isObjectId(contactId)) {
+    const err = new Error('Invalid purchaser id');
+    err.status = 400;
+    throw err;
+  }
+  const c = await Contact.findOne({ _id: contactId, ...companyFilter(req) })
+    .select('_id')
+    .lean();
+  if (!c) {
+    const err = new Error('Purchaser (Contact) not found');
+    err.status = 404;
+    throw err;
+  }
+}
+
+// All routes require auth
+router.use(ensureAuth);
+
+/**
+ * GET /communities/:communityId/lots
+ * Read-only: list all lots for a community (tenant-scoped)
+ */
+router.get('/communities/:communityId/lots',
+  requireRole('READONLY','USER','MANAGER','COMPANY_ADMIN','SUPER_ADMIN'),
+  async (req, res) => {
+    try {
+      const { communityId } = req.params;
+      if (!isObjectId(communityId)) return res.status(400).json({ error: 'Invalid communityId' });
+
+      const community = await Community
+        .findOne({ _id: communityId, ...companyFilter(req) })
+        .populate('lots.purchaser',  'firstName lastName')
+        .populate('lots.floorPlan',  'name planNumber specs.squareFeet')
+        .lean();
+
+      if (!community) return res.status(404).json({ error: 'Community not found' });
+      return res.json(community.lots || []);
+    } catch (err) {
+      console.error('Error fetching lots:', err);
+      return res.status(500).json({ error: 'Server error' });
+    }
+  }
+);
+
+/**
+ * PUT /communities/:communityId/lots/:lotId
+ * Update a single nested lot (USER+)
+ * - tenant-scoped
+ * - validates floorPlan/purchaser cross-tenant
+ * - only whitelisted fields can be updated
+ */
+router.put('/communities/:communityId/lots/:lotId',
+  requireRole('USER','MANAGER','COMPANY_ADMIN','SUPER_ADMIN'),
   async (req, res) => {
     try {
       const { communityId, lotId } = req.params;
-      const updates                = req.body;
+      if (!isObjectId(communityId) || !isObjectId(lotId)) {
+        return res.status(400).json({ error: 'Invalid id(s)' });
+      }
 
-      // Build a $set object that targets the correct lot in the array
-      const set = {};
-      for (const [key, val] of Object.entries(updates)) {
-        set[`lots.$.${key}`] = val;
+      // ensure community is in tenant
+      await assertCommunityInTenant(req, communityId);
+
+      // sanitize/validate updates
+      const updates = sanitizeLotUpdates(req.body);
+
+      // guard cross-tenant object references
+      if (updates.floorPlan) await assertFloorPlanInTenant(req, updates.floorPlan);
+      if (updates.purchaser) await assertContactInTenant(req, updates.purchaser);
+
+      // build $set targeting the matching array element
+      const $set = {};
+      for (const [k, v] of Object.entries(updates)) {
+        $set[`lots.$.${k}`] = v;
       }
 
       const updated = await Community.findOneAndUpdate(
-        { _id: communityId, 'lots._id': lotId },
-        { $set: set },
-        { new: true }
-      );
+        { _id: communityId, ...companyFilter(req), 'lots._id': lotId },
+        { $set },
+        { new: true, runValidators: true }
+      )
+        .populate('lots.purchaser', 'firstName lastName')
+        .populate('lots.floorPlan', 'name planNumber specs.squareFeet');
 
-      if (!updated) {
-        return res.status(404).json({ error: 'Community or Lot not found' });
-      }
-      // Optionally: return just the updated lot instead of the whole community
+      if (!updated) return res.status(404).json({ error: 'Community or Lot not found' });
+
       const updatedLot = updated.lots.id(lotId);
-      res.json(updatedLot);
+      return res.json(updatedLot);
     } catch (err) {
       console.error('Error updating nested lot:', err);
-      res.status(500).json({ error: 'Server error' });
+      const code = err.status || (err?.code === 11000 ? 409 : 500);
+      return res.status(code).json({ error: err.message || 'Server error' });
     }
   }
 );
 
 module.exports = router;
-
