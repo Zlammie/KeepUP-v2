@@ -34,8 +34,15 @@ export function updateFieldVisibility() {
     groups.emailGroup.classList.add('d-none');
     groups.phoneGroup.classList.add('d-none');
 
+    // disable required constraints on hidden lead fields
+    els.firstName.required = false;
+    els.lastName.required = false;
+    els.email.required = false;
+    els.phone.required = false;
+
     // lender requireds
     els.lenderFirstName.required = true;
     els.lenderLastName.required = true;
   }
 }
+

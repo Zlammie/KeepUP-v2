@@ -1,66 +1,46 @@
 // /assets/js/contacts/topbar.js
 import { renderTable } from './render.js';
+import { fetchMyCommunities } from './api.js';
 
 const CORE_STATUSES = ['all','new','target','possible','negotiation','be-back','purchased'];
 const EXTENDED_STATUSES = ['all','closed','cold','not-interested','deal-lost','bust'];
+const COMMUNITY_ALL = 'all';
+const COMMUNITY_UNASSIGNED = 'unassigned';
 
 const state = {
   allContacts: [],
-  currentCommunity: 'all',
+  communities: [], // [{ id, name }]
+  currentCommunity: COMMUNITY_ALL,
   currentStatus: 'all',
   filterMode: 'core',
-  sort: { field: null, dir: 1 }, // NEW: dir = 1 (asc), -1 (desc)
+  sort: { field: null, dir: 1 }, // dir = 1 (asc), -1 (desc)
 };
-
 
 function getActiveStatuses() {
   return state.filterMode === 'core' ? CORE_STATUSES : EXTENDED_STATUSES;
 }
 
-// Flexible community resolver. Point this to your canonical field if you have one.
-function getCommunityName(contact) {
-  return (
-    contact?.communityName ||
-    contact?.linkedLot?.communityName ||
-    contact?.linkedLot?.community ||
-    contact?.community ||
-    'Unassigned'
-  );
-}
-
 function normalizeStatus(raw) {
   const s = String(raw || 'new').trim().toLowerCase();
 
-  // canonicalize common variants
   if (s.includes('negoti')) return 'negotiation';
-  if (s.replace(/\s+/g, '-') === 'be-back' || s.includes('be') && s.includes('back')) return 'be-back';
+  if (s.replace(/\s+/g, '-') === 'be-back' || (s.includes('be') && s.includes('back'))) return 'be-back';
   if (s.includes('not') && s.includes('interest')) return 'not-interested';
   if (s.includes('deal') && s.includes('lost')) return 'deal-lost';
-
-  // map synonyms that might appear in data
   if (s === 'close' || s === 'closed') return 'closed';
   if (s === 'cold') return 'cold';
   if (s === 'bust' || s === 'busted') return 'bust';
 
-  // keep originals for core set
-  // 'new','target','possible','negotiation','be-back','purchased'
   return s;
-}
-
-function buildCommunityList(contacts) {
-  const set = new Set();
-  contacts.forEach((c) => set.add(getCommunityName(c)));
-  return ['All Contacts', ...Array.from(set).sort()];
 }
 
 function unionStatuses() {
   const set = new Set([...CORE_STATUSES, ...EXTENDED_STATUSES]);
-  set.delete('all'); // we add it explicitly
+  set.delete('all');
   return ['all', ...Array.from(set)];
 }
 
 function countByStatus(contacts) {
-  // counts across ALL known statuses so we can fill either view
   const keys = unionStatuses();
   const counts = Object.fromEntries(keys.map(k => [k, 0]));
   counts.all = contacts.length;
@@ -72,64 +52,146 @@ function countByStatus(contacts) {
   return counts;
 }
 
+function getContactCommunityEntries(contact) {
+  const entries = [];
+  const pushEntry = (id, name) => {
+    if (!id) return;
+    entries.push({
+      id: String(id),
+      name: name || contact?.communityName || contact?.community || '',
+    });
+  };
+
+  const arrays = [contact?.communityIds, contact?.communities];
+  arrays.forEach((arr) => {
+    if (!Array.isArray(arr)) return;
+    arr.forEach((item) => {
+      if (!item) return;
+      const id = item._id ?? item.id ?? item.value ?? item;
+      const name = item.name ?? item.label ?? item.title ?? item.communityName ?? item.community ?? '';
+      pushEntry(id, name);
+    });
+  });
+
+  if (contact?.communityId) {
+    pushEntry(contact.communityId, contact.communityName);
+  }
+
+  return entries;
+}
+
+function extractCommunityIds(contact) {
+  const entries = getContactCommunityEntries(contact);
+  const unique = new Set(entries.map((e) => e.id));
+  return Array.from(unique);
+}
+
+function isUnassigned(contact) {
+  return extractCommunityIds(contact).length === 0;
+}
+
+function contactMatchesCommunity(contact, key) {
+  if (key === COMMUNITY_ALL) return true;
+  if (key === COMMUNITY_UNASSIGNED) return isUnassigned(contact);
+  const ids = extractCommunityIds(contact);
+  return ids.includes(String(key));
+}
+
+function filterByCommunity(list, key) {
+  if (key === COMMUNITY_ALL) return list;
+  return list.filter((contact) => contactMatchesCommunity(contact, key));
+}
+
+function deriveCommunitiesFromContacts(contacts) {
+  const map = new Map();
+  contacts.forEach((contact) => {
+    getContactCommunityEntries(contact).forEach(({ id, name }) => {
+      if (!id) return;
+      if (!map.has(id)) {
+        map.set(id, { id, name: name || 'Community' });
+      }
+    });
+  });
+  return Array.from(map.values()).sort((a, b) => a.name.localeCompare(b.name));
+}
+
+function mapCommunitiesForState(list) {
+  if (!Array.isArray(list)) return [];
+  const map = new Map();
+  list.forEach((item) => {
+    if (!item) return;
+    const id = item._id ?? item.id ?? item.value;
+    if (!id) return;
+    const name = item.name ?? item.label ?? '';
+    map.set(String(id), { id: String(id), name: name || 'Community' });
+  });
+  return Array.from(map.values()).sort((a, b) => a.name.localeCompare(b.name));
+}
+
+function buildCommunityOptions() {
+  const base = [
+    { value: COMMUNITY_ALL, label: 'All Contacts' },
+    ...state.communities.map((c) => ({ value: c.id, label: c.name || 'Community' })),
+  ];
+  base.push({ value: COMMUNITY_UNASSIGNED, label: 'Unassigned' });
+  return base;
+}
+
+function populateCommunities() {
+  const select = document.getElementById('communitySelect');
+  if (!select) return;
+
+  const options = buildCommunityOptions();
+  if (!options.some((opt) => opt.value === state.currentCommunity)) {
+    state.currentCommunity = COMMUNITY_ALL;
+  }
+
+  select.innerHTML = '';
+  options.forEach(({ value, label }) => {
+    const opt = document.createElement('option');
+    opt.value = value;
+    opt.textContent = label;
+    select.appendChild(opt);
+  });
+  select.value = state.currentCommunity;
+
+  if (!select.dataset.boundChange) {
+    select.addEventListener('change', () => {
+      state.currentCommunity = select.value;
+      applyFilters();
+    });
+    select.dataset.boundChange = 'true';
+  }
+}
+
 function applyFilters() {
   const { allContacts, currentCommunity, currentStatus } = state;
 
-  let list = allContacts;
-
-  if (currentCommunity !== 'all') {
-    list = list.filter((c) => getCommunityName(c) === currentCommunity);
-  }
+  let list = filterByCommunity(allContacts, currentCommunity);
 
   if (currentStatus !== 'all') {
     list = list.filter((c) => normalizeStatus(c.status) === currentStatus);
   }
+
   if (state.sort.field === 'visitDate') {
-  list = [...list].sort((a, b) => {
-    const da = a.visitDate ? new Date(a.visitDate) : null;
-    const db = b.visitDate ? new Date(b.visitDate) : null;
-
-    // blanks handling
-    if (!da && !db) return 0;
-    if (!da) return state.sort.dir === 1 ? -1 : 1; // blanks first in asc, last in desc
-    if (!db) return state.sort.dir === 1 ? 1 : -1; // blanks first in asc, last in desc
-
-    return state.sort.dir * (da - db);
-  });
-}
+    list = [...list].sort((a, b) => {
+      const da = a.visitDate ? new Date(a.visitDate) : null;
+      const db = b.visitDate ? new Date(b.visitDate) : null;
+      if (!da && !db) return 0;
+      if (!da) return state.sort.dir === 1 ? -1 : 1;
+      if (!db) return state.sort.dir === 1 ? 1 : -1;
+      return state.sort.dir * (da - db);
+    });
+  }
 
   renderTable(list);
 
-  // counts computed within current community scope
-  const scoped = currentCommunity === 'all'
-    ? allContacts
-    : allContacts.filter((c) => getCommunityName(c) === currentCommunity);
-
+  const scoped = filterByCommunity(allContacts, currentCommunity);
   const counts = countByStatus(scoped);
   updateCounts(counts);
 }
 
-function populateCommunities(contacts) {
-  const select = document.getElementById('communitySelect');
-  select.innerHTML = '';
-
-  const options = buildCommunityList(contacts);
-  options.forEach((label) => {
-    const opt = document.createElement('option');
-    opt.value = label === 'All Contacts' ? 'all' : label;
-    opt.textContent = label;
-    select.appendChild(opt);
-  });
-
-  select.value = 'all';
-  select.addEventListener('change', () => {
-    state.currentCommunity = select.value;
-    applyFilters();
-  });
-}
-
 function pillLabel(key) {
-  // Human-friendly labels
   return key
     .replace(/-/g, ' ')
     .replace(/\b\w/g, c => c.toUpperCase());
@@ -137,22 +199,21 @@ function pillLabel(key) {
 
 function buildStatusPills() {
   const container = document.getElementById('statusFilters');
-  container.innerHTML = ''; // swap view
+  container.innerHTML = '';
 
   const statuses = getActiveStatuses();
 
   statuses.forEach((statusKey, idx) => {
-    const btn = document.createElement('button');
+    const btn = document.createElement("button");
     btn.className = `status-pill ${statusKey}`;
     if ((state.currentStatus === statusKey) ||
-        (state.currentStatus !== 'all' && !statuses.includes(state.currentStatus) && statusKey === 'all') ||
-        (state.currentStatus === 'all' && idx === 0)) {
-      btn.classList.add('active');
+        (state.currentStatus !== "all" && !statuses.includes(state.currentStatus) && statusKey === "all") ||
+        (state.currentStatus === "all" && idx === 0)) {
+      btn.classList.add("active");
     }
     btn.dataset.status = statusKey;
-
-    const label = document.createElement('span');
-    label.className = 'label';
+    const label = document.createElement("span");
+    label.className = "label";
     label.textContent = pillLabel(statusKey);
 
     const value = document.createElement('span');
@@ -181,11 +242,9 @@ function initStatusButtons() {
 }
 
 function updateCounts(counts) {
-  // total count
   const totalEl = document.getElementById('countTotal');
   if (totalEl) totalEl.textContent = counts.all ?? 0;
 
-  // visible pills only
   document.querySelectorAll('#statusFilters .status-pill .value').forEach((el) => {
     const key = el.dataset.count;
     el.textContent = counts[key] ?? 0;
@@ -200,7 +259,6 @@ function initToggle() {
   updateLabel();
 
   toggleBtn.addEventListener('click', () => {
-    // preserve current status if it exists in next mode; otherwise fall back to 'all'
     const nextMode = state.filterMode === 'core' ? 'extended' : 'core';
     const nextStatuses = nextMode === 'core' ? CORE_STATUSES : EXTENDED_STATUSES;
     state.filterMode = nextMode;
@@ -210,53 +268,67 @@ function initToggle() {
 
     buildStatusPills();
     updateLabel();
-    applyFilters(); // re-render & update counts for the newly visible pills
+    applyFilters();
   });
 }
+
 const visitHeader = document.getElementById('visitDateHeader');
 const arrow = document.getElementById('visitDateArrow');
+if (arrow) arrow.textContent = '--';
 
 visitHeader?.addEventListener('click', () => {
   if (state.sort.field === 'visitDate') {
-    // toggle direction
     state.sort.dir = -state.sort.dir;
   } else {
     state.sort.field = 'visitDate';
     state.sort.dir = 1;
   }
 
-  arrow.textContent = state.sort.dir === 1 ? '▲' : '▼';
+  arrow.textContent = state.sort.dir === 1 ? '^' : 'v';
   applyFilters();
 });
 
+function bindReset() {
+  const resetBtn = document.getElementById('resetFilters');
+  resetBtn?.addEventListener('click', () => {
+    state.currentCommunity = COMMUNITY_ALL;
+    state.currentStatus = 'all';
+    state.filterMode = 'core';
+    state.sort = { field: null, dir: 1 };
 
-export function initTopBar(contacts) {
+    const select = document.getElementById('communitySelect');
+    if (select) select.value = COMMUNITY_ALL;
+
+    buildStatusPills();
+    const toggleBtnReset = document.getElementById("toggleFilterMode");
+    if (toggleBtnReset) toggleBtnReset.textContent = "More";
+
+    const arrowEl = document.getElementById('visitDateArrow');
+    if (arrowEl) arrowEl.textContent = '--';
+
+    applyFilters();
+  });
+}
+
+export async function initTopBar(contacts) {
   state.allContacts = contacts.slice();
-  populateCommunities(state.allContacts);
+  state.currentCommunity = COMMUNITY_ALL;
+
+  try {
+    state.communities = mapCommunitiesForState(await fetchMyCommunities());
+  } catch (err) {
+    console.warn('[contacts] Failed to load communities, falling back to contact data', err);
+    state.communities = [];
+  }
+
+  if (!state.communities.length) {
+    state.communities = deriveCommunitiesFromContacts(state.allContacts);
+  }
+
+  populateCommunities();
   buildStatusPills();
   initStatusButtons();
   initToggle();
-
-  const resetBtn = document.getElementById('resetFilters');
-resetBtn?.addEventListener('click', () => {
-  state.currentCommunity = 'all';
-  state.currentStatus = 'all';
-  state.filterMode = 'core';
-  state.sort = { field: null, dir: 1 };
-
-  // Reset dropdown
-  document.getElementById('communitySelect').value = 'all';
-
-  // Rebuild pills (go back to core)
-  buildStatusPills();
-
-  // Reset arrow in Visit Date header
-  const arrow = document.getElementById('visitDateArrow');
-  if (arrow) arrow.textContent = '▲▼';
-
-  applyFilters();
-});
-
-  // initial render
+  bindReset();
   applyFilters();
 }

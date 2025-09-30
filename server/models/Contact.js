@@ -1,6 +1,11 @@
 // server/models/Contact.js
 const mongoose = require('mongoose');
 const { Schema } = mongoose;
+const lenderStatusValues = ['invite','submittedapplication','subdocs','missingdocs','approved','cannotqualify'];
+const toLenderStatus = (v) => {
+  const normalized = (v ?? '').toString().trim().toLowerCase();
+  return normalized && lenderStatusValues.includes(normalized) ? normalized : 'invite';
+};
 
 /**
  * Contact (master identity per company)
@@ -44,6 +49,14 @@ const ContactSchema = new Schema(
     lenderStatus:    { type: String, enum: ['Invite','Submitted Application','Submitted Docs','Missing Docs','Approved','Cannot Qualify'] },
     lenderInviteDate:{ type: Date },
     lenderApprovedDate:{ type: Date },
+
+    lenders: [{
+      lender: { type: Schema.Types.ObjectId, ref: 'Lender', required: true },
+      status: { type: String, enum: lenderStatusValues, default: 'invite', set: toLenderStatus },
+      inviteDate: { type: Date, default: null },
+      approvedDate: { type: Date, default: null },
+      isPrimary: { type: Boolean, default: false }
+    }],
   },
   { timestamps: true, toJSON: { virtuals: true }, toObject: { virtuals: true } }
 );

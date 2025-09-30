@@ -32,6 +32,16 @@ function parseDateMaybe(v){
   return null;
 }
 
+function toStatusCase(v){
+  const norm = toStr(v);
+  if (!norm) return '';
+  return norm
+    .split(/[-_\s]+/)
+    .filter(Boolean)
+    .map(part => part.charAt(0).toUpperCase() + part.slice(1).toLowerCase())
+    .join('-');
+}
+
 // All routes below require auth
 router.use(ensureAuth);
 
@@ -79,10 +89,11 @@ router.get('/',
       };
 
       const contacts = await Contact.find(filter)
-        .select('firstName lastName email phone status communityIds realtorId lenderId updatedAt')
+        .select('firstName lastName email phone status communityIds realtorId lenderId lenders updatedAt')
         .populate('communityIds', 'name')
         .populate('realtorId', 'firstName lastName brokerage email phone')
         .populate('lenderId',  'firstName lastName lenderBrokerage email phone')
+        .populate('lenders.lender', 'firstName lastName lenderBrokerage email phone')
         .sort({ updatedAt: -1 })
         .lean();
 
@@ -99,10 +110,17 @@ router.get('/search',
   requireRole('READONLY','USER','MANAGER','COMPANY_ADMIN','SUPER_ADMIN'),
   async (req, res) => {
     const q = toStr(req.query.q);
+    if (!q) return res.json([]);
     const regex = new RegExp(q, 'i');
     const results = await Lender.find({
-      $or: [{ firstName: regex }, { lastName: regex }, { email: regex }, { phone: regex }]
-    }).limit(10);
+      ...companyFilter(req),
+      $or: [
+        { firstName: regex },
+        { lastName: regex },
+        { email: regex },
+        { phone: regex }
+      ]
+    }).limit(10).lean();
     res.json(results);
   }
 );
@@ -119,10 +137,11 @@ router.get('/:id',
       const filter = { _id: id, ...companyFilter(req) };
 
       const contact = await Contact.findOne(filter)
-        .select('firstName lastName email phone status notes communityIds realtorId lenderId lotId ownerId visitDate lenderStatus lenderInviteDate lenderApprovedDate updatedAt')
+        .select('firstName lastName email phone status notes communityIds realtorId lenderId lotId ownerId visitDate lenderStatus lenderInviteDate lenderApprovedDate lenders updatedAt')
         .populate('communityIds', 'name')                                       // ✅ array of communities
         .populate('realtorId', 'firstName lastName brokerage email phone')      // ✅ real field
         .populate('lenderId',  'firstName lastName lenderBrokerage email phone')// ✅ real field
+        .populate('lenders.lender', 'firstName lastName lenderBrokerage email phone') // lender details
         .populate('lotId',     'jobNumber lot block address')
         .populate('ownerId',   'email firstName lastName')
         .lean();
@@ -202,6 +221,13 @@ router.put('/:id',
         $set.communityIds = toSave;
       }
 
+      if (Object.prototype.hasOwnProperty.call(b, 'status')) {
+        const statusValue = toStatusCase(b.status);
+        if (statusValue) {
+          $set.status = statusValue;
+        }
+      }
+
       // --- Build update doc
       const updateDoc = {};
       if (Object.keys($set).length)   updateDoc.$set   = $set;
@@ -213,11 +239,13 @@ router.put('/:id',
           .populate('communityIds', 'name')
           .populate('realtorId', 'firstName lastName brokerage email phone')
           .populate('lenderId',  'firstName lastName lenderBrokerage email phone')
+          .populate('lenders.lender', 'firstName lastName lenderBrokerage email phone')
           .populate('lotId',     'jobNumber lot block address')
           .populate('ownerId',   'email firstName lastName')
           .lean();
         return res.json({
           ...current,
+          status: typeof current?.status === 'string' ? current.status.toLowerCase() : current?.status,
           communities: current?.communityIds || [],
           realtor: current?.realtorId || null,
         });
@@ -232,6 +260,7 @@ router.put('/:id',
         .populate('communityIds', 'name')
         .populate('realtorId', 'firstName lastName brokerage email phone')
         .populate('lenderId',  'firstName lastName lenderBrokerage email phone')
+        .populate('lenders.lender', 'firstName lastName lenderBrokerage email phone')
         .populate('lotId',     'jobNumber lot block address')
         .populate('ownerId',   'email firstName lastName')
         .lean();
@@ -240,6 +269,7 @@ router.put('/:id',
 
       return res.json({
         ...updated,
+        status: typeof updated.status === 'string' ? updated.status.toLowerCase() : updated.status,
         communities: updated.communityIds || [],
         realtor: updated.realtorId || null,
       });

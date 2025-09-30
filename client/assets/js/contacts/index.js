@@ -48,19 +48,12 @@ contactsTable.addEventListener('click', async (e) => {
 document.addEventListener('DOMContentLoaded', async () => {
   initModal();
 
-     try {
-    const contacts = await fetchContacts();
-    initTopBar(contacts); // handles first render + subsequent filtering
-  } catch (err) {
-    console.error(err);
-  }
-
   try {
     const contacts = await fetchContacts();
-
-    renderTable(contacts);
+    await initTopBar(contacts);
   } catch (err) {
     console.error(err);
-    // Optionally show a toast or message to the user
+    // If contacts cannot load, clear table to avoid stale state
+    renderTable([]);
   }
 });

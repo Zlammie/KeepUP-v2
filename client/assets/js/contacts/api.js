@@ -28,3 +28,9 @@ export async function postComment({ type, content, contactId }) {
   if (!res.ok) throw new Error('Failed to post comment');
   return res.json().catch(() => ({}));
 }
+
+export async function fetchMyCommunities() {
+  const res = await fetch('/api/contacts/my/communities');
+  if (!res.ok) throw new Error(`Failed to fetch communities: ${res.status}`);
+  return res.json();
+}

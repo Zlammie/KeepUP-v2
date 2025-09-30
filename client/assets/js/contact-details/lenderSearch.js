@@ -274,7 +274,7 @@ function initLenderSearchUI() {
 }
 
 async function lenderSearchAPI(query, signal) {
-  const res = await fetch(`/api/contacts/search?q=${encodeURIComponent(query)}`, { signal });
+  const res = await fetch(`/api/lenders/search?q=${encodeURIComponent(query)}`, { signal });
   if (!res.ok) throw new Error(await res.text());
   return res.json();
 }
