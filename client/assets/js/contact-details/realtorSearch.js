@@ -2,6 +2,7 @@
 import { DOM } from './domCache.js';
 import { debounce } from './utils.js';
 
+
 // Public init (called from index.js)
 export function initRealtorSearch() {
   // Prefer the new cached nodes, but fall back to the legacy id if needed.
@@ -72,6 +73,12 @@ function resultRow(realtor, results) {
     fillRealtorFields(realtor);
     // Keep backward compatibility with older flows that read this
     window.updatedContactRealtorId = realtor._id || realtor.id || null;
+       // 👉 trigger autosave by updating the hidden field + change event
+   const hid = document.getElementById('realtorId');
+   if (hid) {
+     hid.value = String(window.updatedContactRealtorId || '');
+     hid.dispatchEvent(new Event('change', { bubbles: true }));
+   }
     clearResults(results);
   });
   return div;
@@ -104,6 +111,12 @@ async function createFromForm(results) {
 
     fillRealtorFields(saved);
     window.updatedContactRealtorId = saved._id || saved.id || null;
+    // 👉 trigger autosave here too
+    const hid = document.getElementById('realtorId');
+    if (hid) {
+      hid.value = String(window.updatedContactRealtorId || '');
+      hid.dispatchEvent(new Event('change', { bubbles: true }));
+    }
     clearResults(results);
   } catch (err) {
     console.error('[realtor] create error', err);

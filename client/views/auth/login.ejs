@@ -1,13 +1,54 @@
 <!DOCTYPE html>
-<html>
-<head><title>Login</title></head>
-<body>
-  <form method="POST" action="/login">
-    <h1>Login</h1>
-    <% if (error) { %><div style="color:red;"><%= error %></div><% } %>
-    <label>Email <input name="email" type="email" required /></label><br/>
-    <label>Password <input name="password" type="password" required /></label><br/>
-    <button type="submit">Sign in</button>
-  </form>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Sign in · KeepUP</title>
+  <link rel="preconnect" href="/" />
+  <link rel="stylesheet" href="/assets/css/auth.css" />
+</head>
+<body class="auth">
+  <main class="auth__wrap">
+    <section class="auth__card" role="form" aria-labelledby="login-title">
+      <header class="auth__header">
+        <!-- If you have a logo: <img src="/assets/logo.svg" alt="KeepUP" class="auth__logo" /> -->
+        <h1 id="login-title" class="auth__title">Welcome back</h1>
+        <p class="auth__subtitle">Sign in to continue</p>
+      </header>
+
+      <% if (error) { %>
+        <div class="auth__alert" role="alert" aria-live="polite">
+          <span class="auth__alert-dot" aria-hidden="true"></span>
+          <%= error %>
+        </div>
+      <% } %>
+
+      <form method="POST" action="/login" class="auth__form">
+        <div class="field">
+          <label for="email" class="label">Email</label>
+          <input id="email" name="email" type="email" required autocomplete="username" class="input" placeholder="you@company.com" />
+        </div>
+
+        <div class="field">
+          <label for="password" class="label">Password</label>
+          <input id="password" name="password" type="password" required autocomplete="current-password" class="input" placeholder="••••••••" />
+        </div>
+
+        <div class="row row--between">
+          <label class="checkbox">
+            <input type="checkbox" name="remember" />
+            <span>Remember me</span>
+          </label>
+          <a href="/forgot-password" class="link">Forgot password?</a>
+        </div>
+
+        <button type="submit" class="btn btn--primary">Sign in</button>
+      </form>
+
+      <footer class="auth__footer">
+        <p class="muted">By signing in you agree to the Terms & Privacy.</p>
+      </footer>
+    </section>
+  </main>
 </body>
 </html>

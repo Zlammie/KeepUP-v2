@@ -1,0 +1,172 @@
+:root{
+  --bg1: 255 255 255;
+  --fg1: 17 24 39;          /* near-slate-900 */
+  --muted: 107 114 128;     /* slate-500 */
+  --brand: 99 102 241;      /* indigo-500 */
+  --brand-600: 79 70 229;   /* indigo-600 */
+  --card: 255 255 255;
+  --border: 229 231 235;    /* gray-200 */
+  --danger: 239 68 68;      /* red-500 */
+  --ring: 59 130 246;       /* blue-500 */
+  --shadow: 0 10px 30px rgba(2, 6, 23, .08);
+}
+
+@media (prefers-color-scheme: dark){
+  :root{
+    --bg1: 2 6 23;          /* slate-950 */
+    --fg1: 241 245 249;     /* slate-100 */
+    --muted: 148 163 184;   /* slate-400 */
+    --card: 15 23 42;       /* slate-900 */
+    --border: 30 41 59;     /* slate-800 */
+    --shadow: 0 10px 40px rgba(0,0,0,.6);
+  }
+}
+
+* { box-sizing: border-box; }
+html, body { height: 100%; }
+
+body.auth{
+  margin: 0;
+  color: rgb(var(--fg1));
+  background:
+    radial-gradient(1200px 600px at 10% 10%, rgba(99,102,241,.12), transparent 60%),
+    radial-gradient(900px 500px at 90% 90%, rgba(79,70,229,.10), transparent 60%),
+    rgb(var(--bg1));
+  font: 16px/1.5 system-ui, -apple-system, Segoe UI, Roboto, Inter, "Helvetica Neue", Arial, "Apple Color Emoji","Segoe UI Emoji";
+}
+
+.auth__wrap{
+  min-height: 100%;
+  display: grid;
+  place-items: center;
+  padding: 24px;
+}
+
+.auth__card{
+  width: 100%;
+  max-width: 420px;
+  background: rgb(var(--card));
+  border: 1px solid rgb(var(--border));
+  border-radius: 16px;
+  box-shadow: var(--shadow);
+  padding: 28px;
+  animation: pop .25s ease-out;
+}
+
+@keyframes pop {
+  from { transform: translateY(6px); opacity: .0; }
+  to   { transform: translateY(0); opacity: 1; }
+}
+
+.auth__header{
+  text-align: left;
+  margin-bottom: 20px;
+}
+
+.auth__logo{
+  height: 36px; width: auto; display: block; margin-bottom: 12px;
+}
+
+.auth__title{
+  margin: 0;
+  font-size: 1.5rem;
+  letter-spacing: -0.02em;
+}
+
+.auth__subtitle{
+  margin: 6px 0 0;
+  color: rgb(var(--muted));
+  font-size: .95rem;
+}
+
+.auth__alert{
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  background: rgba(var(--danger), .10);
+  border: 1px solid rgba(var(--danger), .35);
+  color: rgb(var(--danger));
+  padding: 10px 12px;
+  border-radius: 10px;
+  margin: 10px 0 18px;
+  font-size: .95rem;
+}
+.auth__alert-dot{
+  width: 8px; height: 8px; border-radius: 99px;
+  background: rgb(var(--danger));
+  margin-top: 6px;
+}
+
+.auth__form{ display: grid; gap: 14px; }
+
+.field{ display: grid; gap: 8px; }
+.label{
+  font-weight: 600;
+  font-size: .95rem;
+}
+.input{
+  appearance: none;
+  width: 100%;
+  padding: 12px 14px;
+  border-radius: 10px;
+  border: 1px solid rgb(var(--border));
+  background: transparent;
+  color: inherit;
+  outline: none;
+  transition: border-color .15s ease, box-shadow .15s ease;
+}
+.input::placeholder{ color: rgba(var(--muted), .8); }
+.input:focus{
+  border-color: rgba(var(--ring), .8);
+  box-shadow: 0 0 0 4px rgba(var(--ring), .15);
+}
+
+.row{
+  display: flex;
+  gap: 12px;
+  align-items: center;
+}
+.row--between{ justify-content: space-between; }
+
+.checkbox{
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  user-select: none;
+  cursor: pointer;
+  font-size: .95rem;
+  color: rgb(var(--muted));
+}
+.checkbox input{ accent-color: rgb(var(--brand)); }
+
+.link{
+  text-decoration: none;
+  font-weight: 600;
+  color: rgb(var(--brand));
+}
+.link:hover{ color: rgb(var(--brand-600)); text-decoration: underline; }
+
+.btn{
+  display: inline-flex;
+  justify-content: center;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+  padding: 12px 14px;
+  border-radius: 10px;
+  border: 1px solid transparent;
+  background: rgb(var(--brand));
+  color: white;
+  font-weight: 700;
+  letter-spacing: .01em;
+  cursor: pointer;
+  transition: transform .02s ease, background .15s ease, box-shadow .15s ease;
+}
+.btn:hover{ background: rgb(var(--brand-600)); }
+.btn:active{ transform: translateY(1px); }
+
+.auth__footer{
+  margin-top: 14px;
+  text-align: center;
+}
+.muted{ color: rgb(var(--muted)); font-size: .85rem; }

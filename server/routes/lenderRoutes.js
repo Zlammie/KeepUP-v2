@@ -118,15 +118,72 @@ router.post("/",
       body.company = isSuper(req) ? (body.company || req.user.company) : req.user.company;
 
       // normalize
-      if (body.email) body.email = normalizeEmail(body.email);
-      if (body.phone) body.phone = normalizePhone(body.phone);
-      if (body.visitDate) body.visitDate = parseDateMaybe(body.visitDate);
+      const email = body.email ? normalizeEmail(body.email) : "";
+      const phone = body.phone ? normalizePhone(body.phone) : "";
+      const visitDate = body.visitDate ? parseDateMaybe(body.visitDate) : null;
 
-      const lender = await Lender.create(body);
-      res.status(201).json(lender);
+      // 1) Try to find an existing lender by identity
+      let lender = null;
+      if (email || phone) {
+        lender = await Lender.findOne({
+          company: body.company,
+          $or: [
+            email ? { email } : null,
+            phone ? { phone } : null
+          ].filter(Boolean)
+        });
+      }
+
+      // 2) If exists, lightly patch missing identity fields and return it
+      if (lender) {
+        const patch = {};
+        if (!lender.firstName && body.firstName) patch.firstName = String(body.firstName).trim();
+        if (!lender.lastName  && body.lastName)  patch.lastName  = String(body.lastName).trim();
+        if (!lender.lenderBrokerage && body.lenderBrokerage) patch.lenderBrokerage = String(body.lenderBrokerage).trim();
+        if (visitDate && !lender.visitDate) patch.visitDate = visitDate;
+
+        if (Object.keys(patch).length) {
+          await Lender.updateOne({ _id: lender._id, company: body.company }, { $set: patch });
+          lender = await Lender.findById(lender._id).lean();
+        } else {
+          lender = lender.toObject?.() || lender; // ensure plain object
+        }
+        return res.status(201).json(lender);
+      }
+
+      // 3) Else create new
+      const created = await Lender.create({
+        company: body.company,
+        lenderBrokerage: body.lenderBrokerage,
+        firstName: body.firstName,
+        lastName:  body.lastName,
+        email,
+        phone,
+        visitDate,
+        type: body.type,
+        isActive: body.isActive
+      });
+
+      return res.status(201).json(created);
+
     } catch (err) {
-      const code = err?.code === 11000 ? 409 : 400; // unique collisions on email/phone (per company)
-      res.status(code).json({ error: err.message });
+      // 4) Handle race: if unique collision, re-find and return existing
+      if (err?.code === 11000) {
+        try {
+          const email = req.body.email ? normalizeEmail(req.body.email) : "";
+          const phone = req.body.phone ? normalizePhone(req.body.phone) : "";
+          const existing = await Lender.findOne({
+            company: req.user.company,
+            $or: [
+              email ? { email } : null,
+              phone ? { phone } : null
+            ].filter(Boolean)
+          }).lean();
+          if (existing) return res.status(201).json(existing);
+        } catch (_) { /* fall through */ }
+      }
+      const code = err?.code === 11000 ? 409 : 400;
+      res.status(code).json({ error: err.message || "Failed to create lender" });
     }
   }
 );

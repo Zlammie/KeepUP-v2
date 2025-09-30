@@ -136,17 +136,31 @@ router.get('/',
   requireRole('READONLY','USER','MANAGER','COMPANY_ADMIN','SUPER_ADMIN'),
   async (req, res) => {
     try {
+      const roles = req.user?.roles || [];
+      const isAdmin = roles.includes('COMPANY_ADMIN') || roles.includes('SUPER_ADMIN');
+
       const q = String(req.query.q || '').trim();
-      const filter = {
-        ...companyFilter(req),
-        ...(q ? { $or: [
-          { name:   { $regex: q, $options: 'i' } },
-          { city:   { $regex: q, $options: 'i' } },
-          { state:  { $regex: q, $options: 'i' } },
-          { market: { $regex: q, $options: 'i' } },
-        ] } : {})
-      };
-      const communities = await Community.find(filter).lean();
+      const base = { company: req.user.company };
+
+      const allowed = (req.user.allowedCommunityIds || []).map(String);
+      const accessFilter = isAdmin
+        ? base
+        : (allowed.length ? { ...base, _id: { $in: allowed } } : { ...base, _id: { $in: [] } });
+
+      const textFilter = q
+        ? { $or: [
+            { name:   { $regex: q, $options: 'i' } },
+            { city:   { $regex: q, $options: 'i' } },
+            { state:  { $regex: q, $options: 'i' } },
+            { market: { $regex: q, $options: 'i' } },
+          ] }
+        : {};
+
+      const communities = await Community.find({ ...accessFilter, ...textFilter })
+        .select('name city state market')
+        .sort({ name: 1 })
+        .lean();
+
       res.json(communities);
     } catch (err) {
       console.error('Fetch communities error:', err);

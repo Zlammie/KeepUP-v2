@@ -29,7 +29,7 @@ function normalizeLinkedLot(raw) {
     raw.lotId ||
     raw.lot ||
     raw.lot_id ||
-    raw.id || // sometimes the lot object itself is "the lot"
+    raw.id ||
     null;
 
   return {
@@ -42,16 +42,27 @@ function normalizeLinkedLot(raw) {
 export async function initState({ contactId, initialStatus }) {
   state.contactId = contactId;
   state.initialStatus = initialStatus;
-  state.contact = await api.fetchContact(contactId);
+
+  const contact = await api.fetchContact(contactId);
+  state.contact = contact;
 
   // Make sure linkedLot is normalized on boot
-  state.linkedLot = normalizeLinkedLot(state.contact?.linkedLot ?? null);
+  state.linkedLot = normalizeLinkedLot(contact?.linkedLot ?? null);
 
+  // let listeners hydrate UI
   emit('state:init', { ...state });
+  emit('state:contact', state.contact);
+  emit('state:linkedLot', state.linkedLot);
+
+  return state;
 }
 
 export function getState() {
   return state;
+}
+
+export function getContact() {
+  return state.contact;
 }
 
 export function setContact(patch) {

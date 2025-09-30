@@ -28,8 +28,14 @@
           </div>
           <div class="form-group">
             <label for="community-select">Communities</label>
-            <select id="community-select" class="select-standard" multiple size="6" aria-label="Select one or more communities">
-              <!-- dynamically filled by JS -->
+            <select
+              id="community-select"
+              name="communityIds"
+              data-autosave="communityIds"
+              class="select-standard"
+              multiple
+              size="6"
+              aria-label="Select one or more communities">
             </select>
             <div class="form-text">Hold Ctrl/Cmd to select more than one.</div>
             <!-- keep this if your existing save code expects it; our JS will fill it -->
@@ -149,6 +155,8 @@
 
         <!-- Realtor Info -->
         <div class="card card--white realtor-container">
+          <input type="hidden" id="realtorId" name="realtorId" data-autosave="realtorId" />
+          
           <div class="form-group">
             <label for="realtor-search">Search Realtor</label>
             <input type="text" id="realtor-search" placeholder="Search by name, email, or phone" />

@@ -45,11 +45,6 @@ export function bindAutosave() {
     saveField('floorplans', vals);
   });
 
-  // facing: multi-select checkboxes
-  bindGroup('input[name="facing"]', () => {
-    const vals = [...document.querySelectorAll('input[name="facing"]:checked')].map(cb => cb.value);
-    saveField('facing', vals);
-  });
 
   // living booleans
   bindSimpleCheckbox('investor');
@@ -83,6 +78,13 @@ function bindSimpleCheckbox(id, fieldName = id) {
 }
 
 function readValue(el) {
+    // Multi-selects → array of selected option values
+  if (el.tagName === 'SELECT' && el.multiple) {
+    return Array.from(el.selectedOptions).map(o => o.value);
+  }
+    if (el.tagName === 'SELECT' && el.multiple) {
+    return Array.from(el.selectedOptions).map(o => o.value);
+  }
   if (el.type === 'checkbox') return !!el.checked;
   return el.value;
 }
@@ -99,7 +101,36 @@ async function saveField(field, value) {
 }
 
 async function saveRealtorSelection() {
-  const realtorId = window.updatedContactRealtorId;
-  if (!realtorId) return;
-  await saveField('realtor', realtorId);
+  // 1) If a search flow set an explicit id, use that
+  const explicitId = window.updatedContactRealtorId;
+  if (explicitId) {
+    await saveField('realtorId', explicitId);
+    return;
+  }
+
+  // 2) Otherwise use the typed fields to create-or-reuse a company realtor
+  const $ = (id) => document.getElementById(id);
+  const payload = {
+    firstName:  $.call(null, 'realtorFirstName')?.value?.trim() || '',
+    lastName:   $.call(null, 'realtorLastName')?.value?.trim()  || '',
+    email:      $.call(null, 'realtorEmail')?.value?.trim()     || '',
+    phone:      $.call(null, 'realtorPhone')?.value?.trim()     || '',
+    brokerage:  $.call(null, 'realtorBrokerage')?.value?.trim() || '',
+  };
+  // If nothing is provided, do nothing.
+  if (!payload.firstName && !payload.lastName && !payload.email && !payload.phone && !payload.brokerage) return;
+
+  try {
+    const res = await fetch('/api/realtors', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload)
+    });
+    if (!res.ok) throw new Error('realtor create/link failed: ' + res.status);
+    const realtor = await res.json();
+    // 3) Link to the contact
+    await saveField('realtorId', realtor._id);
+  } catch (e) {
+    console.error('[autosave] realtor create/link failed', e);
+  }
 }

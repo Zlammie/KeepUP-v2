@@ -2,6 +2,7 @@ const express = require('express');
 const mongoose = require('mongoose');
 const router = express.Router();
 const Realtor = require('../models/Realtor');
+const RealtorAssignment = require('../models/RealtorAssignment');
 
 const multer = require('multer');
 const xlsx = require('xlsx');
@@ -22,6 +23,9 @@ const normalizePhone = v => {
 };
 const normalizeEmail = v => toStr(v).toLowerCase();
 
+//Realtor Assignment Helpers
+
+
 // all routes require auth
 router.use(ensureAuth);
 
@@ -38,9 +42,53 @@ router.post('/',
       if (body.email) body.email = normalizeEmail(body.email);
       if (body.phone) body.phone = normalizePhone(body.phone);
 
-      const realtor = await Realtor.create(body);
-      res.status(201).json(realtor);
+      // 1) find by identity within company
+      let realtor = null;
+      if (body.email || body.phone) {
+        realtor = await Realtor.findOne({
+          company: body.company,
+          $or: [
+            body.email ? { email: body.email } : null,
+            body.phone ? { phone: body.phone } : null
+          ].filter(Boolean)
+        });
+      }
+
+      // 2) if found, lightly patch blank identity fields
+      if (realtor) {
+        const patch = {};
+        if (!realtor.firstName && body.firstName) patch.firstName = String(body.firstName).trim();
+        if (!realtor.lastName  && body.lastName)  patch.lastName  = String(body.lastName).trim();
+        if (!realtor.brokerage && body.brokerage) patch.brokerage = String(body.brokerage).trim();
+        if (Object.keys(patch).length) {
+          await Realtor.updateOne({ _id: realtor._id, company: body.company }, { $set: patch });
+          realtor = await Realtor.findById(realtor._id).lean();
+        } else {
+          realtor = realtor.toObject?.() || realtor;
+        }
+        return res.status(201).json(realtor);
+      }
+
+      // 3) else create new
+      const created = await Realtor.create(body);
+      return res.status(201).json(created);
+
     } catch (err) {
+      // 4) race: unique conflict → re-find and return existing
+      if (err?.code === 11000) {
+        try {
+          const email = req.body.email ? normalizeEmail(req.body.email) : '';
+          const phone = req.body.phone ? normalizePhone(req.body.phone) : '';
+          const existing = await Realtor.findOne({
+            company: req.user.company,
+            $or: [
+              email ? { email } : null,
+              phone ? { phone } : null
+            ].filter(Boolean)
+          }).lean();
+          if (existing) return res.status(201).json(existing);
+        } catch (_) {}
+      }
       const code = err?.code === 11000 ? 409 : 400;
       res.status(code).json({ error: err.message || 'Failed to create realtor' });
     }
@@ -216,6 +264,174 @@ router.post('/import',
       res.json({ success: true, created, updated, skipped, errors });
     } catch (err) {
       res.status(500).json({ error: 'Failed to import realtors', details: err.message });
+    }
+  }
+);
+
+///REALTOR ASSIGNMENT ROUTES///
+// --- NEW: list "my" realtors -----------------------------------------------
+// GET /api/realtors/mine?q=smith
+router.get('/mine',
+  requireRole('READONLY','USER','MANAGER','COMPANY_ADMIN','SUPER_ADMIN'),
+  async (req, res) => {
+    try {
+      const q = toStr(req.query.q);
+      const links = await RealtorAssignment.find({ company: req.user.company, userId: req.user._id })
+        .populate({
+          path: 'realtorId',
+          select: 'firstName lastName email phone brokerage isActive',
+          match: q ? {
+            $or: [
+              { firstName: { $regex: q, $options: 'i' } },
+              { lastName:  { $regex: q, $options: 'i' } },
+              { email:     { $regex: q, $options: 'i' } },
+              { phone:     { $regex: q, $options: 'i' } },
+              { brokerage: { $regex: q, $options: 'i' } },
+            ]
+          } : {}
+        })
+        .sort({ updatedAt: -1 })
+        .lean();
+
+      // flatten; drop unmatched populates
+      const rows = links
+        .filter(l => l.realtorId)
+        .map(l => ({
+          ...l.realtorId,
+          _assignmentId: l._id,
+          nickname: l.nickname,
+          notes: l.notes,
+          isFavorite: l.isFavorite,
+          lastUsedAt: l.lastUsedAt
+        }));
+
+      res.json(rows);
+    } catch (err) {
+      res.status(500).json({ error: 'Failed to fetch my realtors', details: err.message });
+    }
+  }
+);
+
+// --- NEW: link existing realtor to me --------------------------------------
+// POST /api/realtors/:id/assign
+router.post('/:id/assign',
+  requireRole('USER','MANAGER','COMPANY_ADMIN','SUPER_ADMIN'),
+  async (req, res) => {
+    try {
+      const { id } = req.params;
+      if (!mongoose.Types.ObjectId.isValid(id)) return res.status(400).json({ error: 'Invalid id' });
+
+      await RealtorAssignment.updateOne(
+        { company: req.user.company, userId: req.user._id, realtorId: id },
+        {
+          $setOnInsert: {
+            nickname: req.body.nickname || '',
+            notes: req.body.notes || ''
+          },
+          $set: { lastUsedAt: new Date() }
+        },
+        { upsert: true }
+      );
+      res.sendStatus(204);
+    } catch (err) {
+      res.status(500).json({ error: 'Failed to assign realtor', details: err.message });
+    }
+  }
+);
+
+// --- NEW: unlink from me (keep the realtor record) -------------------------
+// DELETE /api/realtors/:id/unassign
+router.delete('/:id/unassign',
+  requireRole('USER','MANAGER','COMPANY_ADMIN','SUPER_ADMIN'),
+  async (req, res) => {
+    try {
+      const { id } = req.params;
+      if (!mongoose.Types.ObjectId.isValid(id)) return res.status(400).json({ error: 'Invalid id' });
+
+      await RealtorAssignment.deleteOne({ company: req.user.company, userId: req.user._id, realtorId: id });
+      res.sendStatus(204);
+    } catch (err) {
+      res.status(500).json({ error: 'Failed to unassign realtor', details: err.message });
+    }
+  }
+);
+
+// --- NEW: create-or-link in one step (no duplicates) -----------------------
+// POST /api/realtors/assign
+router.post('/assign',
+  requireRole('USER','MANAGER','COMPANY_ADMIN','SUPER_ADMIN'),
+  async (req, res) => {
+    try {
+      const company = req.user.company;
+
+      // allow either realtorId, or identity fields (email/phone)
+      const realtorId = toStr(req.body.realtorId);
+      let realtor = null;
+
+      if (realtorId && mongoose.Types.ObjectId.isValid(realtorId)) {
+        realtor = await Realtor.findOne({ _id: realtorId, company }).lean();
+        if (!realtor) return res.status(404).json({ error: 'Realtor not found' });
+      } else {
+        const email = normalizeEmail(req.body.email);
+        const phone = normalizePhone(req.body.phone);
+
+        realtor = (email || phone)
+          ? await Realtor.findOne({
+              company,
+              $or: [
+                email ? { email } : null,
+                phone ? { phone } : null
+              ].filter(Boolean)
+            })
+          : null;
+
+        if (!realtor) {
+          realtor = await Realtor.create({
+            company,
+            firstName: req.body.firstName,
+            lastName:  req.body.lastName,
+            brokerage: req.body.brokerage,
+            email,
+            phone,
+          });
+        }
+      }
+
+      await RealtorAssignment.updateOne(
+        { company, userId: req.user._id, realtorId: realtor._id },
+        {
+          $setOnInsert: {
+            nickname: req.body.nickname || '',
+            notes: req.body.notes || ''
+          },
+          $set: { lastUsedAt: new Date() }
+        },
+        { upsert: true }
+      );
+
+      res.status(201).json(realtor);
+    } catch (err) {
+      // if unique conflict on Realtor, re-find and link
+      if (err?.code === 11000) {
+        const email = normalizeEmail(req.body.email);
+        const phone = normalizePhone(req.body.phone);
+        const existing = await Realtor.findOne({
+          company: req.user.company,
+          $or: [
+            email ? { email } : null,
+            phone ? { phone } : null
+          ].filter(Boolean)
+        }).lean();
+        if (existing) {
+          await RealtorAssignment.updateOne(
+            { company: req.user.company, userId: req.user._id, realtorId: existing._id },
+            { $setOnInsert: { nickname: req.body.nickname || '', notes: req.body.notes || '' } },
+            { upsert: true }
+          );
+          return res.status(201).json(existing);
+        }
+      }
+      res.status(500).json({ error: 'Failed to assign realtor', details: err.message });
     }
   }
 );

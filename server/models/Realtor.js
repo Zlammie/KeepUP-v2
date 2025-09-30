@@ -42,6 +42,8 @@ RealtorSchema.index(
   { unique: true, partialFilterExpression: { phone: { $type: 'string', $ne: '' } } }
 );
 
+
+
 // Helpful list lookups
 RealtorSchema.index({ company: 1, lastName: 1, firstName: 1 });
 RealtorSchema.index({ company: 1, brokerage: 1 });

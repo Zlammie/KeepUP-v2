@@ -4,7 +4,8 @@ import { cacheDOM } from './domCache.js';
 import { hydrateAll } from './hydrate.js';
 import { bindAutosave } from './autosave.js';
 import { initStatusLogic } from './status.js';
-import { initCommunitySection } from './communitySection.js';
+import { initCommunitySection, populateCommunities } from './communitySection.js';
+import { getContact } from './state.js';
 import { initLotLinking } from './lotLink.js';
 import { initRealtorSearch } from './realtorSearch.js';
 import { initLenderSearch } from './lenderSearch.js';
@@ -42,6 +43,7 @@ window.addEventListener('DOMContentLoaded', async () => {
 
     // 4) First paint
     await hydrateAll();
+    await populateCommunities({ contact: getContact() });
 
     // 5) Now that dynamic nodes exist, bind autosave
     bindAutosave();

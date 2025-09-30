@@ -5,6 +5,7 @@ const router = express.Router();
 const Contact   = require('../models/Contact');
 const Lender    = require('../models/lenderModel');
 const Community = require('../models/Community');
+const Realtor   = require('../models/Realtor');
 
 const ensureAuth  = require('../middleware/ensureAuth');
 const requireRole = require('../middleware/requireRole');
@@ -146,28 +147,105 @@ router.get('/:id',
 // ───────────────────────── update ─────────────────────────
 // PUT /api/contacts/:id
 router.put('/:id',
-  requireRole('USER','MANAGER','COMPANY_ADMIN','SUPER_ADMIN'),
+  requireRole('READONLY','USER','MANAGER','COMPANY_ADMIN','SUPER_ADMIN'),
   async (req, res) => {
     try {
       const { id } = req.params;
       if (!isObjectId(id)) return res.status(400).json({ error: 'Invalid id' });
 
-      const body = { ...req.body };
-      if (body.communityId === '') body.communityId = null;
-      if (body.phone) body.phone = normalizePhone(body.phone);
-      if (body.visitDate) body.visitDate = parseDateMaybe(body.visitDate);
+      const b = req.body;
+      const $set = {};
+      const $unset = {};
 
-      // Never allow cross-tenant move
-      delete body.company;
+      // --- Realtor: accept 'realtorId' or legacy 'realtor' → save to realtorId
+      if (Object.prototype.hasOwnProperty.call(b, 'realtorId') ||
+          Object.prototype.hasOwnProperty.call(b, 'realtor')) {
+        const raw = String(b.realtorId || b.realtor || '').trim();
+        if (!raw) {
+          $unset.realtorId = '';
+        } else {
+          const ok = await Realtor.exists({ _id: raw, company: req.user.company });
+          if (!ok) return res.status(400).json({ error: 'Realtor not found in your company' });
+          $set.realtorId = raw;
+        }
+      }
+
+      // --- Communities: update ONLY if client asked to
+      const wantsCommunityUpdate =
+        Object.prototype.hasOwnProperty.call(b, 'communityIds') ||
+        Object.prototype.hasOwnProperty.call(b, 'communities')  ||
+        Object.prototype.hasOwnProperty.call(b, 'communityId');
+
+      if (wantsCommunityUpdate) {
+        let ids = [];
+        if (Array.isArray(b.communityIds)) ids = b.communityIds;
+        else if (typeof b.communityIds === 'string') {
+          try { ids = JSON.parse(b.communityIds); } catch { ids = [b.communityIds]; }
+        }
+        if (!ids.length && Array.isArray(b.communities)) ids = b.communities;
+        else if (!ids.length && typeof b.communities === 'string') {
+          try { ids = JSON.parse(b.communities); } catch { ids = [b.communities]; }
+        }
+        if (!ids.length && b.communityId) ids = [b.communityId];
+
+        ids = ids.filter(Boolean).map(String);
+
+        const allowed = await Community.find({
+          _id: { $in: ids },
+          company: req.user.company
+        }).select('_id').lean();
+
+        const toSave = allowed.map(c => c._id);
+        if (ids.length && !toSave.length) {
+          return res.status(400).json({ error: 'Selected communities are not in your company.' });
+        }
+        $set.communityIds = toSave;
+      }
+
+      // --- Build update doc
+      const updateDoc = {};
+      if (Object.keys($set).length)   updateDoc.$set   = $set;
+      if (Object.keys($unset).length) updateDoc.$unset = $unset;
+
+      // If nothing to update, return current doc
+      if (!Object.keys(updateDoc).length) {
+        const current = await Contact.findOne({ _id: id, ...companyFilter(req) })
+          .populate('communityIds', 'name')
+          .populate('realtorId', 'firstName lastName brokerage email phone')
+          .populate('lenderId',  'firstName lastName lenderBrokerage email phone')
+          .populate('lotId',     'jobNumber lot block address')
+          .populate('ownerId',   'email firstName lastName')
+          .lean();
+        return res.json({
+          ...current,
+          communities: current?.communityIds || [],
+          realtor: current?.realtorId || null,
+        });
+      }
+
+      // --- Apply update and return normalized payload
       const updated = await Contact.findOneAndUpdate(
         { _id: id, ...companyFilter(req) },
-        body,
-        { new: true, runValidators: true }
-      );
+        updateDoc,
+        { new: true }
+      )
+        .populate('communityIds', 'name')
+        .populate('realtorId', 'firstName lastName brokerage email phone')
+        .populate('lenderId',  'firstName lastName lenderBrokerage email phone')
+        .populate('lotId',     'jobNumber lot block address')
+        .populate('ownerId',   'email firstName lastName')
+        .lean();
+
       if (!updated) return res.status(404).json({ error: 'Contact not found' });
-      res.json(updated);
+
+      return res.json({
+        ...updated,
+        communities: updated.communityIds || [],
+        realtor: updated.realtorId || null,
+      });
     } catch (err) {
-      res.status(400).json({ error: 'Failed to update contact', details: err.message });
+      console.error('PUT /api/contacts/:id failed:', err);
+      res.status(500).json({ error: 'Failed to update contact', details: err.message });
     }
   }
 );
@@ -375,7 +453,7 @@ router.delete('/:contactId/lenders/:lenderLinkId',
         { $pull: { lenders: { _id: lenderLinkId } } },
         { new: true }
       )
-        .populate('realtor')
+        .populate('realtorId', 'firstName lastName brokerage email phone')
         .populate('lenders.lender');
 
       if (!updated) return res.status(404).json({ error: 'Contact not found' });
@@ -401,7 +479,8 @@ router.patch('/:contactId/link-lender',
         { _id: contactId, ...companyFilter(req) },
         { $push: { lenders: { lender: lenderId, status, inviteDate, approvedDate } } },
         { new: true }
-      ).populate('realtor').populate('lenders.lender');
+       ).populate('realtorId','firstName lastName brokerage email phone')
+        .populate('lenders.lender');
 
       if (!updated) return res.status(404).json({ error: 'Contact not found' });
       res.json(updated);
