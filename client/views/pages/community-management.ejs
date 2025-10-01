@@ -28,7 +28,6 @@
             <div>
               <button type="submit" class="btn btn-primary">Create Community</button>
             </div>
-            
           </form>
           </div>
           </section>  
@@ -46,7 +45,7 @@
             <!-- Dropzone -->
             <div id="importDropzone" class="dropzone" tabindex="0" aria-label="Upload CSV or XLSX by drag and drop">
               <div class="dz-inner">
-                <div class="dz-icon">📥</div>
+                <div class="dz-icon">????</div>
                 <div class="dz-text">
                   <strong>Drag & drop</strong> your .csv or .xlsx here<br/>
                   or <button type="button" id="browseBtn" class="btn btn-link p-0 align-baseline">browse</button>
@@ -130,6 +129,7 @@
     <button id="cm-edit-toggle" class="btn btn-sm btn-secondary" aria-pressed="false">Edit Mode</button>
     <button id="cm-delete-toggle" class="btn btn-sm btn-danger" aria-pressed="false">Delete Mode</button>
     <small class="text-muted ms-2">Tip: Edit cells then press Enter/blur to save.</small>
+    <button id="deleteCommunityBtn" type="button" class="btn btn-sm btn-outline-danger ms-auto">Delete Community</button>
   </div>
 
   <div id="lotsContainer"></div>
@@ -138,8 +138,8 @@
    </div>
  
 
-  <script src="/assets/js/community.js"></script>
-  <script>
+  <script src="/assets/js/community.js" nonce="<%= cspNonce %>"></script>
+  <script nonce="<%= cspNonce %>">
     
 
     (() => {
@@ -152,18 +152,34 @@
   const progressWrap = document.getElementById('uploadProgress');
   const progressBar = progressWrap ? progressWrap.querySelector('.progress-bar') : null;
 
+  window.cmImportFile = null;
+
   if (!dz || !fileInput || !browseBtn || !fileName || !uploadBtn || !importForm) return;
 
   // Helpers
   const prevent = e => { e.preventDefault(); e.stopPropagation(); };
   const setFile = f => {
-    if (!f) return;
-    // put the dropped file into the hidden input so existing code picks it up
-    const dt = new DataTransfer();
-    dt.items.add(f);
-    fileInput.files = dt.files;
+    if (!f) {
+      window.cmImportFile = null;
+      if (fileInput) fileInput.value = '';
+      fileName.textContent = 'No file selected';
+      uploadBtn.disabled = true;
+      return;
+    }
 
-    fileName.textContent = `${f.name} • ${(f.size / 1024).toFixed(1)} KB`;
+    window.cmImportFile = f;
+
+    if ('DataTransfer' in window) {
+      try {
+        const dt = new DataTransfer();
+        dt.items.add(f);
+        fileInput.files = dt.files;
+      } catch (err) {
+        console.warn('Unable to sync file input', err);
+      }
+    }
+
+    fileName.textContent = `${f.name} - ${(f.size / 1024).toFixed(1)} KB`;
     uploadBtn.disabled = false;
   };
 
@@ -178,8 +194,11 @@
     dz.addEventListener(evt, () => dz.classList.remove('drag'), false);
   });
   dz.addEventListener('drop', e => {
-    const f = e.dataTransfer.files && e.dataTransfer.files[0];
-    setFile(f);
+    const files = e.dataTransfer.files;
+    if (files && !('DataTransfer' in window)) {
+      try { fileInput.files = files; } catch (_) {}
+    }
+    setFile(files && files[0]);
   });
 
   // Keyboard + click browse
@@ -207,6 +226,7 @@ document.addEventListener('DOMContentLoaded', () => {
   const editBtn      = $('#cm-edit-toggle');
   const delBtn       = $('#cm-delete-toggle');
   const lotsWrap     = $('#lotsContainer');
+  const deleteCommunityBtn = $('#deleteCommunityBtn');
 
   let state = {
     communities: [],
@@ -218,19 +238,29 @@ document.addEventListener('DOMContentLoaded', () => {
 
   // --------- load communities (for dropdown) ----------
   async function loadCommunities() {
+    if (deleteCommunityBtn) deleteCommunityBtn.disabled = true;
     const res = await fetch('/api/communities');
     if (!res.ok) throw new Error('Failed to load communities');
     const items = await res.json();
     state.communities = Array.isArray(items) ? items : [];
-    communitySel.innerHTML = state.communities.map(c =>
-      `<option value="${c._id}">${esc(c.name)}${c.projectNumber ? ' — ' + esc(c.projectNumber) : ''}</option>`
-    ).join('');
-    if (!state.communityId && state.communities[0]) {
-      state.communityId = state.communities[0]._id;
-      communitySel.value = state.communityId;
-    }
-  }
+    if (!communitySel) return;
 
+    communitySel.innerHTML = state.communities.map(c =>
+      `<option value="${c._id}">${esc(c.name)}${c.projectNumber ? ' ??? ' + esc(c.projectNumber) : ''}</option>`
+    ).join('');
+
+    if (!state.communities.length) {
+      state.communityId = null;
+      communitySel.value = '';
+      if (deleteCommunityBtn) deleteCommunityBtn.disabled = true;
+      return;
+    }
+
+    const stillValid = state.communityId && state.communities.some(c => c._id === state.communityId);
+    state.communityId = stillValid ? state.communityId : state.communities[0]._id;
+    communitySel.value = state.communityId;
+    if (deleteCommunityBtn) deleteCommunityBtn.disabled = !state.communityId;
+  }
   // --------- load/render lots for selected community ----------
   async function loadLots() {
     if (!state.communityId) {
@@ -266,7 +296,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
     const rows = lots.map(l => {
       const delCell = state.deleteMode
-        ? `<td class="text-center"><button class="btn btn-sm btn-outline-danger js-row-del" data-id="${esc(l._id)}" title="Delete this lot">×</button></td>`
+        ? `<td class="text-center"><button class="btn btn-sm btn-outline-danger js-row-del" data-id="${esc(l._id)}" title="Delete this lot">??</button></td>`
         : '';
       return `
         <tr data-id="${esc(l._id)}">
@@ -364,6 +394,7 @@ document.addEventListener('DOMContentLoaded', () => {
   // --------- events ----------
   communitySel?.addEventListener('change', () => {
     state.communityId = communitySel.value || null;
+    if (deleteCommunityBtn) deleteCommunityBtn.disabled = !state.communityId;
     loadLots();
   });
 
@@ -392,6 +423,28 @@ document.addEventListener('DOMContentLoaded', () => {
     delBtn.setAttribute('aria-pressed', String(state.deleteMode));
     await loadLots();
   });
+  deleteCommunityBtn?.addEventListener('click', async () => {
+    if (!state.communityId) {
+      alert('Select a community first');
+      return;
+    }
+
+    const current = state.communities.find(c => c._id === state.communityId);
+    const label = current?.name ? current.name : 'this community';
+    if (!confirm(`Delete "${label}"? All lots under this community will be removed.`)) return;
+
+    try {
+      const res = await fetch(`/api/communities/${state.communityId}`, { method: 'DELETE' });
+      const text = await res.text();
+      if (!res.ok) throw new Error(text || `Delete failed (${res.status})`);
+      await loadCommunities();
+      await loadLots();
+      alert('Community deleted.');
+    } catch (err) {
+      console.error(err);
+      alert(err.message || 'Delete failed');
+    }
+  });
 
   // --------- boot ----------
   (async () => {
@@ -406,3 +459,19 @@ document.addEventListener('DOMContentLoaded', () => {
   
 </body>
 </html>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+

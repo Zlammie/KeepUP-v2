@@ -5,6 +5,9 @@ document.addEventListener('DOMContentLoaded', () => {
 
   const communitySelect = document.getElementById('communitySelect');
   const lotForm = document.getElementById('lotForm');
+  const lotsContainer = document.getElementById('lotsContainer');
+  const importForm = document.getElementById('importForm');
+  const importFile = document.getElementById('importFile');
 
   // Load all communities for the dropdown
  function htmlesc(s) { return String(s ?? '').replace(/[&<>"]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c])); }
@@ -12,21 +15,23 @@ document.addEventListener('DOMContentLoaded', () => {
   async function loadCommunities() {
     try {
       const res = await fetch('/api/communities');
-      if (!res.ok) throw new Error(`GET /api/communities → ${res.status}`);
+      if (!res.ok) throw new Error(`GET /api/communities failed (${res.status})`);
       const items = await res.json();
+      const current = communitySelect ? communitySelect.value : '';
       if (communitySelect) {
         communitySelect.innerHTML = items.map(c =>
           `<option value="${c._id}">${htmlesc(c.name)}</option>`
         ).join('');
+        const hasCurrent = items.some(c => c._id === current);
+        const next = hasCurrent ? current : (items[0]?._id || '');
+        communitySelect.value = next || '';
       }
-      // also render the lots summary if we have a container
-      if (lotsContainer) await renderLotsByCommunity(items);
-    } catch (e) {
+      if (lotsContainer) await renderLotsByCommunity(items);    } catch (e) {
       console.error(e);
     }
   }
 
-  // Renders a grouped “Lots by Community” block.
+  // Renders a grouped "Lots by Community" block.
   // Assumes each community item either already includes `lots` or can be fetched at /api/communities/:id/lots
   async function renderLotsByCommunity(communities) {
     if (!lotsContainer) return;
@@ -135,32 +140,18 @@ document.addEventListener('DOMContentLoaded', () => {
     });
   }
 
-  // Import from CSV/XLSX
-  if (importForm && importFile) {
-    importForm.addEventListener('submit', async (e) => {
-      e.preventDefault();
-      if (!importFile.files.length) return alert('Choose a file first');
-
-      const fd = new FormData(importForm); // includes the file under 'file'
-      try {
-        const res = await fetch('/api/communities/import', { method: 'POST', body: fd });
-        const text = await res.text();
-        if (!res.ok) throw new Error(`Import failed (${res.status}): ${text}`);
-        let json;
-        try { json = JSON.parse(text); } catch { json = { message: text }; }
-        console.log('Import result:', json);
-        // After import, reload communities and lots display
-        await loadCommunities();
-        alert('Import complete!');
-      } catch (err) {
-        console.error(err);
-        alert(err.message);
-      }
-    });
-  }
-
   // Initial load
   loadCommunities();
 });
+
+
+
+
+
+
+
+
+
+
 
 

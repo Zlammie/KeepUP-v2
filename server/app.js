@@ -88,6 +88,12 @@ app.use('/assets', express.static(path.join(__dirname, '../client/assets')));
 app.set('views', path.join(__dirname, '../client/views'));
 app.set('view engine', 'ejs');
 
+if (!isProd) {
+  app.set('view cache', false);
+  app.locals.cache = false;
+}
+
+
 // 6) Body parsing
 app.use(express.urlencoded({ extended: true }));
 app.use(express.json());
@@ -103,3 +109,4 @@ app.use(notFound);
 app.use(errorHandler);
 
 module.exports = app;
+
