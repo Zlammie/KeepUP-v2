@@ -5,13 +5,13 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
   <title>Simple CRM</title>
    
-  <!-- single entry-point for all your app’s CSS -->
+  <!-- single entry-point for all your app?s CSS -->
    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet"/>
    <link rel="stylesheet" href="/assets/css/main.css">
 </head>
 <body>
   <!-- include navbar HTML at the top of every page -->
-  <!-- if you’re using EJS: -->
+  <!-- if you?re using EJS: -->
   <%- include('../partials/nav') %>
   <%- include('../partials/top-nav-competition') %>
   <!-- or (static SSI) -->
@@ -59,7 +59,7 @@
   <div id="alertBox" class="alert mt-3 d-none" role="alert"></div>
 </main>
 
-<script>
+<script nonce="<%= cspNonce %>">
 (function () {
   const form = document.getElementById("competitionForm");
   const alertBox = document.getElementById("alertBox");
@@ -84,24 +84,29 @@
     submitBtn.disabled = true;
 
     try {
-      const res = await fetch("/add-competition", {
+      const res = await fetch("/api/competitions", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(data),
       });
 
+      let payload = null;
+      try {
+        payload = await res.json();
+      } catch (_) {
+        // non-JSON response; ignore
+      }
+
       if (!res.ok) {
-        // try to surface server error message if present
-        let message = "Failed to add competition";
-        try {
-          const errJson = await res.json();
-          if (errJson?.error) message = errJson.error;
-        } catch {}
+        const message = payload?.error || "Failed to add competition";
         throw new Error(message);
       }
 
-      // success (no navigation)
-      showAlert("Competition added successfully!", "success");
+      const label = payload?.builderName && payload?.communityName
+        ? `${payload.builderName} - ${payload.communityName}`
+        : payload?.communityName || payload?.builderName;
+      const successMsg = label ? `Competition "${label}" added successfully!` : "Competition added successfully!";
+      showAlert(successMsg, "success");
       form.reset();
     } catch (err) {
       showAlert(`Error: ${err.message}`, "danger");

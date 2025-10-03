@@ -1,4 +1,4 @@
-// routes/competitionRoutes.js
+  const body = pick(req.body, allowed);\r\n\r\n// routes/competitionRoutes.js
 const express = require('express');
 const mongoose = require('mongoose');
 const ensureAuth = require('../middleware/ensureAuth');
@@ -13,12 +13,14 @@ try { FloorPlanComp = require('../models/floorPlanComp'); } catch { /* optional 
 const router = express.Router();
 router.use(ensureAuth);
 
-// ───────────────────────────────── helpers ────────────────────────────────
+// ????????????????????????????????? helpers ????????????????????????????????
 const asyncHandler = fn => (req, res, next) => Promise.resolve(fn(req, res, next)).catch(next);
 const isObjectId = (v) => mongoose.Types.ObjectId.isValid(String(v));
 const toNumOrNull = v => (v === '' || v == null ? null : Number(v));
 const clean = v => (v === '' ? undefined : v); // avoid saving empty-string enums
 const pick = (obj, keys) => {
+const isSuperAdmin = (req) => (req.user?.roles || []).includes('SUPER_ADMIN');
+const tenantFilter = (req) => (isSuperAdmin(req) ? {} : { company: req.user?.company });
   const out = {};
   for (const k of keys) if (Object.prototype.hasOwnProperty.call(obj, k)) out[k] = obj[k];
   return out;
@@ -30,7 +32,7 @@ router.param('id', (req, res, next, id) => {
   next();
 });
 
-// ───────────────────────────────── list / minimal / get ───────────────────
+// ????????????????????????????????? list / minimal / get ???????????????????
 
 // GET /api/competitions?limit=25&page=1&sort=builderName,-communityName&fields=communityName,builderName,city
 router.get('/', asyncHandler(async (req, res) => {
@@ -50,10 +52,10 @@ router.get('/', asyncHandler(async (req, res) => {
         ]
       }
     : {};
+  Object.assign(filter, tenantFilter(req));
 
   // fields (projection)
   const fields = String(req.query.fields || '').trim();
-  const select = fields ? fields.replace(/\s+/g, '').split(',').join(' ') : '';
 
   // sort
   const sortStr = String(req.query.sort || 'builderName,communityName').replace(/\s+/g, '');
@@ -77,76 +79,142 @@ router.get('/', asyncHandler(async (req, res) => {
 
 // GET /api/competitions/minimal
 router.get('/minimal', asyncHandler(async (req, res) => {
-  const comps = await Competition.find({})
+  const comps = await Competition.find(tenantFilter(req))
     .select('communityName builderName city state')
     .sort({ builderName: 1, communityName: 1 })
     .lean();
 
   res.json(comps.map(c => ({
     id: c._id,
-    label: [c.builderName, c.communityName].filter(Boolean).join(' — ')
+    label: [c.builderName, c.communityName].filter(Boolean).join(' - ')
   })));
 }));
 
 // GET /api/competitions/:id
 router.get('/:id', asyncHandler(async (req, res) => {
-  const comp = await Competition.findById(req.params.id).lean();
-  if (!comp) return res.status(404).json({ error: 'Not found' });
+  const filter = { _id: req.params.id, ...tenantFilter(req) };
+  const comp = await Competition.findOne(filter).lean();
   res.json(comp);
 }));
 
-// ───────────────────────────────── create / update / delete ───────────────
+// ????????????????????????????????? create / update / delete ???????????????
 
 // POST /api/competitions
 router.post('/', asyncHandler(async (req, res) => {
   const allowed = [
-    'communityName','builderName','city','state','totalLots','hoaFee','hoaFrequency',
-    'pidFee','pidFeeFrequency','promotion','topPlan1','topPlan2','topPlan3','pros','cons',
+    'communityName','builderName','address','city','state','zip',
+    'totalLots','hoaFee','hoaFrequency','pidFee','pidFeeFrequency',
+    'promotion','topPlan1','topPlan2','topPlan3','pros','cons'
     // add other top-level fields you allow on create
   ];
   const body = pick(req.body, allowed);
-  if (body.totalLots !== undefined) body.totalLots = toNumOrNull(body.totalLots);
-  if (body.hoaFee    !== undefined) body.hoaFee    = toNumOrNull(body.hoaFee);
-  if (body.pidFee    !== undefined) body.pidFee    = toNumOrNull(body.pidFee);
+
+  const required = ['communityName','builderName','address','city','state','zip'];
+  for (const key of required) {
+    const value = body[key];
+    if (!value || !String(value).trim()) {
+      return res.status(400).json({ error: `${key} is required` });
+    }
+    body[key] = String(value).trim();
+  }
+
+  if (body.totalLots !== undefined) {
+    const totalLots = toNumOrNull(body.totalLots);
+    if (totalLots === null) {
+      delete body.totalLots;
+    } else {
+      body.totalLots = totalLots;
+    }
+  }
+  if (body.hoaFee !== undefined) body.hoaFee = toNumOrNull(body.hoaFee);
+  if (body.pidFee !== undefined) body.pidFee = toNumOrNull(body.pidFee);
+
+  const filterCompany = tenantFilter(req);
+  if (isSuperAdmin(req) && req.body?.company && isObjectId(req.body.company)) {
+    body.company = req.body.company;
+  } else {
+    body.company = filterCompany.company || null;
+  }
+  if (!body.company) return res.status(400).json({ error: 'Company context required' });
+
 
   const comp = await Competition.create(body);
   res.status(201).json(comp);
 }));
-
-// PATCH /api/competitions/:id  (partial update; safer than PUT*)
-router.patch('/:id', asyncHandler(async (req, res) => {
+// PUT /api/competitions/:id (full update)
+router.put('/:id', asyncHandler(async (req, res) => {
   const allowed = [
-    'communityName','builderName','city','state','promotion','topPlan1','topPlan2','topPlan3',
-    'pros','cons','totalLots','hoaFee','hoaFrequency','pidFee','pidFeeFrequency'
+    'communityName','builderName','address','city','state','zip',
+    'totalLots','hoaFee','hoaFrequency','pidFee','pidFeeFrequency',
+    'promotion','topPlan1','topPlan2','topPlan3','pros','cons'
   ];
   const body = pick(req.body, allowed);
+
+  ['communityName','builderName','address','city','state','zip'].forEach(key => {
+    if (body[key] !== undefined && body[key] !== null) {
+      body[key] = String(body[key]).trim();
+      if (!body[key]) delete body[key];
+    }
+  });
 
   if ('totalLots' in body) body.totalLots = toNumOrNull(body.totalLots);
   if ('hoaFee'    in body) body.hoaFee    = toNumOrNull(body.hoaFee);
   if ('pidFee'    in body) body.pidFee    = toNumOrNull(body.pidFee);
-  if ('hoaFrequency'     in body) body.hoaFrequency     = clean(body.hoaFrequency);
-  if ('pidFeeFrequency'  in body) body.pidFeeFrequency  = clean(body.pidFeeFrequency);
+  if ('hoaFrequency'    in body) body.hoaFrequency    = clean(body.hoaFrequency);
+  if ('pidFeeFrequency' in body) body.pidFeeFrequency = clean(body.pidFeeFrequency);
 
-  const updated = await Competition.findByIdAndUpdate(
-    req.params.id, { $set: body }, { new: true, runValidators: true }
+  const filter = { _id: req.params.id, ...tenantFilter(req) };
+  const updated = await Competition.findOneAndUpdate(
+    filter,
+    { $set: body },
+    { new: true, runValidators: true }
   ).lean();
 
   if (!updated) return res.status(404).json({ error: 'Not found' });
   res.json(updated);
 }));
+// PATCH /api/competitions/:id  (partial update; safer than PUT*)
+router.patch('/:id', asyncHandler(async (req, res) => {
+  const allowed = [
+    'communityName','builderName','address','city','state','zip','promotion','topPlan1','topPlan2','topPlan3',
+    'pros','cons','totalLots','hoaFee','hoaFrequency','pidFee','pidFeeFrequency'
+  ];
+  const body = pick(req.body, allowed);
 
+  ['communityName','builderName','address','city','state','zip'].forEach(key => {
+    if (body[key] !== undefined && body[key] !== null) {
+      body[key] = String(body[key]).trim();
+      if (!body[key]) delete body[key];
+    }
+  });
+
+
+  if ('totalLots' in body) body.totalLots = toNumOrNull(body.totalLots);
+  if ('hoaFee'    in body) body.hoaFee    = toNumOrNull(body.hoaFee);
+  if ('pidFee'    in body) body.pidFee    = toNumOrNull(body.pidFee);
+  if ('hoaFrequency'    in body) body.hoaFrequency    = clean(body.hoaFrequency);
+  if ('pidFeeFrequency' in body) body.pidFeeFrequency = clean(body.pidFeeFrequency);
+
+  const filter = { _id: req.params.id, ...tenantFilter(req) };
+  const updated = await Competition.findOneAndUpdate(
+    filter, { $set: body }, { new: true, runValidators: true }
+  ).lean();
+
+  if (!updated) return res.status(404).json({ error: 'Not found' });
+  res.json(updated);
+}));
 // keep your dedicated helpers as targeted endpoints (clear intent)
 router.put('/:id/amenities', asyncHandler(async (req, res) => {
   const { communityAmenities } = req.body;
-  const updated = await Competition.findByIdAndUpdate(
-    req.params.id,
+  const filter = { _id: req.params.id, ...tenantFilter(req) };
+  const updated = await Competition.findOneAndUpdate(
+    filter,
     { $set: { communityAmenities } },
     { new: true, runValidators: true }
   ).lean();
   if (!updated) return res.status(404).json({ error: 'Not found' });
   res.json(updated);
 }));
-
 router.put('/:id/metrics', asyncHandler(async (req, res) => {
   const {
     promotion, topPlan1, topPlan2, topPlan3, pros, cons,
@@ -168,22 +236,24 @@ router.put('/:id/metrics', asyncHandler(async (req, res) => {
   };
   Object.keys($set).forEach(k => $set[k] === undefined && delete $set[k]);
 
-  const updated = await Competition.findByIdAndUpdate(
-    req.params.id, { $set }, { new: true, runValidators: true }
+  const filter = { _id: req.params.id, ...tenantFilter(req) };
+  const updated = await Competition.findOneAndUpdate(
+    filter,
+    { $set },
+    { new: true, runValidators: true }
   ).lean();
 
   if (!updated) return res.status(404).json({ error: 'Not found' });
   res.json(updated);
 }));
-
 // DELETE /api/competitions/:id
 router.delete('/:id', asyncHandler(async (req, res) => {
-  const deleted = await Competition.findByIdAndDelete(req.params.id);
+  const deleted = await Competition.findOneAndDelete({ _id: req.params.id, ...tenantFilter(req) });
   if (!deleted) return res.status(404).json({ error: 'Not found' });
   res.json({ success: true });
 }));
 
-// ───────────────────────────────── monthly metrics ─────────────────────────
+// ????????????????????????????????? monthly metrics ?????????????????????????
 
 // PUT /api/competitions/:id/monthly-metrics  (atomic upsert)
 router.put('/:id/monthly-metrics', asyncHandler(async (req, res) => {
@@ -195,8 +265,7 @@ router.put('/:id/monthly-metrics', asyncHandler(async (req, res) => {
   if (soldLots        !== undefined) soldLots        = toNumOrNull(soldLots);
   if (quickMoveInLots !== undefined) quickMoveInLots = toNumOrNull(quickMoveInLots);
 
-  const upd = await Competition.updateOne(
-    { _id: req.params.id, 'monthlyMetrics.month': month },
+  const upd = await Competition.updateOne({ _id: req.params.id, 'monthlyMetrics.month': month, ...tenantFilter(req) },
     {
       $set: {
         ...(soldLots        !== undefined ? { 'monthlyMetrics.$.soldLots': soldLots } : {}),
@@ -207,8 +276,7 @@ router.put('/:id/monthly-metrics', asyncHandler(async (req, res) => {
   );
 
   if (upd.matchedCount === 0) {
-    await Competition.updateOne(
-      { _id: req.params.id },
+    await Competition.updateOne({ _id: req.params.id, ...tenantFilter(req) },
       {
         $push: {
           monthlyMetrics: {
@@ -227,7 +295,7 @@ router.put('/:id/monthly-metrics', asyncHandler(async (req, res) => {
 // GET /api/competitions/:id/monthly?month=YYYY-MM
 router.get('/:id/monthly', asyncHandler(async (req, res) => {
   const { month } = req.query;
-  const doc = await Competition.findById(req.params.id).lean();
+  const doc = await Competition.findOne({ _id: req.params.id, ...tenantFilter(req) }).lean();
   if (!doc) return res.status(404).json({ error: 'Not found' });
   const m = (doc.monthlyMetrics || []).find(x => x.month === month) || {};
   res.json({
@@ -236,10 +304,13 @@ router.get('/:id/monthly', asyncHandler(async (req, res) => {
   });
 }));
 
-// ───────────────────────────────── analytics ───────────────────────────────
+// ????????????????????????????????? analytics ???????????????????????????????
 
 // GET /api/competitions/:id/sales?year=YYYY
 router.get('/:id/sales', asyncHandler(async (req, res) => {
+  const filter = { _id: req.params.id, ...tenantFilter(req) };
+  const exists = await Competition.exists(filter);
+  if (!exists) return res.status(404).json({ error: 'Not found' });
   const { id } = req.params;
   const year = Number(req.query.year) || new Date().getFullYear();
 
@@ -314,7 +385,7 @@ router.get('/:id/base-prices-by-plan', asyncHandler(async (req, res) => {
   res.json({ prior, anchor, plans });
 }));
 
-// ───────────────────────────────── error handling ──────────────────────────
+// ????????????????????????????????? error handling ??????????????????????????
 
 // If you have a global error handler, remove the handler below.
 // Keeping a small local one in case this router is mounted standalone.

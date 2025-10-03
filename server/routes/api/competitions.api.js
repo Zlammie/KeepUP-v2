@@ -5,12 +5,16 @@ const c = require('../../controllers/competition.controller');
 const router = express.Router();
 router.use(ensureAuth);
 
-router.get('/minimal', c.listMinimal)
+router.get('/minimal', c.listMinimal);
 
 // competitions collection
 router.get('/', c.list);
 router.post('/', c.create);
+router.put('/:id', c.update);
 router.delete('/:id', c.remove);
+
+// analytics
+router.get('/:id/sales', c.salesSeries);
 
 // floorplans
 router.get('/:id/floorplans', c.getFloorPlans);

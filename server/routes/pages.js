@@ -19,7 +19,7 @@ const isId = v => mongoose.Types.ObjectId.isValid(String(v));
 const isSuper = req => (req.user?.roles || []).includes('SUPER_ADMIN');
 const base = req => (isSuper(req) ? {} : { company: req.user.company });
 
-// ───────────────────────── core pages ─────────────────────────
+// ????????????????????????? core pages ?????????????????????????
 router.get(['/', '/index'], ensureAuth, requireRole('READONLY','USER','MANAGER','COMPANY_ADMIN','SUPER_ADMIN'),
   (req, res) => res.render('pages/index', { active: 'home' })
 );
@@ -28,7 +28,7 @@ router.get('/add-lead', ensureAuth, requireRole('READONLY','USER','MANAGER','COM
   (req, res) => res.render('pages/add-lead', { active: 'add-lead' })
 );
 
-// ───────────────────────── lists ─────────────────────────
+// ????????????????????????? lists ?????????????????????????
 router.get('/contacts', ensureAuth, requireRole('READONLY','USER','MANAGER','COMPANY_ADMIN','SUPER_ADMIN'),
   async (req, res, next) => {
     try {
@@ -69,7 +69,7 @@ router.get('/lenders', ensureAuth, requireRole('READONLY','USER','MANAGER','COMP
   }
 );
 
-// ───────────────────────── community pages ─────────────────────────
+// ????????????????????????? community pages ?????????????????????????
 router.get('/community-management', ensureAuth, requireRole('READONLY','USER','MANAGER','COMPANY_ADMIN','SUPER_ADMIN'),
   (req, res) => res.render('pages/community-management', { active: 'community' })
 );
@@ -103,7 +103,7 @@ router.get('/address-details', ensureAuth, requireRole('READONLY','USER','MANAGE
   }
 );
 
-// ───────────────────────── details: contact / realtor / lender ─────────────────────────
+// ????????????????????????? details: contact / realtor / lender ?????????????????????????
 router.get('/contact-details', ensureAuth, requireRole('READONLY','USER','MANAGER','COMPANY_ADMIN','SUPER_ADMIN'),
   async (req, res, next) => {
     try {
@@ -160,7 +160,7 @@ router.get('/lender-view', ensureAuth, requireRole('READONLY','USER','MANAGER','
   }
 );
 
-// ───────────────────────── competition pages ─────────────────────────
+// ????????????????????????? competition pages ?????????????????????????
 router.get('/competition-home', ensureAuth, requireRole('READONLY','USER','MANAGER','COMPANY_ADMIN','SUPER_ADMIN'),
   (req, res) => res.render('pages/competition-home', { active: 'competition' })
 );
@@ -207,7 +207,7 @@ router.get('/update-competition/:id', ensureAuth, requireRole('READONLY','USER',
   }
 );
 
-// ───────────────────────── my community competition pages ─────────────────────────
+// ????????????????????????? my community competition pages ?????????????????????????
 router.get('/manage-my-community-competition/:communityId',
   ensureAuth, requireRole('READONLY','USER','MANAGER','COMPANY_ADMIN','SUPER_ADMIN'),
   async (req, res) => {
@@ -225,7 +225,7 @@ router.get('/manage-my-community-competition/:communityId',
 
 router.get('/my-community-competition',
   ensureAuth, requireRole('READONLY','USER','MANAGER','COMPANY_ADMIN','SUPER_ADMIN'),
-  (req, res) => res.render('pages/my-community-competition', { title: 'My Community — Competition' })
+  (req, res) => res.render('pages/my-community-competition', { title: 'My Community ? Competition' })
 );
 
 router.get('/competition-dashboard',
@@ -236,7 +236,7 @@ router.get('/competition-dashboard',
   }
 );
 
-// ───────────────────────── toolbar/help ─────────────────────────
+// ????????????????????????? toolbar/help ?????????????????????????
 router.get('/toolbar/help', ensureAuth, requireRole('READONLY','USER','MANAGER','COMPANY_ADMIN','SUPER_ADMIN'),
   (req, res) => res.render('pages/toolbar/help', {})
 );
@@ -287,7 +287,7 @@ router.post('/admin/companies',
       // Let schema auto-generate slug if you don't provide one
       await Company.create({
         name: trimmedName,
-        slug: trimmedSlug || undefined, // undefined → pre('validate') builds it
+        slug: trimmedSlug || undefined, // undefined ? pre('validate') builds it
         isActive: true
       });
 

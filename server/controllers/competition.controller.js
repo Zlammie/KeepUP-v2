@@ -8,8 +8,13 @@ const QuickMoveIn = require('../models/quickMoveIn');
 const SalesRecord = require('../models/salesRecord');
 
 const isSuper = (req) => (req.user?.roles || []).includes('SUPER_ADMIN');
-const companyFilter = (req) => (isSuper(req) ? {} : { company: req.user.company });
-
+const companyFilter = (req) => {
+  if (isSuper(req)) return {};
+  const cid = req.user?.company;
+  if (!cid) return { company: null };
+  const objectId = mongoose.Types.ObjectId.isValid(cid) ? new mongoose.Types.ObjectId(cid) : cid;
+  return { company: objectId };
+};
 async function loadScopedCompetition(req, res) {
   const { id } = req.params;
   if (!mongoose.Types.ObjectId.isValid(id)) return res.status(400).json({ error: 'Invalid id' });
@@ -31,6 +36,51 @@ exports.create = async (req, res) => {
   const c = await Competition.create(req.body);
   res.status(201).json(c);
 };
+// PUT /api/competitions/:id
+exports.update = async (req, res) => {
+  const comp = await loadScopedCompetition(req, res); if (!comp || res.headersSent) return;
+
+  const allowed = [
+    'communityName','builderName','address','city','state','zip','builderWebsite','modelPlan',
+    'salesPerson','salesPersonPhone','salesPersonEmail','lotSize','garageType',
+    'schoolISD','elementarySchool','middleSchool','highSchool',
+    'totalLots','hoaFee','hoaFrequency','tax','feeTypes','mudFee','pidFee','pidFeeFrequency',
+    'earnestAmount','realtorCommission','promotion','topPlan1','topPlan2','topPlan3','pros','cons'
+  ];
+
+  const update = {};
+  const body = req.body || {};
+  allowed.forEach((key) => {
+    if (!Object.prototype.hasOwnProperty.call(body, key)) return;
+    let value = body[key];
+    if (value === undefined) return;
+
+    if (['totalLots','hoaFee','pidFee','mudFee','earnestAmount','realtorCommission','tax'].includes(key)) {
+      value = numOrNull(value);
+    } else if (Array.isArray(value)) {
+      value = value.map(v => (typeof v === 'string' ? v.trim() : v)).filter(v => v !== '');
+    } else if (typeof value === 'string') {
+      value = value.trim();
+    }
+
+    if (value === '') value = null;
+    update[key] = value;
+  });
+
+  if (Array.isArray(update.feeTypes)) {
+    update.feeTypes = Array.from(new Set(update.feeTypes.filter(Boolean)));
+  }
+
+  console.log('[competition:update]', comp._id.toString(), update);
+  const updated = await Competition.findOneAndUpdate(
+    { _id: comp._id },
+    { $set: update },
+    { new: true, runValidators: true }
+  ).lean();
+
+  res.json(updated);
+};
+
 // DELETE /api/competitions/:id
 exports.remove = async (req, res) => {
   const comp = await loadScopedCompetition(req, res); if (!comp || res.headersSent) return;
@@ -126,6 +176,30 @@ exports.deleteQMI = async (req, res) => {
 
 
 // Sales records
+exports.salesSeries = async (req, res) => {
+  const comp = await loadScopedCompetition(req, res); if (!comp || res.headersSent) return;
+  const year = Number(req.query.year) || new Date().getFullYear();
+
+  const recs = await SalesRecord.find({
+    competition: comp._id,
+    month: { $regex: `^${year}-` }
+  }).lean();
+
+  const months = Array.from({ length: 12 }, (_, i) => {
+    const mm = String(i + 1).padStart(2, '0');
+    const key = `${year}-${mm}`;
+    const hit = recs.find(r => r.month === key);
+    return {
+      month: key,
+      sales:   hit?.sales    ?? 0,
+      cancels: hit?.cancels  ?? 0,
+      closings: hit?.closings ?? 0,
+    };
+  });
+
+  res.json({ year, months });
+};
+
 exports.listSales = async (req, res) => {
   const comp = await loadScopedCompetition(req, res); if (!comp || res.headersSent) return;
   const filter = { competition: comp._id, ...(req.query.month ? { month: req.query.month } : {}) };
@@ -162,7 +236,7 @@ exports.listMinimal = async (req, res, next) => {
     const rows = await Competition.find({ ...companyFilter(req) }, { builderName: 1, communityName: 1 }).lean();
     const data = rows.map(c => ({
       id: c._id,
-      label: [c.builderName, c.communityName].filter(Boolean).join(' — ')
+      label: [c.builderName, c.communityName].filter(Boolean).join(' - ')
     }));
     res.json(data);
   } catch (err) { next(err); }
