@@ -140,6 +140,8 @@ document.addEventListener('DOMContentLoaded', () => {
     });
   }
 
+  document.addEventListener('cm:communitiesImported', loadCommunities);
+
   // Initial load
   loadCommunities();
 });

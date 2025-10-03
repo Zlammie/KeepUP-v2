@@ -41,7 +41,7 @@
       <section>
         <h2>Import Communities from Excel/CSV</h2>
         <div class="card card--white">
-          <form id="importForm" enctype="multipart/form-data">
+          <form id="importForm" enctype="multipart/form-data" method="POST" action="/api/communities/import">
             <!-- Dropzone -->
             <div id="importDropzone" class="dropzone" tabindex="0" aria-label="Upload CSV or XLSX by drag and drop">
               <div class="dz-inner">
@@ -210,6 +210,53 @@
   fileInput.addEventListener('change', () => {
     const f = fileInput.files && fileInput.files[0];
     setFile(f);
+  });
+
+  importForm.addEventListener('submit', async (event) => {
+    event.preventDefault();
+    if (!window.cmImportFile) {
+      alert('Select a CSV or XLSX file first.');
+      return;
+    }
+
+    const formData = new FormData();
+    formData.append('file', window.cmImportFile);
+
+    const originalLabel = uploadBtn.textContent;
+    uploadBtn.disabled = true;
+    uploadBtn.textContent = 'Uploading...';
+    if (progressWrap) {
+      progressWrap.classList.remove('d-none');
+      progressWrap.setAttribute('aria-hidden', 'false');
+      if (progressBar) progressBar.style.width = '30%';
+    }
+
+    try {
+      const res = await fetch(importForm.action || '/api/communities/import', {
+        method: 'POST',
+        body: formData
+      });
+      if (!res.ok) {
+        const msg = await res.text();
+        throw new Error(msg || `Upload failed (${res.status})`);
+      }
+
+      if (progressBar) progressBar.style.width = '100%';
+      setFile(null);
+      alert('Communities imported successfully.');
+      document.dispatchEvent(new CustomEvent('cm:communitiesImported'));
+    } catch (err) {
+      console.error('[community-import]', err);
+      alert(err.message || 'Upload failed.');
+    } finally {
+      uploadBtn.disabled = false;
+      uploadBtn.textContent = originalLabel;
+      if (progressWrap) {
+        progressWrap.classList.add('d-none');
+        progressWrap.setAttribute('aria-hidden', 'true');
+      }
+      if (progressBar) progressBar.style.width = '0%';
+    }
   });
 
   // OPTIONAL: show progress if you intercept the submit with XHR

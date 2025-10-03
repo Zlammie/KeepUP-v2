@@ -5,20 +5,32 @@ import * as api from './api.js';
 
 const DEBOUNCE_MS = 500;
 
-// Common single-value inputs by id → payload field
+// Common single-value inputs by id + payload field
 const idMap = {
   firstName: 'firstName',
-  lastName:  'lastName',
-  email:     'email',
-  phone:     'phone',
-  status:    'status',
-  source:    'source',
-  owner:     'owner',
+  lastName: 'lastName',
+  email: 'email',
+  phone: 'phone',
+  status: 'status',
+  source: 'source',
+  owner: 'owner',
   visitDate: 'visit-date',
   lotLineUp: 'lotLineUp',
-  buyTime:   'buyTime',
-  buyMonth:  'buyMonth',
+  buyTime: 'buyTime',
+  buyMonth: 'buyMonth',
 };
+
+const livingCheckboxes = [
+  { id: 'investor', label: 'Investor', field: 'investor' },
+  { id: 'renting', label: 'Renting', field: 'renting' },
+  { id: 'own-selling', label: 'Own & Selling', field: 'ownSelling' },
+  { id: 'own-not-selling', label: 'Own & Not Selling', field: 'ownNotSelling' },
+];
+
+const floorplansHandler = debounce(() => {
+  const vals = [...document.querySelectorAll('input[name="floorplans"]:checked')].map(cb => cb.value);
+  saveField('floorplans', vals);
+}, DEBOUNCE_MS);
 
 export function bindAutosave() {
   // 1) Generic: anything marked with data-autosave
@@ -39,18 +51,19 @@ export function bindAutosave() {
   });
 
   // 3) Groups & checkboxes
-  // floorplans: multi-select checkboxes
-  bindGroup('input[name="floorplans"]', () => {
-    const vals = [...document.querySelectorAll('input[name="floorplans"]:checked')].map(cb => cb.value);
-    saveField('floorplans', vals);
+  bindFloorplanAutosave();
+
+  bindGroup('input[name="facing"]', () => {
+    const vals = [...document.querySelectorAll('input[name="facing"]:checked')]
+      .map(cb => cb.value)
+      .filter(Boolean);
+    saveField('facing', vals);
   });
 
-
-  // living booleans
-  bindSimpleCheckbox('investor');
-  bindSimpleCheckbox('renting');
-  bindSimpleCheckbox('own-selling', 'ownSelling');
-  bindSimpleCheckbox('own-not-selling', 'ownNotSelling');
+  // living booleans + aggregate array
+  livingCheckboxes.forEach(({ id, field }) => {
+    bindSimpleCheckbox(id, field, collectLivingPayload);
+  });
 
   // 4) Realtor selection (set by realtorSearch.js for backward compatibility)
   const realtorFields = ['realtorFirstName','realtorLastName','realtorEmail','realtorPhone','realtorBrokerage'];
@@ -65,24 +78,34 @@ export function bindAutosave() {
 }
 
 // ---- helpers ----
+export function bindFloorplanAutosave() {
+  document.querySelectorAll('input[name="floorplans"]').forEach(el => {
+    el.removeEventListener('change', floorplansHandler);
+    el.addEventListener('change', floorplansHandler);
+  });
+}
+
 function bindGroup(selector, compute) {
   const handler = debounce(compute, DEBOUNCE_MS);
   document.querySelectorAll(selector).forEach(el => el.addEventListener('change', handler));
 }
 
-function bindSimpleCheckbox(id, fieldName = id) {
+function bindSimpleCheckbox(id, fieldName = id, extraPatchFn) {
   const el = document.getElementById(id);
   if (!el) return;
-  const handler = debounce(() => saveField(fieldName, !!el.checked), DEBOUNCE_MS);
+  const handler = debounce(() => {
+    const patch = { [fieldName]: !!el.checked };
+    if (typeof extraPatchFn === 'function') {
+      Object.assign(patch, extraPatchFn());
+    }
+    savePayload(patch);
+  }, DEBOUNCE_MS);
   el.addEventListener('change', handler);
 }
 
 function readValue(el) {
-    // Multi-selects → array of selected option values
+  // Multi-selects -> array of selected option values
   if (el.tagName === 'SELECT' && el.multiple) {
-    return Array.from(el.selectedOptions).map(o => o.value);
-  }
-    if (el.tagName === 'SELECT' && el.multiple) {
     return Array.from(el.selectedOptions).map(o => o.value);
   }
   if (el.type === 'checkbox') return !!el.checked;
@@ -90,13 +113,16 @@ function readValue(el) {
 }
 
 async function saveField(field, value) {
+  return savePayload({ [field]: value });
+}
+
+async function savePayload(patch) {
   try {
     const { contactId } = getState();
-    const payload = { [field]: value };
-    const updated = await api.saveContact(contactId, payload);
+    const updated = await api.saveContact(contactId, patch);
     setContact(updated);
   } catch (e) {
-    console.error('[autosave] failed', field, e);
+    console.error('[autosave] failed', patch, e);
   }
 }
 
@@ -111,11 +137,11 @@ async function saveRealtorSelection() {
   // 2) Otherwise use the typed fields to create-or-reuse a company realtor
   const $ = (id) => document.getElementById(id);
   const payload = {
-    firstName:  $.call(null, 'realtorFirstName')?.value?.trim() || '',
-    lastName:   $.call(null, 'realtorLastName')?.value?.trim()  || '',
-    email:      $.call(null, 'realtorEmail')?.value?.trim()     || '',
-    phone:      $.call(null, 'realtorPhone')?.value?.trim()     || '',
-    brokerage:  $.call(null, 'realtorBrokerage')?.value?.trim() || '',
+    firstName: $.call(null, 'realtorFirstName')?.value?.trim() || '',
+    lastName: $.call(null, 'realtorLastName')?.value?.trim() || '',
+    email: $.call(null, 'realtorEmail')?.value?.trim() || '',
+    phone: $.call(null, 'realtorPhone')?.value?.trim() || '',
+    brokerage: $.call(null, 'realtorBrokerage')?.value?.trim() || '',
   };
   // If nothing is provided, do nothing.
   if (!payload.firstName && !payload.lastName && !payload.email && !payload.phone && !payload.brokerage) return;
@@ -133,4 +159,11 @@ async function saveRealtorSelection() {
   } catch (e) {
     console.error('[autosave] realtor create/link failed', e);
   }
+}
+
+function collectLivingPayload() {
+  const selections = livingCheckboxes
+    .filter(({ id }) => document.getElementById(id)?.checked)
+    .map(({ label }) => label);
+  return { living: selections };
 }

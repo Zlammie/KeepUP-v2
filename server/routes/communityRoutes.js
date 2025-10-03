@@ -20,6 +20,77 @@ const isObjectId = v => mongoose.Types.ObjectId.isValid(String(v));
 const isSuper = req => (req.user?.roles || []).includes('SUPER_ADMIN');
 const companyFilter = req => (isSuper(req) ? {} : { company: req.user.company });
 
+const toStringId = (value) => {
+  if (!value) return null;
+  if (typeof value === 'string') return value;
+  if (typeof value === 'object') {
+    if (typeof value.toHexString === 'function') return value.toHexString();
+    if (typeof value.toString === 'function') {
+      const str = value.toString();
+      return str && str !== '[object Object]' ? str : null;
+    }
+  }
+  return null;
+};
+
+function trimValue(value) {
+  return value == null ? '' : String(value).trim();
+}
+
+function buildContactName(contact) {
+  if (!contact || typeof contact !== 'object' || contact._bsontype) return '';
+  const first = trimValue(contact.firstName);
+  const last = trimValue(contact.lastName);
+  const parts = [];
+  if (first) parts.push(first);
+  if (last) parts.push(last);
+  if (parts.length) return parts.join(' ');
+  const full = trimValue(contact.fullName);
+  if (full) return full;
+  return trimValue(contact.name);
+}
+
+function derivePurchaserMeta(lot) {
+  const input = lot || {};
+  const raw = input.purchaser;
+
+  const fallbackName = [
+    trimValue(input.purchaserName),
+    trimValue(input.buyerName),
+    trimValue(input.purchaserDisplayName)
+  ].find(Boolean) || '';
+
+  let name = buildContactName(raw) || fallbackName;
+
+  let id = input.purchaserId || null;
+  if (!id && raw && typeof raw === 'object' && !raw._bsontype) {
+    id = raw._id || raw.id || null;
+  } else if (!id) {
+    id = toStringId(raw);
+  }
+
+  const finalId = toStringId(id) || (typeof id === 'string' ? id.trim() : null);
+
+  return { name: trimValue(name), id: finalId || null };
+}
+
+function normalizeFloorPlan(plan) {
+  if (!plan || typeof plan !== 'object') return null;
+  const normalized = {
+    _id: toStringId(plan._id || plan.id || null),
+    name: trimValue(plan.name),
+    planNumber: trimValue(plan.planNumber),
+    title: trimValue(plan.title),
+    code: trimValue(plan.code)
+  };
+  return normalized;
+}
+
+function deriveFloorPlanName(plan) {
+  if (!plan || typeof plan !== 'object') return '';
+  return trimValue(plan.name) || trimValue(plan.title) || trimValue(plan.planNumber) || trimValue(plan.code);
+}
+
 async function loadScopedCommunity(req, res) {
   const { id } = req.params;
   if (!isObjectId(id)) {
@@ -179,7 +250,142 @@ router.get('/:id/lots',
       if (!community) return;
 
       const q = (req.query.q || '').toLowerCase();
-      const lots = (community.lots || []).filter(l => (l.address || '').toLowerCase().includes(q));
+      const allLots = community.lots || [];
+      const baseLots = q
+        ? allLots.filter(l => (l.address || '').toLowerCase().includes(q))
+        : allLots;
+
+      const lotMetaPairs = baseLots.map(lot => ({ lot, meta: derivePurchaserMeta(lot) }));
+      const missingIds = Array.from(new Set(
+        lotMetaPairs
+          .filter(({ meta }) => !meta.name && meta.id)
+          .map(({ meta }) => String(meta.id))
+      ));
+
+      let contactNameById = new Map();
+      let contactById = new Map();
+      if (missingIds.length) {
+        const objectIds = missingIds
+          .filter(id => /^[0-9a-fA-F]{24}$/.test(id))
+          .map(id => new mongoose.Types.ObjectId(id));
+        const lookupIds = objectIds.length ? objectIds : missingIds;
+        const contacts = await Contact.find({
+          _id: { $in: lookupIds },
+          ...companyFilter(req)
+        })
+          .select('firstName lastName fullName name email phone')
+          .lean({ virtuals: true });
+        contactNameById = new Map();
+        contactById = new Map();
+        for (const contact of contacts) {
+          const contactId = toStringId(contact._id);
+          const name = trimValue(buildContactName(contact));
+          if (contactId) {
+            contactById.set(contactId, contact);
+            if (name) contactNameById.set(contactId, name);
+          }
+        }
+      }
+
+      const floorPlanIds = Array.from(new Set(
+        baseLots
+          .map(lot => {
+            const fp = lot.floorPlan;
+            if (!fp) return null;
+            if (typeof fp === 'string') return fp.trim();
+            if (typeof fp === 'object') return toStringId(fp._id || fp.id);
+            return null;
+          })
+          .filter(Boolean)
+      ));
+
+      let floorPlanById = new Map();
+      if (floorPlanIds.length) {
+        const objectFloorIds = floorPlanIds
+          .filter(id => /^[0-9a-fA-F]{24}$/.test(id))
+          .map(id => new mongoose.Types.ObjectId(id));
+        const lookupFloorIds = objectFloorIds.length ? objectFloorIds : floorPlanIds;
+        const floorPlans = await FloorPlan.find({
+          _id: { $in: lookupFloorIds },
+          ...companyFilter(req)
+        })
+          .select('name planNumber title code')
+          .lean({ virtuals: true });
+        floorPlanById = new Map();
+        for (const plan of floorPlans) {
+          const planId = toStringId(plan._id);
+          const normalizedPlan = normalizeFloorPlan(plan);
+          if (planId && normalizedPlan) {
+            if (!normalizedPlan._id) normalizedPlan._id = planId;
+            floorPlanById.set(planId, normalizedPlan);
+          }
+        }
+      }
+
+      const lots = lotMetaPairs.map(({ lot, meta }) => {
+        const result = { ...lot };
+        const existingPlanName = trimValue(result.floorPlanName);
+
+        let displayName = meta.name || '';
+        if (!displayName && meta.id) {
+          const key = String(meta.id);
+          displayName = contactNameById.get(key) || key;
+          const needsHydration =
+            !result.purchaser ||
+            typeof result.purchaser === 'string' ||
+            (typeof result.purchaser === 'object' && result.purchaser._bsontype);
+          if (needsHydration) {
+            const contact = contactById.get(key);
+            if (contact) result.purchaser = contact;
+          }
+        }
+        result.purchaserDisplayName = displayName;
+        result.purchaserId = meta.id || null;
+
+        const rawPlan = lot.floorPlan;
+        const floorPlanId = (() => {
+          if (!rawPlan) return null;
+          if (typeof rawPlan === 'string') return rawPlan.trim();
+          if (typeof rawPlan === 'object') return toStringId(rawPlan._id || rawPlan.id);
+          return null;
+        })();
+
+        let floorPlanValue = rawPlan;
+        if (floorPlanId && floorPlanById.has(floorPlanId)) {
+          floorPlanValue = floorPlanById.get(floorPlanId);
+        } else if (floorPlanValue && typeof floorPlanValue === 'object') {
+          const normalized = normalizeFloorPlan(floorPlanValue);
+          if (normalized) floorPlanValue = normalized;
+        }
+
+        if (floorPlanValue && typeof floorPlanValue === 'object') {
+          const normalized = normalizeFloorPlan(floorPlanValue) || {};
+          if (floorPlanId && !normalized._id) normalized._id = floorPlanId;
+          result.floorPlan = normalized;
+          const planName = deriveFloorPlanName(normalized);
+          if (planName) result.floorPlanName = planName;
+        } else if (floorPlanId && floorPlanById.has(floorPlanId)) {
+          const plan = floorPlanById.get(floorPlanId);
+          result.floorPlan = plan;
+          const planName = deriveFloorPlanName(plan);
+          if (planName) result.floorPlanName = planName;
+        } else {
+          result.floorPlan = floorPlanValue;
+        }
+
+        if (!result.floorPlanName && floorPlanId && floorPlanById.has(floorPlanId)) {
+          const plan = floorPlanById.get(floorPlanId);
+          const planName = deriveFloorPlanName(plan);
+          if (planName) result.floorPlanName = planName;
+        }
+
+        if (!result.floorPlanName && existingPlanName) {
+          result.floorPlanName = existingPlanName;
+        }
+
+        return result;
+      });
+
       res.json(lots);
     } catch (err) {
       console.error('Fetch lots error:', err);
@@ -323,16 +529,68 @@ router.get('/:id/lots/:lotId',
       const lot = (community.lots || []).find(l => String(l._id) === String(lotId));
       if (!lot) return res.status(404).json({ error: 'Lot not found' });
 
-      // Normalize floorPlan payload for client (works for ObjectId or legacy string)
-      let planPayload = null;
-      const planId = (lot.floorPlan && typeof lot.floorPlan === 'object') ? lot.floorPlan._id : lot.floorPlan;
-      if (planId && isObjectId(planId)) {
-        const fp = await FloorPlan.findById(planId).select('name planNumber').lean();
-        if (fp) planPayload = fp;
-      } else if (typeof lot.floorPlan === 'string' && lot.floorPlan.trim()) {
-        planPayload = { name: lot.floorPlan };
+      const meta = derivePurchaserMeta(lot);
+      let purchaser = lot.purchaser;
+      let purchaserDisplayName = meta.name || '';
+
+      if (meta.id) {
+        const needsHydration =
+          !purchaser ||
+          typeof purchaser === 'string' ||
+          (typeof purchaser === 'object' && purchaser._bsontype);
+        if (needsHydration) {
+          const contact = await Contact.findOne({ _id: meta.id, ...companyFilter(req) })
+            .select('firstName lastName fullName name email phone status notes communityIds')
+            .lean({ virtuals: true });
+          if (contact) purchaser = contact;
+          if (contact && !purchaserDisplayName) purchaserDisplayName = trimValue(buildContactName(contact));
+        }
       }
-      return res.json({ ...lot, floorPlan: planPayload });
+      if (!purchaserDisplayName && meta.id) purchaserDisplayName = meta.id;
+
+      let floorPlanValue = lot.floorPlan;
+      let floorPlanName = trimValue(lot.floorPlanName || '');
+      const floorPlanId = (() => {
+        if (!floorPlanValue) return null;
+        if (typeof floorPlanValue === 'string') return floorPlanValue.trim();
+        if (typeof floorPlanValue === 'object') return toStringId(floorPlanValue._id || floorPlanValue.id);
+        return null;
+      })();
+
+      if (floorPlanId) {
+        const needsPlan =
+          !floorPlanValue ||
+          typeof floorPlanValue === 'string' ||
+          (typeof floorPlanValue === 'object' && floorPlanValue._bsontype);
+        if (needsPlan) {
+          const planDoc = await FloorPlan.findOne({ _id: floorPlanId, ...companyFilter(req) })
+            .select('name planNumber title code')
+            .lean({ virtuals: true });
+          if (planDoc) floorPlanValue = planDoc;
+        }
+      }
+
+      if (floorPlanValue && typeof floorPlanValue === 'object') {
+        const normalized = normalizeFloorPlan(floorPlanValue);
+        if (normalized) {
+          if (floorPlanId && !normalized._id) normalized._id = floorPlanId;
+          floorPlanValue = normalized;
+          if (!floorPlanName) floorPlanName = deriveFloorPlanName(normalized);
+        }
+      } else if (typeof floorPlanValue === 'string') {
+        if (!floorPlanName) floorPlanName = floorPlanValue;
+      }
+
+      const payload = {
+        ...lot,
+        purchaser: purchaser ?? null,
+        purchaserId: meta.id || null,
+        purchaserDisplayName,
+        floorPlan: floorPlanValue ?? null,
+      };
+      if (floorPlanName) payload.floorPlanName = floorPlanName;
+
+      return res.json(payload);
     } catch (err) {
       console.error('Get lot error:', err);
       res.status(500).json({ error: err.message });

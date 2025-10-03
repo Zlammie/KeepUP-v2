@@ -24,6 +24,13 @@ const isYYYYMM = s => typeof s === 'string' && /^\d{4}-(0[1-9]|1[0-2])$/.test(s)
 const toArray = v => (Array.isArray(v) ? v : (typeof v === 'string' ? v.split('\n') : []))
   .map(s => String(s).trim()).filter(Boolean);
 
+const strOrEmpty = v => (v == null ? '' : String(v).trim());
+const numOrNull = v => {
+  if (v === '' || v == null) return null;
+  const n = Number(v);
+  return Number.isFinite(n) ? n : null;
+};
+
 // YM helpers for QMI/sales logic
 const ymStrToInt = (ym) => {
   if (!isYYYYMM(ym)) return null;
@@ -85,7 +92,7 @@ router.get('/my-community-competition/:communityId',
       const { communityId } = req.params;
       if (!isObjectId(communityId)) return res.status(400).json({ error: 'Invalid communityId' });
 
-      const community = await assertCommunity(req, communityId);
+      const community = await assertCommunity(req, communityId, 'company name communityName builder builderName city state address zip totalLots lots communityAmenities hoaFee hoaFrequency tax schoolISD elementarySchool middleSchool highSchool');
 
       let profile = await CommunityCompetitionProfile.findOne({ community: community._id, ...baseFilter(req) })
         .populate('linkedCompetitions', 'communityName builderName city state')
@@ -109,7 +116,23 @@ router.get('/my-community-competition/:communityId',
           .lean();
       }
 
-      res.json({ profile });
+      const lots = Array.isArray(community.lots) ? community.lots : [];
+      const totalLots = Number.isFinite(community.totalLots) ? community.totalLots : lots.length;
+      const soldLots = lots.filter(l => l && (l.purchaser || String(l.status || '').toLowerCase().includes('sold'))).length;
+      const quickMoveInLots = lots.filter(l => String(l.generalStatus || '').toLowerCase().includes('spec')).length;
+      const remainingLots = Math.max(0, totalLots - soldLots);
+
+      profile = profile ? { ...profile } : {};
+      profile.lotCounts = {
+        total: totalLots,
+        sold: soldLots,
+        remaining: remainingLots,
+        quickMoveInLots
+      };
+
+      const { lots: _lots, ...communityPayload } = community;
+
+      res.json({ community: communityPayload, profile });
     } catch (err) {
       res.status(err.status || 500).json({ error: err.message || 'Server error' });
     }
@@ -123,17 +146,46 @@ router.put('/my-community-competition/:communityId',
     try {
       const { communityId } = req.params;
       if (!isObjectId(communityId)) return res.status(400).json({ error: 'Invalid communityId' });
-      const community = await assertCommunity(req, communityId);
-
       const body = req.body || {};
+      const feeTypesRaw = Array.isArray(body.feeTypes) ? body.feeTypes : [];
+      const normalizedFees = feeTypesRaw
+        .map(v => String(v).trim())
+        .filter(v => ['MUD','PID','None'].includes(v));
+      const rawGarage = String(body.garageType ?? '').trim();
+      const garageType = rawGarage === 'Front' || rawGarage === 'Rear' ? rawGarage : undefined;
+
       const update = {
-        promotion: String(body.promotion ?? ''),
-        notes: String(body.notes ?? ''),
+        promotion: strOrEmpty(body.promotion),
+        notes: strOrEmpty(body.notes),
+        salesPerson: strOrEmpty(body.salesPerson),
+        salesPersonPhone: strOrEmpty(body.salesPersonPhone),
+        salesPersonEmail: strOrEmpty(body.salesPersonEmail),
+        address: strOrEmpty(body.address),
+        city: strOrEmpty(body.city),
+        zip: strOrEmpty(body.zip),
+        modelPlan: strOrEmpty(body.modelPlan),
+        lotSize: strOrEmpty(body.lotSize),
+        garageType,
+        schoolISD: strOrEmpty(body.schoolISD),
+        elementarySchool: strOrEmpty(body.elementarySchool),
+        middleSchool: strOrEmpty(body.middleSchool),
+        highSchool: strOrEmpty(body.highSchool),
+        hoaFee: numOrNull(body.hoaFee),
+        hoaFrequency: strOrEmpty(body.hoaFrequency),
+        tax: numOrNull(body.tax),
+        feeTypes: normalizedFees,
+        mudFee: normalizedFees.includes('MUD') ? numOrNull(body.mudFee) : null,
+        pidFee: normalizedFees.includes('PID') ? numOrNull(body.pidFee) : null,
+        earnestAmount: numOrNull(body.earnestAmount),
+        realtorCommission: numOrNull(body.realtorCommission),
         prosCons: {
           pros: toArray(body?.prosCons?.pros),
           cons: toArray(body?.prosCons?.cons),
         }
       };
+
+      if (!normalizedFees.includes('MUD') && normalizedFees.includes('None')) update.mudFee = null;
+      if (!normalizedFees.includes('PID') && normalizedFees.includes('None')) update.pidFee = null;
 
       // optional topPlans (validate IDs if provided)
       const tp = body.topPlans || {};
@@ -200,8 +252,6 @@ router.put('/my-community-competition/:communityId/linked-competitions',
     try {
       const { communityId } = req.params;
       if (!isObjectId(communityId)) return res.status(400).json({ error: 'Invalid communityId' });
-      const community = await assertCommunity(req, communityId);
-
       const ids = (req.body?.competitionIds || []).filter(isObjectId);
       if (ids.length) {
         const cnt = await Competition.countDocuments({ _id: { $in: ids }, ...baseFilter(req) });
@@ -230,7 +280,6 @@ router.post('/my-community-competition/:communityId/linked-competitions/:competi
       if (!isObjectId(communityId) || !isObjectId(competitionId)) {
         return res.status(400).json({ error: 'Invalid id(s)' });
       }
-      const community = await assertCommunity(req, communityId);
       await assertCompetition(req, competitionId);
 
       const profile = await CommunityCompetitionProfile.findOneAndUpdate(
@@ -519,8 +568,6 @@ router.put('/my-community-competition/:communityId/sales-summary',
       const { month, sales, cancels, closings } = req.body || {};
       if (!isObjectId(communityId)) return res.status(400).json({ error: 'Invalid communityId' });
       if (!isYYYYMM(month)) return res.status(400).json({ error: 'month=YYYY-MM is required' });
-
-      const community = await assertCommunity(req, communityId);
 
       const doc = await CommunityCompetitionProfile.findOneAndUpdate(
         { community: community._id, ...baseFilter(req) },

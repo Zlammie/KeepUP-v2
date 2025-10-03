@@ -82,7 +82,7 @@ router.use(ensureAuth);
  * GET /api/community-competition-profiles/:communityId
  * Read profile (or default shape) — READONLY+
  */
-router.get('/api/community-competition-profiles/:communityId',
+router.get('/community-competition-profiles/:communityId',
   requireRole('READONLY','USER','MANAGER','COMPANY_ADMIN','SUPER_ADMIN'),
   async (req, res) => {
     try {
@@ -111,6 +111,7 @@ router.get('/api/community-competition-profiles/:communityId',
       }
       res.json(profile);
     } catch (err) {
+      console.error('[community-competition:sales-summary:put]', err);
       const code = err.status || 500;
       res.status(code).json({ error: err.message || 'Server error' });
     }
@@ -121,7 +122,7 @@ router.get('/api/community-competition-profiles/:communityId',
  * GET /api/competitions/minimal
  * List competitors for link/unlink — READONLY+
  */
-router.get('/api/competitions/minimal',
+router.get('/competitions/minimal',
   requireRole('READONLY','USER','MANAGER','COMPANY_ADMIN','SUPER_ADMIN'),
   async (req, res) => {
     try {
@@ -131,6 +132,7 @@ router.get('/api/competitions/minimal',
         .lean();
       res.json(comps);
     } catch (err) {
+      console.error('[community-competition:sales-summary:get]', err);
       res.status(500).json({ error: 'Server error' });
     }
   }
@@ -139,7 +141,7 @@ router.get('/api/competitions/minimal',
 /**
  * POST link one competitor
  */
-router.post('/api/community-competition-profiles/:communityId/linked-competitions/:competitionId',
+router.post('/community-competition-profiles/:communityId/linked-competitions/:competitionId',
   requireRole('USER','MANAGER','COMPANY_ADMIN','SUPER_ADMIN'),
   async (req, res) => {
     try {
@@ -165,7 +167,7 @@ router.post('/api/community-competition-profiles/:communityId/linked-competition
 /**
  * DELETE unlink one competitor
  */
-router.delete('/api/community-competition-profiles/:communityId/linked-competitions/:competitionId',
+router.delete('/community-competition-profiles/:communityId/linked-competitions/:competitionId',
   requireRole('USER','MANAGER','COMPANY_ADMIN','SUPER_ADMIN'),
   async (req, res) => {
     try {
@@ -192,7 +194,7 @@ router.delete('/api/community-competition-profiles/:communityId/linked-competiti
  * PUT bulk set linked competitors
  * Body: { competitionIds: ObjectId[] }
  */
-router.put('/api/community-competition-profiles/:communityId/linked-competitions',
+router.put('/community-competition-profiles/:communityId/linked-competitions',
   requireRole('USER','MANAGER','COMPANY_ADMIN','SUPER_ADMIN'),
   async (req, res) => {
     try {
@@ -222,7 +224,7 @@ router.put('/api/community-competition-profiles/:communityId/linked-competitions
 /**
  * GET /api/community-competition-profiles/:communityId/prices?month=YYYY-MM
  */
-router.get('/api/community-competition-profiles/:communityId/prices',
+router.get('/community-competition-profiles/:communityId/prices',
   requireRole('READONLY','USER','MANAGER','COMPANY_ADMIN','SUPER_ADMIN'),
   async (req, res) => {
     try {
@@ -242,6 +244,7 @@ router.get('/api/community-competition-profiles/:communityId/prices',
         : {};
       res.json({ month, prices: out });
     } catch (err) {
+      console.error('[community-competition:sales-summary:get]', err);
       res.status(500).json({ error: 'Server error' });
     }
   }
@@ -251,7 +254,7 @@ router.get('/api/community-competition-profiles/:communityId/prices',
  * PUT /api/community-competition-profiles/:communityId/prices
  * Body: { month, plan, price } OR { month, prices: { [planId]: price } }
  */
-router.put('/api/community-competition-profiles/:communityId/prices',
+router.put('/community-competition-profiles/:communityId/prices',
   requireRole('USER','MANAGER','COMPANY_ADMIN','SUPER_ADMIN'),
   async (req, res) => {
     try {
@@ -300,6 +303,7 @@ router.put('/api/community-competition-profiles/:communityId/prices',
       await doc.save();
       res.json({ month, prices: Object.fromEntries(entry.prices) });
     } catch (err) {
+      console.error('[community-competition:sales-summary:put]', err);
       const code = err.status || 500;
       res.status(code).json({ error: err.message || 'Server error' });
     }
@@ -310,7 +314,7 @@ router.put('/api/community-competition-profiles/:communityId/prices',
  * GET /api/community-competition-profiles/:communityId/qmi?month=YYYY-MM
  * Compute Quick-Move-In list for the month, honoring exclusions.
  */
-router.get('/api/community-competition-profiles/:communityId/qmi',
+router.get('/community-competition-profiles/:communityId/qmi',
   requireRole('READONLY','USER','MANAGER','COMPANY_ADMIN','SUPER_ADMIN'),
   async (req, res) => {
     try {
@@ -383,6 +387,7 @@ router.get('/api/community-competition-profiles/:communityId/qmi',
 
       res.json({ month, homes });
     } catch (err) {
+      console.error('[community-competition:sales-summary:put]', err);
       const code = err.status || 500;
       res.status(code).json({ error: err.message || 'Server error' });
     }
@@ -393,7 +398,7 @@ router.get('/api/community-competition-profiles/:communityId/qmi',
  * PUT /api/community-competition-profiles/:communityId/qmi
  * Body: { month, excludeLotId } OR { month, includeLotId }
  */
-router.put('/api/community-competition-profiles/:communityId/qmi',
+router.put('/community-competition-profiles/:communityId/qmi',
   requireRole('USER','MANAGER','COMPANY_ADMIN','SUPER_ADMIN'),
   async (req, res) => {
     try {
@@ -432,6 +437,7 @@ router.put('/api/community-competition-profiles/:communityId/qmi',
       await doc.save();
       res.json({ month, excludedLots: entry.excludedLots.map(x => x.toString()) });
     } catch (err) {
+      console.error('[community-competition:sales-summary:put]', err);
       const code = err.status || 500;
       res.status(code).json({ error: err.message || 'Server error' });
     }
@@ -442,7 +448,74 @@ router.put('/api/community-competition-profiles/:communityId/qmi',
  * GET /api/community-competition-profiles/:communityId/sales?month=YYYY-MM
  * Return sold/closed lots within that month
  */
-router.get('/api/community-competition-profiles/:communityId/sales',
+// GET /api/community-profiles/:communityId/sales?months=12
+router.get('/community-profiles/:communityId/sales',
+  requireRole('READONLY','USER','MANAGER','COMPANY_ADMIN','SUPER_ADMIN'),
+  async (req, res) => {
+    try {
+      const { communityId } = req.params;
+      const monthsParam = parseInt(req.query.months ?? '12', 10);
+      if (!isObjectId(communityId)) return res.status(400).json({ error: 'Invalid communityId' });
+      const months = Number.isFinite(monthsParam) ? Math.min(Math.max(monthsParam, 1), 36) : 12;
+
+      const community = await assertCommunityInTenant(req, communityId, 'company');
+      const profile = await CommunityCompetitionProfile.findOne({ community: community._id, ...baseFilter(req) })
+        .select('monthlySalesSummary')
+        .lean();
+
+      const summaryMap = new Map();
+      for (const entry of profile?.monthlySalesSummary || []) {
+        if (!entry) continue;
+        const month = entry.month || entry.Month || '';
+        if (typeof month === 'string' && /^\d{4}-(0[1-9]|1[0-2])$/.test(month.trim())) {
+          summaryMap.set(month.trim(), {
+            sales: Number(entry.sales ?? 0) || 0,
+            cancels: Number(entry.cancels ?? 0) || 0,
+            closings: Number(entry.closings ?? 0) || 0
+          });
+        }
+      }
+
+      const labels = [];
+      const salesSeries = [];
+      const cancelsSeries = [];
+      const closingsSeries = [];
+      const netSeries = [];
+
+      const now = new Date();
+      const baseYear = now.getFullYear();
+      const baseMonth = now.getMonth();
+
+      for (let i = months - 1; i >= 0; i--) {
+        const d = new Date(baseYear, baseMonth - i, 1);
+        const ym = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`;
+        const friendly = d.toLocaleString(undefined, { month: 'short', year: 'numeric' });
+        const stats = summaryMap.get(ym) || { sales: 0, cancels: 0, closings: 0 };
+        labels.push(friendly);
+        salesSeries.push(stats.sales);
+        cancelsSeries.push(stats.cancels);
+        closingsSeries.push(stats.closings);
+        netSeries.push(Math.max(0, stats.sales - stats.cancels));
+      }
+
+      return res.json({
+        labels,
+        series: {
+          sales: salesSeries,
+          cancels: cancelsSeries,
+          closings: closingsSeries,
+          net: netSeries
+        }
+      });
+    } catch (err) {
+      console.error('[community-competition:sales-series]', err);
+      const code = err.status || 500;
+      res.status(code).json({ error: err.message || 'Server error' });
+    }
+  }
+);
+
+router.get('/community-competition-profiles/:communityId/sales',
   requireRole('READONLY','USER','MANAGER','COMPANY_ADMIN','SUPER_ADMIN'),
   async (req, res) => {
     try {
@@ -502,6 +575,7 @@ router.get('/api/community-competition-profiles/:communityId/sales',
 
       res.json({ month, sales });
     } catch (err) {
+      console.error('[community-competition:sales-summary:put]', err);
       const code = err.status || 500;
       res.status(code).json({ error: err.message || 'Server error' });
     }
@@ -512,7 +586,7 @@ router.get('/api/community-competition-profiles/:communityId/sales',
  * GET /api/communities/:communityId/floorplans
  * Plans available to a community (tenant-scoped)
  */
-router.get('/api/communities/:communityId/floorplans',
+router.get('/communities/:communityId/floorplans',
   requireRole('READONLY','USER','MANAGER','COMPANY_ADMIN','SUPER_ADMIN'),
   async (req, res) => {
     try {
@@ -544,6 +618,7 @@ router.get('/api/communities/:communityId/floorplans',
 
       res.json(plans);
     } catch (err) {
+      console.error('[community-competition:sales-summary:get]', err);
       res.status(500).json({ error: 'Server error' });
     }
   }
@@ -552,7 +627,7 @@ router.get('/api/communities/:communityId/floorplans',
 /**
  * GET lot counts / stats — READONLY+
  */
-router.get('/api/communities/:communityId/lot-count',
+router.get('/communities/:communityId/lot-count',
   requireRole('READONLY','USER','MANAGER','COMPANY_ADMIN','SUPER_ADMIN'),
   async (req, res) => {
     try {
@@ -563,12 +638,13 @@ router.get('/api/communities/:communityId/lot-count',
       const totalLots = typeof comm.totalLots === 'number' ? comm.totalLots : (Array.isArray(comm.lots) ? comm.lots.length : 0);
       res.json({ totalLots });
     } catch (err) {
+      console.error('[community-competition:sales-summary:get]', err);
       res.status(500).json({ error: 'Server error' });
     }
   }
 );
 
-router.get('/api/communities/:communityId/lot-stats',
+router.get('/communities/:communityId/lot-stats',
   requireRole('READONLY','USER','MANAGER','COMPANY_ADMIN','SUPER_ADMIN'),
   async (req, res) => {
     try {
@@ -586,6 +662,7 @@ router.get('/api/communities/:communityId/lot-stats',
 
       res.json({ total, sold, remaining, quickMoveInLots: 0 });
     } catch (err) {
+      console.error('[community-competition:sales-summary:get]', err);
       res.status(500).json({ error: 'Server error' });
     }
   }
@@ -594,7 +671,7 @@ router.get('/api/communities/:communityId/lot-stats',
 /**
  * GET/PUT monthly sales summary — READONLY+/USER+
  */
-router.get('/api/community-competition-profiles/:communityId/sales-summary',
+router.get('/community-competition-profiles/:communityId/sales-summary',
   requireRole('READONLY','USER','MANAGER','COMPANY_ADMIN','SUPER_ADMIN'),
   async (req, res) => {
     try {
@@ -614,12 +691,13 @@ router.get('/api/community-competition-profiles/:communityId/sales-summary',
                         : { sales: 0, cancels: 0, closings: 0 };
       res.json({ month, ...out });
     } catch (err) {
+      console.error('[community-competition:sales-summary:get]', err);
       res.status(500).json({ error: 'Server error' });
     }
   }
 );
 
-router.put('/api/community-competition-profiles/:communityId/sales-summary',
+router.put('/community-competition-profiles/:communityId/sales-summary',
   requireRole('USER','MANAGER','COMPANY_ADMIN','SUPER_ADMIN'),
   async (req, res) => {
     try {
@@ -652,6 +730,7 @@ router.put('/api/community-competition-profiles/:communityId/sales-summary',
       await doc.save();
       res.json({ month: entry.month, sales: entry.sales ?? 0, cancels: entry.cancels ?? 0, closings: entry.closings ?? 0 });
     } catch (err) {
+      console.error('[community-competition:sales-summary:put]', err);
       const code = err.status || 500;
       res.status(code).json({ error: err.message || 'Server error' });
     }
@@ -662,7 +741,7 @@ router.put('/api/community-competition-profiles/:communityId/sales-summary',
  * PUT profile basics (promotion, pros/cons, topPlans)
  * Body: { promotion, prosCons: { pros, cons }, topPlans?: { plan1, plan2, plan3 } }
  */
-router.put('/api/community-competition-profiles/:communityId',
+router.put('/community-competition-profiles/:communityId',
   requireRole('USER','MANAGER','COMPANY_ADMIN','SUPER_ADMIN'),
   async (req, res) => {
     try {
@@ -709,6 +788,7 @@ router.put('/api/community-competition-profiles/:communityId',
 
       res.json(profile);
     } catch (err) {
+      console.error('[community-competition:sales-summary:put]', err);
       const code = err.status || 500;
       res.status(code).json({ error: err.message || 'Server error' });
     }

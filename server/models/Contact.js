@@ -2,6 +2,17 @@
 const mongoose = require('mongoose');
 const { Schema } = mongoose;
 const lenderStatusValues = ['invite','submittedapplication','subdocs','missingdocs','approved','cannotqualify'];
+const toDateOrNull = v => {
+  if (!v) return null;
+  if (v instanceof Date) return v;
+  const n = Number(v);
+  if (!Number.isNaN(n) && n > 59_000) {
+    const base = new Date(Date.UTC(1899, 11, 30));
+    return new Date(base.getTime() + n * 86400000);
+  }
+  const d = new Date(String(v));
+  return Number.isNaN(d.getTime()) ? null : d;
+};
 const toLenderStatus = (v) => {
   const normalized = (v ?? '').toString().trim().toLowerCase();
   return normalized && lenderStatusValues.includes(normalized) ? normalized : 'invite';
@@ -30,6 +41,20 @@ const ContactSchema = new Schema(
     lastName:  { type: String, trim: true },
     email:     { type: String, lowercase: true, trim: true, index: true },
     phone:     { type: String, set: v => (v || '').toString().trim() },
+    visitDate:  { type: Date, set: toDateOrNull, default: null },
+    source:    { type: String, trim: true },
+    lotLineUp:  { type: String, trim: true },
+    buyTime:    { type: String, trim: true },
+    buyMonth:   { type: String, trim: true },
+    facing:     [{ type: String, trim: true }],
+    living:     [{ type: String, trim: true }],
+
+    floorplans: [{ type: Schema.Types.ObjectId, ref: 'FloorPlan', index: true }],
+
+    investor:      { type: Boolean, default: false },
+    renting:       { type: Boolean, default: false },
+    ownSelling:    { type: Boolean, default: false },
+    ownNotSelling: { type: Boolean, default: false },
 
     // ── Legacy / transitional fields (per-user/per-community context) ─────────
     // NOTE: Keep these for now so current pages don’t break; migrate them into
@@ -127,6 +152,9 @@ ContactSchema.index({ company: 1, updatedAt: -1 });
 ContactSchema.pre('save', function (next) {
   if (Array.isArray(this.communityIds)) {
     this.communityIds = [...new Set(this.communityIds.map(id => id.toString()))];
+  }
+  if (Array.isArray(this.floorplans)) {
+    this.floorplans = [...new Set(this.floorplans.map(id => id.toString()))];
   }
   next();
 });

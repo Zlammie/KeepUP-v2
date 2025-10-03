@@ -111,9 +111,14 @@ router.get('/contact-details', ensureAuth, requireRole('READONLY','USER','MANAGE
       if (!isId(id)) return res.status(400).send('Invalid contact ID');
 
       const contact = await Contact.findOne({ _id: id, ...base(req) })
+        .select('firstName lastName email phone visitDate status notes source communityIds realtorId lenderId lenderStatus lenderInviteDate lenderApprovedDate linkedLot lotLineUp buyTime buyMonth facing living investor renting ownSelling ownNotSelling')
         .populate('realtorId', 'firstName lastName brokerage')
         .populate('lenderId',  'firstName lastName lenderBrokerage')
         .lean();
+      if (contact?.visitDate) {
+        const dt = new Date(contact.visitDate);
+        if (!Number.isNaN(dt.valueOf())) { contact.visitDate = dt.toISOString(); }
+      }
       if (!contact) return res.status(404).send('Contact not found');
 
       res.render('pages/contact-details', { contact, active: 'contacts' });

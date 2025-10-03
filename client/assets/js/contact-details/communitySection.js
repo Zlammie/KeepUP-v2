@@ -1,6 +1,7 @@
 // assets/js/contact-details/communitySection.js
 import { DOM } from './domCache.js';
 import { updateTopBarSummary } from './hydrate.js';
+import { bindFloorplanAutosave } from './autoSave.js';
 
 let communitiesAbort;
 let floorplansAbort;
@@ -123,6 +124,8 @@ async function seedFloorplans(commId, preCheckedIds = []) {
 
     DOM.floorplansContainer.innerHTML = '';
     DOM.floorplansContainer.appendChild(frag);
+
+    bindFloorplanAutosave();
 
     DOM.floorplansContainer
       .querySelectorAll('input[type="checkbox"]')

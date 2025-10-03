@@ -28,7 +28,8 @@ export const renderTopBar = (lot, primaryEntry) => {
         `<span class="status-badge ${buildingClasses[raw]}">${buildingLabels[raw]}</span>`;
     }
     if (els.startDateValue) {
-      els.startDateValue.textContent = lot.releaseDate ?? '';
+      const date = lot.releaseDate ? new Date(lot.releaseDate) : null;
+      els.startDateValue.textContent = (date && !isNaN(date)) ? date.toLocaleDateString() : '';
     }
   }
 
@@ -177,11 +178,22 @@ export const setInitialFormValues = (lot, primaryEntry) => {
       return isNaN(d.getTime()) ? '' : d.toLocaleDateString();
     } catch { return ''; }
   };
+  const toDateInputValue = (v) => {
+    if (!v) return '';
+    try {
+      const d = (v instanceof Date) ? v : new Date(v);
+      if (isNaN(d.getTime())) return '';
+      const y = d.getFullYear();
+      const m = String(d.getMonth() + 1).padStart(2, '0');
+      const day = String(d.getDate()).padStart(2, '0');
+      return `${y}-${m}-${day}`;
+    } catch { return ''; }
+  };
 
   // ----- General & dates (existing)
   if (els.elevationInput) els.elevationInput.value = lot.elevation ?? '';
-  if (els.releaseDateInput) els.releaseDateInput.value = lot.releaseDate ?? '';
-  if (els.expectedCompletionInput) els.expectedCompletionInput.value = lot.expectedCompletionDate ?? '';
+  if (els.releaseDateInput) els.releaseDateInput.value = toDateInputValue(lot.releaseDate);
+  if (els.expectedCompletionInput) els.expectedCompletionInput.value = toDateInputValue(lot.expectedCompletionDate);
   if (els.closeMonthInput) els.closeMonthInput.value = lot.closeMonth ?? '';
 
   // ----- Walks (existing)

@@ -12,6 +12,7 @@ const lotViewRoutes = require('../lotViewRoutes');
 const competitionApi = require('./competitions.api');
 const myCommunityCompetitionRoutes = require('../myCommunityCompetitionRoutes');
 const manageMyCommunityCompetitionRoutes = require('../manageMyCommunityCompetitionRoutes');
+const communityCompetitionProfileRoutes = require('../communityCompetitionProfileRoutes');
 
 const router = express.Router();
 
@@ -28,5 +29,6 @@ router.use('/', lotViewRoutes); // if this exposes /lots or other root endpoints
 router.use('/competitions', competitionApi);
 router.use('/', myCommunityCompetitionRoutes);
 router.use('/', manageMyCommunityCompetitionRoutes);
+router.use('/', communityCompetitionProfileRoutes);
 
 module.exports = router;

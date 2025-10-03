@@ -47,6 +47,55 @@ function getElevationName(lot) {
   return typeof lot.elevation === 'string' ? lot.elevation : '';
 }
 
+function trimToString(value) {
+  return value == null ? '' : String(value).trim();
+}
+
+function buildContactName(contact) {
+  if (!contact || typeof contact !== 'object') return '';
+  if (contact._bsontype) return '';
+  const first = trimToString(contact.firstName);
+  const last = trimToString(contact.lastName);
+  const parts = [];
+  if (first) parts.push(first);
+  if (last) parts.push(last);
+  if (parts.length) return parts.join(' ');
+  const full = trimToString(contact.fullName);
+  if (full) return full;
+  return trimToString(contact.name);
+}
+
+function getPurchaserMeta(lot) {
+  const data = lot || {};
+  const raw = data.purchaser;
+
+  const fallbackName = [
+    trimToString(data.purchaserDisplayName),
+    trimToString(data.purchaserName),
+    trimToString(data.buyerName)
+  ].find(Boolean) || '';
+
+  let name = buildContactName(raw) || fallbackName;
+
+  let id = data.purchaserId || null;
+  if (!id && raw && typeof raw === 'object' && raw !== null) {
+    id = raw._id || raw.id || null;
+  } else if (!id && typeof raw === 'string') {
+    id = raw;
+  }
+  id = id ? String(id).trim() : null;
+
+  if (!trimToString(name) && id) {
+    name = id;
+  }
+
+  return {
+    name: trimToString(name),
+    id: id,
+    href: id ? '/contact-details?id=' + encodeURIComponent(id) : null
+  };
+}
+
 // ---------- cell helpers ----------
 function iconCell(src, alt) {
   const td = el('td', 'icon-cell text-center');
@@ -127,43 +176,46 @@ function addressCell(lot) {
   const td = el('td', 'sticky-col sc-3');
   const col = el('div', 'cell-col');
 
-  // Build correct link: /address-details?communityId=...&lotId=...
   const communityId =
     lot.communityId ||
     (lot.community && (lot.community._id || lot.community.id)) ||
     window.__communityId || '';
   const lotId = lot._id || '';
 
-  const a = el('a', 'link');
-  a.href = `/address-details?communityId=${encodeURIComponent(communityId)}&lotId=${encodeURIComponent(lotId)}`;
-  a.textContent = lot.addressLine1 || lot.address || 'Address';
+  const addressLink = el('a', 'link');
+  addressLink.href = `/address-details?communityId=${encodeURIComponent(communityId)}&lotId=${encodeURIComponent(lotId)}`;
+  addressLink.textContent = lot.addressLine1 || lot.address || 'Address';
 
-  const subLines = [];
-  // city/state/zip
-  {
-    const s = [];
-    if (lot.city) s.push(lot.city);
-    if (lot.state) s.push(lot.state);
-    if (lot.zip) s.push(lot.zip);
-    if (s.length) subLines.push(s.join(', '));
-  }
-  // purchaser line
-  {
-    const buyer =
-      lot.purchaserName ||
-      (lot.purchaser && (lot.purchaser.name || [lot.purchaser.firstName, lot.purchaser.lastName].filter(Boolean).join(' '))) ||
-      lot.buyerName || '';
-    if (buyer) subLines.push(`Purchaser: ${buyer}`);
-  }
-
-  const top = el('div', 'cell-top'); top.appendChild(a);
+  const top = el('div', 'cell-top');
+  top.appendChild(addressLink);
   col.appendChild(top);
-  subLines.forEach(line => col.appendChild(el('div', 'cell-sub', line)));
+
+  const locationBits = [];
+  if (lot.city) locationBits.push(lot.city);
+  if (lot.state) locationBits.push(lot.state);
+  if (lot.zip) locationBits.push(lot.zip);
+  if (locationBits.length) {
+    col.appendChild(el('div', 'cell-sub', locationBits.join(', ')));
+  }
+
+  const purchaserMeta = getPurchaserMeta(lot);
+  if (purchaserMeta.name) {
+    const sub = el('div', 'cell-sub');
+    const text = `Purchaser: ${purchaserMeta.name}`;
+    if (purchaserMeta.href) {
+      const link = el('a', 'link cell-sub-link');
+      link.href = purchaserMeta.href;
+      link.textContent = text;
+      sub.appendChild(link);
+    } else {
+      sub.textContent = text;
+    }
+    col.appendChild(sub);
+  }
 
   td.appendChild(col);
   return td;
 }
-
 function priceCell(lot) {
   const td = el('td', 'price-cell text-right');
 
@@ -252,11 +304,7 @@ function walksCell(lot) {
 // ---------- filtering (single source of truth) ----------
 // check if purchaser is linked
 function hasPurchaser(lot) {
-  return Boolean(
-    lot.purchaserName ||
-    (lot.purchaser && (lot.purchaser.name || lot.purchaser.firstName || lot.purchaser.lastName)) ||
-    lot.buyerName
-  );
+  return Boolean(getPurchaserMeta(lot).name);
 }
 
 // SPEC = under construction OR finished, AND no purchaser
@@ -474,3 +522,5 @@ function walksCell(lot) {
     tbody.appendChild(row);
   });
 }
+
+

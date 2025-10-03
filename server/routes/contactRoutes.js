@@ -5,6 +5,7 @@ const router = express.Router();
 const Contact   = require('../models/Contact');
 const Lender    = require('../models/lenderModel');
 const Community = require('../models/Community');
+const FloorPlan = require('../models/FloorPlan');
 const Realtor   = require('../models/Realtor');
 
 const ensureAuth  = require('../middleware/ensureAuth');
@@ -20,6 +21,11 @@ const isSuper = req => (req.user?.roles || []).includes('SUPER_ADMIN');
 const companyFilter = req => (isSuper(req) ? {} : { company: req.user.company });
 
 function toStr(v){ return (v ?? '').toString().trim(); }
+const toIsoStringOrNull = (v) => {
+  if (!v) return null;
+  const d = v instanceof Date ? v : new Date(String(v));
+  return Number.isNaN(d.valueOf()) ? null : d.toISOString();
+};
 function normalizePhone(v){ const s = toStr(v).replace(/[^\d]/g, ''); return s.length >= 10 ? s.slice(-10) : s; }
 function parseDateMaybe(v){
   if (!v) return null;
@@ -91,6 +97,7 @@ router.get('/',
       const contacts = await Contact.find(filter)
         .select('firstName lastName email phone status communityIds realtorId lenderId lenders updatedAt')
         .populate('communityIds', 'name')
+        .populate('floorplans', 'name planNumber')
         .populate('realtorId', 'firstName lastName brokerage email phone')
         .populate('lenderId',  'firstName lastName lenderBrokerage email phone')
         .populate('lenders.lender', 'firstName lastName lenderBrokerage email phone')
@@ -137,14 +144,16 @@ router.get('/:id',
       const filter = { _id: id, ...companyFilter(req) };
 
       const contact = await Contact.findOne(filter)
-        .select('firstName lastName email phone status notes communityIds realtorId lenderId lotId ownerId visitDate lenderStatus lenderInviteDate lenderApprovedDate lenders updatedAt')
-        .populate('communityIds', 'name')                                       // ✅ array of communities
+        .select('firstName lastName email phone status notes source communityIds floorplans realtorId lenderId lotId ownerId visitDate lotLineUp buyTime buyMonth facing living investor renting ownSelling ownNotSelling lenderStatus lenderInviteDate lenderApprovedDate lenders updatedAt')
+        .populate('communityIds', 'name')
+        .populate('floorplans', 'name planNumber')                                       // ✅ array of communities
         .populate('realtorId', 'firstName lastName brokerage email phone')      // ✅ real field
         .populate('lenderId',  'firstName lastName lenderBrokerage email phone')// ✅ real field
         .populate('lenders.lender', 'firstName lastName lenderBrokerage email phone') // lender details
         .populate('lotId',     'jobNumber lot block address')
         .populate('ownerId',   'email firstName lastName')
         .lean();
+      if (contact) contact.visitDate = toIsoStringOrNull(contact.visitDate);
 
       if (!contact) return res.status(404).json({ error: 'Contact not found' });
 
@@ -154,6 +163,7 @@ router.get('/:id',
         realtor: contact.realtorId || null,
         lender:  contact.lenderId  || null,
         communities: contact.communityIds || [],
+        floorplans: contact.floorplans || [],
         // if your UI expects lowercase status values:
         status: typeof contact.status === 'string' ? contact.status.toLowerCase() : contact.status,
       });
@@ -221,6 +231,112 @@ router.put('/:id',
         $set.communityIds = toSave;
       }
 
+      const floorplanPayload = Object.prototype.hasOwnProperty.call(b, 'floorplans') ? b.floorplans : (Object.prototype.hasOwnProperty.call(b, 'floorPlans') ? b.floorPlans : undefined);
+      if (floorplanPayload !== undefined) {
+        let planIds = [];
+        if (Array.isArray(floorplanPayload)) {
+          planIds = floorplanPayload;
+        } else if (typeof floorplanPayload === 'string') {
+          try {
+            const parsed = JSON.parse(floorplanPayload);
+            planIds = Array.isArray(parsed) ? parsed : [floorplanPayload];
+          } catch {
+            planIds = floorplanPayload.split(',');
+          }
+        }
+        planIds = planIds.filter(Boolean).map(id => id.toString().trim()).filter(Boolean);
+
+        if (planIds.length) {
+          const allowedPlans = await FloorPlan.find({ _id: { $in: planIds }, ...companyFilter(req) })
+            .select('_id')
+            .lean();
+          if (allowedPlans.length !== planIds.length) {
+            return res.status(400).json({ error: 'Selected floor plans are not in your company.' });
+          }
+          $set.floorplans = allowedPlans.map(p => p._id);
+        } else {
+          $set.floorplans = [];
+        }
+      }
+
+      if (Object.prototype.hasOwnProperty.call(b, 'visitDate')) {
+        const parsedDate = parseDateMaybe(b.visitDate);
+        if (!parsedDate) {
+          $unset.visitDate = '';
+          delete $set.visitDate;
+        } else {
+          $set.visitDate = parsedDate;
+          if (Object.prototype.hasOwnProperty.call($unset, 'visitDate')) delete $unset.visitDate;
+        }
+      }
+
+      const textFields = ['firstName','lastName','owner','source','lotLineUp','buyTime','buyMonth'];
+      for (const field of textFields) {
+        if (Object.prototype.hasOwnProperty.call(b, field)) {
+          const value = toStr(b[field]);
+          if (!value) {
+            $unset[field] = '';
+            delete $set[field];
+          } else {
+            $set[field] = value;
+            if (Object.prototype.hasOwnProperty.call($unset, field)) delete $unset[field];
+          }
+        }
+      }
+
+      if (Object.prototype.hasOwnProperty.call(b, 'email')) {
+        const email = toStr(b.email).toLowerCase();
+        if (!email) {
+          $unset.email = '';
+          delete $set.email;
+        } else {
+          $set.email = email;
+          if (Object.prototype.hasOwnProperty.call($unset, 'email')) delete $unset.email;
+        }
+      }
+
+      if (Object.prototype.hasOwnProperty.call(b, 'phone')) {
+        const phone = normalizePhone(b.phone);
+        if (!phone) {
+          $unset.phone = '';
+          delete $set.phone;
+        } else {
+          $set.phone = phone;
+          if (Object.prototype.hasOwnProperty.call($unset, 'phone')) delete $unset.phone;
+        }
+      }
+
+      if (Object.prototype.hasOwnProperty.call(b, 'facing')) {
+        const facingInput = Array.isArray(b.facing) ? b.facing : String(b.facing).split(',');
+        const facing = facingInput.map(toStr).filter(Boolean);
+        if (!facing.length) {
+          $unset.facing = '';
+          delete $set.facing;
+        } else {
+          $set.facing = facing;
+          if (Object.prototype.hasOwnProperty.call($unset, 'facing')) delete $unset.facing;
+        }
+      }
+
+      if (Object.prototype.hasOwnProperty.call(b, 'living')) {
+        const livingInput = Array.isArray(b.living) ? b.living : String(b.living).split(',');
+        const living = livingInput.map(toStr).filter(Boolean);
+        if (!living.length) {
+          $unset.living = '';
+          delete $set.living;
+        } else {
+          $set.living = living;
+          if (Object.prototype.hasOwnProperty.call($unset, 'living')) delete $unset.living;
+        }
+      }
+
+      ['investor','renting','ownSelling','ownNotSelling'].forEach(field => {
+        if (Object.prototype.hasOwnProperty.call(b, field)) {
+          $set[field] = !!b[field];
+          if (Object.prototype.hasOwnProperty.call($unset, field)) delete $unset[field];
+        }
+      });
+
       if (Object.prototype.hasOwnProperty.call(b, 'status')) {
         const statusValue = toStatusCase(b.status);
         if (statusValue) {
@@ -237,16 +353,19 @@ router.put('/:id',
       if (!Object.keys(updateDoc).length) {
         const current = await Contact.findOne({ _id: id, ...companyFilter(req) })
           .populate('communityIds', 'name')
+        .populate('floorplans', 'name planNumber')
           .populate('realtorId', 'firstName lastName brokerage email phone')
           .populate('lenderId',  'firstName lastName lenderBrokerage email phone')
           .populate('lenders.lender', 'firstName lastName lenderBrokerage email phone')
           .populate('lotId',     'jobNumber lot block address')
           .populate('ownerId',   'email firstName lastName')
           .lean();
+        if (current) current.visitDate = toIsoStringOrNull(current.visitDate);
         return res.json({
           ...current,
           status: typeof current?.status === 'string' ? current.status.toLowerCase() : current?.status,
           communities: current?.communityIds || [],
+          floorplans: current?.floorplans || [],
           realtor: current?.realtorId || null,
         });
       }
@@ -258,12 +377,14 @@ router.put('/:id',
         { new: true }
       )
         .populate('communityIds', 'name')
+        .populate('floorplans', 'name planNumber')
         .populate('realtorId', 'firstName lastName brokerage email phone')
         .populate('lenderId',  'firstName lastName lenderBrokerage email phone')
         .populate('lenders.lender', 'firstName lastName lenderBrokerage email phone')
         .populate('lotId',     'jobNumber lot block address')
         .populate('ownerId',   'email firstName lastName')
         .lean();
+      if (updated) updated.visitDate = toIsoStringOrNull(updated.visitDate);
 
       if (!updated) return res.status(404).json({ error: 'Contact not found' });
 
@@ -271,6 +392,7 @@ router.put('/:id',
         ...updated,
         status: typeof updated.status === 'string' ? updated.status.toLowerCase() : updated.status,
         communities: updated.communityIds || [],
+        floorplans: updated.floorplans || [],
         realtor: updated.realtorId || null,
       });
     } catch (err) {
