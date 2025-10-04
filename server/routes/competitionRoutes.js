@@ -1,4 +1,4 @@
-  const body = pick(req.body, allowed);\r\n\r\n// routes/competitionRoutes.js
+// routes/competitionRoutes.js
 const express = require('express');
 const mongoose = require('mongoose');
 const ensureAuth = require('../middleware/ensureAuth');
@@ -13,18 +13,20 @@ try { FloorPlanComp = require('../models/floorPlanComp'); } catch { /* optional 
 const router = express.Router();
 router.use(ensureAuth);
 
-// ????????????????????????????????? helpers ????????????????????????????????
+// ───────────────────────────── helpers ─────────────────────────────
 const asyncHandler = fn => (req, res, next) => Promise.resolve(fn(req, res, next)).catch(next);
-const isObjectId = (v) => mongoose.Types.ObjectId.isValid(String(v));
+const isObjectId = v => mongoose.Types.ObjectId.isValid(String(v));
 const toNumOrNull = v => (v === '' || v == null ? null : Number(v));
 const clean = v => (v === '' ? undefined : v); // avoid saving empty-string enums
+
 const pick = (obj, keys) => {
-const isSuperAdmin = (req) => (req.user?.roles || []).includes('SUPER_ADMIN');
-const tenantFilter = (req) => (isSuperAdmin(req) ? {} : { company: req.user?.company });
   const out = {};
   for (const k of keys) if (Object.prototype.hasOwnProperty.call(obj, k)) out[k] = obj[k];
   return out;
 };
+
+const isSuperAdmin = (req) => (req.user?.roles || []).includes('SUPER_ADMIN');
+const tenantFilter = (req) => (isSuperAdmin(req) ? {} : { company: req.user?.company });
 
 // Attach a param guard for :id
 router.param('id', (req, res, next, id) => {
@@ -32,7 +34,7 @@ router.param('id', (req, res, next, id) => {
   next();
 });
 
-// ????????????????????????????????? list / minimal / get ???????????????????
+// ───────────────────── list / minimal / get ───────────────────────
 
 // GET /api/competitions?limit=25&page=1&sort=builderName,-communityName&fields=communityName,builderName,city
 router.get('/', asyncHandler(async (req, res) => {
@@ -55,7 +57,7 @@ router.get('/', asyncHandler(async (req, res) => {
   Object.assign(filter, tenantFilter(req));
 
   // fields (projection)
-  const fields = String(req.query.fields || '').trim();
+  const fields = String(req.query.fields || '').trim(); // comma-separated
 
   // sort
   const sortStr = String(req.query.sort || 'builderName,communityName').replace(/\s+/g, '');
@@ -64,7 +66,12 @@ router.get('/', asyncHandler(async (req, res) => {
   );
 
   const [items, total] = await Promise.all([
-    Competition.find(filter).select(select).sort(sort).skip(skip).limit(limit).lean(),
+    Competition.find(filter)
+      .select(fields ? fields.split(',').join(' ') : undefined)
+      .sort(sort)
+      .skip(skip)
+      .limit(limit)
+      .lean(),
     Competition.countDocuments(filter)
   ]);
 
@@ -94,20 +101,70 @@ router.get('/minimal', asyncHandler(async (req, res) => {
 router.get('/:id', asyncHandler(async (req, res) => {
   const filter = { _id: req.params.id, ...tenantFilter(req) };
   const comp = await Competition.findOne(filter).lean();
+  if (!comp) return res.status(404).json({ error: 'Not found' });
   res.json(comp);
 }));
 
-// ????????????????????????????????? create / update / delete ???????????????
+// ──────────────────── create / update / delete ────────────────────
+
+const ALLOWED_FIELDS = [
+  'communityName','builderName','address','city','state','zip',
+  'salesPerson','salesPersonPhone','salesPersonEmail',
+  'lotSize','modelPlan','garageType',
+  'schoolISD','elementarySchool','middleSchool','highSchool',
+  'totalLots','hoaFee','hoaFrequency','tax',
+  'feeTypes','mudFee','pidFee','pidFeeFrequency',
+  'promotion','topPlan1','topPlan2','topPlan3','pros','cons',
+  'communityAmenities' // for completeness when posted in bulk
+];
+
+// Normalizers shared by POST/PUT/PATCH
+function normalizeBody(raw) {
+  const body = { ...raw };
+
+  // trim core strings
+  [
+    'communityName','builderName','address','city','state','zip',
+    'modelPlan','lotSize','salesPerson','salesPersonPhone','salesPersonEmail',
+    'schoolISD','elementarySchool','middleSchool','highSchool',
+    'promotion','topPlan1','topPlan2','topPlan3','pros','cons'
+  ].forEach(key => {
+    if (body[key] !== undefined && body[key] !== null) {
+      body[key] = String(body[key]).trim();
+      if (!body[key]) delete body[key];
+    }
+  });
+
+  // numbers
+  if ('totalLots' in body) body.totalLots = toNumOrNull(body.totalLots);
+  if ('hoaFee'    in body) body.hoaFee    = toNumOrNull(body.hoaFee);
+  if ('pidFee'    in body) body.pidFee    = toNumOrNull(body.pidFee);
+  if ('tax'       in body) body.tax       = toNumOrNull(body.tax);
+  if ('mudFee'    in body) body.mudFee    = toNumOrNull(body.mudFee);
+
+  // enums: empty string → undefined
+  if ('hoaFrequency'    in body) body.hoaFrequency    = clean(body.hoaFrequency);
+  if ('pidFeeFrequency' in body) body.pidFeeFrequency = clean(body.pidFeeFrequency);
+
+  // feeTypes
+  if ('feeTypes' in body) {
+    const arr = Array.isArray(body.feeTypes) ? body.feeTypes : [body.feeTypes].filter(Boolean);
+    const ALLOWED_FEE_TYPES = ['MUD','PID','None'];
+    body.feeTypes = arr.filter(v => ALLOWED_FEE_TYPES.includes(v));
+  }
+
+  // garageType
+  if ('garageType' in body) {
+    const gt = String(body.garageType ?? '').toLowerCase();
+    body.garageType = gt === 'rear' ? 'Rear' : gt === 'front' ? 'Front' : null;
+  }
+
+  return body;
+}
 
 // POST /api/competitions
 router.post('/', asyncHandler(async (req, res) => {
-  const allowed = [
-    'communityName','builderName','address','city','state','zip',
-    'totalLots','hoaFee','hoaFrequency','pidFee','pidFeeFrequency',
-    'promotion','topPlan1','topPlan2','topPlan3','pros','cons'
-    // add other top-level fields you allow on create
-  ];
-  const body = pick(req.body, allowed);
+  const body = normalizeBody(pick(req.body, ALLOWED_FIELDS));
 
   const required = ['communityName','builderName','address','city','state','zip'];
   for (const key of required) {
@@ -115,19 +172,7 @@ router.post('/', asyncHandler(async (req, res) => {
     if (!value || !String(value).trim()) {
       return res.status(400).json({ error: `${key} is required` });
     }
-    body[key] = String(value).trim();
   }
-
-  if (body.totalLots !== undefined) {
-    const totalLots = toNumOrNull(body.totalLots);
-    if (totalLots === null) {
-      delete body.totalLots;
-    } else {
-      body.totalLots = totalLots;
-    }
-  }
-  if (body.hoaFee !== undefined) body.hoaFee = toNumOrNull(body.hoaFee);
-  if (body.pidFee !== undefined) body.pidFee = toNumOrNull(body.pidFee);
 
   const filterCompany = tenantFilter(req);
   if (isSuperAdmin(req) && req.body?.company && isObjectId(req.body.company)) {
@@ -137,31 +182,13 @@ router.post('/', asyncHandler(async (req, res) => {
   }
   if (!body.company) return res.status(400).json({ error: 'Company context required' });
 
-
   const comp = await Competition.create(body);
   res.status(201).json(comp);
 }));
+
 // PUT /api/competitions/:id (full update)
 router.put('/:id', asyncHandler(async (req, res) => {
-  const allowed = [
-    'communityName','builderName','address','city','state','zip',
-    'totalLots','hoaFee','hoaFrequency','pidFee','pidFeeFrequency',
-    'promotion','topPlan1','topPlan2','topPlan3','pros','cons'
-  ];
-  const body = pick(req.body, allowed);
-
-  ['communityName','builderName','address','city','state','zip'].forEach(key => {
-    if (body[key] !== undefined && body[key] !== null) {
-      body[key] = String(body[key]).trim();
-      if (!body[key]) delete body[key];
-    }
-  });
-
-  if ('totalLots' in body) body.totalLots = toNumOrNull(body.totalLots);
-  if ('hoaFee'    in body) body.hoaFee    = toNumOrNull(body.hoaFee);
-  if ('pidFee'    in body) body.pidFee    = toNumOrNull(body.pidFee);
-  if ('hoaFrequency'    in body) body.hoaFrequency    = clean(body.hoaFrequency);
-  if ('pidFeeFrequency' in body) body.pidFeeFrequency = clean(body.pidFeeFrequency);
+  const body = normalizeBody(pick(req.body, ALLOWED_FIELDS));
 
   const filter = { _id: req.params.id, ...tenantFilter(req) };
   const updated = await Competition.findOneAndUpdate(
@@ -173,36 +200,22 @@ router.put('/:id', asyncHandler(async (req, res) => {
   if (!updated) return res.status(404).json({ error: 'Not found' });
   res.json(updated);
 }));
-// PATCH /api/competitions/:id  (partial update; safer than PUT*)
+
+// PATCH /api/competitions/:id (partial update)
 router.patch('/:id', asyncHandler(async (req, res) => {
-  const allowed = [
-    'communityName','builderName','address','city','state','zip','promotion','topPlan1','topPlan2','topPlan3',
-    'pros','cons','totalLots','hoaFee','hoaFrequency','pidFee','pidFeeFrequency'
-  ];
-  const body = pick(req.body, allowed);
-
-  ['communityName','builderName','address','city','state','zip'].forEach(key => {
-    if (body[key] !== undefined && body[key] !== null) {
-      body[key] = String(body[key]).trim();
-      if (!body[key]) delete body[key];
-    }
-  });
-
-
-  if ('totalLots' in body) body.totalLots = toNumOrNull(body.totalLots);
-  if ('hoaFee'    in body) body.hoaFee    = toNumOrNull(body.hoaFee);
-  if ('pidFee'    in body) body.pidFee    = toNumOrNull(body.pidFee);
-  if ('hoaFrequency'    in body) body.hoaFrequency    = clean(body.hoaFrequency);
-  if ('pidFeeFrequency' in body) body.pidFeeFrequency = clean(body.pidFeeFrequency);
+  const body = normalizeBody(pick(req.body, ALLOWED_FIELDS));
 
   const filter = { _id: req.params.id, ...tenantFilter(req) };
   const updated = await Competition.findOneAndUpdate(
-    filter, { $set: body }, { new: true, runValidators: true }
+    filter,
+    { $set: body },
+    { new: true, runValidators: true }
   ).lean();
 
   if (!updated) return res.status(404).json({ error: 'Not found' });
   res.json(updated);
 }));
+
 // keep your dedicated helpers as targeted endpoints (clear intent)
 router.put('/:id/amenities', asyncHandler(async (req, res) => {
   const { communityAmenities } = req.body;
@@ -215,6 +228,7 @@ router.put('/:id/amenities', asyncHandler(async (req, res) => {
   if (!updated) return res.status(404).json({ error: 'Not found' });
   res.json(updated);
 }));
+
 router.put('/:id/metrics', asyncHandler(async (req, res) => {
   const {
     promotion, topPlan1, topPlan2, topPlan3, pros, cons,
@@ -246,6 +260,7 @@ router.put('/:id/metrics', asyncHandler(async (req, res) => {
   if (!updated) return res.status(404).json({ error: 'Not found' });
   res.json(updated);
 }));
+
 // DELETE /api/competitions/:id
 router.delete('/:id', asyncHandler(async (req, res) => {
   const deleted = await Competition.findOneAndDelete({ _id: req.params.id, ...tenantFilter(req) });
@@ -253,7 +268,7 @@ router.delete('/:id', asyncHandler(async (req, res) => {
   res.json({ success: true });
 }));
 
-// ????????????????????????????????? monthly metrics ?????????????????????????
+// ───────────────────── monthly metrics ────────────────────────────
 
 // PUT /api/competitions/:id/monthly-metrics  (atomic upsert)
 router.put('/:id/monthly-metrics', asyncHandler(async (req, res) => {
@@ -265,7 +280,8 @@ router.put('/:id/monthly-metrics', asyncHandler(async (req, res) => {
   if (soldLots        !== undefined) soldLots        = toNumOrNull(soldLots);
   if (quickMoveInLots !== undefined) quickMoveInLots = toNumOrNull(quickMoveInLots);
 
-  const upd = await Competition.updateOne({ _id: req.params.id, 'monthlyMetrics.month': month, ...tenantFilter(req) },
+  const upd = await Competition.updateOne(
+    { _id: req.params.id, 'monthlyMetrics.month': month, ...tenantFilter(req) },
     {
       $set: {
         ...(soldLots        !== undefined ? { 'monthlyMetrics.$.soldLots': soldLots } : {}),
@@ -276,7 +292,8 @@ router.put('/:id/monthly-metrics', asyncHandler(async (req, res) => {
   );
 
   if (upd.matchedCount === 0) {
-    await Competition.updateOne({ _id: req.params.id, ...tenantFilter(req) },
+    await Competition.updateOne(
+      { _id: req.params.id, ...tenantFilter(req) },
       {
         $push: {
           monthlyMetrics: {
@@ -304,7 +321,7 @@ router.get('/:id/monthly', asyncHandler(async (req, res) => {
   });
 }));
 
-// ????????????????????????????????? analytics ???????????????????????????????
+// ───────────────────────── analytics ──────────────────────────────
 
 // GET /api/competitions/:id/sales?year=YYYY
 router.get('/:id/sales', asyncHandler(async (req, res) => {
@@ -385,7 +402,7 @@ router.get('/:id/base-prices-by-plan', asyncHandler(async (req, res) => {
   res.json({ prior, anchor, plans });
 }));
 
-// ????????????????????????????????? error handling ??????????????????????????
+// ───────────────────── error handling ─────────────────────────────
 
 // If you have a global error handler, remove the handler below.
 // Keeping a small local one in case this router is mounted standalone.

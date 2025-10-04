@@ -37,6 +37,9 @@ const CompetitionSchema = new Schema({
   middleSchool:     { type: String },
   highSchool:       { type: String },
 
+  modelPlan:        { type: String, default: '' },
+  garageType:       { type: String, enum: ['Front','Rear', null], default: null },
+
   // 💸 Fees
   hoaFee:         { type: Number, set: toNumOrNull, default: null },
   hoaFrequency:   { type: String, enum: ['Monthly','Bi-Annually','Annually', null], default: null },

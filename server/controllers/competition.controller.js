@@ -57,6 +57,11 @@ exports.update = async (req, res) => {
 
     if (['totalLots','hoaFee','pidFee','mudFee','earnestAmount','realtorCommission','tax'].includes(key)) {
       value = numOrNull(value);
+    } else if (key === 'garageType') {
+      const norm = typeof value === 'string' ? value.trim().toLowerCase() : '';
+      if (norm === 'front') value = 'Front';
+      else if (norm === 'rear') value = 'Rear';
+      else value = null;
     } else if (Array.isArray(value)) {
       value = value.map(v => (typeof v === 'string' ? v.trim() : v)).filter(v => v !== '');
     } else if (typeof value === 'string') {

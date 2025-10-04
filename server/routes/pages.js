@@ -18,6 +18,12 @@ const Company = require('../models/Company');
 const isId = v => mongoose.Types.ObjectId.isValid(String(v));
 const isSuper = req => (req.user?.roles || []).includes('SUPER_ADMIN');
 const base = req => (isSuper(req) ? {} : { company: req.user.company });
+const normalizeGarageType = (value) => {
+  const norm = typeof value === 'string' ? value.trim().toLowerCase() : '';
+  if (norm === 'front') return 'Front';
+  if (norm === 'rear') return 'Rear';
+  return null;
+};
 
 // ????????????????????????? core pages ?????????????????????????
 router.get(['/', '/index'], ensureAuth, requireRole('READONLY','USER','MANAGER','COMPANY_ADMIN','SUPER_ADMIN'),
@@ -179,9 +185,20 @@ router.get('/competition-details/:id', ensureAuth, requireRole('READONLY','USER'
     if (!isId(id)) return res.status(400).send('Invalid competition ID');
 
     const comp = await Competition.findOne({ _id: id, ...base(req) })
-      .select('communityName builderName address city state zip company')
+      // include fields consumed by competition-details view
+      .select([
+          'communityName','builderName','address','city','state','zip','company',
+          'builderWebsite','modelPlan','lotSize','garageType','totalLots',
+          'schoolISD','elementarySchool','middleSchool','highSchool',
+          'hoaFee','hoaFrequency','tax','feeTypes','mudFee','pidFee','pidFeeFrequency',
+          'promotion','pros','cons','monthlyMetrics','communityAmenities',
+          'salesPerson','salesPersonPhone','salesPersonEmail'
+        ].join(' '))
       .lean();
     if (!comp) return res.status(404).send('Competition not found');
+
+    const garageType = normalizeGarageType(comp.garageType);
+    comp.garageType = garageType;
 
     const floorPlans = await FloorPlanComp.find({ competition: comp._id, ...base(req) })
       .select('name')
@@ -202,6 +219,9 @@ router.get('/update-competition/:id', ensureAuth, requireRole('READONLY','USER',
 
     const comp = await Competition.findOne({ _id: id, ...base(req) }).lean();
     if (!comp) return res.status(404).send('Competition not found');
+
+    const garageType = normalizeGarageType(comp.garageType);
+    comp.garageType = garageType;
 
     res.render('pages/update-competition', { active: 'competition', competition: comp });
   }

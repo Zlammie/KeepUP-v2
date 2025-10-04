@@ -75,10 +75,11 @@
           </div>
 
           <!-- Radios instead of checkboxes -->
+          <% const garageTypeLower = String(competition.garageType || '').trim().toLowerCase(); %>
           <fieldset class="form-group">
             <legend>Garage Type</legend>
-            <label><input type="radio" name="garageType" value="Front" <%= competition.garageType === 'Front' ? 'checked' : '' %>> Front</label>
-            <label><input type="radio" name="garageType" value="Rear"  <%= competition.garageType === 'Rear'  ? 'checked' : '' %>> Rear</label>
+            <label><input type="radio" name="garageType" value="Front" <%= garageTypeLower === 'front' ? 'checked' : '' %>> Front</label>
+            <label><input type="radio" name="garageType" value="Rear"  <%= garageTypeLower === 'rear'  ? 'checked' : '' %>> Rear</label>
           </fieldset>
 
           <div class="form-group">
