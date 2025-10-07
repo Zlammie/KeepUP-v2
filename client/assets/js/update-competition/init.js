@@ -22,112 +22,103 @@ import { populateTopPlans } from './plans.js';
 import { initFloorPlansModal, loadFloorPlansList } from './floorPlans.js';
 import { initFloorPlanModal } from './modal.js';
 
+
+
 let currentMonth = null;
 
 async function hydrateMonthlyUI(month) {
   try {
     const res = await fetch(`/api/competitions/${competitionId}/monthly?month=${encodeURIComponent(month)}`);
-    if (!res.ok) return;
-    const m = await res.json(); // { soldLots, quickMoveInLots }
-    if (DOM.soldInput) {
-      DOM.soldInput.value = m?.soldLots ?? '';
-      updateRemainingLots(totalLots, DOM.soldInput, DOM.remainingEl);
-    }
-    if (DOM.quickInput) {
-      DOM.quickInput.value = m?.quickMoveInLots ?? '';
-    }
+    if (!res.ok) throw res;
+    const m = await res.json();
+    if (DOM.soldInput)  DOM.soldInput.value  = m?.soldLots ?? '';
+    if (DOM.quickInput) DOM.quickInput.value = m?.quickMoveInLots ?? '';
   } catch (e) {
-    console.warn('hydrateMonthlyUI failed', e);
+    if (e && e.text) {
+      try { console.warn('monthly error body →', await e.text()); } catch {}
+    }
+    if (DOM.soldInput)  DOM.soldInput.value  = '';
+    if (DOM.quickInput) DOM.quickInput.value = '';
+    console.warn('hydrateMonthlyUI fallback', e.status || e);
   }
+  updateRemainingLots(totalLots, DOM.soldInput, DOM.remainingEl);
 }
 
 /**
  * Application entrypoint
  */
 document.addEventListener('DOMContentLoaded', async () => {
+  // Back to details (CSP-safe: no inline script)
+  const back = document.getElementById('backToDetailsBtn');
+  if (back) {
+    back.addEventListener('click', () => {
+      window.location.href = `/competition-details/${competitionId}`;
+    });
+  }
+
   // 0) Preload all Quick-Move-Ins & Floor Plans
   await initQuickHomes();
 
-  // 1) build & wire your month-pill nav
+  // 1) Month nav
   renderMonthNav(DOM.monthNav);
   console.log(
-  'Nav months →',
-  [...DOM.monthNav.querySelectorAll('a.nav-link')].map(a => a.dataset.month)
-);
-bindMonthNav(DOM.monthNav, month => {
-  currentMonth = month; // <-- add this
-  loadMonth(month);
-  loadQuickHomes(month);
-  loadSales(month);
-  hydrateMonthlyUI(month);
-});
+    'Nav months →',
+    [...DOM.monthNav.querySelectorAll('a.nav-link')].map(a => a.dataset.month)
+  );
+  bindMonthNav(DOM.monthNav, month => {
+    currentMonth = month;
+    loadMonth(month);
+    loadQuickHomes(month);
+    loadSales(month);
+    hydrateMonthlyUI(month);
+  });
 
-    // ——— initial load for first month pill ———
- const firstMonthLink = DOM.monthNav.querySelector('a.nav-link');
-if (firstMonthLink) {
-  const month = firstMonthLink.dataset.month;
-  currentMonth = month; // <-- add this
-  loadMonth(month);
-  loadQuickHomes(month);
-  loadSales(month);
-  hydrateMonthlyUI(month);
-}
+  // initial load for first month pill
+  const firstMonthLink = DOM.monthNav.querySelector('a.nav-link');
+  if (firstMonthLink) {
+    const month = firstMonthLink.dataset.month;
+    currentMonth = month;
+    loadMonth(month);
+    loadQuickHomes(month);
+    loadSales(month);
+    hydrateMonthlyUI(month);
+  }
 
-  // 2) wire your section tabs
+  // 2) Section tabs
   bindSectionNav(DOM.sectionNav);
-
-  // When switching between sections, reload data for the active month
   DOM.sectionNav.addEventListener('click', e => {
     const link = e.target.closest('a.nav-link');
     if (!link) return;
     const activeMonth = DOM.monthNav.querySelector('a.nav-link.active')?.dataset.month;
     if (!activeMonth) return;
     switch (link.dataset.section) {
-      case 'price':
-        loadMonth(activeMonth);
-        break;
-      case 'inventory':
-        loadQuickHomes(activeMonth);
-        loadSales(activeMonth);
-        break;
-      // metrics section loads from existing latestMetrics
+      case 'price':      loadMonth(activeMonth); break;
+      case 'inventory':  loadQuickHomes(activeMonth); loadSales(activeMonth); break;
     }
   });
 
-  // 3) METRICS FORM
+  // 3) Metrics form
   initMetrics(DOM.metricsForm, latestMetrics, saveMetrics);
 
-  // 4) MONTHLY LOTS COUNTER
-// 4) MONTHLY LOTS COUNTER (replace the whole block)
-DOM.lotCount.value = totalLots;
+  // 4) Monthly lots counter (persist as you type)
+  DOM.lotCount.value = totalLots;
 
-// Keep live UI math for remaining
-DOM.soldInput.addEventListener('input', () => {
+  DOM.soldInput.addEventListener('input', () => {
+    updateRemainingLots(totalLots, DOM.soldInput, DOM.remainingEl);
+  });
+  const persistSold = () => currentMonth && saveMonthly({ month: currentMonth, soldLots: DOM.soldInput.value });
+  DOM.soldInput.addEventListener('input',  persistSold);
+  DOM.soldInput.addEventListener('change', persistSold);
+  DOM.soldInput.addEventListener('blur',   persistSold);
+
+  const persistQMI = () => currentMonth && saveMonthly({ month: currentMonth, quickMoveInLots: DOM.quickInput.value });
+  DOM.quickInput.addEventListener('input',  persistQMI);
+  DOM.quickInput.addEventListener('change', persistQMI);
+  DOM.quickInput.addEventListener('blur',   persistQMI);
+
   updateRemainingLots(totalLots, DOM.soldInput, DOM.remainingEl);
-});
 
-// Persist Sold Lots on input/change/blur
-const persistSold = () => {
-  if (!currentMonth) return console.warn('No active month set');
-  saveMonthly({ month: currentMonth, soldLots: DOM.soldInput.value });
-};
-DOM.soldInput.addEventListener('input',  persistSold); // <-- add this
-DOM.soldInput.addEventListener('change', persistSold);
-DOM.soldInput.addEventListener('blur',   persistSold);
-
-// Persist Quick Move-Ins on input/change/blur (was only 'change' before)
-const persistQMI = () => {
-  if (!currentMonth) return console.warn('No active month set');
-  saveMonthly({ month: currentMonth, quickMoveInLots: DOM.quickInput.value });
-};
-DOM.quickInput.addEventListener('input',  persistQMI);
-DOM.quickInput.addEventListener('change', persistQMI);
-DOM.quickInput.addEventListener('blur',   persistQMI);
-
-// Ensure initial remaining calc
-updateRemainingLots(totalLots, DOM.soldInput, DOM.remainingEl);
-
-  // 5) PROS/CONS
+  // 5) Pros/Cons
   renderBadges(DOM.prosList, pros);
   renderBadges(DOM.consList, cons);
 
@@ -135,16 +126,15 @@ updateRemainingLots(totalLots, DOM.soldInput, DOM.remainingEl);
     await saveMetrics({ pros: updatedPros });
     renderBadges(DOM.prosList, updatedPros);
   });
-
   bindProsCons(DOM.addConBtn, DOM.newConInput, DOM.consList, async updatedCons => {
     await saveMetrics({ cons: updatedCons });
     renderBadges(DOM.consList, updatedCons);
   });
 
-  // 6) TOP-3 PLANS
+  // 6) Top-3 plans
   populateTopPlans();
 
-  // 7) FLOOR-PLANS MODAL
+  // 7) Floor-plans modal
   initFloorPlansModal(
     DOM.modalEl,
     () => loadFloorPlansList(DOM.planListEl, DOM.floorPlanFields),
@@ -163,22 +153,12 @@ updateRemainingLots(totalLots, DOM.soldInput, DOM.remainingEl);
       else console.error('Floor plan save failed:', await res.text());
     }
   );
-  initFloorPlanModal(
-    DOM.openPlanModal,
-    DOM.modalEl,
-    planId => {
-      /* no-op: fields already populated by list click handler */
-    }
-  );
+  initFloorPlanModal(DOM.openPlanModal, DOM.modalEl, () => {});
 
-  // 8) Trigger initial UI state
+  // 8) Ensure Metrics tab is shown initially
   const metricsLink = DOM.sectionNav.querySelector('a.nav-link[data-section="metrics"]');
-if (metricsLink) {
-  // Clear any pre-set active pill (e.g., Floor Plans) to avoid double-active state
-  DOM.sectionNav.querySelectorAll('a.nav-link').forEach(a => a.classList.remove('active'));
-
-  // Fire the same handlers your nav binding uses
-  metricsLink.click();
-}
-
+  if (metricsLink) {
+    DOM.sectionNav.querySelectorAll('a.nav-link').forEach(a => a.classList.remove('active'));
+    metricsLink.click();
+  }
 });

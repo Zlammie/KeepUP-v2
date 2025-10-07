@@ -39,6 +39,7 @@ const CompetitionSchema = new Schema({
 
   modelPlan:        { type: String, default: '' },
   garageType:       { type: String, enum: ['Front','Rear', null], default: null },
+  totalLots: { type: Number, set: toNumOrNull, default: null },
 
   // 💸 Fees
   hoaFee:         { type: Number, set: toNumOrNull, default: null },
@@ -51,6 +52,11 @@ const CompetitionSchema = new Schema({
 
   earnestAmount:    { type: Number, set: toNumOrNull, default: null },
   realtorCommission:{ type: Number, set: toNumOrNull, default: null },
+
+  amenities: [{
+  category: { type: String, trim: true, default: '' },
+  items:    [{ type: String, trim: true }]
+}],
 
   // 🏗️ Linked data
   floorPlans: [{ type: Schema.Types.ObjectId, ref: 'FloorPlanComp', index: true }],

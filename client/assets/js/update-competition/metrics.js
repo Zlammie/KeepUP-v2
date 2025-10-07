@@ -22,9 +22,13 @@ export function initMetrics(formEl, initialData, saveFn) {
 }
 
 export async function saveMetrics(data) {
-  await fetch(`/api/competitions/${competitionId}/metrics`, {
+  const res = await fetch(`/api/competitions/${competitionId}/metrics`, {
     method: 'PUT',
     headers: {'Content-Type': 'application/json'},
     body: JSON.stringify(data)
   });
+  if (!res.ok) {
+    const msg = await res.text().catch(() => '');
+    throw new Error(`metrics save failed: ${res.status} ${msg}`);
+  }
 }

@@ -26,7 +26,12 @@ const pick = (obj, keys) => {
 };
 
 const isSuperAdmin = (req) => (req.user?.roles || []).includes('SUPER_ADMIN');
-const tenantFilter = (req) => (isSuperAdmin(req) ? {} : { company: req.user?.company });
+const tenantFilter = (req) => {
+  if (isSuperAdmin(req)) return {};
+  const c = req.user?.company;
+  if (!c) throw new Error('Missing company on user; cannot scope tenant queries');
+  return { company: c };
+};
 
 // Attach a param guard for :id
 router.param('id', (req, res, next, id) => {
@@ -96,7 +101,33 @@ router.get('/minimal', asyncHandler(async (req, res) => {
     label: [c.builderName, c.communityName].filter(Boolean).join(' - ')
   })));
 }));
+// GET /api/competitions/:id/monthly?month=YYYY-MM
+router.get('/:id/monthly', asyncHandler(async (req, res) => {
+  const { id } = req.params;
+  const { month } = req.query || {};
+  if (!month || !/^\d{4}-\d{2}$/.test(month)) {
+    return res.status(400).json({ error: 'month is required (YYYY-MM)' });
+  }
 
+  const _id = mongoose.Types.ObjectId.isValid(id) ? new mongoose.Types.ObjectId(id) : id;
+
+  // try WITH tenant filter
+  const filter = { _id, ...tenantFilter(req) };
+  const doc = await Competition.findOne(filter, { monthlyMetrics: 1, company: 1 }).lean();
+
+  if (!doc) {
+    // check if it exists WITHOUT tenant to detect mismatch clearly
+    const anyDoc = await Competition.findOne({ _id }, { company: 1 }).lean();
+    if (anyDoc) {
+      // ← this is the culprit after you added users/tenant scoping
+      return res.status(403).json({ error: 'Wrong tenant/company for this competition' });
+    }
+    return res.status(404).json({ error: 'Competition not found' });
+  }
+
+  const hit = (doc.monthlyMetrics || []).find(m => m?.month === month);
+  res.json(hit || { month, soldLots: null, quickMoveInLots: null });
+}));
 // GET /api/competitions/:id
 router.get('/:id', asyncHandler(async (req, res) => {
   const filter = { _id: req.params.id, ...tenantFilter(req) };
@@ -218,15 +249,20 @@ router.patch('/:id', asyncHandler(async (req, res) => {
 
 // keep your dedicated helpers as targeted endpoints (clear intent)
 router.put('/:id/amenities', asyncHandler(async (req, res) => {
-  const { communityAmenities } = req.body;
+  const raw = req.body?.communityAmenities;
+
+  // normalize into the expected shape: [{ category, items:[] }]
+  const groups = Array.isArray(raw) ? raw : [];
+  const safeGroups = groups.map(g => ({
+    category: String(g?.category ?? ''),
+    items: Array.isArray(g?.items) ? g.items.map(String).filter(Boolean) : []
+  }));
+
   const filter = { _id: req.params.id, ...tenantFilter(req) };
-  const updated = await Competition.findOneAndUpdate(
-    filter,
-    { $set: { communityAmenities } },
-    { new: true, runValidators: true }
-  ).lean();
-  if (!updated) return res.status(404).json({ error: 'Not found' });
-  res.json(updated);
+  const result = await Competition.updateOne(filter, { $set: { communityAmenities: safeGroups } });
+
+  if (result.matchedCount === 0) return res.status(404).json({ ok:false, error: 'Not found for this tenant/user' });
+  return res.json({ ok:true, count: safeGroups.length });
 }));
 
 router.put('/:id/metrics', asyncHandler(async (req, res) => {
@@ -309,17 +345,7 @@ router.put('/:id/monthly-metrics', asyncHandler(async (req, res) => {
   res.json({ ok: true });
 }));
 
-// GET /api/competitions/:id/monthly?month=YYYY-MM
-router.get('/:id/monthly', asyncHandler(async (req, res) => {
-  const { month } = req.query;
-  const doc = await Competition.findOne({ _id: req.params.id, ...tenantFilter(req) }).lean();
-  if (!doc) return res.status(404).json({ error: 'Not found' });
-  const m = (doc.monthlyMetrics || []).find(x => x.month === month) || {};
-  res.json({
-    soldLots: m.soldLots ?? null,
-    quickMoveInLots: m.quickMoveInLots ?? null
-  });
-}));
+
 
 // ───────────────────────── analytics ──────────────────────────────
 

@@ -336,12 +336,13 @@
   id: competition._id,
   totalLots: competition.totalLots ?? 0,
   monthlyMetrics: competition.monthlyMetrics || [],
-  amenities: competition.communityAmenities || [],
+  communityAmenities: competition.communityAmenities || [],
   pros: competition.pros || [],
   cons: competition.cons || [],
   promotion: competition.promotion || ''
 }).replace(/</g, '\\u003c') %>
 </script>
+
 
 <!-- Entry script as an ES module -->
  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.4/dist/chart.umd.min.js"></script>

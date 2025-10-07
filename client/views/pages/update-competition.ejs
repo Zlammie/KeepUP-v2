@@ -25,13 +25,7 @@
       </button>
 
       <!-- Script (module) -->
-      <script type="module">
-        import { competitionId } from '/assets/js/update-competition/data.js';
-        document.getElementById('backToDetailsBtn')
-          .addEventListener('click', () => {
-            window.location.href = `/competition-details/${competitionId}`;
-          });
-      </script>
+   
           <div class="card-header">
             Competition Info
           </div>
@@ -206,26 +200,26 @@
                 <form id="metricsForm">
                   <div class="mb-3">
                     <label for="promotion" class="form-label">Promotion</label>
-                    <textarea
-                      id="promotion"
-                      name="promotion"
-                      class="form-control"
-                      rows="3"
-                      placeholder="Enter promotion details"
-                    ><%= competition.promotion || '' %></textarea>
+                     <textarea
+                        id="promotion"
+                        name="promotion"
+                        data-metrics
+                        class="form-control"
+                        rows="3"
+                      ><%= competition.promotion || '' %></textarea>
                   </div>
                   <!-- Top 3 Plans -->
                  <div class="mb-3 card">
                   <label class="form-label">Top 3 Plans</label>
-                  <select name="topPlan1" id="topPlan1" class="form-select mb-2">
-                    <option value="">1. Select Plan</option>
-                  </select>
-                  <select name="topPlan2" id="topPlan2" class="form-select mb-2">
-                    <option value="">2. Select Plan</option>
-                  </select>
-                  <select name="topPlan3" id="topPlan3" class="form-select">
-                    <option value="">3. Select Plan</option>
-                  </select>
+                    <select name="topPlan1" id="topPlan1" class="form-select mb-2" data-metrics>
+                      <option value="">1. Select Plan</option>
+                    </select>
+                    <select name="topPlan2" id="topPlan2" class="form-select mb-2" data-metrics>
+                      <option value="">2. Select Plan</option>
+                    </select>
+                    <select name="topPlan3" id="topPlan3" class="form-select" data-metrics>
+                      <option value="">3. Select Plan</option>
+                    </select>
                 </div>
 
                   <!-- Pros & Cons -->

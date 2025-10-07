@@ -50,13 +50,28 @@ const triggerSave = initAutosave(competitionId);
 initFees(triggerSave);
 
 // 2) Amenities
-initAmenities(competitionId, Array.isArray(boot.amenities) ? boot.amenities : []);
+initAmenities(competitionId, Array.isArray(boot.communityAmenities) ? boot.communityAmenities : []);
 
 // 3) Header summary (Sold / Remaining / QMI)
 hydrateLotStats({
   totalLots: boot.totalLots ?? 0,
   monthlyMetrics: Array.isArray(boot.monthlyMetrics) ? boot.monthlyMetrics : []
 });
+
+const totalLotsInput = document.querySelector('input#totalLots[name="totalLots"]');
+const totalLotsStat  = document.getElementById('statTotalLots');
+
+if (totalLotsInput && totalLotsStat) {
+  totalLotsInput.addEventListener('input', () => {
+    const n = Number(totalLotsInput.value);
+    totalLotsStat.textContent = Number.isFinite(n) ? n : '—';
+    // Recompute remaining with the latest number + existing monthly metrics
+    hydrateLotStats({
+      totalLots: Number.isFinite(n) ? n : 0,
+      monthlyMetrics: Array.isArray(boot.monthlyMetrics) ? boot.monthlyMetrics : []
+    });
+  });
+}
 
 
 // Graphs 
