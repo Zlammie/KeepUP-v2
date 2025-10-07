@@ -15,6 +15,15 @@ router.use(ensureAuth);
 const isId = (id) => mongoose.Types.ObjectId.isValid(id);
 const monthKey = (d) => `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}`;
 
+const toYM = (val) => {
+  if (!val) return null;
+  if (/^\d{4}-(0[1-9]|1[0-2])$/.test(val)) return val;       // "YYYY-MM"
+  const d = new Date(val);
+  return Number.isNaN(d.getTime())
+    ? null
+    : `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}`;
+};
+
 const parseMonth = (val) => {
   if (!val || typeof val !== 'string') return null;
   const m = /^(\d{4})-(\d{2})$/.exec(val.trim());

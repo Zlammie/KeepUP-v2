@@ -51,8 +51,13 @@ const dateLikeToYMInt = (s) => {
 };
 
 // tenant guards
-async function assertCommunity(req, id) {
-  const doc = await Community.findOne({ _id: id, ...baseFilter(req) }).select('_id company').lean();
+async function assertCommunity(req, id, selectFields = '') {
+  const base = ['_id', 'company'];
+  const extra = String(selectFields || '').trim();
+  const sel = (extra ? base.concat(extra.split(/\s+/)) : base).join(' ');
+  const doc = await Community.findOne({ _id: id, ...baseFilter(req) })
+    .select(sel)
+    .lean();
   if (!doc) {
     const err = new Error('Community not found');
     err.status = 404;
@@ -146,6 +151,10 @@ router.put('/my-community-competition/:communityId',
     try {
       const { communityId } = req.params;
       if (!isObjectId(communityId)) return res.status(400).json({ error: 'Invalid communityId' });
+
+      // ⬇️ Add this (we need company + ids for upsert/scoping)
+      const community = await assertCommunity(req, communityId); 
+
       const body = req.body || {};
       const feeTypesRaw = Array.isArray(body.feeTypes) ? body.feeTypes : [];
       const normalizedFees = feeTypesRaw
@@ -166,6 +175,7 @@ router.put('/my-community-competition/:communityId',
         modelPlan: strOrEmpty(body.modelPlan),
         lotSize: strOrEmpty(body.lotSize),
         garageType,
+        // ⬇️ Schools (these were fine, they just weren't making it to the doc due to scoping)
         schoolISD: strOrEmpty(body.schoolISD),
         elementarySchool: strOrEmpty(body.elementarySchool),
         middleSchool: strOrEmpty(body.middleSchool),
@@ -206,9 +216,9 @@ router.put('/my-community-competition/:communityId',
         };
       }
 
-      const profile = await CommunityCompetitionProfile.findOneAndUpdate(
-        { community: community._id, ...baseFilter(req) },
-        { $set: { ...update, company: community.company } },
+  const profile = await CommunityCompetitionProfile.findOneAndUpdate(
+        { community: community._id, ...baseFilter(req) },               // ⬅️ use community
+        { $set: { ...update, company: community.company } },            // ⬅️ set company on upsert
         { new: true, upsert: true }
       )
         .populate('linkedCompetitions', 'communityName builderName city state')
@@ -554,7 +564,7 @@ router.get('/my-community-competition/:communityId/sales-summary',
                         : { sales: 0, cancels: 0, closings: 0 };
       res.json({ month, ...out });
     } catch (err) {
-      res.status(500).json({ error: 'Server error' });
+      res.status(err.status || 500).json({ error: err.message || 'Server error' });
     }
   }
 );
@@ -569,6 +579,7 @@ router.put('/my-community-competition/:communityId/sales-summary',
       if (!isObjectId(communityId)) return res.status(400).json({ error: 'Invalid communityId' });
       if (!isYYYYMM(month)) return res.status(400).json({ error: 'month=YYYY-MM is required' });
 
+      const community = await assertCommunity(req, communityId);
       const doc = await CommunityCompetitionProfile.findOneAndUpdate(
         { community: community._id, ...baseFilter(req) },
         { $setOnInsert: { company: community.company, community: community._id } },

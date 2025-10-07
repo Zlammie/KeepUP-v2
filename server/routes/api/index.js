@@ -10,6 +10,7 @@ const commentRoutes = require('../commentsRoutes');
 const floorPlanRoutes = require('../floorPlanRoutes');
 const lotViewRoutes = require('../lotViewRoutes');
 const competitionApi = require('./competitions.api');
+const competitionRoutes = require('../competitionRoutes');
 const myCommunityCompetitionRoutes = require('../myCommunityCompetitionRoutes');
 const manageMyCommunityCompetitionRoutes = require('../manageMyCommunityCompetitionRoutes');
 const communityCompetitionProfileRoutes = require('../communityCompetitionProfileRoutes');
@@ -27,6 +28,7 @@ router.use('/comments', commentRoutes);
 router.use('/floorplans', floorPlanRoutes);
 router.use('/', lotViewRoutes); // if this exposes /lots or other root endpoints
 router.use('/competitions', competitionApi);
+router.use('/competitions', competitionRoutes);
 router.use('/', myCommunityCompetitionRoutes);
 router.use('/', manageMyCommunityCompetitionRoutes);
 router.use('/', communityCompetitionProfileRoutes);

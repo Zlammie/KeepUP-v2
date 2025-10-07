@@ -116,6 +116,56 @@ exports.updateFloorPlan = async (req, res) => {
   res.json(fp);
 };
 
+// Monthly metrics (load one month)
+exports.getMonthly = async (req, res) => {
+  const comp = await loadScopedCompetition(req, res); if (!comp || res.headersSent) return;
+  const { month } = req.query || {};
+  if (!month || !/^\d{4}-\d{2}$/.test(month)) {
+    return res.status(400).json({ error: 'month is required (YYYY-MM)' });
+  }
+  const hit = (comp.monthlyMetrics || []).find(m => m?.month === month);
+  res.json(hit || { month, soldLots: null, quickMoveInLots: null });
+};
+
+// Monthly metrics (upsert one month row)
+exports.upsertMonthly = async (req, res) => {
+  const comp = await loadScopedCompetition(req, res); if (!comp || res.headersSent) return;
+
+  const { month } = req.body || {};
+  if (!month || !/^\d{4}-\d{2}$/.test(month)) {
+    return res.status(400).json({ error: 'month is required (YYYY-MM)' });
+  }
+
+  const toNumOrNull = (v) => (v === '' || v == null ? null : Number(v));
+  const setOps = {};
+  if (req.body.soldLots        !== undefined) setOps['monthlyMetrics.$.soldLots']        = toNumOrNull(req.body.soldLots);
+  if (req.body.quickMoveInLots !== undefined) setOps['monthlyMetrics.$.quickMoveInLots'] = toNumOrNull(req.body.quickMoveInLots);
+
+  // 1) try updating an existing row for that month
+  const updated = await Competition.updateOne(
+    { _id: comp._id, 'monthlyMetrics.month': month },
+    { $set: setOps },
+    { runValidators: true }
+  );
+
+  if (updated.matchedCount === 0) {
+    // 2) push a new row if none existed
+    await Competition.updateOne(
+      { _id: comp._id },
+      { $push: {
+        monthlyMetrics: {
+          month,
+          ...(req.body.soldLots        !== undefined ? { soldLots:        toNumOrNull(req.body.soldLots) } : {}),
+          ...(req.body.quickMoveInLots !== undefined ? { quickMoveInLots: toNumOrNull(req.body.quickMoveInLots) } : {}),
+        }
+      }},
+      { runValidators: true }
+    );
+  }
+
+  res.json({ ok: true });
+};
+
 // Price records
 exports.getPriceRecords = async (req, res) => {
   const comp = await loadScopedCompetition(req, res); if (!comp || res.headersSent) return;

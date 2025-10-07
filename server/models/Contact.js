@@ -18,6 +18,15 @@ const toLenderStatus = (v) => {
   return normalized && lenderStatusValues.includes(normalized) ? normalized : 'invite';
 };
 
+function normEmail(v) {
+  const t = (v || '').trim().toLowerCase();
+  return t || null;
+}
+function normPhone(v) {
+  const t = (v || '').toString().replace(/\D+/g, '');
+  return t || null;
+}
+
 /**
  * Contact (master identity per company)
  * - Tenant scoped by `company`
@@ -48,6 +57,9 @@ const ContactSchema = new Schema(
     buyMonth:   { type: String, trim: true },
     facing:     [{ type: String, trim: true }],
     living:     [{ type: String, trim: true }],
+
+    emailNorm: { type: String, index: true },
+    phoneNorm: { type: String, index: true },
 
     floorplans: [{ type: Schema.Types.ObjectId, ref: 'FloorPlan', index: true }],
 
@@ -156,7 +168,35 @@ ContactSchema.pre('save', function (next) {
   if (Array.isArray(this.floorplans)) {
     this.floorplans = [...new Set(this.floorplans.map(id => id.toString()))];
   }
+  // NEW: keep normalized fields in sync
+  this.emailNorm = normEmail(this.email);
+  this.phoneNorm = normPhone(this.phone);
   next();
 });
+
+function applyNormsToUpdate(u) {
+  if (!u) return u;
+  const $set = u.$set || {};
+  if (Object.prototype.hasOwnProperty.call($set, 'email')) {
+    $set.emailNorm = normEmail($set.email);
+  }
+  if (Object.prototype.hasOwnProperty.call($set, 'phone')) {
+    $set.phoneNorm = normPhone($set.phone);
+  }
+  u.$set = $set;
+  return u;
+}
+ContactSchema.pre('updateOne', function(next){ this.setUpdate(applyNormsToUpdate(this.getUpdate())); next(); });
+ContactSchema.pre('findOneAndUpdate', function(next){ this.setUpdate(applyNormsToUpdate(this.getUpdate())); next(); });
+ContactSchema.pre('updateMany', function(next){ this.setUpdate(applyNormsToUpdate(this.getUpdate())); next(); });
+
+ContactSchema.index(
+  { company: 1, emailNorm: 1 },
+  { unique: true, partialFilterExpression: { emailNorm: { $type: 'string', $ne: '' } } }
+);
+ContactSchema.index(
+  { company: 1, phoneNorm: 1 },
+  { unique: true, partialFilterExpression: { phoneNorm: { $type: 'string', $ne: '' } } }
+);
 
 module.exports = mongoose.model('Contact', ContactSchema);

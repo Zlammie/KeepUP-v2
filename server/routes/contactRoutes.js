@@ -56,21 +56,76 @@ router.get('/ping', requireRole('READONLY','USER','MANAGER','COMPANY_ADMIN','SUP
 
 // ───────────────────────── create ─────────────────────────
 // POST /api/contacts
-router.post('/',
-  requireRole('USER','MANAGER','COMPANY_ADMIN','SUPER_ADMIN'),
+router.post(
+  '/',
+  requireRole('USER', 'MANAGER', 'COMPANY_ADMIN', 'SUPER_ADMIN'),
   async (req, res) => {
     try {
-      // Stamp company server-side (non-super users cannot spoof)
-      if (!isSuper(req)) req.body.company = req.user.company;
+      // 1) Company scope (non-super users cannot pick a different company)
+      const roles = req.user?.roles || [];
+      const isSuper = roles.includes('SUPER_ADMIN');
+      const company = isSuper ? (req.body.company || req.user.company) : req.user.company;
+      if (!company) return res.status(400).json({ error: 'Company context required' });
 
-      // Normalize a few fields
-      if (req.body.phone) req.body.phone = normalizePhone(req.body.phone);
-      if (req.body.visitDate) req.body.visitDate = parseDateMaybe(req.body.visitDate);
-      if (req.body.communityId === '') req.body.communityId = null;
+      // 2) Normalize inputs
+           const firstName = (req.body.firstName || '').trim();
+      const lastName  = (req.body.lastName  || '').trim();
+      const emailRaw  = (req.body.email || '').trim();
+      const phoneRaw  = (req.body.phone || '').toString();
+      const emailNorm = emailRaw.toLowerCase();
+      const phoneNorm = phoneRaw.replace(/\D+/g, '');
+      const visitDate = req.body.visitDate ? new Date(req.body.visitDate) : null;
 
-      const doc = await Contact.create(req.body);
-      res.status(201).json(doc);
+      // 3) Dedupe key is ONLY inside this company
+      const filter =
+       emailNorm ? { company, emailNorm } :
+        phoneNorm ? { company, phoneNorm } : null;
+
+      // 4) No dedupe keys → create new in this company
+      if (!filter) {
+        const created = await Contact.create({
+          company, firstName, lastName,
+          email: emailRaw, phone: phoneRaw,
+          emailNorm, phoneNorm, visitDate
+        });
+        return res.status(201).json({ created: true, contact: created });
+      }
+
+      // 5) Look for existing contact in THIS company only
+      const existing = await Contact.findOne(filter).lean();
+
+      // 5a) If nothing in this company → create a new one (even if the same email exists in another company)
+      if (!existing) {
+        const created = await Contact.create({
+          company, firstName, lastName,
+          email: emailRaw, phone: phoneRaw,
+          emailNorm, phoneNorm, visitDate
+        });
+        return res.status(201).json({ created: true, contact: created });
+      }
+
+      // 6) Same-company “associate” behavior (never cross-company):
+      const $set = {};
+      if (firstName && !existing.firstName) $set.firstName = firstName;
+      if (lastName  && !existing.lastName)  $set.lastName  = lastName;
+       if (emailNorm && !existing.emailNorm) { $set.email = emailRaw; $set.emailNorm = emailNorm; }
+       if (phoneNorm && !existing.phoneNorm) { $set.phone = phoneRaw; $set.phoneNorm = phoneNorm; }
+      if (visitDate && !existing.visitDate) $set.visitDate = visitDate;
+      if (!existing.ownerId)                $set.ownerId   = req.user._id;
+
+      const attached = await Contact.findOneAndUpdate(
+        { _id: existing._id, company },
+        Object.keys($set).length ? { $set } : {},
+        { new: true }
+      ).lean();
+
+      return res.json({ created: false, attached: true, contact: attached || existing });
     } catch (err) {
+      if (String(err?.code) === '11000') {
+        // If this still hits, you likely have a legacy global unique index (email_1/phone_1).
+        return res.status(409).json({ error: 'Duplicate (index)', details: err.message });
+      }
+      console.error('POST /api/contacts error', err);
       res.status(400).json({ error: 'Failed to save contact', details: err.message });
     }
   }
@@ -682,19 +737,21 @@ router.post('/import',
         const r = rows[i];
         const firstName = toStr(r.FirstName || r['First Name'] || r.firstName);
         const lastName  = toStr(r.LastName  || r['Last Name']  || r.lastName);
-        const email     = toStr(r.Email     || r.email);
-        const phone     = normalizePhone(r.Phone || r.phone);
+        const emailRaw  = toStr(r.Email || r.email);
+        const phoneRaw  = normalizePhone(r.Phone || r.phone);
+        const emailNorm = emailRaw.toLowerCase();
+        const phoneNorm = phoneRaw; // normalizePhone already digits-only
         const visitDate = parseDateMaybe(r.VisitDate || r['Visit Date'] || r.visitDate);
 
-        if (!firstName && !lastName && !email && !phone) { skipped++; continue; }
+        if (!firstName && !lastName && !emailRaw && !phoneNorm) { skipped++; continue; }
 
-        const filter = email ? { company: req.user.company, email } :
-                       phone ? { company: req.user.company, phone } : null;
+         const filter = emailNorm ? { company: req.user.company, emailNorm } :
+                       phoneNorm ? { company: req.user.company, phoneNorm } : null;
         if (!filter) { skipped++; continue; }
 
         const set = { firstName, lastName };
-        if (email) set.email = email;
-        if (phone) set.phone = phone;
+        if (emailNorm) { set.email = emailRaw; set.emailNorm = emailNorm; }
+       if (phoneNorm) { set.phone = phoneRaw; set.phoneNorm = phoneNorm; }
         if (visitDate) set.visitDate = visitDate;
 
         // Stamp company on upsert
