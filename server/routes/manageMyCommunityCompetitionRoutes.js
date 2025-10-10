@@ -11,6 +11,9 @@ const FloorPlan = require('../models/FloorPlan');
 const router = express.Router();
 router.use(ensureAuth);
 
+const isSuper = (req) => (req.user?.roles || []).includes('SUPER_ADMIN');
+const companyFilter = (req) => (isSuper(req) ? {} : { company: req.user.company });
+
 // ------------------------ helpers ------------------------
 const isId = (id) => mongoose.Types.ObjectId.isValid(id);
 const monthKey = (d) => `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}`;
@@ -156,18 +159,26 @@ router.get('/communities/:communityId/floorplans', async (req, res) => {
     const { communityId } = req.params;
     if (!isId(communityId)) return res.status(400).json({ error: 'Invalid communityId' });
 
+    const community = await Community.findOne({ _id: communityId, ...companyFilter(req) })
+      .select('lots homes inventory quickMoveIns qmi')
+      .lean();
+    if (!community) return res.status(404).json({ error: 'Community not found' });
+
     // prefer FloorPlan documents that have a community reference
-    let plans = await FloorPlan.find({ community: communityId }).select('name planNumber specs.squareFeet').lean();
+    let plans = await FloorPlan.find({ communities: community._id, ...companyFilter(req) })
+      .select('name planNumber specs.squareFeet')
+      .lean();
 
     if (!plans.length) {
       // fallback: collect plan ids from community data
-      const c = await Community.findById(communityId).select('lots homes inventory quickMoveIns qmi').lean();
       const ids = new Set();
-      for (const col of [c?.lots, c?.homes, c?.inventory, c?.quickMoveIns, c?.qmi]) {
+      for (const col of [community?.lots, community?.homes, community?.inventory, community?.quickMoveIns, community?.qmi]) {
         for (const h of arr(col)) if (h?.floorPlan) ids.add(String(h.floorPlan));
       }
       if (ids.size) {
-        plans = await FloorPlan.find({ _id: { $in: [...ids] } }).select('name planNumber specs.squareFeet').lean();
+        plans = await FloorPlan.find({ _id: { $in: [...ids] }, ...companyFilter(req) })
+          .select('name planNumber specs.squareFeet')
+          .lean();
       }
     }
     res.json(plans || []);

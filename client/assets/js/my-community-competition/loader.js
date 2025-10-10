@@ -139,7 +139,7 @@ export async function onSelectCommunity(id) {
     realtorCommission.value = profile?.realtorCommission ?? '';
 
     // Notify others
-    window.dispatchEvent(new CustomEvent('mcc:profileLoaded', { detail: { profile } }));
+    window.dispatchEvent(new CustomEvent('mcc:profileLoaded', { detail: { profile, communityId: id, community } }));
 
     enableUI(true);
     bindAutosaveOnce();

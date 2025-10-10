@@ -2,7 +2,7 @@
 import { clearGraph, mountInfo } from './ui.js';
 import { graphMount } from './dom.js';
 import { setCurrentChart } from './state.js';
-import { fetchSalesSeries, fetchBasePriceSeries, fetchQmiSoldsPoints } from './api.js';
+import { fetchSalesSeries, fetchBasePriceSeries, fetchQmiSolds } from './api.js';
 
 export async function drawSalesGraph(communityId) {
   clearGraph();
@@ -21,7 +21,7 @@ export async function drawSalesGraph(communityId) {
       { type: 'bar',  label: 'Sales',   data: series.sales,   borderWidth: 1 },
       { type: 'bar',  label: 'Cancels', data: series.cancels, borderWidth: 1 },
       { type: 'bar',  label: 'Closings',data: series.closings,borderWidth: 1 },
-      { type: 'line', label: 'Net (Sales − Cancels)', data: series.net, borderWidth: 2, tension: 0.25 }
+      { type: 'line', label: 'Net (Sales - Cancels)', data: series.net, borderWidth: 2, tension: 0.25 }
     ]
   };
   const options = {
@@ -76,25 +76,64 @@ export async function drawBasePriceGraph(communityId) {
   setCurrentChart(new Chart(ctx, { data: chartData, options }));
 }
 
-export async function drawQmiSoldsGraph(communityId) {
+export async function drawQmiSoldsGraph(communityId, opts = {}) {
   clearGraph();
   const canvas = document.createElement('canvas');
   canvas.id = 'qmiSoldsChart';
   graphMount.appendChild(canvas);
 
-  const res = await fetchQmiSoldsPoints(communityId);
-  if (!res.ok) { mountInfo('Could not load QMI/SOLD data.'); return; }
-  const { qmi, sold } = await res.json();
+  let payload = opts?.data || null;
 
-  const sortBySqft = (arr) => [...arr].sort((a, b) => a.x - b.x);
-  const qmiSorted  = sortBySqft(qmi || []);
-  const soldSorted = sortBySqft(sold || []);
+  if (!payload) {
+    const res = await fetchQmiSolds(communityId);
+    if (!res.ok) { mountInfo('Could not load QMI/SOLD data.'); return; }
+    payload = await res.json();
+  }
+
+  const qmiPointsRaw = Array.isArray(payload?.qmi) ? payload.qmi : [];
+  const soldPointsRaw = Array.isArray(payload?.sold) ? payload.sold : [];
+
+  const toPoint = (item, priceKey, fallbackPriceKey) => {
+    const sqft = Number(item?.x ?? item?.sqft);
+    const price = Number(
+      item?.y ??
+      item?.[priceKey] ??
+      (fallbackPriceKey ? item?.[fallbackPriceKey] : undefined)
+    );
+    if (!Number.isFinite(sqft) || !Number.isFinite(price)) return null;
+    return {
+      x: sqft,
+      y: price,
+      plan: item?.plan?.name || '',
+      planNumber: item?.plan?.planNumber || '',
+      address: item?.address || '',
+      month: item?.month || null
+    };
+  };
+
+  const qmiPoints = qmiPointsRaw
+    .map(item => toPoint(item, 'listPrice'))
+    .filter(Boolean)
+    .sort((a, b) => a.x - b.x);
+
+  const soldPoints = soldPointsRaw
+    .map(item => toPoint(item, 'soldPrice', 'listPrice'))
+    .filter(Boolean)
+    .sort((a, b) => a.x - b.x);
+
+  if (!qmiPoints.length && !soldPoints.length) {
+    mountInfo('No QMI or SOLD data available for recent months.');
+    return;
+  }
 
   const ctx = canvas.getContext('2d');
+  const currencyFmt = new Intl.NumberFormat(undefined, { style: 'currency', currency: 'USD', maximumFractionDigits: 0 });
+  const sqftFmt = new Intl.NumberFormat(undefined, { maximumFractionDigits: 0 });
+
   const data = {
     datasets: [
-      { label: 'Quick Move-Ins', type: 'scatter', showLine: true, data: qmiSorted,  pointRadius: 4, tension: 0.25 },
-      { label: 'SOLD',           type: 'scatter', showLine: true, data: soldSorted, pointRadius: 4, tension: 0.25 }
+      { label: 'Quick Move-Ins', type: 'scatter', showLine: true, data: qmiPoints,  pointRadius: 4, tension: 0.25 },
+      { label: 'Sold / Closed',  type: 'scatter', showLine: true, data: soldPoints, pointRadius: 4, tension: 0.25 }
     ]
   };
   const options = {
@@ -104,11 +143,13 @@ export async function drawQmiSoldsGraph(communityId) {
       tooltip: { callbacks: {
         label: (ctx) => {
           const d = ctx.raw;
-          const sqft  = Number(d.x).toLocaleString();
-          const price = d.y != null ? `$${Number(d.y).toLocaleString()}` : 'n/a';
-          const plan  = d.plan ? ` – ${d.plan}` : '';
+          const sqft  = sqftFmt.format(Number(d.x));
+          const price = Number.isFinite(Number(d.y)) ? currencyFmt.format(Number(d.y)) : 'n/a';
+          const planLabel = d.plan ? `${d.plan}${d.planNumber ? ` (#${d.planNumber})` : ''}` : '';
+          const planPart  = planLabel ? ` - ${planLabel}` : '';
           const addr  = d.address ? `\n${d.address}` : '';
-          return `${ctx.dataset.label}${plan}: ${price} @ ${sqft} sqft${addr}`;
+          const monthPart = d.month ? `\nMonth: ${d.month}` : '';
+          return `${ctx.dataset.label}${planPart}: ${price} @ ${sqft} sqft${addr}${monthPart}`;
         }
       } }
     },
@@ -118,4 +159,5 @@ export async function drawQmiSoldsGraph(communityId) {
     }
   };
   setCurrentChart(new Chart(ctx, { data, options }));
+  return payload;
 }

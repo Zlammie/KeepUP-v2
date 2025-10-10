@@ -44,7 +44,7 @@ export function topPlans() {
       };
       const r = await fetch(PROFILE_API, { method:'PUT', headers:{'Content-Type':'application/json'}, body: JSON.stringify(body) });
       if (!r.ok) throw new Error(await r.text());
-      profile = await r.json();
+      profile = toProfile(await r.json());
       fillSelects();
       console.debug('[mcc:topPlans] saved');
     };

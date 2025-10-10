@@ -4,11 +4,14 @@ import { wireCommunitySelect, initialLoad } from './loader.js';
 import { wireTabs } from './ui.js';
 import { drawSalesGraph, drawBasePriceGraph, drawQmiSoldsGraph } from './charts.js';
 import { setupSectionToggles } from './toggles.js';
+import { qmiSoldTable } from './qmiSoldTable.js';
 
 const allCompetitionsList = document.getElementById('allCompetitionsList');
 const linkedContainer = document.getElementById('linkedCompetitors');
 let linked = [];
 let allCompetitions = [];
+let latestQmiData = null;
+let qmiTablesInstance = null;
 
 const toId = (value) => (value == null ? null : String(value));
 const cleanText = (value) => {
@@ -29,7 +32,7 @@ const pickField = (...values) => {
 const splitLabel = (label) => {
   const cleaned = cleanText(label);
   if (!cleaned) return { builder: '', community: '' };
-  const separators = [' - ', ' — ', ' – ', ' | ', ' / ', ' • '];
+  const separators = [' - ', ' | ', ' / '];
   for (const sep of separators) {
     if (cleaned.includes(sep)) {
       const [left, right] = cleaned.split(sep).map((part) => cleanText(part));
@@ -217,15 +220,37 @@ async function unlinkCompetition(competitionId) {
 function init() {
   setupSectionToggles();
   wireCommunitySelect();
+
+  qmiTablesInstance = qmiSoldTable({
+    onData: ({ communityId, data }) => {
+      if (communityId !== currentCommunityId) return;
+      latestQmiData = data || null;
+      const activeTab = document.querySelector('.tab-btn.is-active');
+      if (communityId === currentCommunityId && activeTab?.dataset.tab === 'qmi') {
+        drawQmiSoldsGraph(communityId, { data: latestQmiData }).catch(console.error);
+      }
+    }
+  });
+
   wireTabs(
     {
       sales: drawSalesGraph,
       base:  drawBasePriceGraph,
-      qmi:   drawQmiSoldsGraph,
+      qmi:   async (id) => {
+        if (latestQmiData && id === currentCommunityId) {
+          await drawQmiSoldsGraph(id, { data: latestQmiData });
+          return;
+        }
+        const payload = await drawQmiSoldsGraph(id);
+        if (payload && id === currentCommunityId) {
+          latestQmiData = payload;
+        }
+      },
       sqft:  async () => { /* placeholder: coming soon */ }
     },
     () => currentCommunityId
   );
+
   fetchAllCompetitions().then(data => {
     const normalizedAll = (data || []).map((c) => normalizeCompetition(c, data)).filter(Boolean);
     allCompetitions = normalizedAll;
@@ -242,7 +267,10 @@ window.addEventListener('mcc:profileLoaded', (e) => {
   linked = arr.map((c) => normalizeCompetition(c)).filter(Boolean);
   renderLinkedList();
   renderAllCompetitions(); // re-mark already linked items
-  
+  if (qmiTablesInstance) {
+    latestQmiData = null;
+    qmiTablesInstance.load(currentCommunityId).catch(console.error);
+  }
 });
 
 document.addEventListener('DOMContentLoaded', init);
