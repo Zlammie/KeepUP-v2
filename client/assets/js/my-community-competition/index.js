@@ -13,6 +13,15 @@ let allCompetitions = [];
 let latestQmiData = null;
 let qmiTablesInstance = null;
 
+const qmiTableCardWrap = document.getElementById('qmiTableCardWrap');
+const qmiTableCard = document.getElementById('qmiTableCard');
+const qmiTableToggle = document.getElementById('qmiTableToggle');
+const communitySelectEl = document.getElementById('communitySelect');
+
+let qmiTableOverlay = null;
+let qmiTableExpanded = false;
+let qmiTableEscListener = null;
+
 const toId = (value) => (value == null ? null : String(value));
 const cleanText = (value) => {
   if (value == null) return '';
@@ -41,6 +50,105 @@ const splitLabel = (label) => {
   }
   return { builder: '', community: cleaned };
 };
+
+function ensureQmiTableOverlay() {
+  if (qmiTableOverlay && qmiTableOverlay.isConnected) {
+    return qmiTableOverlay;
+  }
+  const overlay = document.createElement('div');
+  overlay.id = 'qmiTableOverlay';
+  overlay.className = 'expandable-table-overlay';
+  overlay.addEventListener('click', () => collapseQmiTable());
+  qmiTableOverlay = overlay;
+  return overlay;
+}
+
+function expandQmiTable() {
+  if (!qmiTableCard || qmiTableExpanded) return;
+
+  const placeholderHeight = qmiTableCardWrap?.offsetHeight || qmiTableCard.offsetHeight || 0;
+  if (qmiTableCardWrap) {
+    qmiTableCardWrap.style.minHeight = `${placeholderHeight}px`;
+  }
+
+  const overlay = ensureQmiTableOverlay();
+  document.body.appendChild(overlay);
+  requestAnimationFrame(() => overlay.classList.add('is-visible'));
+
+  qmiTableCard.classList.add('is-expanded');
+  document.body.classList.add('expandable-table-expanded');
+
+  if (qmiTableToggle) {
+    qmiTableToggle.setAttribute('aria-expanded', 'true');
+    qmiTableToggle.setAttribute('aria-label', 'Collapse quick move-in table');
+    const sr = qmiTableToggle.querySelector('.visually-hidden');
+    if (sr) sr.textContent = 'Collapse quick move-in table';
+    const icon = qmiTableToggle.querySelector('.expandable-table-toggle-icon');
+    if (icon) icon.textContent = '[x]';
+  }
+
+  qmiTableExpanded = true;
+  qmiTableEscListener = (event) => {
+    if (event.key === 'Escape') {
+      collapseQmiTable();
+    }
+  };
+  document.addEventListener('keydown', qmiTableEscListener);
+}
+
+function collapseQmiTable(options = {}) {
+  if (!qmiTableCard || !qmiTableExpanded) return;
+
+  qmiTableExpanded = false;
+  qmiTableCard.classList.remove('is-expanded');
+
+  if (qmiTableCardWrap) {
+    qmiTableCardWrap.style.minHeight = '';
+  }
+
+  if (!document.querySelector('.expandable-table-card.is-expanded')) {
+    document.body.classList.remove('expandable-table-expanded');
+  }
+
+  if (qmiTableToggle) {
+    qmiTableToggle.setAttribute('aria-expanded', 'false');
+    qmiTableToggle.setAttribute('aria-label', 'Expand quick move-in table');
+    const sr = qmiTableToggle.querySelector('.visually-hidden');
+    if (sr) sr.textContent = 'Expand quick move-in table';
+    const icon = qmiTableToggle.querySelector('.expandable-table-toggle-icon');
+    if (icon) icon.textContent = '[+]';
+    if (options.focusToggle !== false) {
+      qmiTableToggle.focus();
+    }
+  }
+
+  const overlay = qmiTableOverlay;
+  qmiTableOverlay = null;
+  if (overlay && overlay.parentNode) {
+    overlay.parentNode.removeChild(overlay);
+  }
+
+  if (qmiTableEscListener) {
+    document.removeEventListener('keydown', qmiTableEscListener);
+    qmiTableEscListener = null;
+  }
+}
+
+function toggleQmiTable() {
+  if (qmiTableExpanded) {
+    collapseQmiTable();
+  } else {
+    expandQmiTable();
+  }
+}
+
+if (qmiTableToggle && qmiTableCard) {
+  qmiTableToggle.addEventListener('click', toggleQmiTable);
+}
+
+if (communitySelectEl) {
+  communitySelectEl.addEventListener('change', () => collapseQmiTable({ focusToggle: false }));
+}
 
 function normalizeCompetition(raw, fallbackList = allCompetitions) {
   if (!raw) return null;
@@ -220,6 +328,7 @@ async function unlinkCompetition(competitionId) {
 function init() {
   setupSectionToggles();
   wireCommunitySelect();
+  collapseQmiTable({ focusToggle: false });
 
   qmiTablesInstance = qmiSoldTable({
     onData: ({ communityId, data }) => {
@@ -267,6 +376,7 @@ window.addEventListener('mcc:profileLoaded', (e) => {
   linked = arr.map((c) => normalizeCompetition(c)).filter(Boolean);
   renderLinkedList();
   renderAllCompetitions(); // re-mark already linked items
+  collapseQmiTable({ focusToggle: false });
   if (qmiTablesInstance) {
     latestQmiData = null;
     qmiTablesInstance.load(currentCommunityId).catch(console.error);

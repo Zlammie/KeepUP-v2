@@ -261,49 +261,66 @@
               <small class="text-muted">Last 12 recorded months</small>
             </div>
             <div class="row g-3">
-              <div class="col-md-6">
-                <h5>Quick Move-In Homes</h5>
-                <div class="table-responsive">
-                  <table class="table table-sm table-striped" id="qmiTable">
-                    <thead>
-                      <tr>
-                        <th scope="col">Month</th>
-                        <th scope="col">Address</th>
-                        <th scope="col">Floor Plan</th>
-                        <th scope="col">Sqft</th>
-                        <th scope="col">List Price</th>
-                        <th scope="col">Status</th>
-                      </tr>
-                    </thead>
-                    <tbody id="qmiTableBody">
-                      <tr>
-                        <td colspan="6" class="text-muted">Select a community to load data.</td>
-                      </tr>
-                    </tbody>
-                  </table>
+              <div class="col-md-6" id="qmiTableCardWrap">
+                <div class="card card--white p-3 expandable-table-card h-100" id="qmiTableCard">
+                  <div class="expandable-table-card-header mb-2">
+                    <h5 class="mb-0">Quick Move-In Homes</h5>
+                    <button type="button"
+                            id="qmiTableToggle"
+                            class="btn btn-sm btn-outline-secondary expandable-table-toggle"
+                            aria-expanded="false"
+                            aria-controls="qmiTable"
+                            aria-label="Expand quick move-in table">
+                      <span class="expandable-table-toggle-icon" aria-hidden="true">[+]</span>
+                      <span class="visually-hidden">Expand quick move-in table</span>
+                    </button>
+                  </div>
+                  <div class="table-responsive">
+                    <table class="table table-sm table-striped" id="qmiTable">
+                      <thead>
+                        <tr>
+                          <th scope="col">Month</th>
+                          <th scope="col">Address</th>
+                          <th scope="col">Floor Plan</th>
+                          <th scope="col">Sqft</th>
+                          <th scope="col">List Price</th>
+                          <th scope="col">Status</th>
+                        </tr>
+                      </thead>
+                      <tbody id="qmiTableBody">
+                        <tr>
+                          <td colspan="6" class="text-muted">Select a community to load data.</td>
+                        </tr>
+                      </tbody>
+                    </table>
+                  </div>
                 </div>
               </div>
               <div class="col-md-6">
-                <h5>Sold Homes</h5>
-                <div class="table-responsive">
-                  <table class="table table-sm table-striped" id="soldTable">
-                    <thead>
-                      <tr>
-                        <th scope="col">Month</th>
-                        <th scope="col">Address</th>
-                        <th scope="col">Floor Plan</th>
-                        <th scope="col">Sqft</th>
-                        <th scope="col">List Price</th>
-                        <th scope="col">Sold Price</th>
-                        <th scope="col">Sold Date</th>
-                      </tr>
-                    </thead>
-                    <tbody id="soldTableBody">
-                      <tr>
-                        <td colspan="7" class="text-muted">Select a community to load data.</td>
-                      </tr>
-                    </tbody>
-                  </table>
+                <div class="card card--white p-3 h-100">
+                  <div class="d-flex align-items-center justify-content-between mb-2">
+                    <h5 class="mb-0">Sold Homes</h5>
+                  </div>
+                  <div class="table-responsive">
+                    <table class="table table-sm table-striped" id="soldTable">
+                      <thead>
+                        <tr>
+                          <th scope="col">Month</th>
+                          <th scope="col">Address</th>
+                          <th scope="col">Floor Plan</th>
+                          <th scope="col">Sqft</th>
+                          <th scope="col">List Price</th>
+                          <th scope="col">Sold Price</th>
+                          <th scope="col">Sold Date</th>
+                        </tr>
+                      </thead>
+                      <tbody id="soldTableBody">
+                        <tr>
+                          <td colspan="7" class="text-muted">Select a community to load data.</td>
+                        </tr>
+                      </tbody>
+                    </table>
+                  </div>
                 </div>
               </div>
             </div>
