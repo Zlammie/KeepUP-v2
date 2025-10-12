@@ -7,9 +7,10 @@ module.exports = async function currentUserLocals(req, res, next) {
     // Only decorate server-rendered pages (skip JSON APIs)
     if (req.path.startsWith('/api/')) return next();
 
-    // Accept either req.user (passport) or req.session.user (custom)
+    // Gather candidate identifiers from both legacy and normalized session data
     const sessionUser = req.session?.user || null;
-    const authUserId = req.user?._id || sessionUser?._id;
+    const sessionUserId = req.session?.userId || null;
+    const authUserId = req.user?._id || sessionUser?._id || sessionUserId;
 
     if (!authUserId) {
       res.locals.currentUser = null;
@@ -21,22 +22,36 @@ module.exports = async function currentUserLocals(req, res, next) {
       .select('email firstName lastName company')
       .lean();
 
-    let companyName = '—';
-    const companyId = user?.company || sessionUser?.company || sessionUser?.companyId;
+    if (!user) {
+      res.locals.currentUser = null;
+      return next();
+    }
 
+    const companyId =
+      user.company ||
+      sessionUser?.company ||
+      sessionUser?.companyId;
+
+    let companyName = 'N/A';
     if (companyId) {
       const company = await Company.findById(companyId).select('name').lean();
       if (company?.name) companyName = company.name;
     }
 
-    res.locals.currentUser = {
+    const displayName =
+      [user.firstName, user.lastName].filter(Boolean).join(' ') ||
+      user.email ||
+      sessionUser?.email ||
+      'User';
+
+    const currentUser = {
       id: String(authUserId),
-      name: [user?.firstName, user?.lastName].filter(Boolean).join(' ')
-            || user?.email
-            || sessionUser?.email
-            || 'User',
+      name: displayName,
       company: companyName,
     };
+
+    res.locals.currentUser = currentUser;
+    req.currentUser = currentUser;
 
     next();
   } catch (err) {
