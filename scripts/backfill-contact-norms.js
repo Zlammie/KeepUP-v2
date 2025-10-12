@@ -1,5 +1,8 @@
 const mongoose = require('mongoose');
-const uri = process.env.MONGODB_URI || 'mongodb://localhost:27017/crm-form';
+const uri =
+  process.env.MONGO_URI ||
+  process.env.MONGODB_URI ||
+  'mongodb://localhost:27017/crm-form'; // Atlas first, local fallback
 
 function normEmail(v){ const t=(v||'').trim().toLowerCase(); return t || null; }
 function normPhone(v){ const t=(v||'').toString().replace(/\D+/g,''); return t || null; }
