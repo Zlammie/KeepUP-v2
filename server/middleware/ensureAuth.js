@@ -1,5 +1,9 @@
 // middleware/ensureAuth.js
 const User = require('../models/User'); // works with current model; also future-proofs for roles[]
+const normalizeRole = require('../utils/normalizeRole');
+
+const VALID_ROLES = new Set(Object.values(User.ROLES || {}));
+const DEFAULT_ROLE = User.ROLES?.USER || 'USER';
 
 /**
  * Unified auth gate:
@@ -43,10 +47,23 @@ module.exports = async function ensureAuth(req, res, next) {
     }
 
     // ---- Normalize shape for routes ----
-    // roles: prefer array; fall back to single role → uppercased array
-    const rolesArr = Array.isArray(u.roles) && u.roles.length
-      ? u.roles.map(r => String(r).toUpperCase())
-      : [String(u.role || 'user').toUpperCase()];
+    const rawRoles = Array.isArray(u.roles) && u.roles.length
+      ? u.roles
+      : [u.role].filter(Boolean);
+
+    const rolesArr = rawRoles
+      .map(normalizeRole)
+      .filter(role => role && VALID_ROLES.has(role));
+
+    if (!rolesArr.length) rolesArr.push(DEFAULT_ROLE);
+
+    if (process.env.AUTH_DEBUG || process.env.NODE_ENV !== 'production') {
+      console.info('[ensureAuth] user roles normalized', {
+        userId: String(u._id),
+        raw: rawRoles,
+        normalized: rolesArr
+      });
+    }
 
     // company: prefer 'company'; fall back to 'companyId'
     const companyId = u.company || u.companyId;

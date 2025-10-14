@@ -1,8 +1,11 @@
 const bcrypt = require('bcrypt');
 const mongoose = require('mongoose');
 const User = require('../models/User');
+const Company = require('../models/Company');
+const normalizeRole = require('../utils/normalizeRole');
 
- const Company = require('../models/Company');
+const DEFAULT_ROLE = User.ROLES?.USER || 'USER';
+const SUPER_ROLE = User.ROLES?.SUPER_ADMIN || 'SUPER_ADMIN';
 
 // GET /admin/users
 exports.listUsers = async (req, res) => {
@@ -35,11 +38,15 @@ exports.createUser = async (req, res) => {
   const isSuper = (req.user?.roles || []).includes('SUPER_ADMIN');
 
   // Form may submit a single role string; normalize to array
-  const roleInput = String(req.body.role || 'USER').toUpperCase();
-  const roles = [roleInput];
+  const rawRole = req.body.role;
+  const normalizedRole = normalizeRole(rawRole);
+  if (rawRole && !normalizedRole) return res.status(400).send('Invalid role');
+
+  const requestedRole = normalizedRole || DEFAULT_ROLE;
+  const roles = [requestedRole];
 
   // Non-super cannot create SUPER_ADMIN
-  if (!isSuper && roles.includes('SUPER_ADMIN')) return res.status(403).send('Forbidden');
+  if (!isSuper && roles.includes(SUPER_ROLE)) return res.status(403).send('Forbidden');
 
   // Company: super can target any company (from body), others are forced to their own
   const targetCompany = isSuper && req.body.companyId
@@ -74,8 +81,11 @@ exports.updateUser = async (req, res) => {
 
   // Role changes
   if (req.body.role) {
-    const nextRole = String(req.body.role).toUpperCase();
-    if (!isSuper && nextRole === 'SUPER_ADMIN') return res.status(403).send('Forbidden');
+    const normalizedRole = normalizeRole(req.body.role);
+    if (!normalizedRole) return res.status(400).send('Invalid role');
+
+    const nextRole = normalizedRole;
+    if (!isSuper && nextRole === SUPER_ROLE) return res.status(403).send('Forbidden');
     target.roles = [nextRole]; // normalize to array
   }
 
