@@ -1,4 +1,4 @@
-// assets/js/contact-details/autosave.js
+// assets/js/contact-details/contact-autosave.js
 import { debounce } from './utils.js';
 import { getState, setContact } from './state.js';
 import * as api from './api.js';

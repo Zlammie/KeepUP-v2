@@ -2,7 +2,7 @@
 import { initState } from './state.js';
 import { cacheDOM } from './domCache.js';
 import { hydrateAll } from './hydrate.js';
-import { bindAutosave } from './autosave.js';
+import { bindAutosave } from './contact-autosave.js';
 import { initStatusLogic } from './status.js';
 import { initCommunitySection, populateCommunities } from './communitySection.js';
 import { getContact } from './state.js';
