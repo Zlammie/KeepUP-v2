@@ -1,7 +1,7 @@
 // assets/js/contact-details/communitySection.js
 import { DOM } from './domCache.js';
 import { updateTopBarSummary } from './hydrate.js';
-import { bindFloorplanAutosave } from './autoSave.js';
+import { bindFloorplanAutosave } from './autosave.js';
 
 let communitiesAbort;
 let floorplansAbort;
