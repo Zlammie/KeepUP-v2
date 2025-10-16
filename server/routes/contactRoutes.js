@@ -1,5 +1,6 @@
 const express = require('express');
 const mongoose = require('mongoose');
+const fs = require('fs');
 const router = express.Router();
 
 const Contact   = require('../models/Contact');
@@ -10,10 +11,9 @@ const Realtor   = require('../models/Realtor');
 
 const ensureAuth  = require('../middleware/ensureAuth');
 const requireRole = require('../middleware/requireRole');
+const upload = require('../middleware/upload');
 
-const multer = require('multer');
 const xlsx = require('xlsx');
-const upload = multer({ storage: multer.memoryStorage(), limits: { fileSize: 5 * 1024 * 1024 } });
 
 // ───────────────────────── helpers ─────────────────────────
 const isObjectId = v => mongoose.Types.ObjectId.isValid(String(v));
@@ -726,8 +726,10 @@ router.post('/import',
   upload.single('file'),
   async (req, res) => {
     if (!req.file) return res.status(400).json({ error: 'Missing file' });
+    const filePath = req.file.path;
     try {
-      const wb = xlsx.read(req.file.buffer, { type: 'buffer' });
+      const buffer = await fs.promises.readFile(filePath);
+      const wb = xlsx.read(buffer, { type: 'buffer' });
       const sheet = wb.SheetNames[0];
       const rows = xlsx.utils.sheet_to_json(wb.Sheets[sheet], { defval: '' });
 
@@ -769,6 +771,10 @@ router.post('/import',
     } catch (err) {
       console.error('Import error:', err);
       res.status(500).json({ error: 'Failed to import contacts', details: err.message });
+    } finally {
+      if (filePath) {
+        await fs.promises.unlink(filePath).catch(() => {});
+      }
     }
   }
 );
