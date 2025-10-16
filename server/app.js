@@ -80,7 +80,7 @@ const corsOptions = {
 };
 
 app.use(cors(corsOptions));
-app.options('*', cors(corsOptions));
+// app.options('*', cors(corsOptions));
 
 // Basic rate limiting (RATE_LIMIT_WINDOW_MS / RATE_LIMIT_MAX)
 if (enableRateLimiting) {
