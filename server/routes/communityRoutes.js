@@ -412,16 +412,59 @@ router.get('/lot-by-purchaser/:contactId',
       const lot = (community.lots || []).find(l => String(l.purchaser?._id || l.purchaser) === String(contactId));
       if (!lot) return res.json({ found: false });
 
+      let floorPlanValue = lot.floorPlan;
+      let floorPlanName = trimValue(lot.floorPlanName || '');
+      const floorPlanId = (() => {
+        if (!floorPlanValue) return null;
+        if (typeof floorPlanValue === 'string') return floorPlanValue.trim();
+        if (typeof floorPlanValue === 'object') return toStringId(floorPlanValue._id || floorPlanValue.id);
+        return null;
+      })();
+
+      if (floorPlanId) {
+        const needsPlan =
+          !floorPlanValue ||
+          typeof floorPlanValue === 'string' ||
+          (typeof floorPlanValue === 'object' && floorPlanValue._bsontype);
+        if (needsPlan) {
+          const planDoc = await FloorPlan.findOne({ _id: floorPlanId, ...companyFilter(req) })
+            .select('name planNumber title code')
+            .lean({ virtuals: true });
+          if (planDoc) floorPlanValue = planDoc;
+        }
+      }
+
+      if (floorPlanValue && typeof floorPlanValue === 'object') {
+        const normalized = normalizeFloorPlan(floorPlanValue);
+        if (normalized) {
+          if (floorPlanId && !normalized._id) normalized._id = floorPlanId;
+          floorPlanValue = normalized;
+          if (!floorPlanName) floorPlanName = deriveFloorPlanName(normalized);
+        }
+      } else if (typeof floorPlanValue === 'string') {
+        if (!floorPlanName) floorPlanName = floorPlanValue;
+      }
+
+      const lotPayload = {
+        _id: lot._id,
+        address: lot.address,
+        jobNumber: lot.jobNumber,
+        lot: lot.lot || null,
+        block: lot.block || null,
+        phase: lot.phase || null,
+        elevation: lot.elevation || null,
+        status: lot.status || null,
+        generalStatus: lot.generalStatus || null,
+        floorPlan: floorPlanValue ?? null,
+        salesDate: lot.salesDate || null,
+        salesPrice: lot.salesPrice ?? null
+      };
+      if (floorPlanName) lotPayload.floorPlanName = floorPlanName;
+
       res.json({
         found: true,
         communityId: community._id,
-        lot: {
-          _id: lot._id,
-          address: lot.address,
-          jobNumber: lot.jobNumber,
-          salesDate: lot.salesDate,
-          salesPrice: lot.salesPrice
-        }
+        lot: lotPayload
       });
     } catch (err) {
       console.error('lot-by-purchaser error:', err);

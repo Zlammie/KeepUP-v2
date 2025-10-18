@@ -42,8 +42,9 @@ function planLabelFrom(lot) {
   // After populate, floorPlan is an object { name, planNumber }; legacy may be a string.
   if (!lot) return '';
   const fp = lot.floorPlan;
-  if (fp && typeof fp === 'object') return fp.name || fp.planNumber || '';
+  if (fp && typeof fp === 'object') return fp.name || fp.planNumber || fp.title || fp.code || '';
   if (typeof fp === 'string') return fp; // legacy import stored string
+  if (lot.floorPlanName) return lot.floorPlanName;
   return '';
 }
 
@@ -68,7 +69,10 @@ async function recoverLinkedLotFromServer() {
       lot: lot.lot,
       block: lot.block,
       elevation: lot.elevation,
-      floorPlan: lot.floorPlan || null
+      floorPlan: lot.floorPlan || null,
+      floorPlanName: lot.floorPlanName || '',
+      status: lot.status || null,
+      generalStatus: lot.generalStatus || null
     });
     return true;
   } catch {
@@ -124,9 +128,14 @@ export function renderFromState() {
 // rendering
 // -----------------------------------------
 function linkedLotCardHTML(lot) {
+  const placeholder = 'N/A';
   const plan = planLabelFrom(lot);
-  const elev = lot.elevation || '';
-  const planElev = plan && elev ? `${plan} – ${elev}` : (plan || elev || '—');
+  const elev = lot?.elevation || '';
+  const planElev = plan && elev ? `${plan} - ${elev}` : (plan || elev || placeholder);
+  const jobNumber = lot?.jobNumber ? lot.jobNumber : placeholder;
+  const lotNumber = lot?.lot ? lot.lot : placeholder;
+  const blockNumber = lot?.block ? lot.block : placeholder;
+  const generalStatus = lot?.generalStatus || lot?.status || placeholder;
 
   return `
      <!-- Make the OUTER card the ONLY grid container -->
@@ -135,12 +144,12 @@ function linkedLotCardHTML(lot) {
       <div class="lot-address lot-address-row">
         <div class="lot-address-main">${safe(lot.address)}</div>
         <div class="lot-build-status">
-          <strong>Status:</strong> <span id="linked-build-status">${safe(lot.status)}</span>
+          <strong>General Status:</strong> <span id="linked-build-status">${safe(generalStatus)}</span>
         </div>
       </div>
       <div class="lot-chip-row">
-        <div class="lot-chip"><strong>Job #:</strong> ${lot.jobNumber || '—'}</div>
-        <div class="lot-chip"><strong>Lot:</strong> ${lot.lot || '—'} / ${lot.block || '—'}</div>
+        <div class="lot-chip"><strong>Job #:</strong> ${jobNumber}</div>
+        <div class="lot-chip"><strong>Lot:</strong> ${lotNumber} / ${blockNumber}</div>
         <div class="lot-chip plan-chip"><strong>Plan & Elev:</strong> <span id="linked-plan-elev">${planElev}</span></div>
       </div>
 
@@ -265,7 +274,8 @@ async function hydrateCommunityLotAndBind(lotSnapshot) {
     dateInput.value  = readDate(srvLot.salesDate);
 
     // --- build / schedule ---
-    setText('linked-build-status', srvLot.status || '—');
+    const statusLabel = srvLot.generalStatus || srvLot.status || 'N/A';
+    setText('linked-build-status', statusLabel);
     setText('linked-release-date', fmtDate(srvLot.releaseDate));
     setText('linked-projected-completion', fmtDate(srvLot.expectedCompletionDate));
 
@@ -289,7 +299,7 @@ async function hydrateCommunityLotAndBind(lotSnapshot) {
     // --- plan & elevation ---
     const plan = planLabelFrom(srvLot) || planLabelFrom(lotSnapshot);
     const elev = srvLot.elevation || lotSnapshot.elevation || '';
-    const planElev = plan && elev ? `${plan} – ${elev}` : (plan || elev || '—');
+    const planElev = plan && elev ? `${plan} - ${elev}` : (plan || elev || 'N/A');
     setText('linked-plan-elev', planElev);
 
   } catch (e) {
@@ -299,8 +309,8 @@ async function hydrateCommunityLotAndBind(lotSnapshot) {
       listInput.value  = readMoney(lotSnapshot.listPrice ?? '');
       salesInput.value = readMoney(lotSnapshot.salesPrice ?? '');
       dateInput.value  = readDate(lotSnapshot.salesDate);
-
-      setText('linked-build-status', lotSnapshot.status ?? '—');
+      const fallbackStatus = lotSnapshot.generalStatus || lotSnapshot.status || 'N/A';
+      setText('linked-build-status', fallbackStatus);
       setText('linked-release-date', fmtDate(lotSnapshot.releaseDate));
       setText('linked-projected-completion', fmtDate(lotSnapshot.expectedCompletionDate));
 
@@ -321,7 +331,7 @@ async function hydrateCommunityLotAndBind(lotSnapshot) {
 
       const plan = planLabelFrom(lotSnapshot);
       const elev = lotSnapshot.elevation || '';
-      setText('linked-plan-elev', plan && elev ? `${plan} – ${elev}` : (plan || elev || '—'));
+      setText('linked-plan-elev', plan && elev ? `${plan} - ${elev}` : (plan || elev || 'N/A'));
       console.warn('Lot hydrate fallback to contact.linkedLot:', e?.message || e);
     }
   }
