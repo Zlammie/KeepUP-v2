@@ -1,13 +1,26 @@
 // client/assets/js/my-community-competition/index.js
-import { currentCommunityId } from './state.js';
+import { currentCommunityId, sqftMonth, setSqftMonth } from './state.js';
+import {
+  allCompetitionsList,
+  linkedContainer,
+  allCompetitionsCount,
+  linkedCompetitorsCount,
+  linkedCountBadge,
+  allCompetitionsEmpty,
+  linkedCompetitorsEmpty,
+  allCompetitionsSearch,
+  overviewSections,
+  overviewCollapseToggle,
+  overviewCollapsedBar,
+  overviewExpandBtn
+} from './dom.js';
 import { wireCommunitySelect, initialLoad } from './loader.js';
 import { wireTabs } from './ui.js';
-import { drawSalesGraph, drawBasePriceGraph, drawQmiSoldsGraph } from './charts.js';
+import { drawSalesGraph, drawBasePriceGraph, drawQmiSoldsGraph, drawSqftComparisonGraph } from './charts.js';
 import { setupSectionToggles } from './toggles.js';
 import { qmiSoldTable } from './qmiSoldTable.js';
+import { initAmenities } from './amenities.js';
 
-const allCompetitionsList = document.getElementById('allCompetitionsList');
-const linkedContainer = document.getElementById('linkedCompetitors');
 let linked = [];
 let allCompetitions = [];
 let latestQmiData = null;
@@ -17,10 +30,47 @@ const qmiTableCardWrap = document.getElementById('qmiTableCardWrap');
 const qmiTableCard = document.getElementById('qmiTableCard');
 const qmiTableToggle = document.getElementById('qmiTableToggle');
 const communitySelectEl = document.getElementById('communitySelect');
+const sqftMonthSelect = document.getElementById('sqftMonthSelect');
 
 let qmiTableOverlay = null;
 let qmiTableExpanded = false;
 let qmiTableEscListener = null;
+let allSearchTerm = '';
+
+const OVERVIEW_COLLAPSE_KEY = 'mcc:overviewCollapsed';
+
+function setOverviewCollapsed(collapsed) {
+  const hidden = Boolean(collapsed);
+  overviewSections?.classList.toggle('is-hidden', hidden);
+
+  if (overviewCollapseToggle) {
+    overviewCollapseToggle.textContent = hidden ? 'Show Promo & Pros' : 'Hide Promo & Pros';
+    overviewCollapseToggle.setAttribute('aria-expanded', String(!hidden));
+    overviewCollapseToggle.setAttribute('aria-controls', 'overviewSections');
+    overviewCollapseToggle.classList.toggle('is-hidden', hidden);
+  }
+
+  overviewCollapsedBar?.classList.toggle('is-hidden', !hidden);
+
+  try {
+    localStorage.setItem(OVERVIEW_COLLAPSE_KEY, hidden ? 'hidden' : 'shown');
+  } catch (_) {}
+}
+
+function initOverviewCollapse() {
+  if (!overviewCollapseToggle || !overviewSections) return;
+
+  let saved = null;
+  try { saved = localStorage.getItem(OVERVIEW_COLLAPSE_KEY); } catch (_) {}
+  setOverviewCollapsed(saved === 'hidden');
+
+  overviewCollapseToggle.addEventListener('click', () => {
+    const isCurrentlyHidden = overviewSections.classList.contains('is-hidden');
+    setOverviewCollapsed(!isCurrentlyHidden);
+  });
+
+  overviewExpandBtn?.addEventListener('click', () => setOverviewCollapsed(false));
+}
 
 const toId = (value) => (value == null ? null : String(value));
 const cleanText = (value) => {
@@ -240,17 +290,31 @@ async function fetchAllCompetitions() {
 
 function renderLinkedList() {
   linkedContainer.innerHTML = '';
-  linked.forEach((raw) => {
-    const c = normalizeCompetition(raw);
-    if (!c) return;
+
+  const items = linked
+    .map((raw) => normalizeCompetition(raw))
+    .filter(Boolean)
+    .sort((a, b) => (cleanText(a.builderName) || '').localeCompare(cleanText(b.builderName) || '') ||
+      (cleanText(a.communityName) || '').localeCompare(cleanText(b.communityName) || ''));
+
+  const linkedCount = items.length;
+  if (linkedCompetitorsCount) linkedCompetitorsCount.textContent = `${linkedCount} linked`;
+  if (linkedCountBadge) linkedCountBadge.textContent = `${linkedCount} linked`;
+
+  if (linkedCompetitorsEmpty) {
+    linkedCompetitorsEmpty.classList.toggle('is-hidden', linkedCount > 0);
+  }
+
+  items.forEach((c) => {
     const { _id } = c;
     if (!_id) return;
     const builderDisplay = cleanText(c.builderName) || 'Unknown builder';
-    const communityDisplay = cleanText(c.communityName) || 'Unknown competition';
+    const communityDisplay = cleanText(c.communityName) || 'Unnamed community';
     const cityDisplay = cleanText(c.city) || 'City not set';
     const stateDisplay = cleanText(c.state) || 'TX';
+
     const item = document.createElement('div');
-    item.className = 'list-group-item d-flex justify-content-between align-items-center';
+    item.className = 'list-group-item';
     item.innerHTML = `
       <div>
         <div><strong>${builderDisplay}</strong> - ${communityDisplay}</div>
@@ -267,33 +331,53 @@ function renderLinkedList() {
 
 function renderAllCompetitions() {
   allCompetitionsList.innerHTML = '';
+
   const linkedIds = new Set(
     linked
       .map((entry) => normalizeCompetition(entry)?._id)
       .filter(Boolean)
   );
-  allCompetitions.forEach((raw) => {
-    const c = normalizeCompetition(raw);
-    if (!c) return;
+
+  const filtered = allCompetitions
+    .map((raw) => normalizeCompetition(raw))
+    .filter((c) => c && c._id && !linkedIds.has(c._id))
+    .filter((c) => {
+      if (!allSearchTerm) return true;
+      const needle = allSearchTerm;
+      return [
+        cleanText(c.builderName),
+        cleanText(c.communityName),
+        cleanText(c.city),
+        cleanText(c.state)
+      ].some((val) => val && val.toLowerCase().includes(needle));
+    })
+    .sort((a, b) => (cleanText(a.builderName) || '').localeCompare(cleanText(b.builderName) || '') ||
+      (cleanText(a.communityName) || '').localeCompare(cleanText(b.communityName) || ''));
+
+  if (allCompetitionsCount) {
+    allCompetitionsCount.textContent = `${filtered.length} available`;
+  }
+  if (allCompetitionsEmpty) {
+    allCompetitionsEmpty.classList.toggle('is-hidden', filtered.length > 0);
+  }
+
+  filtered.forEach((c) => {
     const { _id } = c;
-    if (!_id) return;
     const builderDisplay = cleanText(c.builderName) || 'Unknown builder';
-    const communityDisplay = cleanText(c.communityName) || 'Unknown competition';
+    const communityDisplay = cleanText(c.communityName) || 'Unnamed community';
     const cityDisplay = cleanText(c.city) || 'City not set';
     const stateDisplay = cleanText(c.state) || 'TX';
 
     const item = document.createElement('div');
-    item.className = 'list-group-item d-flex justify-content-between align-items-center';
+    item.className = 'list-group-item';
     item.innerHTML = `
       <div>
         <div><strong>${builderDisplay}</strong> - ${communityDisplay}</div>
         <small>${cityDisplay}, ${stateDisplay}</small>
       </div>`;
     const btn = document.createElement('button');
-    const isLinked = linkedIds.has(_id);
-    btn.className = isLinked ? 'btn btn-sm btn-secondary' : 'btn btn-sm btn-outline-primary';
-    btn.textContent = isLinked ? 'Linked' : 'Link';
-    btn.disabled = isLinked;
+    btn.className = 'btn btn-sm btn-outline-primary';
+    btn.textContent = 'Link';
     btn.onclick = async () => { await linkCompetition(_id); };
     item.appendChild(btn);
     allCompetitionsList.appendChild(item);
@@ -327,6 +411,8 @@ async function unlinkCompetition(competitionId) {
 
 function init() {
   setupSectionToggles();
+  initOverviewCollapse();
+  initAmenities();
   wireCommunitySelect();
   collapseQmiTable({ focusToggle: false });
 
@@ -355,10 +441,40 @@ function init() {
           latestQmiData = payload;
         }
       },
-      sqft:  async () => { /* placeholder: coming soon */ }
+      sqft:  async (id) => {
+        const result = await drawSqftComparisonGraph(id, { month: sqftMonth || undefined });
+        if (result && id === currentCommunityId) {
+          setSqftMonth(result.selectedMonth ?? '');
+        }
+      }
     },
     () => currentCommunityId
   );
+
+  if (sqftMonthSelect) {
+    sqftMonthSelect.addEventListener('change', async (event) => {
+      const id = currentCommunityId;
+      if (!id) return;
+      const month = event.target.value || '';
+      if ((sqftMonth || '') === month) return;
+      setSqftMonth(month);
+      try {
+        const result = await drawSqftComparisonGraph(id, { month: month || undefined });
+        if (result && id === currentCommunityId) {
+          setSqftMonth(result.selectedMonth ?? month ?? '');
+        }
+      } catch (err) {
+        console.error('Failed to update sqft comparison', err);
+      }
+    });
+  }
+
+  if (allCompetitionsSearch) {
+    allCompetitionsSearch.addEventListener('input', (event) => {
+      allSearchTerm = (event.target.value || '').trim().toLowerCase();
+      renderAllCompetitions();
+    });
+  }
 
   fetchAllCompetitions().then(data => {
     const normalizedAll = (data || []).map((c) => normalizeCompetition(c, data)).filter(Boolean);

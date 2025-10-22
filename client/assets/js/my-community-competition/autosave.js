@@ -3,7 +3,7 @@ import {
   salesPerson, salesPersonPhone, salesPersonEmail,
   address, city, zip, modelPlan, lotSize, totalLots,
   schoolISD, elementarySchool, middleSchool, highSchool,
-  hoaFee, hoaFrequency, tax, mudFee, pidFee, earnestAmount, realtorCommission,
+  hoaFee, hoaFrequency, tax, mudFee, pidFee, pidFeeFrequency, earnestAmount, realtorCommission,
   feeMud, feePid, feeNone, garageTypeFront, garageTypeRear
 } from './dom.js';
 
@@ -17,10 +17,10 @@ export function bindAutosaveOnce() {
     salesPerson, salesPersonPhone, salesPersonEmail,
     address, city, zip, modelPlan, lotSize, totalLots,
     schoolISD, elementarySchool, middleSchool, highSchool,
-    hoaFee, hoaFrequency, tax, mudFee, pidFee, earnestAmount, realtorCommission
+    hoaFee, hoaFrequency, tax, mudFee, pidFee, pidFeeFrequency, earnestAmount, realtorCommission
   ];
   inputs.forEach(el => el && el.addEventListener('input', autosave));
-  [feeMud, feePid, feeNone, garageTypeFront, garageTypeRear].forEach(el => el && el.addEventListener('change', autosave));
+  [feeMud, feePid, feeNone, garageTypeFront, garageTypeRear, pidFeeFrequency].forEach(el => el && el.addEventListener('change', autosave));
 }
 
 async function autosave() {
@@ -51,6 +51,7 @@ async function autosave() {
       ].filter(Boolean),
       mudFee: feeMud.checked ? numOrNull(mudFee.value) : null,
       pidFee: feePid.checked ? numOrNull(pidFee.value) : null,
+      pidFeeFrequency: feePid.checked ? (pidFeeFrequency.value || '') : '',
       earnestAmount: numOrNull(earnestAmount.value),
       realtorCommission: numOrNull(realtorCommission.value)
     };

@@ -10,6 +10,7 @@ const linkedWrap = document.getElementById('dashLinkedBuilders');
 const myCommunityColorWrap = document.getElementById('myCommunityColorWrap');
 
 const qmiSoldsCanvas = document.getElementById('qmiSoldsChart');
+const qmiLegend      = document.getElementById('qmiLegend');
 const salesPieCanvas = document.getElementById('salesPieChart');
 const baseCanvas     = document.getElementById('basePriceChart');
 const baseChartWrap  = document.getElementById('baseChartWrap');
@@ -557,12 +558,44 @@ async function fetchLotStatsForIds(ids) {
     const id = normalizeId(rawId);
     if (!id || seen.has(id)) return;
     seen.add(id);
+
+    const meta = getCommunityMeta(id) || {};
+    const entityType = meta.entityType || meta.type || null;
+    const communityRef = meta.communityRef ? normalizeId(meta.communityRef) : null;
+    const fallbackStats = meta.fallbackLotStats || null;
+
+    if (entityType === 'competition') {
+      if (communityRef) {
+        tasks.push((async () => {
+          try {
+            const stats = await getJSON(`/api/communities/${encodeURIComponent(communityRef)}/lot-stats`);
+            return { id, stats };
+          } catch (error) {
+            console.error('[lot-stats] competition-linked community fetch failed for', id, error);
+            if (fallbackStats) {
+              return { id, stats: fallbackStats, fallback: true };
+            }
+            return { id, stats: { total: null, sold: null, remaining: null, quickMoveInLots: null }, fallback: true };
+          }
+        })());
+      } else {
+        const stats = fallbackStats || { total: null, sold: null, remaining: null, quickMoveInLots: null };
+        tasks.push(Promise.resolve({ id, stats, fallback: true }));
+      }
+      return;
+    }
+
+    const targetId = communityRef || id;
+
     tasks.push((async () => {
       try {
-        const stats = await getJSON(`/api/communities/${encodeURIComponent(id)}/lot-stats`);
+        const stats = await getJSON(`/api/communities/${encodeURIComponent(targetId)}/lot-stats`);
         return { id, stats };
       } catch (error) {
         console.error('[lot-stats] failed for', id, error);
+        if (fallbackStats) {
+          return { id, stats: fallbackStats, fallback: true };
+        }
         return { id, error: true, stats: null };
       }
     })());
@@ -939,14 +972,31 @@ if (baseMonthEl) {
 
 // ---------- charts ----------
 async function drawQmiSoldsMulti(communityIds) {
+  if (!qmiSoldsCanvas) {
+    renderQmiLegend([], 'Quick Move-In chart unavailable.');
+    return;
+  }
   if (!Array.isArray(communityIds)) communityIds = [communityIds].filter(Boolean);
-  if (!communityIds.length) return;
+  if (!communityIds.length) {
+    renderQmiLegend([], 'Select a community to view Quick Move-In and Sold legend.');
+    return;
+  }
+
+  renderQmiLegend([], 'Loading legend...');
 
   const idParam = communityIds.map(id => encodeURIComponent(id)).join(',');
   const url = `/api/communities/multi/qmi-solds-scatter?ids=${idParam}`;
-  const res = await getJSON(url);
+  let res;
+  try {
+    res = await getJSON(url);
+  } catch (err) {
+    console.error('Failed to load quick move-in / sold scatter data:', err);
+    renderQmiLegend([], 'Unable to load quick move-in or sold activity.');
+    return;
+  }
   if (!Array.isArray(res)) {
     console.warn('Unexpected payload from multi qmi/solds:', res);
+    renderQmiLegend([], 'No quick move-in or sold activity available.');
     return;
   }
 
@@ -976,12 +1026,15 @@ async function drawQmiSoldsMulti(communityIds) {
 
   const datasets = [];
   const primaryId = normalizeId(dd?.value || communityIds[0]);
+  const legendGroups = [];
+  const legendKeys = new Set();
 
   res.forEach(entry => {
     const entryId = normalizeId(entry?._id || entry?.id || entry?.communityId || entry?.competitionId || entry?.community);
     const meta = entryId ? (getCommunityMeta(entryId) || {}) : {};
     const isPrimary = entryId && primaryId && entryId === primaryId;
     const role = isPrimary ? 'primary' : 'linked';
+    const entryType = entry?.type === 'competition' ? 'competition' : 'community';
 
     const companyName = entry?.builderName || entry?.builder || meta.builderName || meta.builder || meta.company || '';
     const communityName = entry?.communityName || entry?.name || meta.communityName || meta.name || '';
@@ -994,7 +1047,8 @@ async function drawQmiSoldsMulti(communityIds) {
         builder: companyName || undefined,
         company: meta.company || companyName || undefined,
         communityName: communityName || meta.communityName || undefined,
-        name: communityName || meta.name || undefined
+        name: communityName || meta.name || undefined,
+        entityType: entryType
       });
     }
 
@@ -1055,14 +1109,58 @@ async function drawQmiSoldsMulti(communityIds) {
         keepupStorageKey: colorConfig.storageKey
       });
     }
+
+    const pointsAvailable = qmiPoints.length + soldPoints.length > 0;
+    if (pointsAvailable) {
+      const legendKey = entryId || baseLabel || `group-${legendGroups.length}`;
+      if (!legendKeys.has(legendKey)) {
+        legendKeys.add(legendKey);
+        const communityLabel = (communityName || meta.communityName || meta.name || '').trim();
+        const builderLabel = (companyName || meta.builderName || meta.builder || meta.company || '').trim();
+        const legendTitle = communityLabel || builderLabel || baseLabel || 'Community';
+        let legendSubtitle = '';
+        if (builderLabel && builderLabel !== legendTitle) {
+          legendSubtitle = builderLabel;
+        } else if (baseLabel && baseLabel !== legendTitle && baseLabel !== legendSubtitle) {
+          legendSubtitle = baseLabel;
+        }
+
+        legendGroups.push({
+          title: legendTitle,
+          subtitle: legendSubtitle,
+          qmiColor,
+          soldColor,
+          soldBorderColor
+        });
+      }
+    }
+
+    if (entryId && entryType === 'competition') {
+      const soldCount = soldPoints.length;
+      const qmiCount = qmiPoints.length;
+      const totalLots = soldCount + qmiCount;
+      setCommunityMeta(entryId, {
+        fallbackLotStats: {
+          total: totalLots,
+          sold: soldCount,
+          remaining: Math.max(totalLots - soldCount, 0),
+          quickMoveInLots: qmiCount
+        }
+      });
+    }
   });
+
+  renderQmiLegend(
+    legendGroups,
+    legendGroups.length ? '' : 'No quick move-in or sold activity found for the selected communities.'
+  );
 
   const ctx = qmiSoldsCanvas.getContext('2d');
   const chart = new Chart(ctx, {
     data: { datasets },
     options: {
       responsive: true, maintainAspectRatio: false, parsing: false,
-      plugins: { legend: { position: 'top' }, tooltip: { callbacks: {
+      plugins: { legend: { display: false }, tooltip: { callbacks: {
         label: (ctx) => {
           const d = ctx.raw;
           const sqft = Number(d.x).toLocaleString();
@@ -1426,6 +1524,63 @@ async function drawBasePrice(communityId) {
 
 
 // ---------- UI ----------
+function renderQmiLegend(groups, emptyMessage = '') {
+  if (!qmiLegend) return;
+  qmiLegend.innerHTML = '';
+
+  if (!Array.isArray(groups) || !groups.length) {
+    const msg = emptyMessage || 'Select a community to view Quick Move-In and Sold legend.';
+    const msgEl = document.createElement('span');
+    msgEl.className = 'text-muted small';
+    msgEl.textContent = msg;
+    qmiLegend.appendChild(msgEl);
+    return;
+  }
+
+  groups.forEach(group => {
+    if (!group || !group.title) return;
+
+    const groupEl = document.createElement('div');
+    groupEl.className = 'qmi-legend__group';
+
+    const titleEl = document.createElement('span');
+    titleEl.className = 'qmi-legend__title';
+    titleEl.textContent = group.title;
+    groupEl.appendChild(titleEl);
+
+    const itemsEl = document.createElement('div');
+    itemsEl.className = 'qmi-legend__items';
+
+    const createItem = (label, config = {}) => {
+      const itemEl = document.createElement('span');
+      itemEl.className = 'qmi-legend__item';
+
+      const swatch = document.createElement('span');
+      swatch.className = 'qmi-legend__swatch';
+      if (config.background) swatch.style.backgroundColor = config.background;
+      if (config.border) swatch.style.borderColor = config.border;
+      if (config.isOutline) swatch.classList.add('is-outline');
+      itemEl.appendChild(swatch);
+      itemEl.appendChild(document.createTextNode(label));
+      return itemEl;
+    };
+
+    itemsEl.appendChild(createItem('QMI', {
+      background: group.qmiColor || '#334155',
+      border: group.qmiColor || '#334155'
+    }));
+
+    itemsEl.appendChild(createItem('SOLD', {
+      background: group.soldColor || '#f8fafc',
+      border: group.soldBorderColor || group.soldColor || '#dc2626',
+      isOutline: Boolean(group.soldBorderColor && group.soldBorderColor !== group.soldColor)
+    }));
+
+    groupEl.appendChild(itemsEl);
+    qmiLegend.appendChild(groupEl);
+  });
+}
+
 function renderLinked(list) {
   linkedWrap.innerHTML = '';
   if (!list.length) {
@@ -1460,6 +1615,7 @@ async function refreshAll() {
     renderPrimaryCommunityChip('');
     renderLotCountsTable([], [], '');
     collapseLotCounts({ focusToggle: false });
+    renderQmiLegend([], 'Select a community to view Quick Move-In and Sold legend.');
     return;
   }
   renderPrimaryCommunityChip(id);
@@ -1472,7 +1628,7 @@ async function refreshAll() {
 
   // 1) profile + linked chips
   const { profile } = await getJSON(`/api/my-community-competition/${id}`);
-  const metaUpdate = {};
+  const metaUpdate = { entityType: 'community' };
   if (profile?.communityName) metaUpdate.communityName = profile.communityName;
   else if (profile?.name) metaUpdate.communityName = profile.name;
 
@@ -1492,6 +1648,23 @@ async function refreshAll() {
     metaUpdate.company = profile.companyName;
   }
 
+  if (profile?.community) {
+    metaUpdate.communityRef = normalizeId(profile.community) || profile.community;
+  }
+
+  if (profile?.lotCounts && typeof profile.lotCounts === 'object') {
+    const toNumberOrNull = (value) => {
+      const num = Number(value);
+      return Number.isFinite(num) ? num : null;
+    };
+    metaUpdate.fallbackLotStats = {
+      total: toNumberOrNull(profile.lotCounts.total),
+      sold: toNumberOrNull(profile.lotCounts.sold),
+      remaining: toNumberOrNull(profile.lotCounts.remaining),
+      quickMoveInLots: toNumberOrNull(profile.lotCounts.quickMoveInLots)
+    };
+  }
+
   const profileColor = profile?.colorHex || profile?.color || profile?.themeColor || profile?.primaryColor;
   if (profileColor) metaUpdate.colorHex = profileColor;
 
@@ -1506,14 +1679,12 @@ async function refreshAll() {
   const linkedIds = linkedList.map(c => c?._id || c?.id).filter(Boolean);
   const allIds = [...new Set([id, ...linkedIds].filter(Boolean))];
 
-  const lotStatsPromise = fetchLotStatsForIds(allIds);
-
   // 3) scatter (multi)
   await drawQmiSoldsMulti(allIds);
 
   // 4) lot counts (multi)
   try {
-    const lotStats = await lotStatsPromise;
+    const lotStats = await fetchLotStatsForIds(allIds);
     renderLotCountsTable(allIds, lotStats, id);
   } catch (err) {
     console.error('Lot counts load failed:', err);

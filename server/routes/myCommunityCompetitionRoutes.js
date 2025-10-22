@@ -7,6 +7,7 @@ const ensureAuth  = require('../middleware/ensureAuth');
 const requireRole = require('../middleware/requireRole');
 
 const Community = require('../models/Community');
+const Company = require('../models/Company');
 const Competition = require('../models/Competition');
 const CommunityCompetitionProfile = require('../models/communityCompetitionProfile');
 const FloorPlan = require('../models/FloorPlan');           // our plans
@@ -29,6 +30,18 @@ const numOrNull = v => {
   if (v === '' || v == null) return null;
   const n = Number(v);
   return Number.isFinite(n) ? n : null;
+};
+const normalizeAmenities = (input) => {
+  if (!Array.isArray(input)) return [];
+  const out = [];
+  for (const entry of input) {
+    const category = strOrEmpty(entry?.category);
+    const rawItems = Array.isArray(entry?.items) ? entry.items : [];
+    const items = [...new Set(rawItems.map(item => strOrEmpty(item)).filter(Boolean))];
+    if (!category || !items.length) continue;
+    out.push({ category, items });
+  }
+  return out;
 };
 
 // YM helpers for QMI/sales logic
@@ -128,6 +141,17 @@ router.get('/my-community-competition/:communityId',
       const remainingLots = Math.max(0, totalLots - soldLots);
 
       profile = profile ? { ...profile } : {};
+
+      let companyName = '';
+      const companyRef = community?.company;
+      if (companyRef && typeof companyRef === 'object' && companyRef.name) {
+        companyName = companyRef.name;
+      } else if (companyRef) {
+        const companyId = typeof companyRef === 'object' && companyRef._id ? companyRef._id : companyRef;
+        const companyDoc = await Company.findById(companyId).select('name').lean();
+        if (companyDoc?.name) companyName = companyDoc.name;
+      }
+
       profile.lotCounts = {
         total: totalLots,
         sold: soldLots,
@@ -136,6 +160,7 @@ router.get('/my-community-competition/:communityId',
       };
 
       const { lots: _lots, ...communityPayload } = community;
+      communityPayload.companyName = companyName || '';
 
       res.json({ community: communityPayload, profile });
     } catch (err) {
@@ -186,6 +211,7 @@ router.put('/my-community-competition/:communityId',
         feeTypes: normalizedFees,
         mudFee: normalizedFees.includes('MUD') ? numOrNull(body.mudFee) : null,
         pidFee: normalizedFees.includes('PID') ? numOrNull(body.pidFee) : null,
+        pidFeeFrequency: normalizedFees.includes('PID') ? strOrEmpty(body.pidFeeFrequency) : '',
         earnestAmount: numOrNull(body.earnestAmount),
         realtorCommission: numOrNull(body.realtorCommission),
         prosCons: {
@@ -195,7 +221,10 @@ router.put('/my-community-competition/:communityId',
       };
 
       if (!normalizedFees.includes('MUD') && normalizedFees.includes('None')) update.mudFee = null;
-      if (!normalizedFees.includes('PID') && normalizedFees.includes('None')) update.pidFee = null;
+      if (!normalizedFees.includes('PID') && normalizedFees.includes('None')) {
+        update.pidFee = null;
+        update.pidFeeFrequency = '';
+      }
 
       // optional topPlans (validate IDs if provided)
       const tp = body.topPlans || {};
@@ -598,6 +627,32 @@ router.put('/my-community-competition/:communityId/sales-summary',
 
       await doc.save();
       res.json({ month: entry.month, sales: entry.sales ?? 0, cancels: entry.cancels ?? 0, closings: entry.closings ?? 0 });
+    } catch (err) {
+      res.status(err.status || 500).json({ error: err.message || 'Server error' });
+    }
+  }
+);
+
+router.put('/my-community-competition/:communityId/amenities',
+  requireRole('USER','MANAGER','COMPANY_ADMIN','SUPER_ADMIN'),
+  async (req, res) => {
+    try {
+      const { communityId } = req.params;
+      if (!isObjectId(communityId)) return res.status(400).json({ error: 'Invalid communityId' });
+
+      const community = await assertCommunity(req, communityId);
+      const amenities = normalizeAmenities(req.body?.communityAmenities);
+
+      const doc = await CommunityCompetitionProfile.findOneAndUpdate(
+        { community: community._id, ...baseFilter(req) },
+        {
+          $set: { communityAmenities: amenities },
+          $setOnInsert: { company: community.company, community: community._id }
+        },
+        { new: true, upsert: true }
+      ).select('communityAmenities').lean();
+
+      res.json({ communityAmenities: doc?.communityAmenities || [] });
     } catch (err) {
       res.status(err.status || 500).json({ error: err.message || 'Server error' });
     }

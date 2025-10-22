@@ -11,6 +11,28 @@
   margin: 0;
 }
 
+.graphs-controls {
+  display: flex;
+  align-items: center;
+  gap: .75rem;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+}
+
+.graph-filter {
+  display: flex;
+  align-items: center;
+  gap: .5rem;
+}
+
+.graph-select {
+  padding: .35rem .6rem;
+  border-radius: .5rem;
+  border: 1px solid var(--border, #ddd);
+  background: #fff;
+  font-size: .9rem;
+}
+
 .tab-nav {
   display: flex;
   gap: .5rem;

@@ -7,7 +7,13 @@ const User = require('../server/models/User');
 
 (async () => {
   try {
-    await mongoose.connect(process.env.MONGO_URL);
+    const mongoUri =
+      process.env.MONGO_URI ||
+      process.env.MONGODB_URI ||
+      process.env.MONGO_URL;
+    if (!mongoUri) throw new Error('Set MONGO_URI (or MONGODB_URI) before running this script');
+
+    await mongoose.connect(mongoUri);
     const [companyName, email, password] = process.argv.slice(2);
     if (!companyName || !email || !password) throw new Error('Usage: node scripts/seed-company-admin.js "Company" "email" "password"');
 

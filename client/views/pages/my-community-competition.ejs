@@ -146,20 +146,36 @@
           </div>
 
           <div class="form-group">
-            <label>Additional Fees</label><br>
-            <label><input type="checkbox" id="feeMud"  name="feeTypes" value="MUD"> MUD</label>
-            <label><input type="checkbox" id="feePid"  name="feeTypes" value="PID"> PID</label>
-            <label><input type="checkbox" id="feeNone" name="feeTypes" value="None"> None</label>
-          </div>
-
-          <div class="form-group" id="mudFeeGroup" style="display:none;">
-            <label for="mudFee">MUD Fee</label>
-            <input type="number" id="mudFee" name="mudFee">
-          </div>
-
-          <div class="form-group" id="pidFeeGroup" style="display:none;">
-            <label for="pidFee">PID Fee</label>
-            <input type="number" id="pidFee" name="pidFee">
+            <label>Additional Fees</label>
+            <div class="fee-option">
+              <label><input type="checkbox" id="feeMud" name="feeTypes" value="MUD"> MUD</label>
+              <div class="fee-subgroup" id="mudFeeGroup" style="display:none;">
+                <label for="mudFee">MUD Fee</label>
+                <input type="number" id="mudFee" name="mudFee">
+              </div>
+            </div>
+            <div class="fee-option">
+              <label><input type="checkbox" id="feePid" name="feeTypes" value="PID"> PID</label>
+              <div class="fee-subgroup" id="pidFeeGroup" style="display:none;">
+                <div class="fee-inline">
+                  <div class="fee-field">
+                    <label for="pidFee">PID Fee</label>
+                    <input type="number" id="pidFee" name="pidFee">
+                  </div>
+                  <div class="fee-field">
+                    <label for="pidFeeFrequency">Frequency</label>
+                    <select id="pidFeeFrequency" name="pidFeeFrequency">
+                      <option value="">-- Select Frequency --</option>
+                      <option value="Monthly">Monthly</option>
+                      <option value="Yearly">Yearly</option>
+                    </select>
+                  </div>
+                </div>
+              </div>
+            </div>
+            <div class="fee-option">
+              <label><input type="checkbox" id="feeNone" name="feeTypes" value="None"> None</label>
+            </div>
           </div>
 
           <div class="form-group">
@@ -171,6 +187,7 @@
             <label for="realtorCommission">Realtor Commission (%)</label>
             <input type="number" id="realtorCommission" name="realtorCommission" step="0.01">
           </div>
+          <button type="button" id="openAmenitiesBtn" class="btn btn-sm btn-primary">Edit Amenities</button>
         </section>
       </div>
 
@@ -204,51 +221,68 @@
             </li>
           </ul>
 
-          <!-- Promotion & HOA row -->
-          <section class="section-box span-full">
-            <div class="section-box__header">
-              <h4>Promotion & HOA</h4>
-              <button class="toggle-btn" data-target="#promoHoaContent">Hide</button>
-            </div>
-            <div id="promoHoaContent" class="promo-hoa-row">
-              <div class="promo">
-                <p id="promoText">Select a community to load promotions.</p>
-              </div>
-              <div class="hoa-tax">
-                <div class="kv"><span class="k">HOA</span><span class="v" id="hoaDisplay">Not specified</span></div>
-                <div class="kv"><span class="k">Tax Rate</span><span class="v" id="taxDisplay">Not specified</span></div>
-              </div>
-            </div>
-          </section>
+          <div class="overview-collapse-controls span-full">
+            <button type="button" id="overviewCollapseToggle" class="btn btn-sm btn-outline-secondary">Hide Promo & Pros</button>
+          </div>
 
-          <!-- Pros & Cons full width -->
-          <section class="section-box span-full">
-            <div class="section-box__header">
-              <h4>Pros & Cons</h4>
-              <button class="toggle-btn" data-target="#prosConsContent">Hide</button>
-            </div>
-            <div id="prosConsContent" class="proscons-grid">
-              <div>
-                <h5>Pros</h5>
-                <ul id="prosUl"></ul>
+          <div id="overviewCollapsedBar" class="overview-collapsed span-full is-hidden" role="status">
+            <span>Promotion & HOA, Pros & Cons hidden</span>
+            <button type="button" id="overviewExpandBtn" class="btn btn-sm btn-primary">Show Sections</button>
+          </div>
+
+          <div id="overviewSections" class="overview-sections span-full">
+            <!-- Promotion & HOA row -->
+            <section class="section-box span-full">
+              <div class="section-box__header">
+                <h4>Promotion & HOA</h4>
               </div>
-              <div>
-                <h5>Cons</h5>
-                <ul id="consUl"></ul>
+              <div id="promoHoaContent" class="promo-hoa-row">
+                <div class="promo">
+                  <p id="promoText">Select a community to load promotions.</p>
+                </div>
+                <div class="hoa-tax">
+                  <div class="kv"><span class="k">HOA</span><span class="v" id="hoaDisplay">Not specified</span></div>
+                  <div class="kv"><span class="k">Tax Rate</span><span class="v" id="taxDisplay">Not specified</span></div>
+                </div>
               </div>
-            </div>
-          </section>
+            </section>
+
+            <!-- Pros & Cons full width -->
+            <section class="section-box span-full">
+              <div class="section-box__header">
+                <h4>Pros & Cons</h4>
+              </div>
+              <div id="prosConsContent" class="proscons-grid">
+                <div>
+                  <h5>Pros</h5>
+                  <ul id="prosUl"></ul>
+                </div>
+                <div>
+                  <h5>Cons</h5>
+                  <ul id="consUl"></ul>
+                </div>
+              </div>
+            </section>
+          </div>
 
           <!-- Graphs wrapper to match the look -->
-          <div class="card card--grey">
+          <div class="card card--grey span-full">
             <section class="section-box span-full card card--white mt-3" id="graphsSection">
               <div class="section-box__header graphs-header">
                 <h4 class="graphs-title">Performance Graphs</h4>
-                <div class="tab-nav" role="tablist" aria-label="Graph selector">
-                  <button class="tab-btn is-active" data-tab="sales" role="tab" aria-selected="true">Sales</button>
-                  <button class="tab-btn" data-tab="sqft" role="tab" aria-selected="false">Sqft Comparison</button>
-                  <button class="tab-btn" data-tab="base" role="tab" aria-selected="false">Base Price</button>
-                  <button class="tab-btn" data-tab="qmi" role="tab" aria-selected="false">QMI / Solds</button>
+                <div class="graphs-controls">
+                  <div class="tab-nav" role="tablist" aria-label="Graph selector">
+                    <button class="tab-btn is-active" data-tab="sales" role="tab" aria-selected="true">Sales</button>
+                    <button class="tab-btn" data-tab="sqft" role="tab" aria-selected="false">Sqft Comparison</button>
+                    <button class="tab-btn" data-tab="base" role="tab" aria-selected="false">Base Price</button>
+                    <button class="tab-btn" data-tab="qmi" role="tab" aria-selected="false">QMI / Solds</button>
+                  </div>
+                  <div class="graph-filter is-hidden" id="sqftMonthFilter">
+                    <label class="sr-only" for="sqftMonthSelect">Select month</label>
+                    <select id="sqftMonthSelect" class="graph-select">
+                      <option value="">Latest Month</option>
+                    </select>
+                  </div>
                 </div>
               </div>
               <div id="graphMount" class="graph-mount" role="region" aria-live="polite" aria-busy="false"></div>
@@ -327,27 +361,53 @@
           </section>
 
           <!-- Linked competitors selector (full width) -->
-              <section class="section-box span-full">
-                <div class="section-box__header">
-                  <h4>Linked Competitors</h4>
-                </div>
-                <div class="card card--white" style="padding:1rem;">
-                  <div class="row">
-                    <div class="col-md-6">
-                      <h6>All Competitors</h6>
-                      <div id="allCompetitionsList" class="list-group"></div>
-                    </div>
-                    <div class="col-md-6">
-                      <h6>Linked</h6>
-                      <div id="linkedCompetitors" class="list-group"></div>
-                    </div>
+          <section class="section-box span-full card card--white mt-3" id="linkedCompetitorsSection">
+            <div class="section-box__header">
+              <h4>Linked Competitors</h4>
+              <span class="linked-badge" id="linkedCountBadge">0 linked</span>
+            </div>
+            <div class="competitor-grid">
+              <div class="competitor-column">
+                <div class="competitor-header">
+                  <div>
+                    <h6 class="mb-1">All Competitors</h6>
+                    <small class="text-muted" id="allCompetitorsCount">0 available</small>
+                  </div>
+                  <div class="competitor-search">
+                    <label for="allCompetitionsSearch" class="sr-only">Search competitors</label>
+                    <input type="search" id="allCompetitionsSearch" placeholder="Search by builder or community" autocomplete="off">
                   </div>
                 </div>
-              </section>
+                <div id="allCompetitionsEmpty" class="empty-state is-hidden">No competitors match your search.</div>
+                <div id="allCompetitionsList" class="list-group"></div>
+              </div>
+              <div class="competitor-column">
+                <div class="competitor-header">
+                  <h6 class="mb-1">Linked</h6>
+                  <small class="text-muted" id="linkedCompetitorsCount">0 linked</small>
+                </div>
+                <div id="linkedCompetitorsEmpty" class="empty-state">No competitors linked yet.</div>
+                <div id="linkedCompetitors" class="list-group"></div>
+              </div>
+            </div>
+          </section>
         </div>
       </div>
     </div>
   </main>
+
+  <div id="amenitiesModal" class="modal" style="display:none;">
+    <div class="modal-content">
+      <span class="close" id="closeAmenitiesModal">&times;</span>
+      <h2>Select Community Amenities</h2>
+      <form id="amenitiesForm">
+        <div id="amenitiesContainer"></div>
+        <div class="modal-actions">
+          <button type="submit" class="btn btn-sm btn-primary">Save Amenities</button>
+        </div>
+      </form>
+    </div>
+  </div>
 
   <!-- Page script -->
    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.4/dist/chart.umd.min.js" nonce="<%= cspNonce %>"></script>

@@ -1,6 +1,9 @@
 const mongoose = require('mongoose');
 
-const URI = process.env.MONGODB_URI || 'mongodb://localhost:27017/crm-form';
+const URI =
+  process.env.MONGO_URI ||
+  process.env.MONGODB_URI ||
+  'mongodb://localhost:27017/crm-form'; // prefer Atlas if available
 
 async function run() {
   await mongoose.connect(URI);

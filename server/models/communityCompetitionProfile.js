@@ -73,8 +73,16 @@ const CommunityCompetitionProfileSchema = new Schema({
   feeTypes:        { type: [String], enum: ['MUD', 'PID', 'None'], default: [] },
   mudFee:          { type: Number, set: toNumOrNull, default: null },
   pidFee:          { type: Number, set: toNumOrNull, default: null },
+  pidFeeFrequency: { type: String, enum: ['Monthly', 'Yearly', ''], default: '' },
   earnestAmount:   { type: Number, set: toNumOrNull, default: null },
   realtorCommission: { type: Number, set: toNumOrNull, default: null },
+  communityAmenities: {
+    type: [{
+      category: { type: String, trim: true, default: '' },
+      items: [{ type: String, trim: true }]
+    }],
+    default: []
+  },
 
   // Marketing
   promotion: String,

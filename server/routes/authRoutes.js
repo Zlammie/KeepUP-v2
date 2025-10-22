@@ -1,6 +1,10 @@
 const router = require('express').Router();
 const bcrypt = require('bcrypt');
 const User = require('../models/User');
+const normalizeRole = require('../utils/normalizeRole');
+
+const VALID_ROLES = new Set(Object.values(User.ROLES || {}));
+const DEFAULT_ROLE = User.ROLES?.USER || 'USER';
 
 router.get('/login', (req, res) => {
   if (req.session?.user) return res.redirect('/'); // already logged in
@@ -27,12 +31,22 @@ router.post('/login', async (req, res) => {
         return res.status(500).render('auth/login', { error: 'Something went wrong' });
       }
 
+      const rawRoles = Array.isArray(user.roles) && user.roles.length
+        ? user.roles
+        : [user.role].filter(Boolean);
+
+      const roles = rawRoles
+        .map(normalizeRole)
+        .filter(role => role && VALID_ROLES.has(role));
+
+      if (!roles.length) roles.push(DEFAULT_ROLE);
+
       req.session.user = {
         _id: user._id.toString(),
         email: user.email,
         companyId: String(user.company),             // works whether or not virtuals are present
-        roles: Array.isArray(user.roles) ? user.roles : [user.role].filter(Boolean),
-        role: (Array.isArray(user.roles) ? user.roles[0] : user.role) || 'USER',
+        roles,
+        role: roles[0],
       };
 
       // (optional) track last login

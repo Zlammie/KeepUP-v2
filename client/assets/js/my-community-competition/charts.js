@@ -1,10 +1,11 @@
 // client/assets/js/my-community-competition/charts.js
-import { clearGraph, mountInfo } from './ui.js';
+import { clearGraph, mountInfo, hideSqftFilter, setSqftFilter, setSqftFilterDisabled } from './ui.js';
 import { graphMount } from './dom.js';
 import { setCurrentChart } from './state.js';
-import { fetchSalesSeries, fetchBasePriceSeries, fetchQmiSolds } from './api.js';
+import { fetchSalesSeries, fetchBasePriceSeries, fetchQmiSolds, fetchSqftScatter } from './api.js';
 
 export async function drawSalesGraph(communityId) {
+  hideSqftFilter();
   clearGraph();
   const canvas = document.createElement('canvas');
   canvas.id = 'salesChart';
@@ -34,6 +35,7 @@ export async function drawSalesGraph(communityId) {
 }
 
 export async function drawBasePriceGraph(communityId) {
+  hideSqftFilter();
   clearGraph();
   const canvas = document.createElement('canvas');
   canvas.id = 'basePriceChart';
@@ -77,6 +79,7 @@ export async function drawBasePriceGraph(communityId) {
 }
 
 export async function drawQmiSoldsGraph(communityId, opts = {}) {
+  hideSqftFilter();
   clearGraph();
   const canvas = document.createElement('canvas');
   canvas.id = 'qmiSoldsChart';
@@ -132,8 +135,8 @@ export async function drawQmiSoldsGraph(communityId, opts = {}) {
 
   const data = {
     datasets: [
-      { label: 'Quick Move-Ins', type: 'scatter', showLine: true, data: qmiPoints,  pointRadius: 4, tension: 0.25 },
-      { label: 'Sold / Closed',  type: 'scatter', showLine: true, data: soldPoints, pointRadius: 4, tension: 0.25 }
+      { label: 'Quick Move-Ins', type: 'scatter', showLine: false, data: qmiPoints,  pointRadius: 4, pointHoverRadius: 6 },
+      { label: 'Sold / Closed',  type: 'scatter', showLine: false, data: soldPoints, pointRadius: 4, pointHoverRadius: 6 }
     ]
   };
   const options = {
@@ -160,4 +163,127 @@ export async function drawQmiSoldsGraph(communityId, opts = {}) {
   };
   setCurrentChart(new Chart(ctx, { data, options }));
   return payload;
+}
+
+export async function drawSqftComparisonGraph(communityId, opts = {}) {
+  clearGraph();
+  mountInfo('Loading square footage comparison…');
+  setSqftFilterDisabled(true);
+
+  try {
+    const payload = await fetchSqftScatter(communityId, opts.month);
+    const months = Array.isArray(payload?.months) ? payload.months : [];
+    const selectedMonth = payload?.selectedMonth || (months[0]?.value ?? '');
+
+    setSqftFilter(months, selectedMonth);
+    setSqftFilterDisabled(false);
+
+    const rawDatasets = Array.isArray(payload?.datasets) ? payload.datasets : [];
+    const communityDatasets = rawDatasets.filter((set) => {
+      if (!set) return false;
+      if (set.type === 'community') return true;
+      const setId = set.id != null ? String(set.id) : '';
+      return (!set.type && setId && setId === String(communityId));
+    });
+
+    if (!communityDatasets.length) {
+      clearGraph();
+      mountInfo('No floor plan pricing data available for the selected month.');
+      return { selectedMonth, months, datasets: [] };
+    }
+
+    clearGraph();
+    const canvas = document.createElement('canvas');
+    canvas.id = 'sqftComparisonChart';
+    graphMount.appendChild(canvas);
+
+    const currencyFmt = new Intl.NumberFormat(undefined, { style: 'currency', currency: 'USD', maximumFractionDigits: 0 });
+    const sqftFmt = new Intl.NumberFormat(undefined, { maximumFractionDigits: 0 });
+
+    const chartDatasets = communityDatasets
+      .map((set) => {
+        const points = Array.isArray(set?.points) ? set.points : [];
+        const dataPoints = points
+          .map((point) => {
+            const sqft = Number(point?.sqft ?? point?.x);
+            const price = Number(point?.price ?? point?.y);
+            if (!Number.isFinite(sqft) || !Number.isFinite(price)) return null;
+            return {
+              x: sqft,
+              y: price,
+              sqft,
+              price,
+              planName: point?.planName || '',
+              planNumber: point?.planNumber || ''
+            };
+          })
+          .filter(Boolean);
+
+        if (!dataPoints.length) return null;
+
+        return {
+          label: set?.label || 'Community',
+          data: dataPoints,
+          type: 'scatter',
+          showLine: true,
+          pointRadius: 4,
+          pointHoverRadius: 6,
+          tension: 0.2,
+          borderWidth: 2
+        };
+      })
+      .filter(Boolean);
+
+    if (!chartDatasets.length) {
+      mountInfo('No valid plan data to chart for this month.');
+      return { selectedMonth, months, datasets: [] };
+    }
+
+    const ctx = canvas.getContext('2d');
+    const chart = new Chart(ctx, {
+      data: { datasets: chartDatasets },
+      options: {
+        responsive: true,
+        maintainAspectRatio: false,
+        parsing: false,
+        plugins: {
+          legend: { position: 'top' },
+          tooltip: {
+            callbacks: {
+              label: (ctx) => {
+                const d = ctx.raw || {};
+                const sqft = sqftFmt.format(Number(d.sqft));
+                const price = currencyFmt.format(Number(d.price));
+                const planName = d.planName || '';
+                const planNumber = d.planNumber ? ` (#${d.planNumber})` : '';
+                const planInfo = planName ? `${planName}${planNumber}` : (planNumber ? `Plan ${planNumber}` : 'Plan');
+                return `${ctx.dataset.label}: ${price} @ ${sqft} sqft — ${planInfo}`;
+              }
+            }
+          }
+        },
+        scales: {
+          x: {
+            title: { display: true, text: 'Square Feet' },
+            ticks: { callback: (val) => Number(val).toLocaleString() }
+          },
+          y: {
+            title: { display: true, text: 'Base Price ($)' },
+            ticks: { callback: (val) => `$${Number(val).toLocaleString()}` }
+          }
+        }
+      }
+    });
+
+    setCurrentChart(chart);
+    return { selectedMonth, months, datasets: communityDatasets };
+  } catch (err) {
+    console.error('[charts] drawSqftComparisonGraph failed', err);
+    clearGraph();
+    hideSqftFilter();
+    mountInfo('Unable to load square footage comparison.');
+    return null;
+  } finally {
+    setSqftFilterDisabled(false);
+  }
 }

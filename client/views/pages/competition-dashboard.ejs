@@ -15,19 +15,19 @@
   <main class="container-fluid my-3">
     <!-- Top strip -->
     <div class="card card--grey p-3 mb-3">
-      <div class="row g-3 align-items-start">
+      <div class="row g-3 align-items-stretch">
         <!-- My Community + Linked Builders -->
-        <div class="col-lg-9">
-          <div class="card card--white p-3">
+        <div class="col-12 col-lg">
+          <div class="card card--white p-3 h-100">
             <div class="row g-3">
-              <div class="col-md-6">
+              <div class="col-12 col-md-3">
                 <label class="form-label" for="dashCommunity">My Community</label>
                 <select id="dashCommunity" class="form-select form-select-sm">
                   <option value="">-- Select a community --</option>
                 </select>
                 <div id="myCommunityColorWrap" class="mt-2"></div>
               </div>
-              <div class="col-md-6">
+              <div class="col-12 col-md-9">
                 <label class="form-label">Linked Builders</label>
                 <div id="dashLinkedBuilders" class="d-flex flex-wrap gap-2">
                   <!-- chips injected -->
@@ -37,8 +37,8 @@
           </div>
         </div>
         <!-- Filters -->
-        <div class="col-lg-3">
-          <div class="card card--white p-3">
+        <div class="col-lg-auto ms-lg-auto d-flex">
+          <div class="card card--white p-3 h-100 w-100">
             <div class="d-flex gap-2 align-items-end">
               <div class="flex-fill">
                 <label class="form-label">Months</label>
@@ -61,6 +61,7 @@
         <div class="card card--grey p-2">
           <div class="card card--white p-3">
             <h5 class="mb-2">Quick Move-In & Sold (Price vs Sqft)</h5>
+            <div id="qmiLegend" class="qmi-legend mb-3" aria-live="polite"></div>
             <div style="height: 380px"><canvas id="qmiSoldsChart"></canvas></div>
           </div>
         </div>
