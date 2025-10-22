@@ -10,6 +10,11 @@ export const statTotalLots = document.getElementById('statTotalLots');
 export const statLotsSold = document.getElementById('statLotsSold');
 export const statLotsRemaining = document.getElementById('statLotsRemaining');
 export const statQmiAvailable = document.getElementById('statQmiAvailable');
+export const openAmenitiesBtn = document.getElementById('openAmenitiesBtn');
+export const amenitiesModal = document.getElementById('amenitiesModal');
+export const closeAmenitiesModal = document.getElementById('closeAmenitiesModal');
+export const amenitiesForm = document.getElementById('amenitiesForm');
+export const amenitiesContainer = document.getElementById('amenitiesContainer');
 
 export const promoText = document.getElementById('promoText');
 export const hoaDisplay = document.getElementById('hoaDisplay');
@@ -43,6 +48,7 @@ export const mudFeeGroup = document.getElementById('mudFeeGroup');
 export const pidFeeGroup = document.getElementById('pidFeeGroup');
 export const mudFee = document.getElementById('mudFee');
 export const pidFee = document.getElementById('pidFee');
+export const pidFeeFrequency = document.getElementById('pidFeeFrequency');
 export const earnestAmount = document.getElementById('earnestAmount');
 export const realtorCommission = document.getElementById('realtorCommission');
 
@@ -51,5 +57,17 @@ export const consUl = document.getElementById('consUl');
 
 export const allCompetitionsList = document.getElementById('allCompetitionsList');
 export const linkedContainer = document.getElementById('linkedCompetitors');
+export const allCompetitionsCount = document.getElementById('allCompetitorsCount');
+export const linkedCompetitorsCount = document.getElementById('linkedCompetitorsCount');
+export const linkedCountBadge = document.getElementById('linkedCountBadge');
+export const allCompetitionsEmpty = document.getElementById('allCompetitionsEmpty');
+export const linkedCompetitorsEmpty = document.getElementById('linkedCompetitorsEmpty');
+export const allCompetitionsSearch = document.getElementById('allCompetitionsSearch');
+export const overviewSections = document.getElementById('overviewSections');
+export const overviewCollapseToggle = document.getElementById('overviewCollapseToggle');
+export const overviewCollapsedBar = document.getElementById('overviewCollapsedBar');
+export const overviewExpandBtn = document.getElementById('overviewExpandBtn');
 
 export const graphMount = document.getElementById('graphMount');
+export const sqftMonthFilter = document.getElementById('sqftMonthFilter');
+export const sqftMonthSelect = document.getElementById('sqftMonthSelect');

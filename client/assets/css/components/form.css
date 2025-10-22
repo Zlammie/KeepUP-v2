@@ -117,3 +117,42 @@
   padding: 0.25rem;
   font-size: 0.85rem;
 }
+
+.fee-option {
+  display: flex;
+  flex-direction: column;
+  gap: 0.4rem;
+  margin-top: 0.5rem;
+}
+.fee-option > label {
+  border-bottom: none;
+  font-weight: 600;
+  margin: 0;
+}
+.fee-subgroup {
+  margin-left: 1.5rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+.fee-inline {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.75rem;
+  align-items: flex-end;
+}
+.fee-field {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+  min-width: 140px;
+}
+.fee-field label {
+  border-bottom: none;
+  margin: 0;
+  font-weight: 600;
+}
+.fee-field input[type="number"],
+.fee-field select {
+  max-width: 180px;
+}
