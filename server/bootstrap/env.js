@@ -3,33 +3,37 @@ const fs = require('fs');
 const path = require('path');
 const dotenv = require('dotenv');
 
-// Resolve CWD so this works no matter where you launch from
-const cwd = process.cwd();
 const env = process.env.NODE_ENV || 'development';
+const cwd = process.cwd();
+const appRoot = path.resolve(__dirname, '..', '..'); // repo root (adjust if needed)
 
-// Ordered by most-specific to least-specific
-const envFileCandidates = [
-  `.env.${env}.local`,
-  `.env.${env}`,
-  '.env.local',
-  '.env',
-];
+const explicit = process.env.ENV_FILE && path.resolve(process.env.ENV_FILE);
+const candidates = [
+  explicit,                                // explicit path wins
+  path.join(cwd, `.env.${env}.local`),
+  path.join(cwd, `.env.${env}`),
+  path.join(cwd, '.env.local'),
+  path.join(cwd, '.env'),
+  // fall back to app root in case cwd is wrong
+  path.join(appRoot, `.env.${env}.local`),
+  path.join(appRoot, `.env.${env}`),
+  path.join(appRoot, '.env.local'),
+  path.join(appRoot, '.env'),
+].filter(Boolean);
 
 let loadedFrom = null;
-for (const f of envFileCandidates) {
-  const resolved = path.resolve(cwd, f);
-  if (fs.existsSync(resolved)) {
-    dotenv.config({ path: resolved, override: true });
-    loadedFrom = f;
+for (const file of candidates) {
+  if (fs.existsSync(file)) {
+    dotenv.config({ path: file, override: true });
+    loadedFrom = file;
     break;
   }
 }
 
-// Optional: one-line debug you can leave in safely
 if (!loadedFrom) {
-  console.warn(`[env] No .env file found for NODE_ENV=${env} (looking for: ${envFileCandidates.join(', ')})`);
+  console.warn(`[env] No .env file found for NODE_ENV=${env}`);
 } else {
-  console.log(`[env] Loaded ${loadedFrom}`);
+  console.log(`[env] Loaded ${path.basename(loadedFrom)}`);
 }
 
 module.exports = { loadedFrom, env };
