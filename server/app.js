@@ -176,7 +176,6 @@ app.use((req, res, next) => {
   next();
 });
 
-const csurf = require('csurf');
 
 // after session(), before routes
 app.use(csurf());
