@@ -1,5 +1,9 @@
 const mongoose = require('mongoose');
 const { Schema } = mongoose;
+const {
+  DEFAULT_SYNC_FIELDS,
+  sanitizeSyncFields,
+} = require('../config/competitionSync');
 
 // light normalizers
 const toLowerTrim = v => (v == null ? v : String(v).trim().toLowerCase());
@@ -13,20 +17,21 @@ const MonthlyMetricsSchema = new Schema({
 }, { _id: false });
 
 const CompetitionSchema = new Schema({
-  // 🔐 Tenant
+  // Tenant
   company: { type: Schema.Types.ObjectId, ref: 'Company', required: true, index: true },
 
-  // 🏘️ Basic identifiers
+  // Basic identifiers
   communityName: { type: String, required: true, trim: true },
   builderName:   { type: String, required: true, trim: true },
   address:       { type: String, required: true, trim: true },
   city:          { type: String, required: true, trim: true },
   state:         { type: String, required: true, default: 'TX', trim: true },
   zip:           { type: String, required: true, trim: true },
+  market:        { type: String, trim: true },
 
   builderWebsite: { type: String, default: '' },
 
-  // 🔑 Attributes
+  // Attributes
   lotSize:          { type: String },
   salesPerson:      { type: String },
   salesPersonPhone: { type: String, set: toPhone10 },
@@ -41,7 +46,7 @@ const CompetitionSchema = new Schema({
   garageType:       { type: String, enum: ['Front','Rear', null], default: null },
   totalLots: { type: Number, set: toNumOrNull, default: null },
 
-  // 💸 Fees
+  // Fees
   hoaFee:         { type: Number, set: toNumOrNull, default: null },
   hoaFrequency:   { type: String, enum: ['Monthly','Bi-Annually','Annually', null], default: null },
   tax:            { type: Number, set: toNumOrNull, default: null },
@@ -54,18 +59,18 @@ const CompetitionSchema = new Schema({
   realtorCommission:{ type: Number, set: toNumOrNull, default: null },
 
   amenities: [{
-  category: { type: String, trim: true, default: '' },
-  items:    [{ type: String, trim: true }]
-}],
+    category: { type: String, trim: true, default: '' },
+    items:    [{ type: String, trim: true }]
+  }],
 
-  // 🏗️ Linked data
+  // Linked data
   floorPlans: [{ type: Schema.Types.ObjectId, ref: 'FloorPlanComp', index: true }],
   communityAmenities: [{
     category: String,
     items: [String]
   }],
 
-  // 📈 Marketing
+  // Marketing
   promotion: { type: String, default: '' },
   topPlan1:  { type: String },
   topPlan2:  { type: String },
@@ -74,16 +79,48 @@ const CompetitionSchema = new Schema({
   pros: { type: [String], default: [] },
   cons: { type: [String], default: [] },
 
-  // 📊 Time series
+  // Time series
   monthlyMetrics: { type: [MonthlyMetricsSchema], default: [] },
 
-  // 🔗 Back-ref to our own Community (optional)
-  communityRef: { type: Schema.Types.ObjectId, ref: 'Community', default: null }
+  // Back-ref to our own Community (optional)
+  communityRef: { type: Schema.Types.ObjectId, ref: 'Community', default: null },
+
+  isInternal: { type: Boolean, default: false },
+  syncFields: {
+    type: [String],
+    default: () => DEFAULT_SYNC_FIELDS.slice()
+  }
 }, { timestamps: true });
 
 // indexes for common lookups
 CompetitionSchema.index({ company: 1, builderName: 1, communityName: 1 });
 CompetitionSchema.index({ company: 1, city: 1, state: 1 });
 CompetitionSchema.index({ company: 1, 'monthlyMetrics.month': 1 });
+CompetitionSchema.index({ company: 1, communityRef: 1 });
+
+CompetitionSchema.pre('validate', async function competitionInternalSync(next) {
+  try {
+    const fallback = this.isInternal;
+    this.syncFields = sanitizeSyncFields(this.syncFields, { fallbackToDefault: fallback });
+
+    if (this.isInternal) {
+      if (!this.communityRef) {
+        return next(new Error('Internal competitions require a linked community'));
+      }
+
+      const Community = this.model('Community');
+      const community = await Community.findById(this.communityRef).select('company').lean();
+      if (!community) {
+        return next(new Error('Linked community not found'));
+      }
+
+      this.company = community.company;
+    }
+
+    next();
+  } catch (err) {
+    next(err);
+  }
+});
 
 module.exports = mongoose.model('Competition', CompetitionSchema);

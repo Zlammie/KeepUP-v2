@@ -4,8 +4,11 @@ const mongoose = require('mongoose');
 const ensureAuth = require('../middleware/ensureAuth');
 
 const Competition = require('../models/Competition');
+const Community = require('../models/Community');
 const SalesRecord = require('../models/salesRecord');
 const PriceRecord = require('../models/PriceRecord');
+const { sanitizeSyncFields } = require('../config/competitionSync');
+const { buildSyncUpdate } = require('../services/competitionSync');
 
 let FloorPlanComp;
 try { FloorPlanComp = require('../models/floorPlanComp'); } catch { /* optional */ }
@@ -139,14 +142,15 @@ router.get('/:id', asyncHandler(async (req, res) => {
 // ──────────────────── create / update / delete ────────────────────
 
 const ALLOWED_FIELDS = [
-  'communityName','builderName','address','city','state','zip',
+  'communityName','builderName','address','city','state','zip','market',
   'salesPerson','salesPersonPhone','salesPersonEmail',
   'lotSize','modelPlan','garageType',
   'schoolISD','elementarySchool','middleSchool','highSchool',
   'totalLots','hoaFee','hoaFrequency','tax',
   'feeTypes','mudFee','pidFee','pidFeeFrequency',
   'promotion','topPlan1','topPlan2','topPlan3','pros','cons',
-  'communityAmenities' // for completeness when posted in bulk
+  'communityAmenities',
+  'communityRef','isInternal','syncFields'
 ];
 
 // Normalizers shared by POST/PUT/PATCH
@@ -155,7 +159,7 @@ function normalizeBody(raw) {
 
   // trim core strings
   [
-    'communityName','builderName','address','city','state','zip',
+    'communityName','builderName','address','city','state','zip','market',
     'modelPlan','lotSize','salesPerson','salesPersonPhone','salesPersonEmail',
     'schoolISD','elementarySchool','middleSchool','highSchool',
     'promotion','topPlan1','topPlan2','topPlan3','pros','cons'
@@ -190,12 +194,76 @@ function normalizeBody(raw) {
     body.garageType = gt === 'rear' ? 'Rear' : gt === 'front' ? 'Front' : null;
   }
 
+  if ('isInternal' in body) {
+    const raw = body.isInternal;
+    if (typeof raw === 'string') {
+      const lowered = raw.trim().toLowerCase();
+      body.isInternal = ['1','true','yes','on'].includes(lowered);
+    } else {
+      body.isInternal = Boolean(raw);
+    }
+  }
+
+  if ('communityRef' in body) {
+    const ref = body.communityRef;
+    body.communityRef = ref ? String(ref).trim() : null;
+  }
+
+  if ('syncFields' in body) {
+    body.syncFields = sanitizeSyncFields(body.syncFields, { fallbackToDefault: false });
+  }
+
   return body;
 }
 
 // POST /api/competitions
 router.post('/', asyncHandler(async (req, res) => {
   const body = normalizeBody(pick(req.body, ALLOWED_FIELDS));
+
+  const filterCompany = tenantFilter(req);
+  let linkedCommunity = null;
+
+  if (body.communityRef) {
+    if (!isObjectId(body.communityRef)) {
+      return res.status(400).json({ error: 'Invalid communityRef' });
+    }
+    const communityQuery = { _id: body.communityRef };
+    if (!isSuperAdmin(req)) communityQuery.company = filterCompany.company;
+    linkedCommunity = await Community.findOne(communityQuery).lean();
+    if (!linkedCommunity) {
+      return res.status(404).json({ error: 'Linked community not found' });
+    }
+  }
+
+  if (body.isInternal) {
+    if (!linkedCommunity) {
+      return res.status(400).json({ error: 'Internal competitions require a linked community' });
+    }
+    const sanitizedFields = sanitizeSyncFields(body.syncFields, { fallbackToDefault: true });
+    const { update, fields } = buildSyncUpdate(linkedCommunity, sanitizedFields);
+    body.syncFields = fields;
+    Object.assign(body, update);
+    body.communityRef = linkedCommunity._id;
+    body.company = linkedCommunity.company;
+  } else {
+    if (linkedCommunity) {
+      body.communityRef = linkedCommunity._id;
+      if (!body.company) {
+        body.company = linkedCommunity.company;
+      }
+    }
+  }
+
+  if (!body.company) {
+    if (isSuperAdmin(req) && req.body?.company && isObjectId(req.body.company)) {
+      body.company = req.body.company;
+    } else {
+      body.company = filterCompany.company || null;
+    }
+  }
+  if (!body.company) {
+    return res.status(400).json({ error: 'Company context required' });
+  }
 
   const required = ['communityName','builderName','address','city','state','zip'];
   for (const key of required) {
@@ -205,31 +273,96 @@ router.post('/', asyncHandler(async (req, res) => {
     }
   }
 
-  const filterCompany = tenantFilter(req);
-  if (isSuperAdmin(req) && req.body?.company && isObjectId(req.body.company)) {
-    body.company = req.body.company;
-  } else {
-    body.company = filterCompany.company || null;
+  if (!body.isInternal && body.syncFields !== undefined) {
+    body.syncFields = sanitizeSyncFields(body.syncFields, { fallbackToDefault: false });
   }
-  if (!body.company) return res.status(400).json({ error: 'Company context required' });
 
   const comp = await Competition.create(body);
   res.status(201).json(comp);
 }));
+
+async function saveCompetitionUpdate(req, filter, updates) {
+  const current = await Competition.findOne(filter).lean();
+  if (!current) return { code: 404 };
+
+  const next = { ...updates };
+  const tenantCompany = tenantFilter(req).company || null;
+  const targetIsInternal = Object.prototype.hasOwnProperty.call(next, 'isInternal')
+    ? next.isInternal
+    : current.isInternal;
+  let targetCommunityRef = Object.prototype.hasOwnProperty.call(next, 'communityRef')
+    ? next.communityRef
+    : current.communityRef;
+  let targetSyncFields = Object.prototype.hasOwnProperty.call(next, 'syncFields')
+    ? next.syncFields
+    : current.syncFields;
+
+  let linkedCommunity = null;
+  const companyHint = current.company || tenantCompany || req.user?.company || null;
+
+  const findCommunity = async (ref) => {
+    if (!ref) return null;
+    if (!isObjectId(ref)) return { code: 400, error: 'Invalid communityRef' };
+    const query = { _id: ref };
+    if (!isSuperAdmin(req)) query.company = companyHint;
+    const community = await Community.findOne(query).lean();
+    if (!community) return { code: 404, error: 'Linked community not found' };
+    return community;
+  };
+
+  if (targetIsInternal) {
+    if (!targetCommunityRef) targetCommunityRef = current.communityRef;
+    const lookup = await findCommunity(targetCommunityRef);
+    if (lookup && lookup.code) return lookup;
+    linkedCommunity = lookup;
+    if (!linkedCommunity) {
+      return { code: 400, error: 'Internal competitions require a linked community' };
+    }
+    const sanitizedFields = sanitizeSyncFields(targetSyncFields, { fallbackToDefault: true });
+    const { update, fields } = buildSyncUpdate(linkedCommunity, sanitizedFields);
+    next.syncFields = fields;
+    next.communityRef = linkedCommunity._id;
+    Object.assign(next, update);
+    next.isInternal = true;
+    next.company = linkedCommunity.company;
+  } else {
+    if (Object.prototype.hasOwnProperty.call(next, 'syncFields')) {
+      next.syncFields = sanitizeSyncFields(next.syncFields, { fallbackToDefault: false });
+    }
+    if (Object.prototype.hasOwnProperty.call(next, 'isInternal')) {
+      next.isInternal = false;
+    }
+    if (Object.prototype.hasOwnProperty.call(next, 'communityRef')) {
+      if (next.communityRef) {
+        const lookup = await findCommunity(next.communityRef);
+        if (lookup && lookup.code) return lookup;
+        if (lookup) next.communityRef = lookup._id;
+      } else {
+        next.communityRef = null;
+      }
+    }
+  }
+
+  const updated = await Competition.findOneAndUpdate(
+    filter,
+    { $set: next },
+    { new: true, runValidators: true }
+  ).lean();
+
+  return { code: updated ? 200 : 404, doc: updated };
+}
 
 // PUT /api/competitions/:id (full update)
 router.put('/:id', asyncHandler(async (req, res) => {
   const body = normalizeBody(pick(req.body, ALLOWED_FIELDS));
 
   const filter = { _id: req.params.id, ...tenantFilter(req) };
-  const updated = await Competition.findOneAndUpdate(
-    filter,
-    { $set: body },
-    { new: true, runValidators: true }
-  ).lean();
+  const result = await saveCompetitionUpdate(req, filter, body);
+  if (result.code !== 200) {
+    return res.status(result.code).json({ error: result.error || 'Not found' });
+  }
 
-  if (!updated) return res.status(404).json({ error: 'Not found' });
-  res.json(updated);
+  res.json(result.doc);
 }));
 
 // PATCH /api/competitions/:id (partial update)
@@ -237,14 +370,12 @@ router.patch('/:id', asyncHandler(async (req, res) => {
   const body = normalizeBody(pick(req.body, ALLOWED_FIELDS));
 
   const filter = { _id: req.params.id, ...tenantFilter(req) };
-  const updated = await Competition.findOneAndUpdate(
-    filter,
-    { $set: body },
-    { new: true, runValidators: true }
-  ).lean();
+  const result = await saveCompetitionUpdate(req, filter, body);
+  if (result.code !== 200) {
+    return res.status(result.code).json({ error: result.error || 'Not found' });
+  }
 
-  if (!updated) return res.status(404).json({ error: 'Not found' });
-  res.json(updated);
+  res.json(result.doc);
 }));
 
 // keep your dedicated helpers as targeted endpoints (clear intent)
