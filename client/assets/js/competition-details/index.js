@@ -28,7 +28,7 @@ async function loadBasePricesByPlan(anchorMonth) {
 //QMI / Sold Graph //
 async function loadQMIAll() {
   // month omitted -> server returns all quick move-ins for this competition
-  const res = await fetch(`/api/competitions/${competitionId}/quick-moveins`);
+  const res = await fetch(`/api/competitions/${competitionId}/quick-moveins?includeDerived=1`);
   if (!res.ok) throw new Error(`QMI fetch failed: ${res.status}`);
   return res.json(); // array of docs with { listPrice, soldPrice?, soldDate?, address, ... }
 }

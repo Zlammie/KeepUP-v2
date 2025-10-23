@@ -2,6 +2,8 @@
 const mongoose = require('mongoose');
 const { numOrNull, toNum } = require('../utils/number');
 const Competition = require('../models/Competition');
+const Community = require('../models/Community');
+const FloorPlan = require('../models/FloorPlan');
 const FloorPlanComp = require('../models/floorPlanComp');
 const PriceRecord = require('../models/PriceRecord');
 const QuickMoveIn = require('../models/quickMoveIn');
@@ -22,6 +24,38 @@ async function loadScopedCompetition(req, res) {
   if (!comp) return res.status(404).json({ error: 'Competition not found' });
   return comp;
 }
+
+const TRUE_SET = new Set(['1', 'true', 'yes', 'on']);
+const FALSE_SET = new Set(['0', 'false', 'no', 'off']);
+const parseBoolean = (value, defaultValue = false) => {
+  if (value == null) return defaultValue;
+  const normalized = String(value).trim().toLowerCase();
+  if (TRUE_SET.has(normalized)) return true;
+  if (FALSE_SET.has(normalized)) return false;
+  return defaultValue;
+};
+
+const isYYYYMM = (input) => typeof input === 'string' && /^\d{4}-(0[1-9]|1[0-2])$/.test(input.trim());
+const toYM = (value) => {
+  if (!value) return null;
+  if (typeof value === 'string' && isYYYYMM(value)) return value.trim();
+  const d = new Date(String(value));
+  if (Number.isNaN(d.getTime())) return null;
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`;
+};
+const extractNumeric = (value) => {
+  if (value == null || value === '') return null;
+  if (typeof value === 'number') return Number.isFinite(value) ? value : null;
+  const cleaned = String(value).replace(/[^0-9.\-]/g, '');
+  if (!cleaned) return null;
+  const n = Number(cleaned);
+  return Number.isFinite(n) ? n : null;
+};
+const ymStrToInt = (ym) => {
+  if (!isYYYYMM(ym)) return null;
+  const [y, m] = ym.split('-').map(Number);
+  return y * 100 + m;
+};
 
 // CRUD competitions
 // GET /api/competitions
@@ -189,11 +223,183 @@ exports.updatePriceRecord = async (req, res) => {
   res.json(rec);
 };
 
+async function deriveQuickMoveInsFromCommunity(req, competition, monthFilter) {
+  if (!competition?.communityRef) return [];
+
+  const monthNormalized = typeof monthFilter === 'string' && isYYYYMM(monthFilter.trim())
+    ? monthFilter.trim()
+    : null;
+  const monthIntFilter = monthNormalized ? ymStrToInt(monthNormalized) : null;
+
+  const community = await Community.findOne({
+    _id: competition.communityRef,
+    ...companyFilter(req)
+  })
+    .select('lots')
+    .lean();
+  if (!community) return [];
+
+  const lots = Array.isArray(community.lots) ? community.lots : [];
+
+  const planIds = new Set();
+  for (const lot of lots) {
+    if (lot?.floorPlan) planIds.add(String(lot.floorPlan));
+  }
+
+  let planMap = {};
+  if (planIds.size) {
+    const plans = await FloorPlan.find({
+      _id: { $in: [...planIds] },
+      ...companyFilter(req)
+    })
+      .select('name planNumber specs.squareFeet')
+      .lean();
+
+    planMap = Object.fromEntries(
+      plans.map((plan) => [
+        String(plan._id),
+        {
+          _id: plan._id,
+          name: plan.name || '',
+          planNumber: plan.planNumber || '',
+          sqft: extractNumeric(plan?.specs?.squareFeet)
+        }
+      ])
+    );
+  }
+
+  const results = [];
+
+  for (const lot of lots) {
+    if (!lot) continue;
+
+    const statusRaw = String(lot.status || lot.generalStatus || '').trim();
+    const statusLower = statusRaw.toLowerCase();
+    const hasPurchaser = Boolean(lot.purchaser);
+    const statusSold =
+      statusLower.includes('sold') ||
+      statusLower.includes('closed') ||
+      statusLower.includes('purchased');
+
+    const planId = lot.floorPlan ? String(lot.floorPlan) : null;
+    const planMeta = planId && planMap[planId] ? planMap[planId] : null;
+
+    const releaseMonth = toYM(
+      lot.releaseDate ||
+      lot.listDate ||
+      lot.availableDate ||
+      lot.listedDate
+    );
+    const releaseInt = releaseMonth ? ymStrToInt(releaseMonth) : null;
+    const listDate = lot.listDate || lot.releaseDate || lot.availableDate || null;
+
+    const listPrice =
+      extractNumeric(lot.listPrice) ??
+      extractNumeric(lot.price) ??
+      extractNumeric(lot.basePrice) ??
+      extractNumeric(lot.askingPrice) ??
+      null;
+
+    const sqft =
+      extractNumeric(lot.squareFeet) ??
+      extractNumeric(lot.sqft) ??
+      (planMeta ? extractNumeric(planMeta.sqft) : null);
+
+    const soldDate =
+      lot.salesDate ||
+      lot.closeDateTime ||
+      lot.closeDate ||
+      lot.closingDate ||
+      lot.closedDate ||
+      lot.soldDate ||
+      lot.contractDate ||
+      null;
+    const soldMonth = toYM(lot.closeMonth || soldDate);
+    const soldPrice =
+      extractNumeric(lot.salesPrice) ??
+      extractNumeric(lot.soldPrice) ??
+      extractNumeric(lot.contractPrice) ??
+      extractNumeric(lot.closingPrice) ??
+      null;
+
+    if (!hasPurchaser && !statusSold) {
+      const isInventory =
+        (statusLower.includes('under') && statusLower.includes('construction')) ||
+        statusLower.includes('finished') ||
+        statusLower.includes('available') ||
+        statusLower.includes('spec') ||
+        statusLower.includes('inventory');
+      if (!isInventory) continue;
+
+      if (monthIntFilter != null) {
+        if (!releaseMonth || releaseInt == null) continue;
+        if (releaseInt > monthIntFilter) continue;
+      }
+
+      results.push({
+        _id: null,
+        recordId: lot._id ? String(lot._id) : null,
+        isDerived: true,
+        source: 'linked-community',
+        competition: competition._id,
+        company: competition.company,
+        address: lot.address || lot.streetAddress || '',
+        status: statusRaw || 'Ready Now',
+        listDate,
+        soldDate: null,
+        month: releaseMonth,
+        listPrice,
+        soldPrice: null,
+        sqft,
+        floorPlan: planMeta?._id || null,
+        plan: planMeta || null
+      });
+      continue;
+    }
+
+    const derivedMonth = soldMonth || releaseMonth || (listDate ? toYM(listDate) : null);
+    if (monthNormalized && derivedMonth !== monthNormalized) continue;
+
+    results.push({
+      _id: null,
+      recordId: lot._id ? String(lot._id) : null,
+      isDerived: true,
+      source: 'linked-community',
+      competition: competition._id,
+      company: competition.company,
+      address: lot.address || lot.streetAddress || '',
+      status: 'SOLD',
+      listDate,
+      soldDate,
+      month: derivedMonth,
+      listPrice,
+      soldPrice,
+      sqft,
+      floorPlan: planMeta?._id || null,
+      plan: planMeta || null
+    });
+  }
+
+  return results;
+}
+
 // Quick move-ins
 exports.listQMIs = async (req, res) => {
   const comp = await loadScopedCompetition(req, res); if (!comp || res.headersSent) return;
-  const filter = { competition: comp._id, ...(req.query.month ? { month: req.query.month } : {}) };
+  const month = req.query.month;
+  const includeDerived = parseBoolean(req.query.includeDerived);
+  const filter = { competition: comp._id, ...(month ? { month } : {}) };
   const recs = await QuickMoveIn.find(filter).lean();
+
+  if (!recs.length && includeDerived && comp.isInternal) {
+    try {
+      const derived = await deriveQuickMoveInsFromCommunity(req, comp, month);
+      if (derived.length) return res.json(derived);
+    } catch (err) {
+      console.error('[competition:quick-moveins:derive]', err);
+    }
+  }
+
   res.json(recs);
 };
 exports.createQMI = async (req, res) => {

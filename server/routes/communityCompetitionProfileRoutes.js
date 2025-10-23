@@ -369,13 +369,43 @@ async function computeCompetitionScatterData(req, competitionId) {
   const competition = await assertCompetitionInTenant(
     req,
     competitionId,
-    'builderName communityName city state'
+    'builderName communityName city state isInternal communityRef'
   );
 
   const qmiDocs = await QuickMoveIn.find({
     ...baseFilter(req),
     competition: competitionId
   }).select('month sqft listPrice soldPrice soldDate listDate address status floorPlan').lean();
+
+  if (!qmiDocs.length && competition?.isInternal && competition?.communityRef) {
+    try {
+      const linkedData = await computeCommunityScatterData(req, competition.communityRef);
+      if (linkedData) {
+        const markDerived = (rows) => (Array.isArray(rows) ? rows.map((row) => ({
+          ...row,
+          recordId: row.recordId || row.lotId || null,
+          source: 'linked-community',
+          originId: row.lotId || row.recordId || null
+        })) : []);
+
+        const derivedQmi = markDerived(linkedData.qmi);
+        const derivedSold = markDerived(linkedData.sold);
+
+        if (derivedQmi.length || derivedSold.length) {
+          return {
+            id: String(competitionId),
+            type: 'competition',
+            name: buildLabel(competition.builderName, competition.communityName),
+            months: Array.isArray(linkedData.months) ? linkedData.months : [],
+            qmi: derivedQmi,
+            sold: derivedSold
+          };
+        }
+      }
+    } catch (err) {
+      if (err?.status !== 404) throw err;
+    }
+  }
 
   if (!qmiDocs.length) {
     return {
