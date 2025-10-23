@@ -552,7 +552,10 @@ async function linkInternalCommunity(communityId) {
 }
 
 async function linkCompetition(competitionId) {
-  if (!currentCommunityId) return;
+  if (!currentCommunityId) {
+    window.alert('Select a community before linking competitors.');
+    return;
+  }
   const res = await fetch(`/api/community-competition-profiles/${currentCommunityId}/linked-competitions/${competitionId}`, {
     method: 'POST'
   });

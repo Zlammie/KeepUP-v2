@@ -3,6 +3,23 @@ import { formatDate } from './date.js';
 import { updateContact, toggleFlag } from './api.js';
 import { openCommentModal } from './modal.js';
 
+const STATUS_OPTIONS = [
+  { value: 'New', label: 'New' },
+  { value: 'Target', label: 'Target' },
+  { value: 'Possible', label: 'Possible' },
+  { value: 'Negotiation', label: 'Negotiation' },
+  { value: 'Be-Back', label: 'Be-Back' },
+  { value: 'Purchased', label: 'Purchased' },
+  { value: 'Cold', label: 'Cold' },
+  { value: 'Closed', label: 'Closed' }
+];
+
+const matchStatusOption = (raw) => {
+  if (!raw) return null;
+  const normalized = raw.toString().trim().toLowerCase();
+  return STATUS_OPTIONS.find((opt) => opt.value.toLowerCase() === normalized) || null;
+};
+
 function setFlagIconColor(imgEl, flagged) {
   // red-ish tint when flagged
   imgEl.style.filter = flagged
@@ -131,16 +148,53 @@ export function renderTable(contacts) {
       row.appendChild(cell);
     });
 
-    // Status badge
+    // Status select
     {
       const statusCell = document.createElement('td');
-      const status = (contact.status || 'new').toLowerCase();
-      const badge = document.createElement('span');
-      badge.className = `status-badge ${status}`;
-      badge.textContent = status
-        .replace(/-/g, ' ')
-        .replace(/\b\w/g, (c) => c.toUpperCase());
-      statusCell.appendChild(badge);
+      const select = document.createElement('select');
+      select.className = 'form-select form-select-sm contact-status-select';
+
+      STATUS_OPTIONS.forEach(({ value, label }) => {
+        const option = document.createElement('option');
+        option.value = value;
+        option.textContent = label;
+        select.appendChild(option);
+      });
+
+      const matched = matchStatusOption(contact.status);
+      const initialValue = matched ? matched.value : (contact.status ? String(contact.status) : 'New');
+
+      if (!matched && contact.status) {
+        const fallback = document.createElement('option');
+        fallback.value = String(contact.status);
+        fallback.textContent = String(contact.status);
+        select.appendChild(fallback);
+      }
+
+      select.value = initialValue;
+
+      select.addEventListener('change', async (event) => {
+        const previous = contact.status || 'New';
+        const next = event.target.value;
+        if (next === previous) return;
+
+        select.disabled = true;
+        try {
+          await updateContact(contact._id, { status: next });
+          contact.status = next;
+          document.dispatchEvent(new CustomEvent('contacts:status-updated', {
+            detail: { contactId: contact._id, status: next }
+          }));
+        } catch (err) {
+          console.error(err);
+          alert('Could not update status. Please try again.');
+          event.target.value = previous;
+        } finally {
+          select.disabled = false;
+        }
+      });
+
+      statusCell.appendChild(select);
       row.appendChild(statusCell);
     }
 

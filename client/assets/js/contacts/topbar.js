@@ -191,6 +191,19 @@ function applyFilters() {
   updateCounts(counts);
 }
 
+document.addEventListener('contacts:status-updated', (event) => {
+  const detail = event.detail || {};
+  const contactId = detail.contactId;
+  if (!contactId) return;
+
+  const match = state.allContacts.find((c) => String(c._id) === String(contactId));
+  if (match && detail.status) {
+    match.status = detail.status;
+  }
+
+  applyFilters();
+});
+
 function pillLabel(key) {
   return key
     .replace(/-/g, ' ')
