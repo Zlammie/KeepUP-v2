@@ -96,31 +96,43 @@ app.use(cors(corsOptions));
 // app.options('*', cors(corsOptions));
 
 // Basic rate limiting (RATE_LIMIT_WINDOW_MS / RATE_LIMIT_MAX)
+const rateLimitKeyFn = (req) => {
+  const cfIp = req.headers['cf-connecting-ip'];
+  if (cfIp) return cfIp;
+  const xForwardedFor = req.headers['x-forwarded-for'];
+  if (typeof xForwardedFor === 'string' && xForwardedFor.length) {
+    const first = xForwardedFor.split(',')[0].trim();
+    if (first) return first;
+  }
+  const realIp = req.headers['x-real-ip'];
+  if (realIp) return realIp;
+  return req.ip;
+};
+
 if (enableRateLimiting) {
-  const limiter = rateLimit({
+  const apiLimiter = rateLimit({
     windowMs: rateLimitWindowMs,
     max: rateLimitMax,
     standardHeaders: true,
     legacyHeaders: false,
-    keyGenerator: (req, res) => {
-      const cfIp = req.headers['cf-connecting-ip'];
-      if (cfIp) return cfIp;
-      const xForwardedFor = req.headers['x-forwarded-for'];
-      if (typeof xForwardedFor === 'string' && xForwardedFor.length) {
-        const first = xForwardedFor.split(',')[0].trim();
-        if (first) return first;
-      }
-      const realIp = req.headers['x-real-ip'];
-      if (realIp) return realIp;
-      return req.ip;
-    },
+    keyGenerator: rateLimitKeyFn,
     skip: (req) =>
       req.method === 'OPTIONS' ||
       req.path === '/healthz' ||
       (cspReportUri && req.path === cspReportUri)
   });
-  app.use(limiter);
+  app.use('/api', apiLimiter);
 }
+
+// Optional: soften auth endpoints so brute force is curtailed but users don't get 429s on pages
+const authLimiter = rateLimit({
+  windowMs: 60 * 1000,
+  max: 20,
+  standardHeaders: true,
+  legacyHeaders: false,
+  keyGenerator: rateLimitKeyFn,
+});
+app.use(['/login', '/logout'], authLimiter);
 
 // 1) Per-request CSP nonce for inline scripts in EJS
 app.use((req, res, next) => {
