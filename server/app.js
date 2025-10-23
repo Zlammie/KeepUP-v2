@@ -66,12 +66,27 @@ if (shouldLogRequests) {
 // CORS (honors CORS_ORIGIN; defaults open if unset)
 const corsOptions = {
   origin: (origin, callback) => {
-    if (!allowedOrigins.length) return callback(null, true);
+    // 1) Allow requests with no Origin header (curl, same-origin form posts)
     if (!origin) return callback(null, true);
+
+    // 2) If no allow-list configured, allow all
+    if (!allowedOrigins.length) return callback(null, true);
+
+    // 3) Allow exact matches in the env allow-list
     if (allowedOriginSet.has(origin)) return callback(null, true);
-    const error = new Error('CORS origin denied');
-    error.status = 403;
-    return callback(error);
+
+    // 4) Also allow when the origin equals BASE_URL's origin (defensive)
+    try {
+      if (process.env.BASE_URL && new URL(process.env.BASE_URL).origin === origin) {
+        return callback(null, true);
+      }
+    } catch (_) {
+      // ignore parse errors
+    }
+
+    // 5) IMPORTANT: don't throw an error (which 403s the request).
+    // Returning `false` disables CORS for this request, but still lets it proceed.
+    return callback(null, false);
   },
   credentials: true,
   optionsSuccessStatus: 204
