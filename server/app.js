@@ -168,6 +168,24 @@ app.use(
   })
 );
 
+app.use((req, res, next) => {
+  if (req.method === 'GET' && req.path === '/login' && req.session) {
+    req.session._loginTouch = Date.now();
+  }
+  next();
+});
+
+const csurf = require('csurf');
+
+// after session(), before routes
+app.use(csurf());
+
+// make token available to views (also touches the session on GET)
+app.use((req, res, next) => {
+  try { res.locals.csrfToken = req.csrfToken(); } catch (_) {}
+  next();
+});
+
 // 4) Make logged-in user & nonce visible in EJS
 app.use((req, res, next) => {
   res.locals.user = req.session?.user || null;
