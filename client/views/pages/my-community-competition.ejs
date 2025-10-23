@@ -371,7 +371,11 @@
                 <div class="competitor-header">
                   <div>
                     <h6 class="mb-1">All Competitors</h6>
-                    <small class="text-muted" id="allCompetitorsCount">0 available</small>
+                    <small class="text-muted" id="availableListCount">0 builders</small>
+                  </div>
+                  <div class="competitor-toggle" id="competitorModeToggle">
+                    <button type="button" class="mode-btn is-active" data-mode="external">Builders</button>
+                    <button type="button" class="mode-btn" data-mode="internal">My Communities</button>
                   </div>
                   <div class="competitor-search">
                     <label for="allCompetitionsSearch" class="sr-only">Search competitors</label>
@@ -379,7 +383,9 @@
                   </div>
                 </div>
                 <div id="allCompetitionsEmpty" class="empty-state is-hidden">No competitors match your search.</div>
+                <div id="internalCommunitiesEmpty" class="empty-state is-hidden">No communities available.</div>
                 <div id="allCompetitionsList" class="list-group"></div>
+                <div id="internalCommunitiesList" class="list-group is-hidden"></div>
               </div>
               <div class="competitor-column">
                 <div class="competitor-header">

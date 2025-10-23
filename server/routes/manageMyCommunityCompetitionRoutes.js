@@ -201,7 +201,7 @@ router.get('/competitions/minimal', async (req, res) => {
         ] }
       : {};
     const rows = await Competition.find(find)
-      .select('communityName builderName city state')
+      .select('communityName builderName city state market communityRef isInternal')
       .limit(50)
       .lean();
     res.json(rows);
@@ -222,7 +222,7 @@ router.get('/community-competition-profiles/:communityId', async (req, res) => {
 
     let profile = await CommunityCompetitionProfile
       .findOne({ community: communityId })
-      .populate('linkedCompetitions', 'communityName builderName city state communityRef')
+      .populate('linkedCompetitions', 'communityName builderName city state market communityRef isInternal communityRef')
       .lean();
 
     if (!profile) {
@@ -237,7 +237,7 @@ router.get('/community-competition-profiles/:communityId', async (req, res) => {
         monthlyQmiExclusions: {} // optional map of YYYY-MM -> [lotId]
       });
       profile = await CommunityCompetitionProfile.findById(created._id)
-        .populate('linkedCompetitions', 'communityName builderName city state communityRef')
+        .populate('linkedCompetitions', 'communityName builderName city state market communityRef isInternal communityRef')
         .lean();
     }
 
@@ -271,7 +271,7 @@ router.put('/community-competition-profiles/:communityId', async (req, res) => {
       { community: communityId },
       { $set: update },
       { new: true, upsert: true }
-    ).populate('linkedCompetitions', 'communityName builderName city state communityRef');
+    ).populate('linkedCompetitions', 'communityName builderName city state market communityRef isInternal communityRef');
 
     res.json({ profile: saved });
   } catch (err) {
@@ -295,7 +295,7 @@ router.put('/community-competition-profiles/:communityId/linked-competitions', a
       { community: communityId },
       { $set: { linkedCompetitions: cleanIds } },
       { new: true, upsert: true }
-    ).populate('linkedCompetitions', 'communityName builderName city state communityRef');
+    ).populate('linkedCompetitions', 'communityName builderName city state market communityRef isInternal communityRef');
 
     res.json({ profile: saved });
   } catch (err) {

@@ -1,5 +1,7 @@
 const DEFAULT_SYNC_FIELDS = Object.freeze([
   'communityName',
+  'builderName',
+  'address',
   'market',
   'city',
   'state'
@@ -7,6 +9,8 @@ const DEFAULT_SYNC_FIELDS = Object.freeze([
 
 const COMMUNITY_FIELD_MAP = Object.freeze({
   communityName: 'name',
+  builderName: 'name',
+  address: 'name',
   market: 'market',
   city: 'city',
   state: 'state'

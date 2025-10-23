@@ -3,12 +3,15 @@ import { currentCommunityId, sqftMonth, setSqftMonth } from './state.js';
 import {
   allCompetitionsList,
   linkedContainer,
-  allCompetitionsCount,
+  availableListCount,
   linkedCompetitorsCount,
   linkedCountBadge,
   allCompetitionsEmpty,
   linkedCompetitorsEmpty,
   allCompetitionsSearch,
+  internalCommunitiesList,
+  internalCommunitiesEmpty,
+  competitorModeToggle,
   overviewSections,
   overviewCollapseToggle,
   overviewCollapsedBar,
@@ -23,6 +26,7 @@ import { initAmenities } from './amenities.js';
 
 let linked = [];
 let allCompetitions = [];
+let internalCommunities = [];
 let latestQmiData = null;
 let qmiTablesInstance = null;
 
@@ -35,7 +39,8 @@ const sqftMonthSelect = document.getElementById('sqftMonthSelect');
 let qmiTableOverlay = null;
 let qmiTableExpanded = false;
 let qmiTableEscListener = null;
-let allSearchTerm = '';
+let listMode = 'external';
+let listSearchTerm = '';
 
 const OVERVIEW_COLLAPSE_KEY = 'mcc:overviewCollapsed';
 
@@ -249,6 +254,12 @@ function normalizeCompetition(raw, fallbackList = allCompetitions) {
     fallback?.name,
     labelInfo.community
   );
+  const market = pickField(
+    entry.market,
+    entry.community?.market,
+    fallback?.market,
+    fallback?.community?.market
+  );
   const city = pickField(
     entry.city,
     entry.location?.city,
@@ -266,6 +277,19 @@ function normalizeCompetition(raw, fallbackList = allCompetitions) {
     fallback?.community?.state,
     'TX'
   ) || 'TX';
+  const communityRef = toId(
+    entry.communityRef ??
+    entry.community?.communityRef ??
+    entry.community?.id ??
+    fallback?.communityRef ??
+    fallback?.community?.communityRef ??
+    fallback?.community?.id
+  );
+  const isInternal = Boolean(
+    entry.isInternal ??
+    fallback?.isInternal ??
+    (communityRef ? true : false)
+  );
   const resolvedId = id ?? toId(fallback?._id ?? fallback?.id ?? fallback?.competitionId);
 
   if (!resolvedId && !builderName && !communityName) {
@@ -276,8 +300,24 @@ function normalizeCompetition(raw, fallbackList = allCompetitions) {
     _id: resolvedId,
     builderName,
     communityName,
+    market,
     city,
-    state
+    state,
+    communityRef,
+    isInternal
+  };
+}
+
+function normalizeCommunity(raw) {
+  if (!raw) return null;
+  const id = toId(raw._id ?? raw.id);
+  if (!id) return null;
+  return {
+    _id: id,
+    name: cleanText(raw.name) || 'Unnamed community',
+    city: cleanText(raw.city),
+    state: cleanText(raw.state) || 'TX',
+    market: cleanText(raw.market)
   };
 }
 
@@ -286,6 +326,12 @@ async function fetchAllCompetitions() {
   const res = await fetch('/api/competitions/minimal');
   if (!res.ok) return [];
   return res.json(); // [{_id, communityName, builderName, city, state}]
+}
+
+async function fetchInternalCommunities() {
+  const res = await fetch('/api/communities');
+  if (!res.ok) return [];
+  return res.json();
 }
 
 function renderLinkedList() {
@@ -312,13 +358,16 @@ function renderLinkedList() {
     const communityDisplay = cleanText(c.communityName) || 'Unnamed community';
     const cityDisplay = cleanText(c.city) || 'City not set';
     const stateDisplay = cleanText(c.state) || 'TX';
+    const marketDisplay = cleanText(c.market);
+    const badgeHtml = c.isInternal ? '<span class="internal-badge">My Community</span>' : '';
+    const metaLine = `${cityDisplay}, ${stateDisplay}${marketDisplay ? ` • ${marketDisplay}` : ''}`;
 
     const item = document.createElement('div');
     item.className = 'list-group-item';
     item.innerHTML = `
       <div>
-        <div><strong>${builderDisplay}</strong> - ${communityDisplay}</div>
-        <small>${cityDisplay}, ${stateDisplay}</small>
+        <div class="list-item-title"><strong>${builderDisplay}</strong> - ${communityDisplay} ${badgeHtml}</div>
+        <small>${metaLine}</small>
       </div>`;
     const btn = document.createElement('button');
     btn.className = 'btn btn-sm btn-outline-danger';
@@ -330,23 +379,36 @@ function renderLinkedList() {
 }
 
 function renderAllCompetitions() {
+  const isActive = listMode === 'external';
+
+  if (allCompetitionsList) {
+    allCompetitionsList.classList.toggle('is-hidden', !isActive);
+  }
+  if (allCompetitionsEmpty) {
+    allCompetitionsEmpty.classList.toggle('is-hidden', !isActive);
+  }
+
+  if (!isActive) return;
+
   allCompetitionsList.innerHTML = '';
 
   const linkedIds = new Set(
     linked
-      .map((entry) => normalizeCompetition(entry)?._id)
-      .filter(Boolean)
+      .map((entry) => normalizeCompetition(entry))
+      .filter((comp) => comp && comp._id)
+      .map((comp) => comp._id)
   );
 
   const filtered = allCompetitions
     .map((raw) => normalizeCompetition(raw))
-    .filter((c) => c && c._id && !linkedIds.has(c._id))
+    .filter((c) => c && c._id && !c.isInternal && !linkedIds.has(c._id))
     .filter((c) => {
-      if (!allSearchTerm) return true;
-      const needle = allSearchTerm;
+      if (!listSearchTerm) return true;
+      const needle = listSearchTerm;
       return [
         cleanText(c.builderName),
         cleanText(c.communityName),
+        cleanText(c.market),
         cleanText(c.city),
         cleanText(c.state)
       ].some((val) => val && val.toLowerCase().includes(needle));
@@ -354,9 +416,11 @@ function renderAllCompetitions() {
     .sort((a, b) => (cleanText(a.builderName) || '').localeCompare(cleanText(b.builderName) || '') ||
       (cleanText(a.communityName) || '').localeCompare(cleanText(b.communityName) || ''));
 
-  if (allCompetitionsCount) {
-    allCompetitionsCount.textContent = `${filtered.length} available`;
+  if (availableListCount) {
+    const label = filtered.length === 1 ? 'builder' : 'builders';
+    availableListCount.textContent = `${filtered.length} ${label}`;
   }
+
   if (allCompetitionsEmpty) {
     allCompetitionsEmpty.classList.toggle('is-hidden', filtered.length > 0);
   }
@@ -367,13 +431,14 @@ function renderAllCompetitions() {
     const communityDisplay = cleanText(c.communityName) || 'Unnamed community';
     const cityDisplay = cleanText(c.city) || 'City not set';
     const stateDisplay = cleanText(c.state) || 'TX';
+    const marketDisplay = cleanText(c.market);
 
     const item = document.createElement('div');
     item.className = 'list-group-item';
     item.innerHTML = `
       <div>
         <div><strong>${builderDisplay}</strong> - ${communityDisplay}</div>
-        <small>${cityDisplay}, ${stateDisplay}</small>
+        <small>${cityDisplay}, ${stateDisplay}${marketDisplay ? ` • ${marketDisplay}` : ''}</small>
       </div>`;
     const btn = document.createElement('button');
     btn.className = 'btn btn-sm btn-outline-primary';
@@ -382,6 +447,108 @@ function renderAllCompetitions() {
     item.appendChild(btn);
     allCompetitionsList.appendChild(item);
   });
+}
+
+function renderInternalCommunities() {
+  if (!internalCommunitiesList || !internalCommunitiesEmpty) return;
+
+  const isActive = listMode === 'internal';
+  internalCommunitiesList.classList.toggle('is-hidden', !isActive);
+  internalCommunitiesEmpty.classList.toggle('is-hidden', !isActive);
+
+  if (!isActive) return;
+
+  internalCommunitiesList.innerHTML = '';
+
+  const linkedCommunityRefs = new Set(
+    linked
+      .map((entry) => normalizeCompetition(entry))
+      .filter((comp) => comp && comp.communityRef)
+      .map((comp) => comp.communityRef)
+  );
+
+  const filtered = internalCommunities
+    .filter((c) => c && c._id && c._id !== currentCommunityId)
+    .filter((c) => !linkedCommunityRefs.has(c._id))
+    .filter((c) => {
+      if (!listSearchTerm) return true;
+      const needle = listSearchTerm;
+      return [
+        cleanText(c.name),
+        cleanText(c.market),
+        cleanText(c.city),
+        cleanText(c.state)
+      ].some((val) => val && val.toLowerCase().includes(needle));
+    })
+    .sort((a, b) => (cleanText(a.name) || '').localeCompare(cleanText(b.name) || ''));
+
+  if (availableListCount) {
+    const label = filtered.length === 1 ? 'community' : 'communities';
+    availableListCount.textContent = `${filtered.length} ${label}`;
+  }
+
+  internalCommunitiesEmpty.classList.toggle('is-hidden', filtered.length > 0);
+
+  filtered.forEach((c) => {
+    const { _id } = c;
+    const nameDisplay = cleanText(c.name) || 'Unnamed community';
+    const cityDisplay = cleanText(c.city) || 'City not set';
+    const stateDisplay = cleanText(c.state) || 'TX';
+    const marketDisplay = cleanText(c.market);
+
+    const item = document.createElement('div');
+    item.className = 'list-group-item';
+    item.innerHTML = `
+      <div>
+        <div><strong>${nameDisplay}</strong>${marketDisplay ? ` <span class="item-subtle">(${marketDisplay})</span>` : ''}</div>
+        <small>${cityDisplay}, ${stateDisplay}</small>
+      </div>`;
+    const btn = document.createElement('button');
+    btn.className = 'btn btn-sm btn-outline-primary';
+    btn.textContent = 'Link';
+    btn.onclick = async () => { await linkInternalCommunity(_id); };
+    item.appendChild(btn);
+    internalCommunitiesList.appendChild(item);
+  });
+}
+
+function setListMode(mode, force = false) {
+  if (mode !== 'external' && mode !== 'internal') return;
+  if (!force && listMode === mode) return;
+  listMode = mode;
+
+  if (competitorModeToggle) {
+    competitorModeToggle.querySelectorAll('[data-mode]').forEach((btn) => {
+      btn.classList.toggle('is-active', btn.dataset.mode === listMode);
+    });
+  }
+
+  if (allCompetitionsSearch) {
+    allCompetitionsSearch.placeholder = listMode === 'external'
+      ? 'Search by builder or community'
+      : 'Search communities';
+  }
+
+  renderAllCompetitions();
+  renderInternalCommunities();
+}
+
+async function linkInternalCommunity(communityId) {
+  if (!currentCommunityId || !communityId) return;
+  const res = await fetch(`/api/competitions/internal/from-community/${communityId}`, {
+    method: 'POST'
+  });
+  if (!res.ok) return;
+  const payload = await res.json().catch(() => null);
+  const competition = payload?.competition;
+  const competitionId = toId(competition?._id);
+  if (!competitionId) return;
+  const normalizedInternal = normalizeCompetition(competition, allCompetitions);
+  if (normalizedInternal) {
+    const exists = allCompetitions.some((item) => toId(item?._id) === normalizedInternal._id);
+    if (!exists) allCompetitions.push(normalizedInternal);
+  }
+  await linkCompetition(competitionId);
 }
 
 async function linkCompetition(competitionId) {
@@ -395,6 +562,7 @@ async function linkCompetition(competitionId) {
   linked = linkedCompetitions.map((c) => normalizeCompetition(c)).filter(Boolean);
   renderLinkedList();
   renderAllCompetitions();
+  renderInternalCommunities();
 }
 
 async function unlinkCompetition(competitionId) {
@@ -407,6 +575,7 @@ async function unlinkCompetition(competitionId) {
   linked = linkedCompetitions.map((c) => normalizeCompetition(c)).filter(Boolean);
   renderLinkedList();
   renderAllCompetitions();
+  renderInternalCommunities();
 }
 
 function init() {
@@ -471,18 +640,55 @@ function init() {
 
   if (allCompetitionsSearch) {
     allCompetitionsSearch.addEventListener('input', (event) => {
-      allSearchTerm = (event.target.value || '').trim().toLowerCase();
+      listSearchTerm = (event.target.value || '').trim().toLowerCase();
       renderAllCompetitions();
+      renderInternalCommunities();
     });
   }
 
-  fetchAllCompetitions().then(data => {
-    const normalizedAll = (data || []).map((c) => normalizeCompetition(c, data)).filter(Boolean);
-    allCompetitions = normalizedAll;
-    linked = linked.map((entry) => normalizeCompetition(entry)).filter(Boolean);
-    renderAllCompetitions();
-    renderLinkedList();
-  });
+  if (competitorModeToggle) {
+    competitorModeToggle.querySelectorAll('[data-mode]').forEach((btn) => {
+      btn.addEventListener('click', () => setListMode(btn.dataset.mode));
+    });
+  }
+
+  setListMode(listMode, true);
+
+  Promise.allSettled([fetchAllCompetitions(), fetchInternalCommunities()])
+    .then(([competitionsResult, communitiesResult]) => {
+      const competitionsRaw = competitionsResult.status === 'fulfilled' ? competitionsResult.value : [];
+      const communitiesRaw = communitiesResult.status === 'fulfilled' ? communitiesResult.value : [];
+
+      if (competitionsResult.status === 'rejected') {
+        console.error('Failed to load competitions', competitionsResult.reason);
+      }
+      if (communitiesResult.status === 'rejected') {
+        console.error('Failed to load communities', communitiesResult.reason);
+      }
+
+      const normalizedAll = (competitionsRaw || [])
+        .map((c) => normalizeCompetition(c, competitionsRaw))
+        .filter(Boolean);
+      const dedupedAll = [];
+      const seenComp = new Set();
+      normalizedAll.forEach((comp) => {
+        const compId = toId(comp?._id);
+        if (!compId || seenComp.has(compId)) return;
+        seenComp.add(compId);
+        dedupedAll.push(comp);
+      });
+      const normalizedCommunities = (communitiesRaw || [])
+        .map((c) => normalizeCommunity(c))
+        .filter(Boolean);
+
+      allCompetitions = dedupedAll;
+      internalCommunities = normalizedCommunities;
+      linked = linked.map((entry) => normalizeCompetition(entry)).filter(Boolean);
+
+      renderAllCompetitions();
+      renderInternalCommunities();
+      renderLinkedList();
+    });
   initialLoad();
 }
 
@@ -492,6 +698,7 @@ window.addEventListener('mcc:profileLoaded', (e) => {
   linked = arr.map((c) => normalizeCompetition(c)).filter(Boolean);
   renderLinkedList();
   renderAllCompetitions(); // re-mark already linked items
+  renderInternalCommunities();
   collapseQmiTable({ focusToggle: false });
   if (qmiTablesInstance) {
     latestQmiData = null;

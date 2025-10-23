@@ -113,7 +113,7 @@ router.get('/my-community-competition/:communityId',
       const community = await assertCommunity(req, communityId, 'company name communityName builder builderName city state address zip totalLots lots communityAmenities hoaFee hoaFrequency tax schoolISD elementarySchool middleSchool highSchool');
 
       let profile = await CommunityCompetitionProfile.findOne({ community: community._id, ...baseFilter(req) })
-        .populate('linkedCompetitions', 'communityName builderName city state')
+        .populate('linkedCompetitions', 'communityName builderName city state market communityRef isInternal')
         .populate('topPlans.plan1', 'name planNumber specs.squareFeet')
         .populate('topPlans.plan2', 'name planNumber specs.squareFeet')
         .populate('topPlans.plan3', 'name planNumber specs.squareFeet')
@@ -130,7 +130,7 @@ router.get('/my-community-competition/:communityId',
           linkedCompetitions: []
         });
         profile = await CommunityCompetitionProfile.findById(profile._id)
-          .populate('linkedCompetitions', 'communityName builderName city state')
+          .populate('linkedCompetitions', 'communityName builderName city state market communityRef isInternal')
           .lean();
       }
 
@@ -250,7 +250,7 @@ router.put('/my-community-competition/:communityId',
         { $set: { ...update, company: community.company } },            // ⬅️ set company on upsert
         { new: true, upsert: true }
       )
-        .populate('linkedCompetitions', 'communityName builderName city state')
+        .populate('linkedCompetitions', 'communityName builderName city state market communityRef isInternal')
         .populate('topPlans.plan1', 'name planNumber specs.squareFeet')
         .populate('topPlans.plan2', 'name planNumber specs.squareFeet')
         .populate('topPlans.plan3', 'name planNumber specs.squareFeet')
@@ -274,7 +274,7 @@ router.get('/my-community-competition/:communityId/competitions/minimal',
       if (!isObjectId(communityId)) return res.status(400).json({ error: 'Invalid communityId' });
       await assertCommunity(req, communityId);
       const comps = await Competition.find({ ...baseFilter(req) })
-        .select('communityName builderName city state')
+        .select('communityName builderName city state market communityRef isInternal')
         .sort({ builderName: 1, communityName: 1 })
         .lean();
       res.json(comps);
@@ -301,7 +301,7 @@ router.put('/my-community-competition/:communityId/linked-competitions',
         { community: community._id, ...baseFilter(req) },
         { $set: { linkedCompetitions: ids, company: community.company } },
         { new: true, upsert: true }
-      ).populate('linkedCompetitions', 'communityName builderName city state');
+      ).populate('linkedCompetitions', 'communityName builderName city state market communityRef isInternal');
 
       res.json({ linkedCompetitions: profile.linkedCompetitions });
     } catch (err) {
@@ -325,7 +325,7 @@ router.post('/my-community-competition/:communityId/linked-competitions/:competi
         { community: community._id, ...baseFilter(req) },
         { $addToSet: { linkedCompetitions: competitionId }, $setOnInsert: { company: community.company } },
         { new: true, upsert: true }
-      ).populate('linkedCompetitions', 'communityName builderName city state');
+      ).populate('linkedCompetitions', 'communityName builderName city state market communityRef isInternal');
 
       res.json({ linkedCompetitions: profile.linkedCompetitions });
     } catch (err) {
@@ -350,7 +350,7 @@ router.delete('/my-community-competition/:communityId/linked-competitions/:compe
         { community: communityId, ...baseFilter(req) },
         { $pull: { linkedCompetitions: competitionId } },
         { new: true }
-      ).populate('linkedCompetitions', 'communityName builderName city state');
+      ).populate('linkedCompetitions', 'communityName builderName city state market communityRef isInternal');
 
       res.json({ linkedCompetitions: profile?.linkedCompetitions || [] });
     } catch (err) {
@@ -404,7 +404,7 @@ router.get('/my-community-competition/:communityId/base-prices',
 
       // add comp labels
       const comps = await Competition.find({ _id: { $in: compIds }, ...baseFilter(req) })
-        .select('communityName builderName city state')
+        .select('communityName builderName city state market communityRef isInternal')
         .lean();
       const compMeta = Object.fromEntries(comps.map(c => [String(c._id), c]));
 
@@ -553,7 +553,7 @@ router.get('/my-community-competition/:communityId/multi-sales-totals',
       }
 
       const comps = await Competition.find({ _id: { $in: compIds }, ...baseFilter(req) })
-        .select('communityName builderName city state')
+        .select('communityName builderName city state market communityRef isInternal')
         .lean();
       const compMeta = Object.fromEntries(comps.map(c => [String(c._id), c]));
 

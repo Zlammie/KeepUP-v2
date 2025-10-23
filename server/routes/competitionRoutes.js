@@ -9,6 +9,7 @@ const SalesRecord = require('../models/salesRecord');
 const PriceRecord = require('../models/PriceRecord');
 const { sanitizeSyncFields } = require('../config/competitionSync');
 const { buildSyncUpdate } = require('../services/competitionSync');
+const { hasCommunityAccess } = require('../utils/communityScope');
 
 let FloorPlanComp;
 try { FloorPlanComp = require('../models/floorPlanComp'); } catch { /* optional */ }
@@ -95,7 +96,7 @@ router.get('/', asyncHandler(async (req, res) => {
 // GET /api/competitions/minimal
 router.get('/minimal', asyncHandler(async (req, res) => {
   const comps = await Competition.find(tenantFilter(req))
-    .select('communityName builderName city state')
+    .select('communityName builderName city state market isInternal communityRef')
     .sort({ builderName: 1, communityName: 1 })
     .lean();
 
@@ -216,6 +217,65 @@ function normalizeBody(raw) {
   return body;
 }
 
+router.post('/internal/from-community/:communityId', asyncHandler(async (req, res) => {
+  const { communityId } = req.params;
+  if (!isObjectId(communityId)) {
+    return res.status(400).json({ error: 'Invalid communityId' });
+  }
+
+  if (!hasCommunityAccess(req.user, communityId)) {
+    return res.status(404).json({ error: 'Community not found' });
+  }
+
+  const community = await Community.findById(communityId).lean();
+  if (!community) {
+    return res.status(404).json({ error: 'Community not found' });
+  }
+
+  let competition = await Competition.findOne({
+    company: community.company,
+    communityRef: community._id,
+    isInternal: true
+  }).lean();
+
+  let created = false;
+
+  if (!competition) {
+    const sanitizedFields = sanitizeSyncFields(req.body?.syncFields, { fallbackToDefault: true });
+    const { update, fields } = buildSyncUpdate(community, sanitizedFields);
+
+    const payload = {
+      company: community.company,
+      communityRef: community._id,
+      isInternal: true,
+      syncFields: fields,
+      communityName: update.communityName || community.name || 'Internal Community',
+      builderName: update.builderName || community.name || 'Internal Builder',
+      address: update.address || community.name || 'Internal Address',
+      city: update.city || community.city || 'Unknown',
+      state: update.state || community.state || 'TX',
+      market: update.market || community.market || '',
+      zip: '00000'
+    };
+
+    const doc = await Competition.create(payload);
+    competition = doc.toObject();
+    created = true;
+  }
+
+  res.status(created ? 201 : 200).json({
+    competition: {
+      _id: competition._id,
+      communityName: competition.communityName,
+      builderName: competition.builderName,
+      city: competition.city,
+      state: competition.state,
+      market: competition.market || '',
+      communityRef: competition.communityRef,
+      isInternal: competition.isInternal
+    }
+  });
+}));
 // POST /api/competitions
 router.post('/', asyncHandler(async (req, res) => {
   const body = normalizeBody(pick(req.body, ALLOWED_FIELDS));

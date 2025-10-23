@@ -784,7 +784,7 @@ router.get('/community-competition-profiles/:communityId',
           { path: 'topPlans.plan1', select: 'name planNumber specs.squareFeet' },
           { path: 'topPlans.plan2', select: 'name planNumber specs.squareFeet' },
           { path: 'topPlans.plan3', select: 'name planNumber specs.squareFeet' },
-          { path: 'linkedCompetitions', select: 'communityName builderName city state' }
+          { path: 'linkedCompetitions', select: 'communityName builderName city state market communityRef isInternal' }
         ])
         .lean();
 
@@ -815,7 +815,7 @@ router.get('/competitions/minimal',
   async (req, res) => {
     try {
       const comps = await Competition.find({ ...baseFilter(req) })
-        .select('communityName builderName city state')
+        .select('communityName builderName city state market communityRef isInternal')
         .sort({ builderName: 1, communityName: 1 })
         .lean();
       res.json(comps);
@@ -844,7 +844,7 @@ router.post('/community-competition-profiles/:communityId/linked-competitions/:c
         { community: community._id, ...baseFilter(req) },
         { $addToSet: { linkedCompetitions: competitionId }, $setOnInsert: { company: community.company, community: community._id } },
         { new: true, upsert: true }
-      ).populate('linkedCompetitions', 'communityName builderName city state');
+      ).populate('linkedCompetitions', 'communityName builderName city state market communityRef isInternal');
       res.json({ linkedCompetitions: updated.linkedCompetitions });
     } catch (err) {
       res.status(err.status || 500).json({ error: err.message || 'Server error' });
@@ -870,7 +870,7 @@ router.delete('/community-competition-profiles/:communityId/linked-competitions/
         { community: communityId, ...baseFilter(req) },
         { $pull: { linkedCompetitions: competitionId }, $setOnInsert: { company: req.user.company, community: communityId } },
         { new: true, upsert: true }
-      ).populate('linkedCompetitions', 'communityName builderName city state');
+      ).populate('linkedCompetitions', 'communityName builderName city state market communityRef isInternal');
       res.json({ linkedCompetitions: updated.linkedCompetitions });
     } catch (err) {
       res.status(err.status || 500).json({ error: err.message || 'Server error' });
@@ -900,7 +900,7 @@ router.put('/community-competition-profiles/:communityId/linked-competitions',
         { community: communityId, ...baseFilter(req) },
         { $set: { linkedCompetitions: ids }, $setOnInsert: { company: req.user.company, community: communityId } },
         { new: true, upsert: true }
-      ).populate('linkedCompetitions', 'communityName builderName city state');
+      ).populate('linkedCompetitions', 'communityName builderName city state market communityRef isInternal');
 
       res.json({ linkedCompetitions: profile.linkedCompetitions });
     } catch (err) {

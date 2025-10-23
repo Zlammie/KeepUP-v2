@@ -57,12 +57,15 @@ export const consUl = document.getElementById('consUl');
 
 export const allCompetitionsList = document.getElementById('allCompetitionsList');
 export const linkedContainer = document.getElementById('linkedCompetitors');
-export const allCompetitionsCount = document.getElementById('allCompetitorsCount');
+export const availableListCount = document.getElementById('availableListCount');
 export const linkedCompetitorsCount = document.getElementById('linkedCompetitorsCount');
 export const linkedCountBadge = document.getElementById('linkedCountBadge');
 export const allCompetitionsEmpty = document.getElementById('allCompetitionsEmpty');
 export const linkedCompetitorsEmpty = document.getElementById('linkedCompetitorsEmpty');
 export const allCompetitionsSearch = document.getElementById('allCompetitionsSearch');
+export const internalCommunitiesList = document.getElementById('internalCommunitiesList');
+export const internalCommunitiesEmpty = document.getElementById('internalCommunitiesEmpty');
+export const competitorModeToggle = document.getElementById('competitorModeToggle');
 export const overviewSections = document.getElementById('overviewSections');
 export const overviewCollapseToggle = document.getElementById('overviewCollapseToggle');
 export const overviewCollapsedBar = document.getElementById('overviewCollapsedBar');
