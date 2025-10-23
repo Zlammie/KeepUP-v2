@@ -1,4 +1,4 @@
-// app.js
+// server/app.js
 const path = require('path');
 const crypto = require('crypto');
 const express = require('express');
@@ -176,7 +176,6 @@ app.use((req, res, next) => {
   next();
 });
 
-
 // 4) Body parsing (must run before routes so POST bodies populate req.body)
 app.use(express.urlencoded({ extended: true }));
 app.use(express.json());
@@ -198,7 +197,6 @@ if (!isProd) {
   app.set('view cache', false);
   app.locals.cache = false;
 }
-
 
 if (enableCsp && cspReportUri) {
   app.post(
@@ -224,4 +222,3 @@ app.use(notFound);
 app.use(errorHandler);
 
 module.exports = app;
-
