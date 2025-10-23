@@ -211,6 +211,27 @@ if (enableCsp && cspReportUri) {
   );
 }
 
+app.use((req, res, next) => {
+  if (req.method === 'POST' && req.path === '/login' && req.body) {
+    // alias common names to "email"
+    if (!req.body.email) {
+      const id =
+        (req.body.username ??
+         req.body.identifier ??
+         req.body.user ??
+         req.body.login ??
+         '').toString().trim().toLowerCase();
+      if (id) req.body.email = id;
+    }
+    // alias common names to "password"
+    if (!req.body.password) {
+      const pw = (req.body.pass ?? req.body.pwd ?? '').toString();
+      if (pw) req.body.password = pw;
+    }
+  }
+  next();
+});
+
 // 7) Routes
 app.use(routes);
 
