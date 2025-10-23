@@ -13,11 +13,20 @@ const ensureAuth  = require('../middleware/ensureAuth');
 const requireRole = require('../middleware/requireRole');
 
 const upload = require('../middleware/upload');
+const {
+  getAllowedCommunityIds,
+  hasCommunityAccess,
+  filterCommunitiesForUser,
+} = require('../utils/communityScope');
 
 // ??????????????????????????????????????????????????????????????????????????? helpers ???????????????????????????????????????????????????????????????????????????
 const isObjectId = v => mongoose.Types.ObjectId.isValid(String(v));
 const isSuper = req => (req.user?.roles || []).includes('SUPER_ADMIN');
 const companyFilter = req => (isSuper(req) ? {} : { company: req.user.company });
+const toObjectIdArray = (ids = []) =>
+  ids
+    .filter(id => isObjectId(id))
+    .map(id => new mongoose.Types.ObjectId(id));
 
 const toStringId = (value) => {
   if (!value) return null;
@@ -94,6 +103,10 @@ async function loadScopedCommunity(req, res) {
   const { id } = req.params;
   if (!isObjectId(id)) {
     res.status(400).json({ error: 'Invalid community id' });
+    return null;
+  }
+  if (!hasCommunityAccess(req.user, id)) {
+    res.status(404).json({ error: 'Community not found' });
     return null;
   }
   const filter = { _id: id, ...companyFilter(req) };
@@ -207,23 +220,33 @@ router.get('/',
   async (req, res) => {
     try {
       const roles = req.user?.roles || [];
-      const isAdmin = roles.includes('COMPANY_ADMIN') || roles.includes('SUPER_ADMIN');
+      const isSuperAdmin = roles.includes('SUPER_ADMIN');
+      const isCompanyAdmin = roles.includes('COMPANY_ADMIN');
 
       const q = String(req.query.q || '').trim();
       const base = { company: req.user.company };
 
-      const allowed = (req.user.allowedCommunityIds || []).map(String);
-      const accessFilter = isAdmin
-        ? base
-        : (allowed.length ? { ...base, _id: { $in: allowed } } : { ...base, _id: { $in: [] } });
+      const allowedStrings = getAllowedCommunityIds(req.user);
+      const allowedObjectIds = toObjectIdArray(allowedStrings);
+
+      let accessFilter = base;
+      if (!isSuperAdmin) {
+        if (allowedObjectIds.length) {
+          accessFilter = { ...base, _id: { $in: allowedObjectIds } };
+        } else if (!isCompanyAdmin) {
+          accessFilter = { ...base, _id: { $in: [] } };
+        }
+      }
 
       const textFilter = q
-        ? { $or: [
-            { name:   { $regex: q, $options: 'i' } },
-            { city:   { $regex: q, $options: 'i' } },
-            { state:  { $regex: q, $options: 'i' } },
-            { market: { $regex: q, $options: 'i' } },
-          ] }
+        ? {
+            $or: [
+              { name: { $regex: q, $options: 'i' } },
+              { city: { $regex: q, $options: 'i' } },
+              { state: { $regex: q, $options: 'i' } },
+              { market: { $regex: q, $options: 'i' } },
+            ],
+          }
         : {};
 
       const communities = await Community.find({ ...accessFilter, ...textFilter })
@@ -231,7 +254,7 @@ router.get('/',
         .sort({ name: 1 })
         .lean();
 
-      res.json(communities);
+      res.json(filterCommunitiesForUser(req.user, communities));
     } catch (err) {
       console.error('Fetch communities error:', err);
       res.status(500).json({ error: 'Failed to fetch communities' });
@@ -530,7 +553,8 @@ router.get('/select-options',
         .sort({ name: 1, communityName: 1 })
         .lean();
 
-      const data = rows.map(c => {
+      const scopedRows = filterCommunitiesForUser(req.user, rows);
+      const data = scopedRows.map(c => {
         const name = c.name || c.communityName || '(unnamed)';
         const builder = c.builder || c.builderName || '';
         return { id: c._id, label: builder ? `${builder} ??? ${name}` : name };
@@ -649,6 +673,10 @@ router.put('/:communityId/lots/:lotId',
     const updates = req.body || {};
     if (!Object.keys(updates).length) return res.status(400).json({ error: 'Empty update body' });
 
+    if (!hasCommunityAccess(req.user, communityId)) {
+      return res.status(404).json({ error: 'Community not found' });
+    }
+
     if (typeof updates.salesDate === 'string' && updates.salesDate) {
       updates.salesDate = new Date(updates.salesDate);
     }
@@ -684,6 +712,9 @@ router.put('/:communityId/lots/:lotId/purchaser',
       const contact = await Contact.findOne({ _id: contactId, ...companyFilter(req) }).select('_id').lean();
       if (!contact) return res.status(404).json({ error: 'Contact not found' });
 
+      if (!hasCommunityAccess(req.user, communityId)) {
+        return res.status(404).json({ error: 'Community not found' });
+      }
       const filter = { _id: communityId, ...companyFilter(req) };
       const community = await Community.findOneAndUpdate(
         filter,
@@ -736,6 +767,7 @@ router.delete('/:id',
   async (req, res) => {
     const { id } = req.params;
     if (!isObjectId(id)) return res.status(400).json({ error: 'Invalid community id' });
+    if (!hasCommunityAccess(req.user, id)) return res.status(404).json({ error: 'Community not found' });
 
     try {
       const filter = { _id: id, ...companyFilter(req) };
@@ -753,6 +785,9 @@ router.delete('/:id/lots/:lotId/purchaser',
   requireRole('USER','MANAGER','COMPANY_ADMIN','SUPER_ADMIN'),
   async (req, res) => {
     try {
+      if (!hasCommunityAccess(req.user, req.params.id)) {
+        return res.status(404).json({ error: 'Community or lot not found' });
+      }
       const filter = { _id: req.params.id, ...companyFilter(req), 'lots._id': req.params.lotId };
       const doc = await Community.findOne(filter, { 'lots.$': 1 }).lean();
       if (!doc || !doc.lots || !doc.lots[0]) return res.status(404).json({ error: 'Community or lot not found' });
@@ -773,6 +808,9 @@ router.delete('/:id/lots/:lotId',
   async (req, res) => {
     const { id, lotId } = req.params;
     try {
+      if (!hasCommunityAccess(req.user, id)) {
+        return res.status(404).json({ error: 'Community or lot not found' });
+      }
       const result = await Community.updateOne(
         { _id: id, ...companyFilter(req) },
         { $pull: { lots: { _id: lotId } } }

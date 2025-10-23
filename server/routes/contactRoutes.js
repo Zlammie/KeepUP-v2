@@ -14,6 +14,10 @@ const requireRole = require('../middleware/requireRole');
 const upload = require('../middleware/upload');
 
 const xlsx = require('xlsx');
+const {
+  getAllowedCommunityIds,
+  filterCommunitiesForUser,
+} = require('../utils/communityScope');
 
 // ───────────────────────── helpers ─────────────────────────
 const isObjectId = v => mongoose.Types.ObjectId.isValid(String(v));
@@ -481,27 +485,31 @@ router.get('/my/communities',
   async (req, res) => {
     try {
       const roles = req.user?.roles || [];
-      const isSuper = roles.includes('SUPER_ADMIN');
+      const isSuperAdmin = roles.includes('SUPER_ADMIN');
       const isCompanyAdmin = roles.includes('COMPANY_ADMIN');
 
-      // If the user has explicit allowedCommunityIds, use those; otherwise:
-      // - Company Admin: all communities in their company
-      // - Super Admin: communities in their current company (req.user.company)
-      // - Regular user: none unless allowedCommunityIds set
-      const allowedIds = (req.user.allowedCommunityIds || []).map(String);
+      const allowedStrings = getAllowedCommunityIds(req.user);
+      const allowedObjectIds = allowedStrings
+        .filter(id => isObjectId(id))
+        .map(id => new mongoose.Types.ObjectId(id));
 
       const base = { company: req.user.company };
-      const filter =
-        isCompanyAdmin || isSuper
-          ? base
-          : (allowedIds.length ? { ...base, _id: { $in: allowedIds } } : { ...base, _id: { $in: [] } });
+      let filter = base;
+
+      if (!isSuperAdmin) {
+        if (allowedObjectIds.length) {
+          filter = { ...base, _id: { $in: allowedObjectIds } };
+        } else if (!isCompanyAdmin) {
+          filter = { ...base, _id: { $in: [] } };
+        }
+      }
 
       const communities = await Community.find(filter)
         .select('name')
         .sort({ name: 1 })
         .lean();
 
-      res.json(communities);
+      res.json(filterCommunitiesForUser(req.user, communities));
     } catch (err) {
       res.status(500).json({ error: 'Failed to load communities' });
     }

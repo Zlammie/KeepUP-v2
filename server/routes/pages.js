@@ -14,6 +14,10 @@ const Community   = require('../models/Community');
 const Competition = require('../models/Competition');
 const FloorPlanComp = require('../models/floorPlanComp');
 const Company = require('../models/Company');
+const {
+  filterCommunitiesForUser,
+  hasCommunityAccess,
+} = require('../utils/communityScope');
 
 const isId = v => mongoose.Types.ObjectId.isValid(String(v));
 const isSuper = req => (req.user?.roles || []).includes('SUPER_ADMIN');
@@ -85,7 +89,8 @@ router.get('/view-communities', ensureAuth, requireRole('READONLY','USER','MANAG
     const communities = await Community.find({ ...base(req) })
       .select('name city state totalLots company')
       .lean();
-    res.render('pages/view-communities', { communities, active: 'community' });
+    const scoped = filterCommunitiesForUser(req.user, communities);
+    res.render('pages/view-communities', { communities: scoped, active: 'community' });
   }
 );
 
@@ -95,7 +100,10 @@ router.get('/add-floorplan', ensureAuth, requireRole('READONLY','USER','MANAGER'
 
 router.get('/view-lots', ensureAuth, requireRole('READONLY','USER','MANAGER','COMPANY_ADMIN','SUPER_ADMIN'),
   (req, res) => {
-    const communityId = isId(req.query.communityId) ? req.query.communityId : '';
+    let communityId = isId(req.query.communityId) ? req.query.communityId : '';
+    if (communityId && !hasCommunityAccess(req.user, communityId)) {
+      communityId = '';
+    }
     res.render('pages/view-lots', { communityId, active: 'community' });
   }
 );
@@ -105,6 +113,9 @@ router.get('/address-details', ensureAuth, requireRole('READONLY','USER','MANAGE
     const { communityId, lotId } = req.query;
     if (communityId && !isId(communityId)) return res.status(400).send('Invalid community ID');
     if (lotId && !isId(lotId)) return res.status(400).send('Invalid lot ID');
+    if (communityId && !hasCommunityAccess(req.user, communityId)) {
+      return res.status(404).send('Community not found');
+    }
     res.render('pages/address-details', { communityId, lotId, active: 'community' });
   }
 );
