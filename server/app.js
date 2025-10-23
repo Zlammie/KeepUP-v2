@@ -176,6 +176,13 @@ app.use((req, res, next) => {
   next();
 });
 
+app.use((req, res, next) => {
+  if (typeof res.locals.csrfToken === 'undefined') {
+    res.locals.csrfToken = '';
+  }
+  next();
+});
+
 // 4) Body parsing (must run before routes so POST bodies populate req.body)
 app.use(express.urlencoded({ extended: true }));
 app.use(express.json());
