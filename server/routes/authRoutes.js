@@ -13,14 +13,25 @@ router.get('/login', (req, res) => {
 
 router.post('/login', async (req, res) => {
   try {
-    const { email, password } = req.body || {};
-    const user = await User.findOne({ email, isActive: true }).lean();
+    const identifier = (req.body?.email || req.body?.username || req.body?.identifier || '').trim().toLowerCase();
+    const password = (req.body?.password || req.body?.pass || '').trim();
+
+    console.warn('[login] body keys:', Object.keys(req.body || {}), 'identifier present:', !!identifier, 'session?', !!req.session);
+
+    if (!identifier || !password) {
+      console.warn('[login] 403 reason: missing identifier or password');
+      return res.status(401).render('auth/login', { error: 'Invalid credentials' });
+    }
+
+    const user = await User.findOne({ email: identifier, isActive: true }).lean();
     if (!user) {
+      console.warn('[login] 403 reason: user not found', { identifier });
       return res.status(401).render('auth/login', { error: 'Invalid credentials' });
     }
 
     const ok = await bcrypt.compare(password, user.passwordHash);
     if (!ok) {
+      console.warn('[login] 403 reason: bad password', { identifier });
       return res.status(401).render('auth/login', { error: 'Invalid credentials' });
     }
 
