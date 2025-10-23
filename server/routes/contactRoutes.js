@@ -17,12 +17,64 @@ const xlsx = require('xlsx');
 const {
   getAllowedCommunityIds,
   filterCommunitiesForUser,
+  hasCommunityAccess,
 } = require('../utils/communityScope');
 
 // ───────────────────────── helpers ─────────────────────────
 const isObjectId = v => mongoose.Types.ObjectId.isValid(String(v));
 const isSuper = req => (req.user?.roles || []).includes('SUPER_ADMIN');
 const companyFilter = req => (isSuper(req) ? {} : { company: req.user.company });
+const isCompanyAdmin = req => (req.user?.roles || []).includes('COMPANY_ADMIN');
+
+const toObjectId = (value) => {
+  if (value == null) return null;
+  const str = String(value);
+  return mongoose.Types.ObjectId.isValid(str) ? new mongoose.Types.ObjectId(str) : null;
+};
+
+function buildContactAccessFilter(req) {
+  const base = companyFilter(req);
+  if (isSuper(req)) return base;
+
+  const allowedStrings = getAllowedCommunityIds(req.user || {});
+  const allowedObjectIds = allowedStrings
+    .map(toObjectId)
+    .filter(Boolean);
+
+  const ownerObjectId = toObjectId(req.user?._id);
+
+  if (!allowedObjectIds.length) {
+    if (isCompanyAdmin(req)) {
+      return { ...base };
+    }
+    if (ownerObjectId) {
+      return { ...base, ownerId: ownerObjectId };
+    }
+    return { ...base, _id: { $in: [] } };
+  }
+
+  const orClauses = [{ communityIds: { $in: allowedObjectIds } }];
+  if (ownerObjectId) orClauses.push({ ownerId: ownerObjectId });
+
+  return { ...base, $or: orClauses };
+}
+
+function cloneFilter(filter = {}) {
+  const clone = { ...filter };
+  if (filter.$and) clone.$and = [...filter.$and];
+  if (filter.$or) clone.$or = [...filter.$or];
+  return clone;
+}
+
+function contactQuery(req, extra = {}) {
+  const baseFilter = buildContactAccessFilter(req);
+  const merged = cloneFilter(baseFilter);
+  if (extra && Object.keys(extra).length) {
+    if (merged.$and) merged.$and.push(extra);
+    else merged.$and = [extra];
+  }
+  return merged;
+}
 
 function toStr(v){ return (v ?? '').toString().trim(); }
 const toIsoStringOrNull = (v) => {
@@ -90,7 +142,8 @@ router.post(
         const created = await Contact.create({
           company, firstName, lastName,
           email: emailRaw, phone: phoneRaw,
-          emailNorm, phoneNorm, visitDate
+          emailNorm, phoneNorm, visitDate,
+          ownerId: req.user._id
         });
         return res.status(201).json({ created: true, contact: created });
       }
@@ -103,7 +156,8 @@ router.post(
         const created = await Contact.create({
           company, firstName, lastName,
           email: emailRaw, phone: phoneRaw,
-          emailNorm, phoneNorm, visitDate
+          emailNorm, phoneNorm, visitDate,
+          ownerId: req.user._id
         });
         return res.status(201).json({ created: true, contact: created });
       }
@@ -142,16 +196,24 @@ router.get('/',
   async (req, res) => {
     try {
       const q = toStr(req.query.q);
-      const base = companyFilter(req);
-      const filter = {
-        ...base,
-        ...(q ? { $or: [
-          { firstName: { $regex: q, $options: 'i' } },
-          { lastName:  { $regex: q, $options: 'i' } },
-          { email:     { $regex: q, $options: 'i' } },
-          { phone:     { $regex: q, $options: 'i' } },
-        ] } : {})
-      };
+      const accessFilter = buildContactAccessFilter(req);
+      if (accessFilter._id && accessFilter._id.$in && accessFilter._id.$in.length === 0) {
+        return res.json([]);
+      }
+
+      const filter = cloneFilter(accessFilter);
+      if (q) {
+        const textClause = {
+          $or: [
+            { firstName: { $regex: q, $options: 'i' } },
+            { lastName:  { $regex: q, $options: 'i' } },
+            { email:     { $regex: q, $options: 'i' } },
+            { phone:     { $regex: q, $options: 'i' } },
+          ]
+        };
+        if (filter.$and) filter.$and.push(textClause);
+        else filter.$and = [textClause];
+      }
 
       const contacts = await Contact.find(filter)
         .select('firstName lastName email phone status communityIds realtorId lenderId lenders updatedAt')
@@ -200,9 +262,7 @@ router.get('/:id',
       const { id } = req.params;
       if (!isObjectId(id)) return res.status(400).json({ error: 'Invalid id' });
 
-      const filter = { _id: id, ...companyFilter(req) };
-
-      const contact = await Contact.findOne(filter)
+      const contact = await Contact.findOne(contactQuery(req, { _id: new mongoose.Types.ObjectId(id) }))
         .select('firstName lastName email phone status notes source communityIds floorplans realtorId lenderId lotId ownerId visitDate lotLineUp buyTime buyMonth facing living investor renting ownSelling ownNotSelling lenderStatus lenderInviteDate lenderApprovedDate lenders updatedAt')
         .populate('communityIds', 'name')
         .populate('floorplans', 'name planNumber')                                       // ✅ array of communities
@@ -240,6 +300,7 @@ router.put('/:id',
     try {
       const { id } = req.params;
       if (!isObjectId(id)) return res.status(400).json({ error: 'Invalid id' });
+      const contactObjectId = new mongoose.Types.ObjectId(id);
 
       const b = req.body;
       const $set = {};
@@ -278,15 +339,21 @@ router.put('/:id',
 
         ids = ids.filter(Boolean).map(String);
 
-        const allowed = await Community.find({
+        const candidates = await Community.find({
           _id: { $in: ids },
           company: req.user.company
-        }).select('_id').lean();
+        }).select('_id name').lean();
 
-        const toSave = allowed.map(c => c._id);
-        if (ids.length && !toSave.length) {
+        if (ids.length && candidates.length !== ids.length) {
           return res.status(400).json({ error: 'Selected communities are not in your company.' });
         }
+
+        const scoped = filterCommunitiesForUser(req.user, candidates);
+        if (ids.length && scoped.length !== candidates.length && !isSuper(req)) {
+          return res.status(403).json({ error: 'You do not have access to one or more selected communities.' });
+        }
+
+        const toSave = scoped.map(c => c._id);
         $set.communityIds = toSave;
       }
 
@@ -410,7 +477,7 @@ router.put('/:id',
 
       // If nothing to update, return current doc
       if (!Object.keys(updateDoc).length) {
-        const current = await Contact.findOne({ _id: id, ...companyFilter(req) })
+        const current = await Contact.findOne(contactQuery(req, { _id: contactObjectId }))
           .populate('communityIds', 'name')
         .populate('floorplans', 'name planNumber')
           .populate('realtorId', 'firstName lastName brokerage email phone')
@@ -431,7 +498,7 @@ router.put('/:id',
 
       // --- Apply update and return normalized payload
       const updated = await Contact.findOneAndUpdate(
-        { _id: id, ...companyFilter(req) },
+        contactQuery(req, { _id: contactObjectId }),
         updateDoc,
         { new: true }
       )
@@ -470,7 +537,7 @@ router.delete('/:id',
       const { id } = req.params;
       if (!isObjectId(id)) return res.status(400).json({ error: 'Invalid id' });
 
-      const deleted = await Contact.findOneAndDelete({ _id: id, ...companyFilter(req) });
+      const deleted = await Contact.findOneAndDelete(contactQuery(req, { _id: new mongoose.Types.ObjectId(id) }));
       if (!deleted) return res.status(404).json({ error: 'Contact not found' });
       res.json({ success: true });
     } catch (err) {
@@ -525,10 +592,14 @@ router.post('/:contactId/link-lot',
 
     try {
       if (!isObjectId(contactId)) return res.status(400).json({ error: 'Invalid contactId' });
-      const contact = await Contact.findOne({ _id: contactId, ...companyFilter(req) });
+      const contactObjectId = new mongoose.Types.ObjectId(contactId);
+      const contact = await Contact.findOne(contactQuery(req, { _id: contactObjectId }));
       if (!contact) return res.status(404).json({ error: 'Contact not found' });
 
       if (!contact.communityId) return res.status(400).json({ error: 'Contact has no communityId' });
+      if (!hasCommunityAccess(req.user, contact.communityId)) {
+        return res.status(403).json({ error: 'Not authorized to access this community' });
+      }
       const community = await Community.findOne({ _id: contact.communityId, ...companyFilter(req) }).lean();
       if (!community) return res.status(404).json({ error: 'Community not found' });
 
@@ -571,7 +642,7 @@ router.get('/by-realtor/:realtorId',
       const { realtorId } = req.params;
       if (!isObjectId(realtorId)) return res.status(400).json({ error: 'Invalid realtorId' });
 
-      const contacts = await Contact.find({ realtorId, ...companyFilter(req) })
+      const contacts = await Contact.find(contactQuery(req, { realtorId: new mongoose.Types.ObjectId(realtorId) }))
         .select('firstName lastName email phone')
         .lean();
 
@@ -590,7 +661,7 @@ router.get('/by-lender/:lenderId',
       const { lenderId } = req.params;
       if (!isObjectId(lenderId)) return res.status(400).json({ error: 'Invalid lenderId' });
 
-      const contacts = await Contact.find({ lenderId, ...companyFilter(req) })
+      const contacts = await Contact.find(contactQuery(req, { lenderId: new mongoose.Types.ObjectId(lenderId) }))
         .select('firstName lastName email phone')
         .lean();
 
@@ -610,7 +681,9 @@ router.patch('/:contactId/lenders/:entryId',
       const { contactId, entryId } = req.params;
       if (!isObjectId(contactId) || !isObjectId(entryId)) return res.status(400).json({ error: 'Invalid id' });
 
-      const filter = { _id: contactId, ...companyFilter(req), 'lenders._id': entryId };
+      const contactObjectId = new mongoose.Types.ObjectId(contactId);
+      const lenderEntryObjectId = new mongoose.Types.ObjectId(entryId);
+      const filter = contactQuery(req, { _id: contactObjectId, 'lenders._id': lenderEntryObjectId });
       const { status, inviteDate, approvedDate } = req.body;
 
       const contact = await Contact.findOneAndUpdate(
@@ -641,7 +714,8 @@ router.put('/:contactId/lenders/:lenderLinkId/primary',
       const { contactId, lenderLinkId } = req.params;
       if (!isObjectId(contactId) || !isObjectId(lenderLinkId)) return res.status(400).json({ error: 'Invalid id' });
 
-      const contact = await Contact.findOne({ _id: contactId, ...companyFilter(req) });
+      const contactObjectId = new mongoose.Types.ObjectId(contactId);
+      const contact = await Contact.findOne(contactQuery(req, { _id: contactObjectId }));
       if (!contact) return res.status(404).json({ error: 'Contact not found' });
 
       contact.lenders.forEach(link => { link.isPrimary = (String(link._id) === String(lenderLinkId)); });
@@ -663,9 +737,11 @@ router.delete('/:contactId/lenders/:lenderLinkId',
       const { contactId, lenderLinkId } = req.params;
       if (!isObjectId(contactId) || !isObjectId(lenderLinkId)) return res.status(400).json({ error: 'Invalid id' });
 
+      const contactObjectId = new mongoose.Types.ObjectId(contactId);
+      const lenderLinkObjectId = new mongoose.Types.ObjectId(lenderLinkId);
       const updated = await Contact.findOneAndUpdate(
-        { _id: contactId, ...companyFilter(req) },
-        { $pull: { lenders: { _id: lenderLinkId } } },
+        contactQuery(req, { _id: contactObjectId, 'lenders._id': lenderLinkObjectId }),
+        { $pull: { lenders: { _id: lenderLinkObjectId } } },
         { new: true }
       )
         .populate('realtorId', 'firstName lastName brokerage email phone')
@@ -690,8 +766,9 @@ router.patch('/:contactId/link-lender',
 
       const { lenderId, status, inviteDate, approvedDate } = req.body;
 
+      const contactObjectId = new mongoose.Types.ObjectId(contactId);
       const updated = await Contact.findOneAndUpdate(
-        { _id: contactId, ...companyFilter(req) },
+        contactQuery(req, { _id: contactObjectId }),
         { $push: { lenders: { lender: lenderId, status, inviteDate, approvedDate } } },
         { new: true }
        ).populate('realtorId','firstName lastName brokerage email phone')
@@ -714,7 +791,7 @@ router.patch('/:id/unlink-lender',
       const { id } = req.params;
       if (!isObjectId(id)) return res.status(400).json({ error: 'Invalid id' });
 
-      const contact = await Contact.findOne({ _id: id, ...companyFilter(req) });
+      const contact = await Contact.findOne(contactQuery(req, { _id: new mongoose.Types.ObjectId(id) }));
       if (!contact) return res.status(404).json({ error: 'Contact not found' });
 
       contact.lenders = [];

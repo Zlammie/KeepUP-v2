@@ -17,10 +17,12 @@ const Company = require('../models/Company');
 const {
   filterCommunitiesForUser,
   hasCommunityAccess,
+  getAllowedCommunityIds,
 } = require('../utils/communityScope');
 
 const isId = v => mongoose.Types.ObjectId.isValid(String(v));
 const isSuper = req => (req.user?.roles || []).includes('SUPER_ADMIN');
+const isCompanyAdmin = req => (req.user?.roles || []).includes('COMPANY_ADMIN');
 const base = req => (isSuper(req) ? {} : { company: req.user.company });
 const normalizeGarageType = (value) => {
   const norm = typeof value === 'string' ? value.trim().toLowerCase() : '';
@@ -43,6 +45,22 @@ router.get('/contacts', ensureAuth, requireRole('READONLY','USER','MANAGER','COM
   async (req, res, next) => {
     try {
       const filter = { ...base(req) }; // tenant scope
+      if (!isSuper(req)) {
+        const allowed = getAllowedCommunityIds(req.user || {});
+        const ownerObjectId = isId(req.user?._id) ? new mongoose.Types.ObjectId(req.user._id) : null;
+
+        if (allowed.length) {
+          const allowedObjectIds = allowed
+            .filter(isId)
+            .map(id => new mongoose.Types.ObjectId(id));
+          const orClauses = [{ communityIds: { $in: allowedObjectIds } }];
+          if (ownerObjectId) orClauses.push({ ownerId: ownerObjectId });
+          filter.$or = orClauses;
+        } else if (!isCompanyAdmin(req)) {
+          if (ownerObjectId) filter.ownerId = ownerObjectId;
+          else filter._id = { $in: [] };
+        }
+      }
 
       const contacts = await Contact.find(filter)
         .select('firstName lastName email phone status communityIds realtorId lenderId lotId ownerId updatedAt')
