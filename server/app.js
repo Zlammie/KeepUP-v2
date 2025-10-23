@@ -6,6 +6,7 @@ const helmet = require('helmet');
 const cors = require('cors');
 const morgan = require('morgan');
 const rateLimit = require('express-rate-limit');
+const csurf = require('csurf');
 
 const buildSession = require('./config/session');
 const routes = require('./routes');
