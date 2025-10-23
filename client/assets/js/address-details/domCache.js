@@ -1,7 +1,11 @@
 // /assets/js/address-details/domCache.js
 
-// Simple helper if you ever want direct lookups
-export const $ = (id) => document.getElementById(id);
+// Simple helper with forgiving selectors (#id or id)
+export const $ = (idOrSelector) => {
+  if (!idOrSelector) return null;
+  const id = idOrSelector.startsWith('#') ? idOrSelector.slice(1) : idOrSelector;
+  return document.getElementById(id);
+};
 
 // 🔧 IMPORTANT: Lazy DOM access — resolves at the moment you use it
 // so it never runs before the DOM exists.
