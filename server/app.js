@@ -6,7 +6,6 @@ const helmet = require('helmet');
 const cors = require('cors');
 const morgan = require('morgan');
 const rateLimit = require('express-rate-limit');
-const csurf = require('csurf');
 
 const buildSession = require('./config/session');
 const routes = require('./routes');
@@ -170,23 +169,18 @@ app.use(
 );
 
 app.use((req, res, next) => {
+  // touch the login route so express-session emits Set-Cookie even on GET /login
   if (req.method === 'GET' && req.path === '/login' && req.session) {
     req.session._loginTouch = Date.now();
   }
   next();
 });
 
+// 4) Body parsing (must run before routes so POST bodies populate req.body)
+app.use(express.urlencoded({ extended: true }));
+app.use(express.json());
 
-// after session(), before routes
-app.use(csurf());
-
-// make token available to views (also touches the session on GET)
-app.use((req, res, next) => {
-  try { res.locals.csrfToken = req.csrfToken(); } catch (_) {}
-  next();
-});
-
-// 4) Make logged-in user & nonce visible in EJS
+// 5) Make logged-in user & nonce visible in EJS
 app.use((req, res, next) => {
   res.locals.user = req.session?.user || null;
   next();
@@ -194,7 +188,7 @@ app.use((req, res, next) => {
 
 app.use(currentUserLocals);
 
-// 5) Static & views
+// 6) Static & views
 app.use('/assets', express.static(path.join(__dirname, '../client/assets')));
 app.set('views', path.join(__dirname, '../client/views'));
 app.set('view engine', 'ejs');
@@ -204,10 +198,6 @@ if (!isProd) {
   app.locals.cache = false;
 }
 
-
-// 6) Body parsing
-app.use(express.urlencoded({ extended: true }));
-app.use(express.json());
 
 if (enableCsp && cspReportUri) {
   app.post(
