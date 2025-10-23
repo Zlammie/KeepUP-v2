@@ -102,6 +102,18 @@ if (enableRateLimiting) {
     max: rateLimitMax,
     standardHeaders: true,
     legacyHeaders: false,
+    keyGenerator: (req, res) => {
+      const cfIp = req.headers['cf-connecting-ip'];
+      if (cfIp) return cfIp;
+      const xForwardedFor = req.headers['x-forwarded-for'];
+      if (typeof xForwardedFor === 'string' && xForwardedFor.length) {
+        const first = xForwardedFor.split(',')[0].trim();
+        if (first) return first;
+      }
+      const realIp = req.headers['x-real-ip'];
+      if (realIp) return realIp;
+      return req.ip;
+    },
     skip: (req) =>
       req.method === 'OPTIONS' ||
       req.path === '/healthz' ||
