@@ -55,8 +55,8 @@ const rateLimitWindowMs = Math.max(0, toInt(process.env.RATE_LIMIT_WINDOW_MS, 15
 const rateLimitMax = Math.max(0, toInt(process.env.RATE_LIMIT_MAX, 200));
 const enableRateLimiting = rateLimitWindowMs > 0 && rateLimitMax > 0;
 
-// If you're behind a proxy (Nginx/ALB), trust it so secure cookies & IPs work
-if (isProd) app.set('trust proxy', 1);
+// If you're behind one or more proxies (Nginx/ALB), trust them so secure cookies & IPs work
+if (isProd) app.set('trust proxy', true);
 
 // Request logging (honors LOG_LEVEL/REQUEST_LOG_FORMAT)
 if (shouldLogRequests) {
