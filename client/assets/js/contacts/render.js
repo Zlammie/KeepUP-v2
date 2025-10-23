@@ -11,13 +11,62 @@ const STATUS_OPTIONS = [
   { value: 'Be-Back', label: 'Be-Back' },
   { value: 'Purchased', label: 'Purchased' },
   { value: 'Cold', label: 'Cold' },
-  { value: 'Closed', label: 'Closed' }
+  { value: 'Closed', label: 'Closed' },
+  { value: 'Not Interested', label: 'Not Interested' },
+  { value: 'Deal Lost', label: 'Deal Lost' },
+  { value: 'Bust', label: 'Bust' }
 ];
+
+const STATUS_CLASS_MAP = {
+  New: 'new',
+  Target: 'target',
+  Possible: 'possible',
+  Negotiation: 'negotiating',
+  'Be-Back': 'be-back',
+  Purchased: 'purchased',
+  Cold: 'cold',
+  Closed: 'closed',
+  'Not Interested': 'not-interested',
+  'Deal Lost': 'deal-lost',
+  Bust: 'bust'
+};
+
+const DEFAULT_STATUS = 'New';
 
 const matchStatusOption = (raw) => {
   if (!raw) return null;
   const normalized = raw.toString().trim().toLowerCase();
   return STATUS_OPTIONS.find((opt) => opt.value.toLowerCase() === normalized) || null;
+};
+
+const statusClassName = (statusValue) => {
+  const option = matchStatusOption(statusValue);
+  if (option && STATUS_CLASS_MAP[option.value]) {
+    return STATUS_CLASS_MAP[option.value];
+  }
+  const normalized = (statusValue || DEFAULT_STATUS)
+    .toString()
+    .trim()
+    .toLowerCase()
+    .replace(/\s+/g, '-');
+  return normalized || STATUS_CLASS_MAP[DEFAULT_STATUS];
+};
+
+const statusDisplayLabel = (statusValue) => {
+  const option = matchStatusOption(statusValue);
+  if (option) return option.label;
+  if (!statusValue) return DEFAULT_STATUS;
+  const str = statusValue.toString().trim();
+  if (!str) return DEFAULT_STATUS;
+  return str
+    .replace(/[-_]/g, ' ')
+    .replace(/\b\w/g, (c) => c.toUpperCase());
+};
+
+const applyBadgeView = (badgeEl, statusValue) => {
+  badgeEl.className = `status-badge ${statusClassName(statusValue)}`;
+  badgeEl.textContent = statusDisplayLabel(statusValue);
+  badgeEl.dataset.status = statusValue;
 };
 
 function setFlagIconColor(imgEl, flagged) {
@@ -148,11 +197,32 @@ export function renderTable(contacts) {
       row.appendChild(cell);
     });
 
-    // Status select
+    // Status badge with inline picker
     {
       const statusCell = document.createElement('td');
+      statusCell.classList.add('contact-status-cell');
+
+      const badge = document.createElement('span');
+      badge.setAttribute('role', 'button');
+      badge.tabIndex = 0;
+      badge.style.cursor = 'pointer';
+      badge.title = 'Click to change status';
+      applyBadgeView(badge, contact.status || DEFAULT_STATUS);
+
       const select = document.createElement('select');
       select.className = 'form-select form-select-sm contact-status-select';
+      select.style.display = 'none';
+      select.style.width = '150px';
+
+      const ensureOption = (value) => {
+        const existing = Array.from(select.options).some((opt) => opt.value === value);
+        if (!existing) {
+          const optEl = document.createElement('option');
+          optEl.value = value;
+          optEl.textContent = statusDisplayLabel(value);
+          select.appendChild(optEl);
+        }
+      };
 
       STATUS_OPTIONS.forEach(({ value, label }) => {
         const option = document.createElement('option');
@@ -161,39 +231,81 @@ export function renderTable(contacts) {
         select.appendChild(option);
       });
 
-      const matched = matchStatusOption(contact.status);
-      const initialValue = matched ? matched.value : (contact.status ? String(contact.status) : 'New');
+      const getSelectionValue = () => {
+        const option = matchStatusOption(contact.status);
+        return option ? option.value : (contact.status ? String(contact.status) : DEFAULT_STATUS);
+      };
 
-      if (!matched && contact.status) {
-        const fallback = document.createElement('option');
-        fallback.value = String(contact.status);
-        fallback.textContent = String(contact.status);
-        select.appendChild(fallback);
-      }
+      ensureOption(getSelectionValue());
+      select.value = getSelectionValue();
 
-      select.value = initialValue;
+      const hideSelect = () => {
+        select.style.display = 'none';
+      };
+
+      const showSelect = () => {
+        ensureOption(getSelectionValue());
+        select.value = getSelectionValue();
+        select.style.display = 'inline-block';
+        select.focus();
+      };
 
       select.addEventListener('change', async (event) => {
-        const previous = contact.status || 'New';
-        const next = event.target.value;
-        if (next === previous) return;
+        const previousValue =
+          matchStatusOption(contact.status)?.value || String(contact.status || DEFAULT_STATUS);
+        const nextValue = event.target.value;
+        if (nextValue === previousValue) {
+          hideSelect();
+          badge.focus();
+          return;
+        }
 
         select.disabled = true;
         try {
-          await updateContact(contact._id, { status: next });
-          contact.status = next;
+          await updateContact(contact._id, { status: nextValue });
+          contact.status = nextValue;
+          applyBadgeView(badge, nextValue);
           document.dispatchEvent(new CustomEvent('contacts:status-updated', {
-            detail: { contactId: contact._id, status: next }
+            detail: { contactId: contact._id, status: nextValue }
           }));
+          hideSelect();
+          badge.focus();
         } catch (err) {
           console.error(err);
           alert('Could not update status. Please try again.');
-          event.target.value = previous;
+          ensureOption(previousValue);
+          event.target.value = previousValue;
+          applyBadgeView(badge, previousValue);
+          hideSelect();
+          badge.focus();
         } finally {
           select.disabled = false;
         }
       });
 
+      select.addEventListener('blur', () => {
+        hideSelect();
+      });
+
+      select.addEventListener('keydown', (evt) => {
+        if (evt.key === 'Escape') {
+          evt.preventDefault();
+          hideSelect();
+          badge.focus();
+        }
+      });
+
+      const badgeKeydown = (evt) => {
+        if (evt.key === 'Enter' || evt.key === ' ') {
+          evt.preventDefault();
+          showSelect();
+        }
+      };
+
+      badge.addEventListener('click', showSelect);
+      badge.addEventListener('keydown', badgeKeydown);
+
+      statusCell.appendChild(badge);
       statusCell.appendChild(select);
       row.appendChild(statusCell);
     }
