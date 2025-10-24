@@ -137,6 +137,14 @@
   background:#f3f4f6;
 }
 
+.addr-header .status-badge {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 100%;
+  text-align: center;
+}
+
 /* =========================================
    CONTACT STRIP (3 cards in a row)
    ========================================= */

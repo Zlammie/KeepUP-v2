@@ -3,7 +3,8 @@ import * as API from './api.js';
 import { els } from './domCache.js';
 import { debounce } from './utils.js';
 import {
-  buildingClasses, walkStatusClasses, walkStatusLabels,
+  buildingClasses, buildingLabels,
+  walkStatusClasses, walkStatusLabels,
   closingStatusClasses, closingStatusLabels
 } from './statusMaps.js';
 import { formatDateTime } from './utils.js';
@@ -117,8 +118,11 @@ export const attachAllControls = ({ communityId, lotId, lot, purchaserContact, p
       const val = e.target.value;
       restyleSelect(sel, buildingClasses, val);
       await saveLotField(communityId, lotId, { status: val });
-      // (badge is already handled in renderTopBar on initial load, but we update here too)
-      // You can import a label map here if you want to rewrite innerHTML badge.
+      if (els.buildingStatusValue) {
+        const label = buildingLabels[val] || val.replace(/-/g, ' ');
+        const cls = buildingClasses[val] || '';
+        els.buildingStatusValue.innerHTML = `<span class="status-badge ${cls}">${label}</span>`;
+      }
     });
   }
 
