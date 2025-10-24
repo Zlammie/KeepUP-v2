@@ -12,8 +12,8 @@ const STATUS_OPTIONS = [
   { value: 'Purchased', label: 'Purchased' },
   { value: 'Cold', label: 'Cold' },
   { value: 'Closed', label: 'Closed' },
-  { value: 'Not Interested', label: 'Not Interested' },
-  { value: 'Deal Lost', label: 'Deal Lost' },
+  { value: 'Not-Interested', label: 'Not Interested' },
+  { value: 'Deal-Lost', label: 'Deal Lost' },
   { value: 'Bust', label: 'Bust' }
 ];
 
@@ -26,8 +26,8 @@ const STATUS_CLASS_MAP = {
   Purchased: 'purchased',
   Cold: 'cold',
   Closed: 'closed',
-  'Not Interested': 'not-interested',
-  'Deal Lost': 'deal-lost',
+  'Not-Interested': 'not-interested',
+  'Deal-Lost': 'deal-lost',
   Bust: 'bust'
 };
 
@@ -35,8 +35,10 @@ const DEFAULT_STATUS = 'New';
 
 const matchStatusOption = (raw) => {
   if (!raw) return null;
-  const normalized = raw.toString().trim().toLowerCase();
-  return STATUS_OPTIONS.find((opt) => opt.value.toLowerCase() === normalized) || null;
+  const normalized = raw.toString().trim().toLowerCase().replace(/\s+/g, '-');
+  return STATUS_OPTIONS.find(
+    (opt) => opt.value.toLowerCase().replace(/\s+/g, '-') === normalized
+  ) || null;
 };
 
 const statusClassName = (statusValue) => {
@@ -211,8 +213,6 @@ export function renderTable(contacts) {
 
       const select = document.createElement('select');
       select.className = 'form-select form-select-sm contact-status-select';
-      select.style.display = 'none';
-      select.style.width = '150px';
 
       const ensureOption = (value) => {
         const existing = Array.from(select.options).some((opt) => opt.value === value);
@@ -240,13 +240,13 @@ export function renderTable(contacts) {
       select.value = getSelectionValue();
 
       const hideSelect = () => {
-        select.style.display = 'none';
+        statusCell.classList.remove('is-editing');
       };
 
       const showSelect = () => {
         ensureOption(getSelectionValue());
         select.value = getSelectionValue();
-        select.style.display = 'inline-block';
+        statusCell.classList.add('is-editing');
         select.focus();
       };
 
