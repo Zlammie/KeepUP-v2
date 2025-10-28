@@ -52,6 +52,42 @@
       <h1 class="h3">Update Notes</h1>
 
       <article class="mb-4">
+        <h2 class="h5 mb-2">Version 1.0.3 - Pending Release</h2>
+
+        <p class="mb-1 fw-semibold">Major Updates</p>
+        <ul class="mb-3">
+          <li>You can now link a company community to yours to treat it as a competitor. Most fields auto-populate, with shared data across both communities. (Sales / QMI data appears only if the other team keeps their specs updated.)</li>
+          <li>Contact status can be updated directly on the table view—no need to open the detail drawer first.</li>
+          <li>Closing date and time inputs were added to Address Details, and the closing status logic now works end-to-end.</li>
+          <li>The lender table pulls every linked contact, with a new Purchasers table that allows editing closing date, time, and status.</li>
+          <li>Contacts table now includes a search bar and supports adding a new contact inline without visiting the Add Lead form.</li>
+          <li>Realtor table displays both contact status and lender status.</li>
+          <li>View Lots closing column renders date + time and has styled status filters; hover helpers describe the walk dots.</li>
+          <li>Sales price and list price in Contact Details and Address Details now render with currency formatting.</li>
+          <li>Added a Purchased tab that lists contacts with a linked lot who haven’t closed yet, along with a progress tracker for managing closings.</li>
+        </ul>
+
+        <p class="mb-1 fw-semibold">UI Polish</p>
+        <ul class="mb-3">
+          <li>Manage My Community Competition layout matches the Update Competition page.</li>
+          <li>Address Details date inputs were refreshed to match the current design system.</li>
+          <li>My Community Competition header now features a styled Manage Communities button and a redesigned community selector.</li>
+        </ul>
+
+        <p class="mb-1 fw-semibold">Bug Fixes</p>
+        <ul class="mb-3">
+          <li>Access controls tightened: you’ll only see leads and community info that are linked to your communities (with unassigned leads still visible to their creator).</li>
+          <li>Building status updates immediately on Address Details.</li>
+          <li>View Lots reliably displays closing date and time pulled from the linked purchaser.</li>
+        </ul>
+
+        <p class="mb-1 fw-semibold">Alerts</p>
+        <ul>
+          <li>Attempting to link a competitor without selecting a community now shows an alert so you don’t lose your place.</li>
+        </ul>
+      </article>
+
+      <article class="mb-4">
         <h2 class="h5 mb-2">Version 1.0.2 - 10/21/2025</h2>
         <p class="mb-1 fw-semibold">My Community Details</p>
         <ul class="mb-3">
