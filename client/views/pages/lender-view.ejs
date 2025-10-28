@@ -48,6 +48,23 @@
     .d-none{display:none!important;} /* fallback if Bootstrap not present */
     .topbar-spacer{height:.25rem;}
     .status-badge{display:inline-block;padding:2px 8px;border:1px solid #e5e7eb;border-radius:999px;font-size:.85rem;line-height:1.2;background:#fff;}
+    .tab-switcher{
+      display:flex;gap:.35rem;margin-top:.75rem;flex-wrap:wrap;
+      border-bottom:1px solid var(--border);padding-bottom:.2rem;
+    }
+    .tab-btn{
+      border:1px solid var(--border);border-bottom:none;background:#f8fafc;color:var(--muted);
+      border-radius:12px 12px 0 0;
+      padding:.4rem 1.1rem;font-size:.9rem;font-weight:600;
+      cursor:pointer;transition:all .18s ease;position:relative;top:1px;
+    }
+    .tab-btn:hover{color:var(--ink);}
+    .tab-btn.active{
+      background:#fff;color:var(--brand);border-color:var(--brand);border-bottom:1px solid #fff;
+      box-shadow:0 -1px 6px rgba(47,112,200,.15);
+    }
+    .tab-panel{margin-top:0;padding-top:.75rem;}
+
   </style>
 </head>
 <body>
@@ -120,18 +137,45 @@
         <button id="resetFilters" class="btn btn-sm btn-outline-secondary">Reset</button>
       </div>
 
-      <!-- Related contacts table -->
-      <div class="card" style="margin-top:.25rem;">
-        <table class="table linked-table">
-          <thead>
-            <tr>
-              <th>Name</th><th>Phone</th><th>Email</th>
-              <th>Community</th><th>Owner</th><th>Status</th>
-              <th>Invite Date</th><th>Approved Date</th>
-            </tr>
-          </thead>
-          <tbody id="relatedContactsBody" class="relatedContactBody"></tbody>
-        </table>
+      <div class="tab-switcher" role="tablist">
+        <button id="tabAllContacts" class="tab-btn active" type="button" role="tab" aria-selected="true">All Contacts</button>
+        <button id="tabPurchasedContacts" class="tab-btn" type="button" role="tab" aria-selected="false">Purchasers</button>
+      </div>
+
+      <div id="tabPanelAll" class="tab-panel" role="tabpanel">
+        <div class="card">
+          <table class="table linked-table">
+            <thead>
+              <tr>
+                <th><span class="visually-hidden">Task</span></th>
+                <th><span class="visually-hidden">Flag</span></th>
+                <th><span class="visually-hidden">Comment</span></th>
+                <th>Name</th><th>Phone</th><th>Email</th>
+                <th>Community</th><th>Owner</th><th>Contact Status</th>
+                <th>Lender Status</th><th>Invite Date</th><th>Approved Date</th>
+              </tr>
+            </thead>
+            <tbody id="relatedContactsBody" class="relatedContactBody"></tbody>
+          </table>
+        </div>
+      </div>
+
+      <div id="tabPanelPurchased" class="tab-panel is-hidden" role="tabpanel" aria-hidden="true">
+        <div class="card">
+          <table class="table linked-table">
+            <thead>
+              <tr>
+                <th><span class="visually-hidden">Task</span></th>
+                <th><span class="visually-hidden">Flag</span></th>
+                <th><span class="visually-hidden">Comment</span></th>
+                <th>Name</th><th>Phone</th><th>Email</th>
+                <th>Community</th><th>Lender Status</th>
+                <th>Closing Status</th><th>Closing Date</th>
+              </tr>
+            </thead>
+            <tbody id="purchasedContactsBody"></tbody>
+          </table>
+        </div>
       </div>
     </div>
   </div>

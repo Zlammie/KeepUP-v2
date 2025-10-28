@@ -1,6 +1,12 @@
 // /assets/js/address-details/render.js
 import { els } from './domCache.js';
-import { formatDateTime, toLocalInputDateTime } from './utils.js';
+import {
+  formatCurrency,
+  formatDateTime,
+  toLocalInputDateTime,
+  splitDateTimeForInputs,
+  formatClosingSummary
+} from './utils.js';
 import {
   buildingLabels, buildingClasses,
   walkStatusLabels, walkStatusClasses,
@@ -66,15 +72,25 @@ export const renderTopBar = (lot, primaryEntry) => {
         `<span class="status-badge ${closingStatusClasses[rawCS]}">${closingStatusLabels[rawCS]}</span>`;
     }
 
-    // Date (existing) + Time (new)
-    const dt = primaryEntry.closingDateTime ? new Date(primaryEntry.closingDateTime) : null;
-    if (dt && !isNaN(dt)) {
-      if (els.closingDateValue) els.closingDateValue.textContent = dt.toLocaleDateString();
-      if (els.closingTimeValue) els.closingTimeValue.textContent =
-        dt.toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' });  // <-- NEW
-    } else {
-      if (els.closingDateValue) els.closingDateValue.textContent = '';
-      if (els.closingTimeValue) els.closingTimeValue.textContent = '';       // <-- NEW
+    const { date: closingDatePart, time: closingTimePart } =
+      splitDateTimeForInputs(primaryEntry.closingDateTime || '');
+    const closingDateEl = els.closingDateInput;
+    const closingTimeEl = els.closingTimeInput;
+    const closingSummaryEl = els.closingSummaryValue;
+    if (closingDateEl) closingDateEl.value = closingDatePart || '';
+    if (closingTimeEl) {
+      closingTimeEl.value = closingTimePart || '';
+      closingTimeEl.classList.toggle('is-blank', !closingTimePart);
+    }
+    if (closingSummaryEl) {
+      if (closingDatePart) {
+        closingSummaryEl.textContent = formatClosingSummary({ date: closingDatePart, time: closingTimePart });
+        closingSummaryEl.classList.remove('is-placeholder');
+      } else {
+        const placeholder = closingSummaryEl.dataset?.placeholder || 'Not scheduled';
+        closingSummaryEl.textContent = placeholder;
+        closingSummaryEl.classList.add('is-placeholder');
+      }
     }
   }
 };
@@ -163,14 +179,6 @@ export const setInitialFormValues = (lot, primaryEntry) => {
   // ----- helpers (local, no imports needed)
   const $ = (el) => el || null;
   const getEl = (k) => els[k] || document.getElementById(k);
-  const asMoney = (v) => {
-    if (v == null || v === '') return '';
-    // accept "$379,000", numbers, or numeric strings
-    const n = typeof v === 'string' ? Number(v.replace(/[^\d.-]/g, '')) : Number(v);
-    return Number.isFinite(n)
-      ? n.toLocaleString(undefined, { style: 'currency', currency: 'USD', maximumFractionDigits: 0 })
-      : String(v);
-  };
   const asLocalDate = (v) => {
     if (!v) return '';
     try {
@@ -202,7 +210,10 @@ export const setInitialFormValues = (lot, primaryEntry) => {
   if (els.finalSignOffInput) els.finalSignOffInput.value = lot.finalSignOff ? toLocalInputDateTime(lot.finalSignOff) : '';
 
   // ----- List price (existing)
-  if (els.listPriceInput) els.listPriceInput.value = lot.listPrice ?? '';
+  if (els.listPriceInput) {
+    const formattedListPrice = formatCurrency(lot.listPrice);
+    els.listPriceInput.value = formattedListPrice || (lot.listPrice ?? '');
+  }
 
   // ===== NEW: Sales Price & Sales Date (read-only display nodes) =====
   // Try primaryEntry first, then lot, with common field-name fallbacks.
@@ -217,7 +228,10 @@ export const setInitialFormValues = (lot, primaryEntry) => {
   const spEl = getEl('salesPriceValue');
   const sdEl = getEl('salesDateValue');
 
-  if ($(spEl)) spEl.textContent = asMoney(salesPriceRaw);
+  if ($(spEl)) {
+    const formattedSalesPrice = formatCurrency(salesPriceRaw);
+    spEl.textContent = formattedSalesPrice || (salesPriceRaw ? String(salesPriceRaw) : '');
+  }
   if ($(sdEl)) sdEl.textContent = asLocalDate(salesDateRaw);
 
   // ----- Selects (existing)
@@ -226,8 +240,26 @@ export const setInitialFormValues = (lot, primaryEntry) => {
   if (els.closingStatusSelect && primaryEntry) {
     els.closingStatusSelect.value = primaryEntry.closingStatus || 'notLocked';
   }
-  if (els.closingDateTimeInput && primaryEntry?.closingDateTime) {
-    els.closingDateTimeInput.value = toLocalInputDateTime(primaryEntry.closingDateTime);
+  {
+    const dateEl = els.closingDateInput;
+    const timeEl = els.closingTimeInput;
+    const summaryEl = els.closingSummaryValue;
+    const { date, time } = splitDateTimeForInputs(primaryEntry?.closingDateTime || '');
+    if (dateEl) dateEl.value = date || '';
+    if (timeEl) {
+      timeEl.value = time || '';
+      timeEl.classList.toggle('is-blank', !time);
+    }
+    if (summaryEl) {
+      if (!date) {
+        const placeholder = summaryEl.dataset?.placeholder || 'Not scheduled';
+        summaryEl.textContent = placeholder;
+        summaryEl.classList.add('is-placeholder');
+      } else {
+        summaryEl.textContent = formatClosingSummary({ date, time });
+        summaryEl.classList.remove('is-placeholder');
+      }
+    }
   }
   {
   const gSel = els.generalStatusSelect || document.getElementById('generalStatusSelect');

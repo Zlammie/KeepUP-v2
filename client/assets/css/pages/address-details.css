@@ -646,56 +646,93 @@
 }
 
 
-/* CLosig CARD */
+/* Closing card */
 .closing-card{
-  display: flex !important;
-  flex-direction: column !important;
-  align-items: center !important;   /* center the chip horizontally */
-  gap: 8px !important;
-  padding: 8px !important;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 12px 14px;
+  background: var(--card-bg);
+  border: 1px solid var(--card-border);
+  border-radius: 12px;
+  color: var(--text);
+  box-shadow: 0 6px 14px rgba(15,23,42,0.04);
 }
 
-/* The global .chip is full-width; override just inside closing-card */
+.closing-card__head{
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
 .closing-card .chip{
-  width: auto !important;
-  align-self: center !important;
-  margin: 0 !important;
+  margin: 0;
+  background: transparent;
+  border: 1px solid var(--card-border);
+  padding: 4px 12px;
 }
 
-/* Bottom row: Closing Date | Closing Time */
-.closing-card .row.two{
-  align-self: stretch !important;   /* make the row span the card width */
-  display: grid !important;
-  grid-template-columns: 1fr 1fr !important;
-  column-gap: 10px !important;
-  row-gap: 4px !important;
-  align-items: end !important;
+.closing-status-pill{
+  border-radius: 999px;
 }
 
-/* Compact label/value spacing, no dashed boxes */
-.closing-card .field{
-  display: flex !important;
-  align-items: baseline !important;
-  gap: 6px !important;
-  min-width: 0 !important;
-}
-.closing-card .field label{
-  margin: 0 !important;
-  white-space: nowrap !important;
-  font-size: .8rem !important;
-  line-height: 1.1 !important;
-}
-.closing-card .value.readonly{
-  padding: 0 !important;
-  border: 0 !important;
-  min-height: 0 !important;
-  background: transparent !important;
-  min-width: 0 !important;
+.closing-summary{
+  font-size: .93rem;
+  font-weight: 500;
+  color: var(--text);
+  padding: 6px 10px;
+  border-radius: 8px;
+  background: #f4f6fb;
+  border: 1px solid rgba(15,23,42,0.06);
+  flex: 1 1 220px;
 }
 
-/* Keep time tidy on the right */
-.closing-card .row.two .field:last-child{ justify-content: flex-end !important; }
-#closingTimeValue{ white-space: nowrap !important; text-align: right !important; }
+.closing-summary.is-placeholder{
+  color: var(--muted);
+  font-style: italic;
+}
+
+.closing-card__inputs{
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+}
+
+.closing-card__inputs .field{
+  display: flex;
+  flex-direction: column;
+  gap: 0;
+  margin: 0;
+  flex: 1 1 200px;
+}
+
+.closing-card__inputs input.value{
+  width: 100%;
+  padding: 10px 12px;
+  border: 1px solid var(--card-border);
+  border-radius: 8px;
+  background: #fff;
+  color: var(--text);
+  font-size: .95rem;
+  line-height: 1.2;
+  transition: border-color .15s ease, box-shadow .15s ease;
+}
+
+.closing-card__inputs input.value:focus{
+  border-color: #2563eb;
+  box-shadow: 0 0 0 3px rgba(37,99,235,0.15);
+  outline: 0;
+}
+
+@media (max-width: 640px){
+  .closing-card__inputs{
+    flex-direction: column;
+  }
+  .closing-card__inputs .field{
+    flex-basis: 100%;
+  }
+}
 
 
 .lender-card .lender-header{
@@ -829,6 +866,51 @@
 #thirdPartyTime::-webkit-clear-button,
 #firstWalkTime::-webkit-clear-button,
 #finalSignOffTime::-webkit-clear-button{
+  display: none !important;
+}
+
+#closingTimeInput{
+  appearance: none;
+  -webkit-appearance: none;
+  font-size: 0.95rem;
+  font-weight: 500;
+}
+
+#closingTimeInput.is-blank::-webkit-datetime-edit-fields-wrapper{
+  padding-right: 0 !important;
+}
+
+#closingTimeInput.is-blank::-webkit-datetime-edit-second-field,
+#closingTimeInput.is-blank::-webkit-datetime-edit-millisecond-field{
+  display: none !important;
+}
+
+#closingTimeInput::-webkit-datetime-edit-second-field,
+#closingTimeInput::-webkit-datetime-edit-millisecond-field,
+#closingTimeInput::-webkit-inner-spin-button,
+#closingTimeInput::-webkit-clear-button{
+  display: none !important;
+}
+#closingTimeInput{
+  appearance: none;
+  -webkit-appearance: none;
+  font-size: 0.95rem;
+  font-weight: 500;
+}
+
+#closingTimeInput.is-blank::-webkit-datetime-edit-fields-wrapper{
+  padding-right: 0 !important;
+}
+
+#closingTimeInput.is-blank::-webkit-datetime-edit-second-field,
+#closingTimeInput.is-blank::-webkit-datetime-edit-millisecond-field{
+  display: none !important;
+}
+
+#closingTimeInput::-webkit-datetime-edit-second-field,
+#closingTimeInput::-webkit-datetime-edit-millisecond-field,
+#closingTimeInput::-webkit-inner-spin-button,
+#closingTimeInput::-webkit-clear-button{
   display: none !important;
 }
 

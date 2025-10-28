@@ -3,6 +3,26 @@ export function debounce(fn, wait = 400) {
   let t; return (...args) => { clearTimeout(t); t = setTimeout(() => fn(...args), wait); };
 }
 
+export function parseCurrency(value) {
+  if (value == null) return null;
+  const str = String(value).trim();
+  if (!str) return null;
+  const cleaned = str.replace(/[^\d.-]/g, '');
+  if (!cleaned) return null;
+  const num = Number(cleaned);
+  return Number.isFinite(num) ? num : null;
+}
+
+export function formatCurrency(value) {
+  const numeric = parseCurrency(value);
+  if (numeric == null) return '';
+  return numeric.toLocaleString(undefined, {
+    style: 'currency',
+    currency: 'USD',
+    maximumFractionDigits: 0
+  });
+}
+
 export const fmt = {
   money(n) {
     if (n == null || n === '') return '';
@@ -14,7 +34,7 @@ export const fmt = {
 };
 
 export function readMoney(v) {
-  return v == null ? '' : String(v).replace(/[^0-9.]/g, '');
+  return v == null ? '' : String(v).replace(/[^\d.-]/g, '');
 }
 
 export function parseMoney(v) {            // optional helper

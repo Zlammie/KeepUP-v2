@@ -1,7 +1,14 @@
 // assets/js/contact-details/lotLink.js
 import { DOM, refreshDOM } from './domCache.js';
 import { getState, setLinkedLot } from './state.js';
-import { debounce, readMoney, readDate, fmtDate, safe } from './utils.js';
+import {
+  debounce,
+  parseCurrency,
+  formatCurrency,
+  readDate,
+  fmtDate,
+  safe
+} from './utils.js';
 import { refreshStatusUI } from './status.js';
 
 let hydrateAbort;
@@ -156,11 +163,11 @@ function linkedLotCardHTML(lot) {
       <section class="lot-box prices-box left-col">
         <div class="form-pair">
           <label for="linked-list-price"><strong>List Price:</strong></label>
-          <input type="number" id="linked-list-price" placeholder="e.g. 435000" step="0.01" inputmode="decimal" />
+          <input type="text" id="linked-list-price" placeholder="$435,000" inputmode="decimal" autocomplete="off" />
         </div>
         <div class="form-pair">
           <label for="linked-sales-price"><strong>Sales Price:</strong></label>
-          <input type="number" id="linked-sales-price" placeholder="e.g. 425000" step="0.01" inputmode="decimal" />
+          <input type="text" id="linked-sales-price" placeholder="$425,000" inputmode="decimal" autocomplete="off" />
         </div>
         <div class="form-pair">
           <label for="linked-sale-date"><strong>Sales Date:</strong></label>
@@ -236,6 +243,32 @@ async function hydrateCommunityLotAndBind(lotSnapshot) {
   const dateInput  = document.getElementById('linked-sale-date');
   if (!listInput || !salesInput || !dateInput) return;
 
+  const displayCurrency = (value) => {
+    const formatted = formatCurrency(value);
+    if (formatted) return formatted;
+    if (value == null || value === '') return '';
+    return String(value);
+  };
+  const applyCurrencyValue = (input, value) => {
+    if (!input) return;
+    input.value = displayCurrency(value);
+  };
+  const setupCurrencyInput = (input) => {
+    if (!input || input.dataset.currencySetup === '1') return;
+    input.dataset.currencySetup = '1';
+    input.addEventListener('focus', () => {
+      const numeric = parseCurrency(input.value);
+      input.value = numeric == null ? '' : numeric.toString();
+      if (typeof input.select === 'function') {
+        requestAnimationFrame(() => input.select());
+      }
+    });
+    input.addEventListener('blur', () => {
+      input.value = displayCurrency(input.value);
+    });
+    input.value = displayCurrency(input.value);
+  };
+
   const mount = DOM.linkedLotDisplay;
   let { communityId, lotId } = extractIds(lotSnapshot, mount);
 
@@ -269,8 +302,10 @@ async function hydrateCommunityLotAndBind(lotSnapshot) {
     if (token !== renderToken) return;
 
     // --- prices + sales date ---
-    listInput.value  = readMoney(srvLot.listPrice ?? '');
-    salesInput.value = readMoney(srvLot.salesPrice ?? '');
+    applyCurrencyValue(listInput, srvLot.listPrice ?? lotSnapshot.listPrice ?? '');
+    applyCurrencyValue(salesInput, srvLot.salesPrice ?? lotSnapshot.salesPrice ?? '');
+    setupCurrencyInput(listInput);
+    setupCurrencyInput(salesInput);
     dateInput.value  = readDate(srvLot.salesDate);
 
     // --- build / schedule ---
@@ -306,8 +341,10 @@ async function hydrateCommunityLotAndBind(lotSnapshot) {
     if (e.name !== 'AbortError') {
       if (token !== renderToken) return;
       // Snapshot-only fallback (uses your canonical names where possible)
-      listInput.value  = readMoney(lotSnapshot.listPrice ?? '');
-      salesInput.value = readMoney(lotSnapshot.salesPrice ?? '');
+      applyCurrencyValue(listInput, lotSnapshot.listPrice ?? '');
+      applyCurrencyValue(salesInput, lotSnapshot.salesPrice ?? '');
+      setupCurrencyInput(listInput);
+      setupCurrencyInput(salesInput);
       dateInput.value  = readDate(lotSnapshot.salesDate);
       const fallbackStatus = lotSnapshot.generalStatus || lotSnapshot.status || 'N/A';
       setText('linked-build-status', fallbackStatus);
@@ -338,9 +375,9 @@ async function hydrateCommunityLotAndBind(lotSnapshot) {
 
   // --- SAVE (debounced, only if changed) ---
   const initial = {
-    listPrice:  listInput.value,
-    salesPrice: salesInput.value,
-    salesDate:  dateInput.value
+    listPrice:  parseCurrency(listInput.value),
+    salesPrice: parseCurrency(salesInput.value),
+    salesDate:  dateInput.value ? new Date(dateInput.value).toISOString() : null
   };
 
   const saveLotFields = debounce(async () => {
@@ -350,17 +387,15 @@ async function hydrateCommunityLotAndBind(lotSnapshot) {
     if (!cid || !lid) return;
 
     const next = {
-      listPrice:  listInput.value,
-      salesPrice: salesInput.value,
+      listPrice:  parseCurrency(listInput.value),
+      salesPrice: parseCurrency(salesInput.value),
       salesDate:  dateInput.value ? new Date(dateInput.value).toISOString() : null
     };
 
     const payload = {};
-    if (next.listPrice !== initial.listPrice)   payload.listPrice  = String(next.listPrice || '');
-    if (next.salesPrice !== initial.salesPrice) payload.salesPrice = String(next.salesPrice || '');
-    if (next.salesDate !== (initial.salesDate ? new Date(initial.salesDate).toISOString() : null)) {
-      payload.salesDate = next.salesDate;
-    }
+    if (next.listPrice !== initial.listPrice)   payload.listPrice  = next.listPrice;
+    if (next.salesPrice !== initial.salesPrice) payload.salesPrice = next.salesPrice;
+    if (next.salesDate !== initial.salesDate)   payload.salesDate  = next.salesDate;
     if (!Object.keys(payload).length) return;
 
     try {
@@ -376,9 +411,9 @@ async function hydrateCommunityLotAndBind(lotSnapshot) {
       if ('listPrice'  in payload) lot.listPrice  = payload.listPrice;
       if ('salesPrice' in payload) lot.salesPrice = payload.salesPrice;
       if ('salesDate'  in payload) lot.salesDate  = payload.salesDate;
-      initial.listPrice  = listInput.value;
-      initial.salesPrice = salesInput.value;
-      initial.salesDate  = dateInput.value;
+      initial.listPrice  = next.listPrice;
+      initial.salesPrice = next.salesPrice;
+      initial.salesDate  = next.salesDate;
     } catch (err) {
       console.error('Failed to save lot fields', err);
       alert('Could not save lot fields.');

@@ -921,25 +921,79 @@
 
 .linked-lot-card .left-col .form-pair {
   display: grid;
-  grid-template-columns: 120px 1fr;
-  
+  grid-template-columns: minmax(80px, 120px) minmax(0, 1fr);
   align-items: center;
-  column-gap: .5rem;
-  margin-bottom: .35rem;
+  column-gap: .4rem;
+  margin-bottom: .4rem;
+}
+
+.linked-lot-card .left-col .form-pair label {
+  font-size: .82rem;
+  font-weight: 600;
+  color: #1f2933;
+  letter-spacing: .01em;
+  white-space: normal;
 }
 
 .linked-lot-card .left-col .form-pair input[type="date"] {
-  max-width: 110px;   /* pick a value that matches your price fields visually */
+  max-width: 120px;
 }
-.linked-lot-card .left-col .form-pair input[type="number"],
+.linked-lot-card .left-col .form-pair input[type="text"],
+.linked-lot-card .left-col .form-pair input[type="number"] {
+  width: 100%;
+  max-width: 100%;
+  box-sizing: border-box;
+  padding: .4rem .65rem;
+  border: 1px solid #d8dde3;
+  border-radius: .45rem;
+  font-size: .92rem;
+  font-weight: 600;
+  color: #1f2933;
+  background: #fff;
+  box-shadow: inset 0 1px 2px rgba(15,23,42,0.06);
+  transition: border-color .15s ease, box-shadow .15s ease;
+  text-align: right;
+}
 .linked-lot-card .left-col .form-pair input[type="date"] {
   width: 100%;
+  max-width: 150px;
   box-sizing: border-box;
-  padding: .35rem .5rem;
-  border: 1px solid #e1e3e6;
-  border-radius: .35rem;
+  padding: .4rem .65rem;
+  border: 1px solid #d8dde3;
+  border-radius: .45rem;
   font-size: .9rem;
-  
+  font-weight: 600;
+  font-family: "Inter", "Segoe UI", system-ui, sans-serif;
+  color: #1f2933;
+  background: #fff;
+  box-shadow: inset 0 1px 2px rgba(15,23,42,0.05);
+  transition: border-color .15s ease, box-shadow .15s ease;
+  appearance: none;
+  -webkit-appearance: none;
+  text-align: center;
+}
+.linked-lot-card .left-col .form-pair input[type="text"]::placeholder,
+.linked-lot-card .left-col .form-pair input[type="number"]::placeholder {
+  color: #9aa4b2;
+  font-weight: 500;
+}
+.linked-lot-card .left-col .form-pair input[type="date"]::placeholder {
+  color: #9aa4b2;
+  font-weight: 500;
+}
+.linked-lot-card .left-col .form-pair input[type="date"]::-webkit-calendar-picker-indicator {
+  opacity: 0;
+  display: none;
+}
+.linked-lot-card .left-col .form-pair input[type="date"]:hover::-webkit-calendar-picker-indicator {
+  opacity: 0;
+}
+.linked-lot-card .left-col .form-pair input[type="text"]:focus,
+.linked-lot-card .left-col .form-pair input[type="number"]:focus,
+.linked-lot-card .left-col .form-pair input[type="date"]:focus {
+  border-color: #5b8def;
+  box-shadow: 0 0 0 3px rgba(91,141,239,0.18);
+  outline: none;
 }
 
 .linked-lot-card .left-col .lot-sep {

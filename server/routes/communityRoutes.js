@@ -279,33 +279,45 @@ router.get('/:id/lots',
         : allLots;
 
       const lotMetaPairs = baseLots.map(lot => ({ lot, meta: derivePurchaserMeta(lot) }));
-      const missingIds = Array.from(new Set(
+      const purchaserIds = Array.from(new Set(
         lotMetaPairs
-          .filter(({ meta }) => !meta.name && meta.id)
-          .map(({ meta }) => String(meta.id))
+          .map(({ meta }) => meta.id)
+          .filter(Boolean)
+          .map(id => String(id))
       ));
 
       let contactNameById = new Map();
       let contactById = new Map();
-      if (missingIds.length) {
-        const objectIds = missingIds
+      let closingByContactId = new Map();
+      if (purchaserIds.length) {
+        const objectIds = purchaserIds
           .filter(id => /^[0-9a-fA-F]{24}$/.test(id))
           .map(id => new mongoose.Types.ObjectId(id));
-        const lookupIds = objectIds.length ? objectIds : missingIds;
+        const lookupIds = objectIds.length ? objectIds : purchaserIds;
         const contacts = await Contact.find({
           _id: { $in: lookupIds },
           ...companyFilter(req)
         })
-          .select('firstName lastName fullName name email phone')
+          .select('firstName lastName fullName name email phone lenders.isPrimary lenders.closingDateTime lenders.closingStatus')
           .lean({ virtuals: true });
         contactNameById = new Map();
         contactById = new Map();
+        closingByContactId = new Map();
         for (const contact of contacts) {
           const contactId = toStringId(contact._id);
+          if (!contactId) continue;
+          contactById.set(contactId, contact);
+
           const name = trimValue(buildContactName(contact));
-          if (contactId) {
-            contactById.set(contactId, contact);
-            if (name) contactNameById.set(contactId, name);
+          if (name) contactNameById.set(contactId, name);
+
+          const lenders = Array.isArray(contact.lenders) ? contact.lenders : [];
+          const primary = lenders.find(entry => entry?.isPrimary) || lenders[0] || null;
+          if (primary && (primary.closingDateTime || primary.closingStatus)) {
+            closingByContactId.set(contactId, {
+              closingDateTime: primary.closingDateTime || null,
+              closingStatus: primary.closingStatus || null
+            });
           }
         }
       }
@@ -364,6 +376,17 @@ router.get('/:id/lots',
         }
         result.purchaserDisplayName = displayName;
         result.purchaserId = meta.id || null;
+
+        if (meta.id) {
+          const closing = closingByContactId.get(String(meta.id));
+          if (closing) {
+            if (!result.closingDateTime && closing.closingDateTime) result.closingDateTime = closing.closingDateTime;
+            if (!result.closeDateTime && closing.closingDateTime) result.closeDateTime = closing.closingDateTime;
+            if (!result.closeDate && closing.closingDateTime) result.closeDate = closing.closingDateTime;
+            if (!result.closingDate && closing.closingDateTime) result.closingDate = closing.closingDateTime;
+            if (!result.closingStatus && closing.closingStatus) result.closingStatus = closing.closingStatus;
+          }
+        }
 
         const rawPlan = lot.floorPlan;
         const floorPlanId = (() => {

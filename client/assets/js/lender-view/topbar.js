@@ -3,7 +3,7 @@ import { renderTable } from './table.js';
 import { dom } from './domCache.js';
 
 /* Status sets (main vs more) */
-const MAIN = ['all','invite','sub-application','sub-docs','approved'];
+const MAIN = ['all','invite','sub-application','sub-docs','approved','purchased'];
 const MORE = ['all','missing-docs','cannot-qualify'];
 
 const S = { allContacts: [], mode:'main', status:'all', community:'all' };
@@ -105,6 +105,7 @@ function countByStatus(list){
   list.forEach(c => {
     const k = norm(c._lenderStatus); // we’ll set this on ingest
     if (k && m[k]!=null) m[k]+=1;
+    if (c._purchasedWithLot) m.purchased = (m.purchased || 0) + 1;
   });
   return m;
 }
@@ -115,7 +116,13 @@ function applyFilters(){
 
   // Then status
   let rows = scoped;
-  if (S.status!=='all') rows = rows.filter(c => norm(c._lenderStatus) === S.status);
+  if (S.status !== 'all') {
+    if (S.status === 'purchased') {
+      rows = rows.filter((c) => c._purchasedWithLot);
+    } else {
+      rows = rows.filter(c => norm(c._lenderStatus) === S.status);
+    }
+  }
 
   renderTable(rows);
 

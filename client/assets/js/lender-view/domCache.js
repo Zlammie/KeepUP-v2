@@ -26,5 +26,13 @@ export const dom = {
   resetBtn:      $('#resetFilters'),
 
   // table
-  tableBody:     $('#relatedContactsBody'),
+  tableBody: $('#relatedContactsBody'),
+  purchasedTableBody: $('#purchasedContactsBody'),
+
+  tabs: {
+    allBtn: $('#tabAllContacts'),
+    purchasedBtn: $('#tabPurchasedContacts'),
+    allPanel: $('#tabPanelAll'),
+    purchasedPanel: $('#tabPanelPurchased'),
+  },
 };

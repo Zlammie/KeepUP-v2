@@ -63,6 +63,69 @@
   Reset
 </button>
   </div>
+  <div id="contactsUtilityBar" class="contacts-utility-bar">
+    <div id="contactsSearchWrapper" class="utility-search">
+      <label for="contactsSearchInput" class="visually-hidden">Search contacts</label>
+      <input
+        type="search"
+        id="contactsSearchInput"
+        class="form-control form-control-sm"
+        placeholder="Search by name, email, or phone"
+        autocomplete="off"
+      />
+    </div>
+    <button type="button" id="inlineAddLeadBtn" class="btn btn-primary btn-sm utility-add-btn">
+      <img src="/assets/icons/add-circle-icon.svg" alt="Add lead" />
+      <span>Add Lead</span>
+    </button>
+  </div>
+
+  <form id="inlineLeadForm" class="contacts-inline-form d-none" autocomplete="off">
+    <div class="row g-2 align-items-end">
+      <div class="col-sm-6 col-lg">
+        <label for="inlineFirstName" class="form-label">First Name</label>
+        <input type="text" id="inlineFirstName" name="firstName" class="form-control form-control-sm" required />
+      </div>
+      <div class="col-sm-6 col-lg">
+        <label for="inlineLastName" class="form-label">Last Name</label>
+        <input type="text" id="inlineLastName" name="lastName" class="form-control form-control-sm" />
+      </div>
+      <div class="col-sm-6 col-lg">
+        <label for="inlineEmail" class="form-label">Email</label>
+        <input type="email" id="inlineEmail" name="email" class="form-control form-control-sm" />
+      </div>
+      <div class="col-sm-6 col-lg">
+        <label for="inlinePhone" class="form-label">Phone</label>
+        <input type="tel" id="inlinePhone" name="phone" class="form-control form-control-sm" />
+      </div>
+      <div class="col-sm-6 col-lg">
+        <label for="inlineVisitDate" class="form-label">Visit Date</label>
+        <input type="date" id="inlineVisitDate" name="visitDate" class="form-control form-control-sm" />
+      </div>
+      <div class="col-sm-6 col-lg">
+        <label for="inlineStatus" class="form-label">Status</label>
+        <select id="inlineStatus" name="status" class="form-select form-select-sm">
+          <option value="New">New</option>
+          <option value="Target">Target</option>
+          <option value="Possible">Possible</option>
+          <option value="Negotiation">Negotiation</option>
+          <option value="Be-Back">Be-Back</option>
+          <option value="Purchased">Purchased</option>
+          <option value="Cold">Cold</option>
+          <option value="Closed">Closed</option>
+          <option value="Not-Interested">Not Interested</option>
+          <option value="Deal-Lost">Deal Lost</option>
+          <option value="Bust">Bust</option>
+        </select>
+      </div>
+      <div class="col-auto">
+        <button type="submit" class="btn btn-success btn-sm">Save Lead</button>
+      </div>
+      <div class="col-auto">
+        <button type="button" id="cancelInlineLead" class="btn btn-outline-secondary btn-sm">Cancel</button>
+      </div>
+    </div>
+  </form>
   <table class="table table-bordered" id="contactsTable">
    <thead>
       <tr>

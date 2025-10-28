@@ -1,6 +1,7 @@
 export const state = {
   lenderId: null,
   allContacts: [],
+  purchasedContacts: [],
 };
 
 export function setLenderIdFromURL() {

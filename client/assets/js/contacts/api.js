@@ -5,6 +5,28 @@ export async function fetchContacts() {
   return res.json();
 }
 
+export async function createContact(payload) {
+  const res = await fetch('/api/contacts', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(payload),
+  });
+
+  if (!res.ok) {
+    let message = 'Failed to create contact';
+    try {
+      const data = await res.json();
+      message = data?.error || data?.details || message;
+    } catch {
+      const text = await res.text().catch(() => '');
+      if (text) message = text;
+    }
+    throw new Error(message);
+  }
+
+  return res.json();
+}
+
 export async function updateContact(id, patch) {
   const res = await fetch(`/api/contacts/${id}`, {
     method: 'PUT',

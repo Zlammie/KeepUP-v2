@@ -72,23 +72,43 @@
 
  <div class="addr-right">
 
-   <section class="closing-card card card--grey">
-  <!-- Top: status -->
-  <div class="chip chip--closing"> 
-    <div id="closingStatusValue" class="chip__value readonly"></div>
-  </div>
-  <!-- Bottom: date | time -->
-  <div class="row two">
-    <div class="field">
-      <label>Closing Date</label>
-      <div id="closingDateValue" class="value readonly"></div>
-    </div>
-    <div class="field">
-      <label>Closing Time</label>
-      <div id="closingTimeValue" class="value readonly"></div>
-    </div>
-  </div>
-</section>
+   <section class="closing-card card">
+     <div class="closing-card__head">
+       <div class="chip chip--closing closing-status-pill" aria-label="Closing status">
+         <div id="closingStatusValue" class="chip__value readonly"></div>
+       </div>
+       <div
+         id="closingSummaryValue"
+         class="closing-summary is-placeholder"
+         data-placeholder="Not scheduled"
+       >Not scheduled</div>
+     </div>
+     <div class="closing-card__inputs">
+       <div class="field">
+         <input
+           id="closingDateInput"
+           type="date"
+           class="value"
+           autocomplete="off"
+           aria-label="Closing Date"
+           title="Closing Date"
+         />
+       </div>
+       <div class="field">
+         <input
+           id="closingTimeInput"
+           type="time"
+           class="value"
+           step="60"
+           min="00:00"
+           max="23:59"
+           autocomplete="off"
+           aria-label="Closing Time"
+           title="Closing Time"
+         />
+       </div>
+     </div>
+   </section>
   </div>
   </header>
   <!-- CONTACT STRIP: Purchaser / Realtor / Lender -->

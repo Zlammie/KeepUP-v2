@@ -21,6 +21,12 @@ function fmtDateTime(d) {
     year: 'numeric', month: 'short', day: '2-digit', hour: '2-digit', minute: '2-digit'
   });
 }
+function fmtTime(d) {
+  if (!d) return '';
+  const dt = new Date(d);
+  if (isNaN(dt)) return '';
+  return dt.toLocaleTimeString(undefined, { hour: 'numeric', minute: '2-digit', hour12: true });
+}
 function fmtCurrency(n) {
   if (n == null || isNaN(Number(n))) return '';
   return Number(n).toLocaleString(undefined, { style: 'currency', currency: 'USD', maximumFractionDigits: 0 });
@@ -283,6 +289,7 @@ function walkDot(status, label, dateVal) {
 // 3-dot cell: Third Party, 1st Walk, Final Sign Off
 function walksCell(lot) {
   const td = document.createElement('td');
+  td.classList.add('walk-cell');
   const wrap = document.createElement('div');
   wrap.className = 'walk-dots';
 
@@ -483,6 +490,9 @@ function walkDot(status, label, dateVal) {
   span.className = `dot dot-${status}`;
   const when = dateVal ? fmtDate(dateVal) : 'Not scheduled';
   span.title = `${label}: ${when}`;
+  span.dataset.tooltip = label;
+  span.setAttribute('aria-label', `${label}: ${when}`);
+  span.tabIndex = 0;
   return span;
 }
 
@@ -511,9 +521,17 @@ function walksCell(lot) {
 
     // 9) Closing
     {
-      const top = fmtDate(lot.closeDate) || '—';
-      const sub = lot.closeTime ? `@ ${lot.closeTime}` : (lot.closeDate ? fmtDateTime(lot.closeDate) : '');
-      row.appendChild(twoLineCell(top, sub || ''));
+      const closingDate = pickDate(
+        lot.closeDateTime,
+        lot.closingDateTime,
+        lot.closeDate,
+        lot.closingDate
+      );
+      const top = fmtDate(closingDate) || '-';
+      const rawTime = trimToString(lot.closingTime || lot.closeTime);
+      const timePart = rawTime || fmtTime(closingDate);
+      const sub = timePart ? `@ ${timePart}` : '';
+      row.appendChild(twoLineCell(top, sub));
     }
 
     // 10) Price (right-aligned, robust fallbacks)
