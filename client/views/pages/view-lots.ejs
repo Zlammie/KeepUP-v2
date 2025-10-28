@@ -24,6 +24,86 @@ lots-table .sticky-col { position: sticky; z-index: 1; }
 .lots-table td, .lots-table th { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; height: 44px; }
 .lots-table .text-right { text-align: right; }
 
+#lotsTopBar.contact-topbar {
+  margin: 0 20px 12px;
+  justify-content: flex-start;
+  gap: 16px;
+}
+
+#lotsTopBar .topbar-left {
+  flex-wrap: wrap;
+  row-gap: 8px;
+}
+
+#lotsTopBar .topbar-filters {
+  display: flex;
+  gap: 10px;
+  flex-wrap: wrap;
+  margin-left: 16px;
+}
+
+#vl-statusFilters .status-pill {
+  --pill-bg: #f3f4f6;
+  --pill-border: #e5e7eb;
+  --pill-fg: #1f2937;
+  border: 1px solid var(--pill-border);
+  background: #ffffff;
+  color: var(--pill-fg);
+  border-radius: 999px;
+  padding: 6px 14px;
+  line-height: 1;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  cursor: pointer;
+  font-weight: 600;
+  transition: transform 0.15s ease, box-shadow 0.15s ease, background 0.2s ease;
+}
+
+#vl-statusFilters .status-pill--available {
+  --pill-bg: #eaf7ef;
+  --pill-border: #ccebd7;
+  --pill-fg: #166534;
+}
+
+#vl-statusFilters .status-pill--spec {
+  --pill-bg: #fff7e6;
+  --pill-border: #ffe4b5;
+  --pill-fg: #92400e;
+}
+
+#vl-statusFilters .status-pill--coming {
+  --pill-bg: #f3e8ff;
+  --pill-border: #e9d5ff;
+  --pill-fg: #6b21a8;
+}
+
+#vl-statusFilters .status-pill--sold {
+  --pill-bg: #fdecec;
+  --pill-border: #f9caca;
+  --pill-fg: #991b1b;
+}
+
+#vl-statusFilters .status-pill.active {
+  background: var(--pill-bg);
+  color: var(--pill-fg);
+  box-shadow: 0 0 0 2px rgba(15, 23, 42, 0.08);
+  transform: translateY(-1px);
+}
+
+#vl-statusFilters .status-pill:hover {
+  box-shadow: 0 2px 6px rgba(15, 23, 42, 0.1);
+}
+
+#vl-statusFilters .status-pill:focus-visible {
+  outline: 2px solid #0ea5e9;
+  outline-offset: 2px;
+}
+
+.table-container {
+  padding: 0 20px;
+}
+
 /* compact two-line cells */
 .cell-col { display: flex; flex-direction: column; line-height: 1.1; }
 .cell-top { font-weight: 600; }
@@ -71,7 +151,25 @@ lots-table .sticky-col { position: sticky; z-index: 1; }
 
 /* walks */
 .walk-dots { display: inline-flex; gap: 8px; align-items: center; }
-.dot { width: 10px; height: 10px; border-radius: 50%; display: inline-block; }
+.lots-table td.walk-cell {
+  overflow: visible;
+  position: relative;
+  z-index: 1;
+}
+.lots-table td.walk-cell:hover,
+.lots-table td.walk-cell:focus-within {
+  z-index: 10;
+}
+.walk-dots {
+  position: relative;
+  gap: 10px;
+}
+.dot {
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  display: inline-block;
+}
 .dot-none   { background: #ef4444; }  /* red */
 .dot-future { background: #3b82f6; }  /* blue */
 .dot-today  { background: #eab308; }  /* yellow */
@@ -217,16 +315,16 @@ lots-table .sticky-col { position: sticky; z-index: 1; }
 
   <!-- Filter pills (visual now; wire later) -->
   <div class="topbar-filters" id="vl-statusFilters">
-    <button class="status-pill" id="vl-filter-available" data-filter="available">
+    <button class="status-pill status-pill--available" id="vl-filter-available" data-filter="available">
       <span class="label">Available</span>
     </button>
-    <button class="status-pill" id="vl-filter-spec" data-filter="spec">
-      <span class="label">SPEC's</span>
+    <button class="status-pill status-pill--spec" id="vl-filter-spec" data-filter="spec">
+      <span class="label">SPEC</span>
     </button>
-    <button class="status-pill" id="vl-filter-coming" data-filter="comingSoon">
+    <button class="status-pill status-pill--coming" id="vl-filter-coming" data-filter="comingSoon">
       <span class="label">Coming Soon</span>
     </button>
-    <button class="status-pill" id="vl-filter-sold" data-filter="sold">
+    <button class="status-pill status-pill--sold" id="vl-filter-sold" data-filter="sold">
       <span class="label">Sold</span>
     </button>
   </div>

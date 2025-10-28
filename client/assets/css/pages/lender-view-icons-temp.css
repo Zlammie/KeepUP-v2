@@ -1,0 +1,20 @@
+/* Lenders top-bar pill colors (outline only; color on .active) */
+.status-pill.has-invited            { border-color: #0E79B2; }            /* reuse a calm blue */
+.status-pill.has-invited.active     { color: #0E79B2; }
+
+.status-pill.purchased-not-approved { border-color: #B22222; }            /* deep red */
+.status-pill.purchased-not-approved.active { color: #B22222; }
+
+.status-pill.has-purchased          { border-color: #2E8B57; }            /* purchased green */
+.status-pill.has-purchased.active   { color: #2E8B57; }
+
+
+/* assets/css/lenders.css */
+.table .icon-col {
+  width: 40px;         /* small fixed width */
+  text-align: center;
+}
+.table .stats-col {
+  width: 80px;         /* narrower than names/emails */
+  text-align: center;
+}

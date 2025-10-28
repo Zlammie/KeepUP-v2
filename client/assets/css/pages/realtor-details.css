@@ -55,3 +55,35 @@ input:focus {
   clear: both;
   width: 100%;
 }
+
+.related-table .status-duo {
+  display: flex;
+  gap: 16px;
+  align-items: flex-start;
+  flex-wrap: wrap;
+}
+
+.status-duo__item {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  min-width: 140px;
+  flex: 1 1 0;
+}
+
+.status-duo__label {
+  font-size: 0.7rem;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: #94a3b8;
+}
+
+.status-duo__value {
+  font-size: 0.8rem;
+  font-weight: 600;
+}
+
+.status-duo__value--muted {
+  color: #cbd5f5;
+  font-size: 0.75rem;
+}

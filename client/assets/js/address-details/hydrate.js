@@ -1,66 +1,13 @@
 // /assets/js/address-details/hydrate.js
 import * as API from './api.js';
 import { els } from './domCache.js';
-import { toLocalInputDateTime } from './utils.js';
+import { splitDateTimeForInputs, formatClosingSummary } from './utils.js';
 import {
   renderTitleAndBasics,
   renderTopBar,
   renderRightColumn,
   setInitialFormValues
 } from './render.js';
-
-// Helpers
-const pad = (n) => String(n).padStart(2, '0');
-const splitToLocalDateAndTime = (value) => {
-  if (!value) return { date: '', time: '' };
-  const d = new Date(value);
-  return {
-    date: `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`,
-    time: `${pad(d.getHours())}:${pad(d.getMinutes())}`,
-  };
-};
-const isDateOnly = v => typeof v === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(v);
-const isLocalDateTime = v => typeof v === 'string' && /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}$/.test(v);
-const isUTCISO = v => typeof v === 'string' && /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}(:\d{2}(\.\d{3})?)?Z$/.test(v);
-
-
-// Populate one milestone (supports split date+time OR legacy single datetime-local)
-// Return {date,time} for inputs without inventing time
-const splitForInputs = (v) => {
-  if (!v) return { date: '', time: '' };
-
-  // --- Normalize to string ---
-  let s = v;
-  if (v instanceof Date) {
-    s = v.toISOString();           // e.g., 2025-09-16T15:30:00.000Z
-  } else if (typeof v === 'number') {
-    s = new Date(v).toISOString(); // epoch ms → ISO
-  } else if (typeof v !== 'string') {
-    s = String(v);
-  }
-
-  // --- Existing branches, now against a string ---
-  const isDateOnly      = (x) => /^\d{4}-\d{2}-\d{2}$/.test(x);
-  const isLocalDateTime = (x) => /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}$/.test(x);
-  const isUTCISO        = (x) => /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}(:\d{2}(\.\d{3})?)?Z$/.test(x);
-
-  if (isDateOnly(s)) return { date: s,              time: '' };
-  if (isLocalDateTime(s)) return { date: s.slice(0,10), time: s.slice(11,16) };
-
-  if (isUTCISO(s)) {
-    const m = s.match(/^(\d{4}-\d{2}-\d{2})T(\d{2}):(\d{2})/);
-    if (m && m[2] === '00' && m[3] === '00') return { date: m[1], time: '' }; // date-only legacy
-    const d = new Date(s);
-    const pad = (n) => String(n).padStart(2,'0');
-    return {
-      date: `${d.getFullYear()}-${pad(d.getMonth()+1)}-${pad(d.getDate())}`,
-      time: `${pad(d.getHours())}:${pad(d.getMinutes())}`,
-    };
-  }
-
-  // Fallback: take YYYY-MM-DD; try HH:MM if present
-  return { date: s.slice(0,10), time: s.length >= 16 ? s.slice(11,16) : '' };
-};
 
 const applyGeneralSelectClass = (sel) => {
   if (!sel) return;
@@ -98,7 +45,7 @@ const hydrateWalkMilestone = (key, storedVal) => {
   }
 
   // split existing value, then force minutes-only time
-const { date, time } = splitForInputs(storedVal);
+const { date, time } = splitDateTimeForInputs(storedVal);
 const minutesOnly = (time || '').slice(0, 5); // force "HH:MM"
 dEl.value = date || '';
 tEl.value = minutesOnly;                      // '' keeps time truly empty
@@ -197,16 +144,38 @@ const generalPatch = (v) => ({
 }
 
 
-  // 8) Closing (keep this as datetime-local for now)
+  // 8) Closing (split date + time inputs)
   if (els.closingStatusSelect && primaryEntry) {
     els.closingStatusSelect.value = primaryEntry.closingStatus || 'notLocked';
   }
-  if (els.closingDateTimeInput && primaryEntry?.closingDateTime) {
-    // uses utils.toLocalInputDateTime → ensure utils formats LOCAL, not UTC
-    els.closingDateTimeInput.value = toLocalInputDateTime(primaryEntry.closingDateTime);
+  {
+    const dateEl = els.closingDateInput;
+    const timeEl = els.closingTimeInput;
+    const summaryEl = els.closingSummaryValue;
+    const { date, time } = splitDateTimeForInputs(primaryEntry?.closingDateTime || '');
+    if (dateEl) dateEl.value = date || '';
+    if (timeEl) {
+      timeEl.value = time || '';
+      try {
+        timeEl.min = '00:00';
+        timeEl.max = '23:59';
+        timeEl.step = '60';
+      } catch {}
+      timeEl.classList.toggle('is-blank', !time);
+    }
+    if (summaryEl) {
+      if (!date) {
+        const placeholder = summaryEl.dataset?.placeholder || 'Not scheduled';
+        summaryEl.textContent = placeholder;
+        summaryEl.classList.add('is-placeholder');
+      } else {
+        summaryEl.textContent = formatClosingSummary({ date, time });
+        summaryEl.classList.remove('is-placeholder');
+      }
+    }
   }
 };
-['thirdPartyTime','firstWalkTime','finalSignOffTime'].forEach(id => {
+['thirdPartyTime','firstWalkTime','finalSignOffTime','closingTimeInput'].forEach(id => {
   const el = document.getElementById(id);
   if (!el) return;
   el.step = '60';
@@ -217,3 +186,5 @@ const generalPatch = (v) => ({
   el.addEventListener('input', sync);
   el.addEventListener('change', sync);
 });
+
+

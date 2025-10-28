@@ -1,6 +1,6 @@
 // /assets/js/contacts/topbar.js
 import { renderTable } from './render.js';
-import { fetchMyCommunities } from './api.js';
+import { fetchMyCommunities, createContact } from './api.js';
 
 const CORE_STATUSES = ['all','new','target','possible','negotiation','be-back','purchased'];
 const EXTENDED_STATUSES = ['all','closed','cold','not-interested','deal-lost','bust'];
@@ -14,6 +14,8 @@ const state = {
   currentStatus: 'all',
   filterMode: 'core',
   sort: { field: null, dir: 1 }, // dir = 1 (asc), -1 (desc)
+  searchTerm: '',
+  isCreating: false,
 };
 
 function getActiveStatuses() {
@@ -32,6 +34,39 @@ function normalizeStatus(raw) {
   if (s === 'bust' || s === 'busted') return 'bust';
 
   return s;
+}
+
+function normalizeDigits(value) {
+  return (value || '')
+    .toString()
+    .replace(/\D+/g, '');
+}
+
+function contactMatchesSearch(contact, lowerTerm, digitTerm) {
+  if (!lowerTerm && !digitTerm) return true;
+
+  const textParts = [
+    contact.firstName,
+    contact.lastName,
+    `${contact.firstName || ''} ${contact.lastName || ''}`,
+    contact.email,
+    contact.status,
+  ]
+    .filter(Boolean)
+    .map((value) => value.toString().toLowerCase());
+
+  if (lowerTerm && textParts.some((value) => value.includes(lowerTerm))) {
+    return true;
+  }
+
+  if (digitTerm) {
+    const phoneDigits = normalizeDigits(contact.phone);
+    if (phoneDigits && phoneDigits.includes(digitTerm)) {
+      return true;
+    }
+  }
+
+  return false;
 }
 
 function unionStatuses() {
@@ -164,6 +199,131 @@ function populateCommunities() {
   }
 }
 
+function bindSearchInput() {
+  const input = document.getElementById('contactsSearchInput');
+  if (!input) return;
+
+  input.addEventListener('input', (event) => {
+    state.searchTerm = (event.target.value || '').trim();
+    applyFilters();
+  });
+}
+
+function serializeInlineLeadForm(form) {
+  const formData = new FormData(form);
+  const trimValue = (key) => (formData.get(key) || '').toString().trim();
+
+  const payload = {
+    firstName: trimValue('firstName'),
+    lastName: trimValue('lastName'),
+    email: trimValue('email'),
+    phone: trimValue('phone'),
+    status: (formData.get('status') || 'New').toString(),
+  };
+
+  const visitDate = formData.get('visitDate');
+  if (visitDate) payload.visitDate = visitDate;
+
+  Object.keys(payload).forEach((key) => {
+    if (payload[key] === '') {
+      delete payload[key];
+    }
+  });
+
+  return payload;
+}
+
+function upsertContact(contact) {
+  if (!contact) return;
+  const id = contact._id || contact.id;
+  if (!id) return;
+
+  const normalized = {
+    status: contact.status || 'New',
+    ...contact,
+  };
+
+  const idx = state.allContacts.findIndex((item) => String(item._id) === String(id));
+  if (idx >= 0) {
+    state.allContacts[idx] = { ...state.allContacts[idx], ...normalized };
+  } else {
+    state.allContacts.unshift(normalized);
+  }
+}
+
+function showInlineLeadForm() {
+  const form = document.getElementById('inlineLeadForm');
+  const addBtn = document.getElementById('inlineAddLeadBtn');
+  const searchWrapper = document.getElementById('contactsSearchWrapper');
+  if (!form || !addBtn) return;
+
+  state.isCreating = true;
+  form.classList.remove('d-none');
+  addBtn.disabled = true;
+  addBtn.setAttribute('aria-expanded', 'true');
+  searchWrapper?.classList.add('d-none');
+
+  const firstInput = form.querySelector('input[name="firstName"]');
+  if (firstInput) firstInput.focus();
+}
+
+function hideInlineLeadForm() {
+  const form = document.getElementById('inlineLeadForm');
+  const addBtn = document.getElementById('inlineAddLeadBtn');
+  const searchWrapper = document.getElementById('contactsSearchWrapper');
+  if (!form || !addBtn) return;
+
+  state.isCreating = false;
+  form.classList.add('d-none');
+  form.reset();
+  addBtn.disabled = false;
+  addBtn.setAttribute('aria-expanded', 'false');
+  searchWrapper?.classList.remove('d-none');
+}
+
+function initInlineLeadForm() {
+  const form = document.getElementById('inlineLeadForm');
+  const addBtn = document.getElementById('inlineAddLeadBtn');
+  if (!form || !addBtn) return;
+
+  const cancelBtn = document.getElementById('cancelInlineLead');
+
+  addBtn.addEventListener('click', () => {
+    if (state.isCreating) return;
+    showInlineLeadForm();
+  });
+
+  cancelBtn?.addEventListener('click', () => {
+    hideInlineLeadForm();
+  });
+
+  form.addEventListener('submit', async (event) => {
+    event.preventDefault();
+    if (form.dataset.submitting === 'true') return;
+
+    form.dataset.submitting = 'true';
+    const submitBtn = form.querySelector('button[type="submit"]');
+    submitBtn?.setAttribute('disabled', 'true');
+
+    try {
+      const payload = serializeInlineLeadForm(form);
+      const result = await createContact(payload);
+      const contact = result?.contact || result;
+      if (!contact) throw new Error('Contact not returned from server');
+
+      upsertContact(contact);
+      hideInlineLeadForm();
+      applyFilters();
+    } catch (err) {
+      console.error(err);
+      alert(err?.message || 'Failed to save contact. Please try again.');
+    } finally {
+      form.dataset.submitting = 'false';
+      submitBtn?.removeAttribute('disabled');
+    }
+  });
+}
+
 function applyFilters() {
   const { allContacts, currentCommunity, currentStatus } = state;
 
@@ -171,6 +331,13 @@ function applyFilters() {
 
   if (currentStatus !== 'all') {
     list = list.filter((c) => normalizeStatus(c.status) === currentStatus);
+  }
+
+  const rawSearch = (state.searchTerm || '').trim();
+  if (rawSearch) {
+    const lowerTerm = rawSearch.toLowerCase();
+    const digitTerm = rawSearch.replace(/\D+/g, '');
+    list = list.filter((c) => contactMatchesSearch(c, lowerTerm, digitTerm));
   }
 
   if (state.sort.field === 'visitDate') {
@@ -308,9 +475,14 @@ function bindReset() {
     state.currentStatus = 'all';
     state.filterMode = 'core';
     state.sort = { field: null, dir: 1 };
+    state.searchTerm = '';
 
     const select = document.getElementById('communitySelect');
     if (select) select.value = COMMUNITY_ALL;
+    const searchInput = document.getElementById('contactsSearchInput');
+    if (searchInput) searchInput.value = '';
+
+    hideInlineLeadForm();
 
     buildStatusPills();
     const toggleBtnReset = document.getElementById("toggleFilterMode");
@@ -339,6 +511,8 @@ export async function initTopBar(contacts) {
   }
 
   populateCommunities();
+  bindSearchInput();
+  initInlineLeadForm();
   buildStatusPills();
   initStatusButtons();
   initToggle();

@@ -101,7 +101,69 @@ router.get('/communities/:communityId/lots',
         .lean();
 
       if (!community) return res.status(404).json({ error: 'Community not found' });
-      return res.json(community.lots || []);
+
+      const lots = Array.isArray(community.lots) ? community.lots : [];
+      if (!lots.length) return res.json([]);
+
+      const purchaserIds = [...new Set(
+        lots
+          .map(lot => {
+            const purchaser = lot?.purchaser;
+            if (!purchaser) return null;
+            if (typeof purchaser === 'object' && purchaser !== null) {
+              if (purchaser._id) return purchaser._id.toString();
+            }
+            return purchaser?.toString ? purchaser.toString() : null;
+          })
+          .filter(Boolean)
+      )];
+
+      let closingByContactId = {};
+      if (purchaserIds.length) {
+        const contacts = await Contact.find({
+          _id: { $in: purchaserIds },
+          ...companyFilter(req)
+        })
+          .select('_id lenders.isPrimary lenders.closingDateTime lenders.closingStatus')
+          .lean();
+
+        closingByContactId = contacts.reduce((acc, contact) => {
+          const lenders = Array.isArray(contact.lenders) ? contact.lenders : [];
+          if (!lenders.length) return acc;
+          const primary = lenders.find(entry => entry?.isPrimary) || lenders[0];
+          if (!primary) return acc;
+          acc[contact._id.toString()] = {
+            closingDateTime: primary.closingDateTime || null,
+            closingStatus: primary.closingStatus || null
+          };
+          return acc;
+        }, {});
+      }
+
+      const enhancedLots = lots.map(lot => {
+        const purchaser = lot?.purchaser;
+        const purchaserId = purchaser && typeof purchaser === 'object' && purchaser !== null
+          ? purchaser._id?.toString?.()
+          : purchaser?.toString?.();
+
+        if (!purchaserId) return lot;
+
+        const closing = closingByContactId[purchaserId];
+        if (!closing) return lot;
+
+        if (!lot.closingDateTime && closing.closingDateTime) {
+          lot.closingDateTime = closing.closingDateTime;
+        }
+        if (!lot.closeDateTime && closing.closingDateTime) {
+          lot.closeDateTime = closing.closingDateTime;
+        }
+        if (!lot.closingStatus && closing.closingStatus) {
+          lot.closingStatus = closing.closingStatus;
+        }
+        return lot;
+      });
+
+      return res.json(enhancedLots);
     } catch (err) {
       console.error('Error fetching lots:', err);
       return res.status(500).json({ error: 'Server error' });

@@ -8,6 +8,7 @@
   <!-- keep the same libs as update-competition so styles match -->
   <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet"/>
   <link rel="stylesheet" href="/assets/css/main.css">
+  <link rel="stylesheet" href="/assets/css/pages/update-competition.css">
 </head>
 
 <body data-community-id="<%= (communityId || '') %>">
@@ -37,17 +38,25 @@ const zip  = (profile && profile.zip)     || (community && community.zip)     ||
 %>
 
       <!-- Community Info -->
-    <div class="card card--white mb-3">
+      <div class="card card--white mb-3">
+        <button id="backToCommunitiesBtn" class="btn btn-outline-secondary btn-sm mb-2">
+          Back to Communities
+        </button>
         <div class="card-header">Community Info</div>
         <div class="card-body">
           <h5 class="card-title"><%= commName %></h5>
           <p class="card-text">
             Builder: <strong><%= builderName %></strong><br/>
           </p>
-          <a class="btn btn-sm btn-outline-secondary"
+          <a class="btn btn-sm btn-outline-secondary mt-2"
             href="/view-lots?communityId=<%= communityId %>">View Lots</a>
         </div>
       </div>
+      <script nonce="<%= cspNonce %>">
+        document.getElementById('backToCommunitiesBtn')?.addEventListener('click', () => {
+          window.location.href = '/my-community-competition';
+        });
+      </script>
 
      <button 
         id="openPlanModal"
@@ -180,14 +189,14 @@ const zip  = (profile && profile.zip)     || (community && community.zip)     ||
         </ul>
       </div> 
   </div>
-   <main class="container mt-4">
+   <main class="container mt-0">
     
            <nav class="month-nav-container mt-3">
             <div class="d-flex overflow-auto">
              <ul id="monthNav" class="nav nav-pills flex-nowrap mb-3"></ul>
             </div>
                 <!-- ───────── section tabs ───────── -->
-              <ul id="sectionNav" class="nav nav-tabs mt-3">
+              <ul id="sectionNav" class="nav folder-tabs">
                  <li class="nav-item">
                     <a class="nav-link active" href="#" data-section="metrics">Metrics</a>
                   </li>
@@ -213,23 +222,24 @@ const zip  = (profile && profile.zip)     || (community && community.zip)     ||
                   <div class="mb-3">
                     <label for="promotion" class="form-label">Promotion</label>
                     <textarea
-                      id="mPromotion"
+                      id="promotion"
                       name="promotion"
+                      data-metrics
                       class="form-control"
                       rows="3"
                       placeholder="Enter promotion details"
-                    ></textarea>
+                    ><%= (profile && profile.promotion) || '' %></textarea>
                   </div>
                   <!-- Top 3 Plans -->
                  <div class="mb-3 card">
                   <label class="form-label">Top 3 Plans</label>
-                  <select name="topPlan1" id="topPlan1" class="form-select mb-2">
+                  <select name="topPlan1" id="topPlan1" class="form-select mb-2" data-metrics>
                     <option value="">1. Select Plan</option>
                   </select>
-                  <select name="topPlan2" id="topPlan2" class="form-select mb-2">
+                  <select name="topPlan2" id="topPlan2" class="form-select mb-2" data-metrics>
                     <option value="">2. Select Plan</option>
                   </select>
-                  <select name="topPlan3" id="topPlan3" class="form-select">
+                  <select name="topPlan3" id="topPlan3" class="form-select" data-metrics>
                     <option value="">3. Select Plan</option>
                   </select>
                 </div>
@@ -237,14 +247,14 @@ const zip  = (profile && profile.zip)     || (community && community.zip)     ||
                   <!-- Pros & Cons -->
                   <div class="mb-3 card">
                     <label class="form-label">Pros</label>
-                    <ul id="prosList" class="list-group mb-2"></ul>
+                    <div id="prosList" class="mb-2"></div>
                     <div class="input-group mb-2">
                       <input type="text" id="newPro" class="form-control" placeholder="Add a pro">
                       <button type="button" id="addProBtn" class="btn btn-outline-secondary">Add</button>
                     </div>
 
                     <label class="form-label">Cons</label>
-                    <ul id="consList" class="list-group mb-2"></ul>
+                    <div id="consList" class="mb-2"></div>
                     <div class="input-group">
                       <input type="text" id="newCon" class="form-control" placeholder="Add a con">
                       <button type="button" id="addConBtn" class="btn btn-outline-secondary">Add</button>
@@ -287,7 +297,7 @@ const zip  = (profile && profile.zip)     || (community && community.zip)     ||
                       <th>Price</th>
                     </tr>
                   </thead>
-                  <tbody id="monthTableBody"></tbody>
+                  <tbody></tbody>
                 </table>
               </div>
             </div>
@@ -306,7 +316,7 @@ const zip  = (profile && profile.zip)     || (community && community.zip)     ||
                       <th>Status</th>
                     </tr>
                   </thead>
-                  <tbody id="quickHomesBody"></tbody>
+                  <tbody></tbody>
                 </table>
               </div>
               <h3 class="mt-5">Sold Homes</h3>
@@ -325,7 +335,7 @@ const zip  = (profile && profile.zip)     || (community && community.zip)     ||
                       <th>Sold Price</th>
                     </tr>
                   </thead>
-                  <tbody id="soldHomesBody"></tbody>
+                  <tbody></tbody>
                 </table>
               </div>
             </div>
@@ -342,7 +352,7 @@ const zip  = (profile && profile.zip)     || (community && community.zip)     ||
                       <th>Closings</th>
                     </tr>
                   </thead>
-                  <tbody id="salesTableBody"></tbody>
+                  <tbody></tbody>
                 </table>
               </div>
             </div>

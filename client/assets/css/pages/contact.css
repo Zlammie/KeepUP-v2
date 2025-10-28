@@ -153,3 +153,56 @@
 
 .delete-x { font-weight:700; line-height:1; font-size:1rem; color:#dc3545; cursor:pointer; }
 .delete-x:hover { opacity:.85; }
+
+.contacts-utility-bar {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 8px 12px;
+  border: 1px solid #e1e5ea;
+  border-radius: 10px;
+  background: #fff;
+  margin-bottom: 12px;
+  flex-wrap: wrap;
+}
+
+.contacts-utility-bar .utility-search {
+  flex: 1 1 240px;
+}
+
+.contacts-utility-bar .utility-search input {
+  border-radius: 999px;
+  padding-left: 16px;
+}
+
+.contacts-utility-bar .utility-add-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-weight: 600;
+}
+
+.contacts-utility-bar .utility-add-btn img {
+  width: 18px;
+  height: 18px;
+}
+
+.contacts-inline-form {
+  border: 1px solid #e1e5ea;
+  border-radius: 12px;
+  padding: 12px;
+  background: #fdfdfd;
+  margin-bottom: 16px;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.04);
+}
+
+.contacts-inline-form .form-label {
+  font-size: 0.75rem;
+  font-weight: 600;
+  color: #495057;
+}
+
+.contacts-inline-form .form-control,
+.contacts-inline-form .form-select {
+  font-size: 0.875rem;
+}

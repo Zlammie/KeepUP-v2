@@ -75,7 +75,7 @@ const ContactSchema = new Schema(
       type: String,
       enum: [
         'New','Target','Possible','Negotiation','Be-Back','Cold',
-        'Purchased','Closed'
+        'Purchased','Closed','Not-Interested','Deal-Lost','Bust'
       ],
       default: 'New'
     },
@@ -92,6 +92,12 @@ const ContactSchema = new Schema(
       status: { type: String, enum: lenderStatusValues, default: 'invite', set: toLenderStatus },
       inviteDate: { type: Date, default: null },
       approvedDate: { type: Date, default: null },
+      closingStatus: {
+        type: String,
+        enum: ['notLocked','locked','underwriting','clearToClose'],
+        default: 'notLocked'
+      },
+      closingDateTime: { type: Date, set: toDateOrNull, default: null },
       isPrimary: { type: Boolean, default: false }
     }],
   },

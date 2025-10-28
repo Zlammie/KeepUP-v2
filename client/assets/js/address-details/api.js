@@ -20,6 +20,13 @@ export const putContact = (contactId, payload) =>
     method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload)
   }).then(j).catch(() => ({}));
 
+export const patchContactLender = (contactId, lenderEntryId, payload) =>
+  fetch(`/api/contacts/${contactId}/lenders/${lenderEntryId}`, {
+    method: 'PATCH',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(payload)
+  }).then(j).catch(() => ({}));
+
 export const getRealtor = (realtorId) =>
   fetch(`/api/realtors/${realtorId}`).then(j);
 

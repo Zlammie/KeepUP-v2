@@ -131,6 +131,8 @@ router.post(
       const emailNorm = emailRaw.toLowerCase();
       const phoneNorm = phoneRaw.replace(/\D+/g, '');
       const visitDate = req.body.visitDate ? new Date(req.body.visitDate) : null;
+      const requestedStatus = toStatusCase(req.body.status);
+      const statusValue = requestedStatus || 'New';
 
       // 3) Dedupe key is ONLY inside this company
       const filter =
@@ -143,6 +145,7 @@ router.post(
           company, firstName, lastName,
           email: emailRaw, phone: phoneRaw,
           emailNorm, phoneNorm, visitDate,
+          status: statusValue,
           ownerId: req.user._id
         });
         return res.status(201).json({ created: true, contact: created });
@@ -157,6 +160,7 @@ router.post(
           company, firstName, lastName,
           email: emailRaw, phone: phoneRaw,
           emailNorm, phoneNorm, visitDate,
+          status: statusValue,
           ownerId: req.user._id
         });
         return res.status(201).json({ created: true, contact: created });
@@ -170,6 +174,9 @@ router.post(
        if (phoneNorm && !existing.phoneNorm) { $set.phone = phoneRaw; $set.phoneNorm = phoneNorm; }
       if (visitDate && !existing.visitDate) $set.visitDate = visitDate;
       if (!existing.ownerId)                $set.ownerId   = req.user._id;
+      if (requestedStatus && (!existing.status || String(existing.status).trim().toLowerCase() === 'new')) {
+        $set.status = requestedStatus;
+      }
 
       const attached = await Contact.findOneAndUpdate(
         { _id: existing._id, company },
@@ -643,10 +650,39 @@ router.get('/by-realtor/:realtorId',
       if (!isObjectId(realtorId)) return res.status(400).json({ error: 'Invalid realtorId' });
 
       const contacts = await Contact.find(contactQuery(req, { realtorId: new mongoose.Types.ObjectId(realtorId) }))
-        .select('firstName lastName email phone')
+        .select('firstName lastName email phone status communityIds ownerId lenderStatus lenders lenderId')
+        .populate('communityIds', 'name')
+        .populate('ownerId', 'firstName lastName email')
         .lean();
 
-      res.json(contacts);
+      const mapped = contacts.map((contact) => {
+        const communities = (contact.communityIds || [])
+          .map((community) => community?.name)
+          .filter(Boolean);
+
+        const ownerName = contact.ownerId
+          ? `${contact.ownerId.firstName || ''} ${contact.ownerId.lastName || ''}`.trim() || contact.ownerId.email || ''
+          : '';
+
+        let lenderStatus = contact.lenderStatus || '';
+        if (!lenderStatus && Array.isArray(contact.lenders) && contact.lenders.length) {
+          lenderStatus = contact.lenders[0]?.status || '';
+        }
+
+        return {
+          _id: contact._id,
+          firstName: contact.firstName,
+          lastName: contact.lastName,
+          email: contact.email,
+          phone: contact.phone,
+          status: contact.status,
+          communities,
+          owner: ownerName,
+          lenderStatus,
+        };
+      });
+
+      res.json(mapped);
     } catch (err) {
       res.status(500).json({ error: 'Failed to fetch contacts', details: err.message });
     }
@@ -661,11 +697,97 @@ router.get('/by-lender/:lenderId',
       const { lenderId } = req.params;
       if (!isObjectId(lenderId)) return res.status(400).json({ error: 'Invalid lenderId' });
 
-      const contacts = await Contact.find(contactQuery(req, { lenderId: new mongoose.Types.ObjectId(lenderId) }))
-        .select('firstName lastName email phone')
+      const lenderObjectId = new mongoose.Types.ObjectId(lenderId);
+      const filter = contactQuery(req, {
+        $or: [
+          { lenderId: lenderObjectId },
+          { 'lenders.lender': lenderObjectId }
+        ]
+      });
+
+      const contacts = await Contact.find(filter)
+        .select('firstName lastName email phone communityIds lenderId lenders ownerId lenderStatus lenderInviteDate lenderApprovedDate linkedLot lotId status')
+        .populate('communityIds', 'name')
+        .populate('lenderId', 'firstName lastName lenderBrokerage email phone')
+        .populate('lenders.lender', 'firstName lastName lenderBrokerage email phone')
+        .populate('ownerId', 'firstName lastName email')
         .lean();
 
-      res.json(contacts);
+      const mapped = contacts.map((contact) => {
+        const communities = (contact.communityIds || [])
+          .map((c) => c?.name)
+          .filter(Boolean);
+
+        const ownerName = contact.ownerId
+          ? `${contact.ownerId.firstName || ''} ${contact.ownerId.lastName || ''}`.trim() || contact.ownerId.email || ''
+          : '';
+
+        const formatter = (entry) => ({
+          _id: entry?._id,
+          status: entry?.status || '',
+          inviteDate: entry?.inviteDate || null,
+          approvedDate: entry?.approvedDate || null,
+          closingStatus: entry?.closingStatus || '',
+          closingDateTime: entry?.closingDateTime || null,
+          lender: entry?.lender || null,
+        });
+
+        const lenderEntries = (contact.lenders || [])
+          .filter((entry) => entry?.lender && String(entry.lender._id) === lenderId)
+          .map(formatter);
+
+        if (!lenderEntries.length && contact.lenderId && String(contact.lenderId._id) === lenderId) {
+          lenderEntries.push({
+            _id: contact.lenderId._id,
+            lender: contact.lenderId,
+            status: contact.lenderStatus || '',
+            inviteDate: contact.lenderInviteDate || null,
+            approvedDate: contact.lenderApprovedDate || null,
+            closingStatus: '',
+            closingDateTime: null,
+          });
+        }
+
+        const linkedLotData = contact.linkedLot ? {
+          ...contact.linkedLot,
+          communityId: contact.linkedLot.communityId || contact.linkedLot?.lot?.communityId || null,
+          lotId: contact.linkedLot.lotId || contact.linkedLot?._id || contact.linkedLot?.lotId || null,
+        } : null;
+
+        const hasLinkedLot =
+          Boolean(linkedLotData && (
+            linkedLotData.lotId ||
+            linkedLotData.communityId ||
+            linkedLotData.address ||
+            linkedLotData.jobNumber ||
+            linkedLotData.block ||
+            linkedLotData.phase ||
+            linkedLotData.lot
+          )) ||
+          Boolean(contact.lotId);
+
+        const statusNormalized = String(contact.status || '').trim().toLowerCase();
+        const purchaserStatus = statusNormalized === 'purchased';
+        const isPurchaserWithLot = hasLinkedLot && purchaserStatus;
+
+        return {
+          _id: contact._id,
+          firstName: contact.firstName || '',
+          lastName: contact.lastName || '',
+          email: contact.email || '',
+          phone: contact.phone || '',
+          status: contact.status || '',
+          communities,
+          owner: ownerName,
+          lenders: lenderEntries,
+          lotId: contact.lotId || null,
+          linkedLot: linkedLotData,
+          hasLinkedLot,
+          isPurchaserWithLot,
+        };
+      });
+
+      res.json(mapped);
     } catch (err) {
       res.status(500).json({ error: 'Failed to fetch contacts by lender', details: err.message });
     }
@@ -684,15 +806,31 @@ router.patch('/:contactId/lenders/:entryId',
       const contactObjectId = new mongoose.Types.ObjectId(contactId);
       const lenderEntryObjectId = new mongoose.Types.ObjectId(entryId);
       const filter = contactQuery(req, { _id: contactObjectId, 'lenders._id': lenderEntryObjectId });
-      const { status, inviteDate, approvedDate } = req.body;
+      const {
+        status,
+        inviteDate,
+        approvedDate,
+        closingStatus,
+        closingDateTime
+      } = req.body;
+
+      const $set = {};
+      if (status !== undefined) $set['lenders.$.status'] = status;
+      if (inviteDate !== undefined) $set['lenders.$.inviteDate'] = inviteDate;
+      if (approvedDate !== undefined) $set['lenders.$.approvedDate'] = approvedDate;
+      if (closingStatus !== undefined) $set['lenders.$.closingStatus'] = closingStatus || 'notLocked';
+      if (closingDateTime !== undefined) {
+        const parsed = closingDateTime ? new Date(closingDateTime) : null;
+        $set['lenders.$.closingDateTime'] = parsed;
+      }
+
+      if (!Object.keys($set).length) {
+        return res.status(400).json({ error: 'No lender fields provided to update.' });
+      }
 
       const contact = await Contact.findOneAndUpdate(
         filter,
-        { $set: {
-          'lenders.$.status': status,
-          'lenders.$.inviteDate': inviteDate,
-          'lenders.$.approvedDate': approvedDate
-        } },
+        { $set },
         { new: true }
       ).populate('lenders.lender');
 
