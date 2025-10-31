@@ -2,6 +2,7 @@
 
 import { dom } from './domCache.js';
 import { escapeHtml } from './utils.js';
+import { formatPhoneDisplay } from '../shared/phone.js';
 
 function normalizeStatus(raw) {
   const s = String(raw || '').trim().toLowerCase();
@@ -63,7 +64,7 @@ export function renderTable(rows) {
   tbody.innerHTML = '';
   rows.forEach((c) => {
     const name = (c.firstName || c.lastName) ? `${c.firstName || ''} ${c.lastName || ''}`.trim() : '(Unnamed Contact)';
-    const phone = c.phone || 'N/A';
+    const phone = formatPhoneDisplay(c.phone || '') || 'N/A';
     const email = c.email || 'N/A';
 
     const statusKey = normalizeStatus(c.status);

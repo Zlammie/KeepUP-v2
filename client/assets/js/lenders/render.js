@@ -1,5 +1,6 @@
 // /assets/js/lenders/render.js
 import { updateLender } from './api.js';
+import { formatPhoneDisplay } from '../shared/phone.js';
 
 function setFlagIconColor(imgEl, flagged) {
   imgEl.style.filter = flagged
@@ -99,20 +100,44 @@ export function renderTable(lenders, statsByLender = new Map()) {
     // Editable fields
  ['firstName', 'lastName', 'email', 'phone', 'lenderBrokerage'].forEach((field) => {
       const cell = document.createElement('td');
-      cell.textContent = lender[field] || '';
-      cell.title = cell.textContent;
+      const isPhone = field === 'phone';
+      const currentValue = lender[field] || '';
+      const displayValue = isPhone ? formatPhoneDisplay(currentValue) : currentValue;
+
+      cell.textContent = displayValue;
+      cell.title = displayValue;
       cell.contentEditable = true;
       cell.dataset.field = field;
+      cell.dataset.displayValue = displayValue;
+      cell.dataset.comparable = isPhone ? currentValue.replace(/\D+/g, '') : currentValue;
+
+      if (isPhone) {
+        cell.addEventListener('focus', () => {
+          cell.textContent = lender[field] || '';
+        });
+      }
 
       cell.addEventListener('blur', async (e) => {
         const newValue = e.target.textContent.trim();
-        if (newValue === (lender[field] || '')) return;
+        const comparableValue = isPhone ? newValue.replace(/\D+/g, '') : newValue;
+        if (comparableValue === cell.dataset.comparable) {
+          e.target.textContent = cell.dataset.displayValue || '';
+          cell.title = cell.dataset.displayValue || '';
+          return;
+        }
         try {
           await updateLender(lender._id, { [field]: newValue });
           lender[field] = newValue;
+          const updatedDisplay = isPhone ? formatPhoneDisplay(newValue) : newValue;
+          cell.dataset.displayValue = updatedDisplay;
+          cell.dataset.comparable = comparableValue;
+          e.target.textContent = updatedDisplay;
+          cell.title = updatedDisplay;
         } catch (err) {
           console.error(err);
-          e.target.textContent = lender[field] || '';
+          const fallback = cell.dataset.displayValue || lender[field] || '';
+          e.target.textContent = fallback;
+          cell.title = fallback;
         }
       });
 

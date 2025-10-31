@@ -1,6 +1,7 @@
 // /assets/js/realtors/render.js
 import { updateRealtor } from './api.js';
 import { openRealtorCommentModal } from './modal.js'; // NEW
+import { formatPhoneDisplay } from '../shared/phone.js';
 
 function setFlagIconColor(imgEl, flagged) {
   imgEl.style.filter = flagged
@@ -96,19 +97,40 @@ export function renderTable(realtors, statsByRealtor = new Map()) {
     // Editable fields
     ['firstName', 'lastName', 'email', 'phone', 'brokerage'].forEach((field) => {
       const cell = document.createElement('td');
-      cell.textContent = realtor[field] || '';
+      const isPhone = field === 'phone';
+      const currentValue = realtor[field] || '';
+      const displayValue = isPhone ? formatPhoneDisplay(currentValue) : currentValue;
+
+      cell.textContent = displayValue;
       cell.contentEditable = true;
       cell.dataset.field = field;
+      cell.dataset.displayValue = displayValue;
+      cell.dataset.comparable = isPhone ? currentValue.replace(/\D+/g, '') : currentValue;
+
+      if (isPhone) {
+        cell.addEventListener('focus', () => {
+          cell.textContent = realtor[field] || '';
+        });
+      }
 
       cell.addEventListener('blur', async (e) => {
         const newValue = e.target.textContent.trim();
-        if (newValue === (realtor[field] || '')) return;
+        const comparableValue = isPhone ? newValue.replace(/\D+/g, '') : newValue;
+        if (comparableValue === cell.dataset.comparable) {
+          e.target.textContent = cell.dataset.displayValue || '';
+          return;
+        }
         try {
           await updateRealtor(realtor._id, { [field]: newValue });
           realtor[field] = newValue;
+          const updatedDisplay = isPhone ? formatPhoneDisplay(newValue) : newValue;
+          cell.dataset.displayValue = updatedDisplay;
+          cell.dataset.comparable = comparableValue;
+          e.target.textContent = updatedDisplay;
         } catch (err) {
           console.error(err);
-          e.target.textContent = realtor[field] || '';
+          const fallback = cell.dataset.displayValue || realtor[field] || '';
+          e.target.textContent = fallback;
         }
       });
 

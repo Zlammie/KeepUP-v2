@@ -40,6 +40,7 @@
         <form method="POST" action="/admin/users/<%= u._id %>" style="display:inline">
           <select name="role">
             <option value="USER" <%= (u.roles||[]).includes('USER')?'selected':'' %>>USER</option>
+            <option value="MANAGER" <%= (u.roles||[]).includes('MANAGER')?'selected':'' %>>MANAGER</option>
             <option value="COMPANY_ADMIN" <%= (u.roles||[]).includes('COMPANY_ADMIN')?'selected':'' %>>COMPANY_ADMIN</option>
             <% /* SUPER option omitted on purpose in UI */ %>
           </select>
@@ -60,27 +61,8 @@
   <% }) %>
 </table>
 
-  <h2>Create User</h2>
-  <form method="POST" action="/admin/users">
-    <input name="email" type="email" placeholder="email" required />
-    <input name="password" type="password" placeholder="temp password" required />
-    <select name="role">
-      <option value="USER">USER</option>
-      <option value="COMPANY_ADMIN">COMPANY_ADMIN</option>
-    </select>
-
-    <% if (companies && companies.length) { %>
-      <select name="companyId" required>
-        <option value="">-- Select company --</option>
-        <% companies.forEach(c => { %>
-          <option value="<%= c._id %>" <%= String(c._id) === String(companyId) ? 'selected' : '' %>><%= c.name %></option>
-        <% }) %>
-      </select>
-    <% } else if (companyId) { %>
-      <input type="hidden" name="companyId" value="<%= companyId %>" />
-    <% } %>
-
-    <button type="submit">Create</button>
-  </form>
+  <p class="text-muted">
+    User creation now lives in the Admin Section &rarr; Impersonation tab (SUPER ADMIN only).
+  </p>
 </body>
 </html>

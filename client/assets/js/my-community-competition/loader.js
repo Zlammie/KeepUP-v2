@@ -18,6 +18,7 @@ import { fetchCommunityOptions, fetchCommunityProfile, fetchCommunityFloorPlans 
 import { setCommunityId, setProfile, sqftMonth, setSqftMonth } from './state.js';
 import { bindAutosaveOnce } from './autosave.js';
 import { applyAmenityChips } from './amenities.js';
+import { formatPhoneDisplay } from '../shared/phone.js';
 
 const normalizeText = (value) => {
   if (value == null) return '';
@@ -271,7 +272,7 @@ export async function onSelectCommunity(id) {
 
     // Left sidebar inputs …
     salesPerson.value        = profile?.salesPerson || '';
-    salesPersonPhone.value   = profile?.salesPersonPhone || '';
+    salesPersonPhone.value   = formatPhoneDisplay(profile?.salesPersonPhone || '');
     salesPersonEmail.value   = profile?.salesPersonEmail || '';
     address.value            = (profile?.address ?? community?.address ?? '');
     city.value               = (profile?.city    ?? community?.city    ?? '');

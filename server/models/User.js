@@ -1,48 +1,69 @@
 const mongoose = require('mongoose');
-const { Schema, Types } = mongoose;
+const { Schema } = mongoose;
 
 const ROLES = Object.freeze({
-  SUPER_ADMIN:   'SUPER_ADMIN',
+  SUPER_ADMIN: 'SUPER_ADMIN',
   COMPANY_ADMIN: 'COMPANY_ADMIN',
-  MANAGER:       'MANAGER',
-  USER:          'USER',
-  READONLY:      'READONLY',
+  MANAGER: 'MANAGER',
+  USER: 'USER',
+  READONLY: 'READONLY'
 });
 
-const UserSchema = new Schema({
-  email: { type: String, required: true, unique: true, lowercase: true, index: true },
-  passwordHash: { type: String, required: true },
+const STATUS = Object.freeze({
+  ACTIVE: 'ACTIVE',
+  SUSPENDED: 'SUSPENDED',
+  INVITED: 'INVITED'
+});
 
-  // 🔁 roles array (replaces single 'role')
-  roles: {
-    type: [String],
-    enum: Object.values(ROLES),
-    default: [ROLES.USER],
-    index: true
+const UserSchema = new Schema(
+  {
+    email: { type: String, required: true, unique: true, lowercase: true, index: true },
+    passwordHash: { type: String, required: true },
+
+    firstName: { type: String, trim: true },
+    lastName: { type: String, trim: true },
+    phone: { type: String, trim: true },
+
+    roles: {
+      type: [String],
+      enum: Object.values(ROLES),
+      default: [ROLES.USER],
+      index: true
+    },
+
+    status: {
+      type: String,
+      enum: Object.values(STATUS),
+      default: STATUS.INVITED,
+      index: true
+    },
+
+    manager: { type: Schema.Types.ObjectId, ref: 'User', default: null },
+
+    company: { type: Schema.Types.ObjectId, ref: 'Company', required: true, index: true },
+
+    allowedCommunityIds: [{ type: Schema.Types.ObjectId, ref: 'Community', index: true }],
+
+    notes: { type: String, trim: true },
+
+    isActive: { type: Boolean, default: true },
+    mustChangePassword: { type: Boolean, default: false },
+    lastLoginAt: { type: Date }
   },
+  { timestamps: true }
+);
 
-  // 🏢 tenant
-  company: { type: Schema.Types.ObjectId, ref: 'Company', required: true, index: true },
-
-  // 🔒 per-user community scope (optional: empty = all in company)
-  allowedCommunityIds: [{ type: Schema.Types.ObjectId, ref: 'Community', index: true }],
-
-  // existing flags
-  isActive: { type: Boolean, default: true },
-  mustChangePassword: { type: Boolean, default: false },
-  lastLoginAt: { type: Date }
-}, { timestamps: true });
-
-/** ───────────────────── Virtuals for backwards compatibility ───────────────────── */
-// Keep old code that reads/writes 'companyId' working during migration.
 UserSchema.virtual('companyId')
-  .get(function () { return this.company; })
-  .set(function (v) { this.company = v; });
+  .get(function getCompanyId() {
+    return this.company;
+  })
+  .set(function setCompanyId(value) {
+    this.company = value;
+  });
 
-/** ───────────────────── Instance helpers ───────────────────── */
 UserSchema.methods.hasRole = function hasRole(roleOrRoles) {
   const set = Array.isArray(roleOrRoles) ? roleOrRoles : [roleOrRoles];
-  return (this.roles || []).some(r => set.includes(r));
+  return (this.roles || []).some((role) => set.includes(role));
 };
 
 UserSchema.methods.isSuper = function isSuper() {
@@ -50,11 +71,10 @@ UserSchema.methods.isSuper = function isSuper() {
 };
 
 UserSchema.methods.inCommunityScope = function inCommunityScope(communityId) {
-  // If user has no restriction, allow all communities in their company
   if (!this.allowedCommunityIds || this.allowedCommunityIds.length === 0) return true;
-  if (!communityId) return true; // resource not tied to a community
+  if (!communityId) return true;
   const cid = String(communityId);
-  return this.allowedCommunityIds.some(id => String(id) === cid);
+  return this.allowedCommunityIds.some((id) => String(id) === cid);
 };
 
 UserSchema.methods.canRead = function canRead() {
@@ -69,14 +89,15 @@ UserSchema.methods.canDelete = function canDelete() {
   return this.isSuper() || this.hasRole([ROLES.COMPANY_ADMIN, ROLES.MANAGER]);
 };
 
-/** ───────────────────── Indexes you’ll want ───────────────────── */
-UserSchema.index({ company: 1, 'roles': 1 });
+UserSchema.index({ company: 1, roles: 1 });
 UserSchema.index({ company: 1, allowedCommunityIds: 1 });
+UserSchema.index({ company: 1, status: 1 });
 
 UserSchema.set('toObject', { virtuals: true });
-UserSchema.set('toJSON',   { virtuals: true });
+UserSchema.set('toJSON', { virtuals: true });
 
-/** ───────────────────── Export ───────────────────── */
 const User = mongoose.model('User', UserSchema);
-User.ROLES = ROLES; // handy on import
+User.ROLES = ROLES;
+User.STATUS = STATUS;
+
 module.exports = User;

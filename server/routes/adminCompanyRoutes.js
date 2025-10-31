@@ -15,7 +15,7 @@ router.use(ensureAuth);
 
 // List companies (SUPER sees all; CA sees just theirs)
 router.get('/admin/companies',
-  requireRole('COMPANY_ADMIN','SUPER_ADMIN'),
+  requireRole('MANAGER','COMPANY_ADMIN','SUPER_ADMIN'),
   async (req, res) => {
     const companies = await Company.find({ ...base(req) })
       .select('name slug isActive')

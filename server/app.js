@@ -11,6 +11,7 @@ const buildSession = require('./config/session');
 const routes = require('./routes');
 const { notFound, errorHandler } = require('./middleware/error');
 const currentUserLocals = require('./middleware/currentUserLocals');
+const { formatPhoneForDisplay } = require('./utils/phone');
 
 const app = express();
 const isProd = process.env.NODE_ENV === 'production';
@@ -222,6 +223,12 @@ app.use(express.json());
 // 5) Make logged-in user & nonce visible in EJS
 app.use((req, res, next) => {
   res.locals.user = req.session?.user || null;
+  next();
+});
+
+app.use((req, res, next) => {
+  res.locals.formatPhone = formatPhoneForDisplay;
+  res.locals.formatPhoneDisplay = formatPhoneForDisplay;
   next();
 });
 

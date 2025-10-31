@@ -8,6 +8,7 @@ const ensureAuth  = require('../middleware/ensureAuth');
 const requireRole = require('../middleware/requireRole');
 const User        = require('../models/User');
 const Company     = require('../models/Company');
+const { formatPhoneForStorage } = require('../utils/phone');
 
 const isId = v => mongoose.Types.ObjectId.isValid(String(v));
 const isSuper = req => (req.user?.roles || []).includes('SUPER_ADMIN');
@@ -19,14 +20,14 @@ router.use(ensureAuth);
 
 // GET users page (plus companies for the dropdown)
 router.get('/admin/users',
-  requireRole('COMPANY_ADMIN','SUPER_ADMIN'),
+  requireRole('MANAGER','COMPANY_ADMIN','SUPER_ADMIN'),
   async (req, res) => {
     const companyFilter = isSuper(req) ? {} : { _id: req.user.company };
     const companies = await Company.find(companyFilter).select('name').lean();
 
     const userFilter = isSuper(req) ? {} : { company: req.user.company };
     const users = await User.find(userFilter)
-      .select('email roles isActive company')
+      .select('email roles isActive status firstName lastName phone company')
       .populate('company', 'name')
       .lean();
 
@@ -37,10 +38,20 @@ router.get('/admin/users',
 
 // CREATE user
 router.post('/admin/users',
-  requireRole('COMPANY_ADMIN','SUPER_ADMIN'),
+  requireRole('MANAGER','COMPANY_ADMIN','SUPER_ADMIN'),
   async (req, res) => {
     try {
-      const { email, password, role, roles, companyId } = req.body || {};
+      const {
+        email,
+        password,
+        role,
+        roles,
+        companyId,
+        firstName,
+        lastName,
+        phone,
+        status
+      } = req.body || {};
       if (!email || !password) return res.status(400).send('Email and password are required');
 
       // figure out company to assign
@@ -71,12 +82,24 @@ router.post('/admin/users',
 
       const passwordHash = await bcrypt.hash(password, 11);
 
+      const normalizedStatus = (() => {
+        if (!status) return null;
+        const value = String(status).trim().toUpperCase();
+        return Object.values(User.STATUS || {}).includes(value) ? value : null;
+      })();
+
+      const normalizedPhone = phone ? formatPhoneForStorage(phone) : '';
+
       await User.create({
         email: String(email).toLowerCase().trim(),
         passwordHash,
         roles: roleList,
         company,
-        isActive: true
+        isActive: true,
+        status: normalizedStatus || (User.STATUS ? User.STATUS.ACTIVE : undefined),
+        firstName: firstName ? String(firstName).trim() : undefined,
+        lastName: lastName ? String(lastName).trim() : undefined,
+        phone: normalizedPhone || undefined
       });
 
       res.redirect('/admin/users');
@@ -89,7 +112,7 @@ router.post('/admin/users',
 
 // UPDATE user (role / isActive / password)
 router.post('/admin/users/:id',
-  requireRole('COMPANY_ADMIN','SUPER_ADMIN'),
+  requireRole('MANAGER','COMPANY_ADMIN','SUPER_ADMIN'),
   async (req, res) => {
     try {
       const { id } = req.params;
@@ -104,7 +127,11 @@ router.post('/admin/users/:id',
         updates.passwordHash = await bcrypt.hash(req.body.password, 11);
       }
       if (req.body.isActive != null) {
-        updates.isActive = String(req.body.isActive) === 'true';
+        const isActive = String(req.body.isActive) === 'true';
+        updates.isActive = isActive;
+        if (User.STATUS) {
+          updates.status = isActive ? User.STATUS.ACTIVE : User.STATUS.SUSPENDED;
+        }
       }
       // normalize roles (single select in your template)
       if (req.body.role) {
@@ -115,6 +142,37 @@ router.post('/admin/users/:id',
           return res.status(403).send('Forbidden: cannot grant SUPER_ADMIN');
         }
         updates.roles = [normalized];
+      }
+
+      if (req.body.status) {
+        const normalizedStatus = String(req.body.status).trim().toUpperCase();
+        if (Object.values(User.STATUS || {}).includes(normalizedStatus)) {
+          updates.status = normalizedStatus;
+          if (normalizedStatus === (User.STATUS && User.STATUS.SUSPENDED)) {
+            updates.isActive = false;
+          } else if (normalizedStatus === (User.STATUS && User.STATUS.ACTIVE)) {
+            updates.isActive = true;
+          }
+        }
+      }
+
+      if (req.body.firstName != null) updates.firstName = String(req.body.firstName).trim();
+      if (req.body.lastName != null) updates.lastName = String(req.body.lastName).trim();
+      if (req.body.phone != null) {
+        const normalizedPhone = formatPhoneForStorage(req.body.phone);
+        updates.phone = normalizedPhone || undefined;
+      }
+      if (req.body.notes != null) updates.notes = String(req.body.notes).trim();
+
+      if (req.body.manager) {
+        updates.manager = isId(req.body.manager) ? req.body.manager : null;
+      }
+
+      if (req.body.communities) {
+        const communities = Array.isArray(req.body.communities)
+          ? req.body.communities
+          : [req.body.communities];
+        updates.allowedCommunityIds = communities.filter(isId);
       }
 
       await User.updateOne({ _id: user._id }, { $set: updates });

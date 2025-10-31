@@ -23,13 +23,45 @@ document.addEventListener("DOMContentLoaded", async () => {
       `${lot.lot} / ${lot.block} / ${lot.phase}`;
     document.getElementById("addressValue").textContent = lot.address || '';
 
-   function formatDateTime(value) {
+  function formatDateTime(value) {
     if (!value) return '';
     const d = new Date(value);
     const datePart = d.toLocaleDateString();  
     // hour:minute only, no seconds
     const timePart = d.toLocaleTimeString([], { hour: 'numeric', minute: 'numeric' });
     return `${datePart} ${timePart}`;
+  }
+  
+  function formatPhoneDisplay(value) {
+    if (value == null) return '';
+    const raw = value.toString().trim();
+    if (!raw) return '';
+
+    const extensionMatch = raw.match(/\b(?:ext\.?|x)\s*\d+$/i);
+    const extension = extensionMatch ? extensionMatch[0].trim() : '';
+    const core = extension ? raw.slice(0, raw.length - extension.length).trim() : raw;
+    const digits = core.replace(/\D+/g, '');
+    if (!digits) return raw;
+
+    const appendExtension = (formatted) =>
+      extension ? `${formatted} ${extension}` : formatted;
+
+    if (core.startsWith('+1') || (digits.length === 11 && digits.startsWith('1'))) {
+      const national = digits.slice(-10);
+      if (national.length === 10) {
+        return appendExtension(
+          `+1 (${national.slice(0, 3)}) ${national.slice(3, 6)}-${national.slice(6)}`
+        );
+      }
+    }
+
+    if (!core.startsWith('+') && digits.length === 10) {
+      return appendExtension(
+        `(${digits.slice(0, 3)}) ${digits.slice(3, 6)}-${digits.slice(6)}`
+      );
+    }
+
+    return appendExtension(core);
   }
   
    // 3️⃣ Populate form controls instead of legacy <div>s
@@ -209,7 +241,8 @@ document.addEventListener("DOMContentLoaded", async () => {
     }
     if (purchaserContact) {
       document.getElementById("purchaserValue").textContent      = purchaserContact.lastName || '';
-      document.getElementById("purchaserPhoneValue").textContent = purchaserContact.phone    || '';
+      document.getElementById("purchaserPhoneValue").textContent =
+        formatPhoneDisplay(purchaserContact.phone || '');
       document.getElementById("purchaserEmailValue").textContent = purchaserContact.email    || '';
     }
     
@@ -232,7 +265,8 @@ document.addEventListener("DOMContentLoaded", async () => {
     }
     if (realtor) {
       document.getElementById("realtorNameValue").textContent  = `${realtor.firstName} ${realtor.lastName}`;
-      document.getElementById("realtorPhoneValue").textContent = realtor.phone || '';
+      document.getElementById("realtorPhoneValue").textContent =
+        formatPhoneDisplay(realtor.phone || '');
       document.getElementById("realtorEmailValue").textContent = realtor.email || '';
     }
 
@@ -268,7 +302,8 @@ document.addEventListener("DOMContentLoaded", async () => {
         const L = primaryEntry.lender;
         document.getElementById("lenderNameFinance").textContent  =
           L.name || `${L.firstName} ${L.lastName}`;
-        document.getElementById("lenderPhoneFinance").textContent = L.phone || '';
+        document.getElementById("lenderPhoneFinance").textContent =
+          formatPhoneDisplay(L.phone || '');
         document.getElementById("lenderEmailFinance").textContent = L.email || '';
       }
 

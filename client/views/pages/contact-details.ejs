@@ -156,7 +156,17 @@
         <!-- Realtor Info -->
         <div class="card card--white realtor-container">
           <input type="hidden" id="realtorId" name="realtorId" data-autosave="realtorId" />
-          
+
+          <div class="realtor-summary">
+            <div id="realtor-card-name" class="realtor-summary__name">No realtor linked</div>
+            <div class="realtor-summary__links">
+              <a id="realtor-card-email" class="realtor-summary__link" href="#">--</a>
+              <span class="realtor-summary__sep">|</span>
+              <a id="realtor-card-phone" class="realtor-summary__link" href="#">--</a>
+            </div>
+            <div id="realtor-card-brokerage" class="realtor-summary__brokerage">--</div>
+          </div>
+
           <div class="form-group">
             <label for="realtor-search">Search Realtor</label>
             <input type="text" id="realtor-search" placeholder="Search by name, email, or phone" />
@@ -251,7 +261,7 @@
      
 
     <!-- Top Container -->
-    <div class="top-comment-cont">
+        <div class="top-comment-cont">
       <div class="card card--grey top-container">
           <div class="disc-cont">
             <div id="contact-full-name" class="contact-name">Full Name</div>

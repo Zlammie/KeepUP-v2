@@ -290,6 +290,12 @@ router.get('/toolbar/help', ensureAuth, requireRole('READONLY','USER','MANAGER',
   (req, res) => res.render('pages/toolbar/help', {})
 );
 
+router.get('/admin-section',
+  ensureAuth,
+  requireRole('MANAGER','COMPANY_ADMIN','SUPER_ADMIN'),
+  (req, res) => res.render('pages/admin-section', { active: 'admin-section' })
+);
+
 router.get('/admin/companies',
   ensureAuth,
   requireRole('SUPER_ADMIN'),

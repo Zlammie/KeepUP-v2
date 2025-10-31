@@ -1,19 +1,16 @@
-// assets/js/contact-details/realtorSearch.js
+﻿// assets/js/contact-details/realtorSearch.js
 import { DOM } from './domCache.js';
 import { debounce } from './utils.js';
-
+import { formatPhoneDisplay } from '../shared/phone.js';
 
 // Public init (called from index.js)
 export function initRealtorSearch() {
-  // Prefer the new cached nodes, but fall back to the legacy id if needed.
-  const input    = DOM.realtorSearch || document.getElementById('realtor-search');
-  const results  = DOM.realtorList   || document.getElementById('realtor-search-results');
+  const input = DOM.realtorSearch || document.getElementById('realtor-search');
+  const results = DOM.realtorList || document.getElementById('realtor-search-results');
   if (!input || !results) return;
 
-  // Debounced typeahead search
   input.addEventListener('input', debounce(() => onType(input, results), 250));
 
-  // Enter to create when "No results" is showing
   input.addEventListener('keydown', async (e) => {
     if (e.key !== 'Enter') return;
     const hasNoResults = results.dataset.state === 'empty';
@@ -23,12 +20,14 @@ export function initRealtorSearch() {
     await createFromForm(results);
   });
 
-  // Dismiss results on Escape / outside click
   input.addEventListener('keydown', (e) => {
     if (e.key === 'Escape') clearResults(results);
   });
+
   document.addEventListener('click', (e) => {
-    if (!results.contains(e.target) && e.target !== input) clearResults(results);
+    if (!results.contains(e.target) && e.target !== input) {
+      clearResults(results);
+    }
   });
 }
 
@@ -45,14 +44,16 @@ async function onType(input, results) {
     const list = await res.json();
 
     if (!Array.isArray(list)) {
-      return renderError(results, 'Unexpected response.');
+      renderError(results, 'Unexpected response.');
+      return;
     }
     if (list.length === 0) {
-      return renderEmpty(results, 'No results found. Press Enter to create a new realtor from the fields.');
+      renderEmpty(results, 'No results found. Press Enter to create a new realtor from the fields.');
+      return;
     }
 
     const frag = document.createDocumentFragment();
-    list.forEach(r => frag.appendChild(resultRow(r, results)));
+    list.forEach((realtor) => frag.appendChild(resultRow(realtor, results)));
     results.appendChild(frag);
     results.dataset.state = 'results';
   } catch (err) {
@@ -67,18 +68,16 @@ function resultRow(realtor, results) {
   const div = document.createElement('div');
   div.className = 'search-result';
   const name = [realtor.firstName, realtor.lastName].filter(Boolean).join(' ') || '(no name)';
-  const email = realtor.email ? ` (${realtor.email})` : '';
-  div.textContent = `${name}${email}`;
+  const emailPart = realtor.email ? ` (${realtor.email})` : '';
+  div.textContent = `${name}${emailPart}`;
   div.addEventListener('click', () => {
     fillRealtorFields(realtor);
-    // Keep backward compatibility with older flows that read this
     window.updatedContactRealtorId = realtor._id || realtor.id || null;
-       // 👉 trigger autosave by updating the hidden field + change event
-   const hid = document.getElementById('realtorId');
-   if (hid) {
-     hid.value = String(window.updatedContactRealtorId || '');
-     hid.dispatchEvent(new Event('change', { bubbles: true }));
-   }
+    const hid = document.getElementById('realtorId');
+    if (hid) {
+      hid.value = String(window.updatedContactRealtorId || '');
+      hid.dispatchEvent(new Event('change', { bubbles: true }));
+    }
     clearResults(results);
   });
   return div;
@@ -88,15 +87,15 @@ function resultRow(realtor, results) {
 async function createFromForm(results) {
   const payload = {
     firstName: val('realtorFirstName'),
-    lastName:  val('realtorLastName'),
-    email:     val('realtorEmail'),
-    phone:     val('realtorPhone'),
+    lastName: val('realtorLastName'),
+    email: val('realtorEmail'),
+    phone: val('realtorPhone'),
     brokerage: val('realtorBrokerage'),
   };
 
-  // Minimal validation: require at least a name or an email
   if (!payload.firstName && !payload.lastName && !payload.email) {
-    return renderError(results, 'Enter a first/last name or an email before creating.');
+    renderError(results, 'Enter a first/last name or an email before creating.');
+    return;
   }
 
   setBusy(results, true);
@@ -111,7 +110,6 @@ async function createFromForm(results) {
 
     fillRealtorFields(saved);
     window.updatedContactRealtorId = saved._id || saved.id || null;
-    // 👉 trigger autosave here too
     const hid = document.getElementById('realtorId');
     if (hid) {
       hid.value = String(window.updatedContactRealtorId || '');
@@ -126,17 +124,52 @@ async function createFromForm(results) {
   }
 }
 
-/* ---------------- internal: DOM helpers ---------------- */
+/* ---------------- shared field helpers ---------------- */
 export function fillRealtorFields(realtor) {
   set('realtorFirstName', realtor.firstName || '');
-  set('realtorLastName',  realtor.lastName  || '');
-  set('realtorPhone',     realtor.phone     || '');
-  set('realtorEmail',     realtor.email     || '');
+  set('realtorLastName', realtor.lastName || '');
+  set('realtorPhone', formatPhoneDisplay(realtor.phone || ''));
+  set('realtorEmail', realtor.email || '');
   set('realtorBrokerage', realtor.brokerage || '');
+  updateRealtorDisplay(realtor);
 }
 
-function set(id, v) { const el = document.getElementById(id); if (el) el.value = v; }
-function val(id) { const el = document.getElementById(id); return el ? el.value.trim() : ''; }
+export function updateRealtorDisplay(realtor = {}) {
+  const nameEl = document.getElementById('realtor-card-name');
+  if (nameEl) {
+    const name = [realtor.firstName, realtor.lastName].filter(Boolean).join(' ').trim();
+    nameEl.textContent = name || 'No realtor linked';
+  }
+
+  const phoneEl = document.getElementById('realtor-card-phone');
+  if (phoneEl) {
+    const formatted = formatPhoneDisplay(realtor.phone || '');
+    phoneEl.textContent = formatted || '--';
+    phoneEl.href = realtor.phone ? `tel:${realtor.phone}` : '#';
+  }
+
+  const emailEl = document.getElementById('realtor-card-email');
+  if (emailEl) {
+    const email = (realtor.email || '').trim();
+    emailEl.textContent = email || '--';
+    emailEl.href = email ? `mailto:${email}` : '#';
+  }
+
+  const brokerageEl = document.getElementById('realtor-card-brokerage');
+  if (brokerageEl) {
+    brokerageEl.textContent = realtor.brokerage || '--';
+  }
+}
+
+function set(id, value) {
+  const el = document.getElementById(id);
+  if (el) el.value = value;
+}
+
+function val(id) {
+  const el = document.getElementById(id);
+  return el ? el.value.trim() : '';
+}
 
 function clearResults(results) {
   results.innerHTML = '';
@@ -147,10 +180,13 @@ function renderEmpty(results, msg) {
   results.innerHTML = `<div class="search-empty">${msg}</div>`;
   results.dataset.state = 'empty';
 }
+
 function renderError(results, msg) {
   results.innerHTML = `<div class="search-error">${msg}</div>`;
   results.dataset.state = 'error';
 }
+
 function setBusy(results, isBusy) {
   results.classList.toggle('is-loading', !!isBusy);
 }
+

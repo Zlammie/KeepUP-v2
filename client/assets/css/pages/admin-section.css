@@ -1,0 +1,87 @@
+.admin-tabs {
+  background: #f3f4f6;
+  padding: 0.75rem;
+  border-radius: 0.75rem;
+  border: 1px solid rgba(0, 0, 0, 0.05);
+}
+
+.admin-section-main {
+  margin-left: 170px;
+  margin-right: 3.5rem;
+  padding-right: 2.5rem;
+  max-width: calc(100vw - 170px - 3.5rem);
+}
+
+.admin-section-main .card {
+  width: 100%;
+}
+
+.admin-tabs .nav-link {
+  color: #374151;
+  font-weight: 500;
+  background: rgba(255, 255, 255, 0.6);
+  border: 1px solid transparent;
+  border-radius: 999px;
+  transition: background 0.2s ease, color 0.2s ease, border-color 0.2s ease;
+}
+
+.admin-tabs .nav-link:hover {
+  background: #ffffff;
+  border-color: rgba(0, 0, 0, 0.08);
+}
+
+.admin-tabs .nav-link.active {
+  color: #ffffff;
+  background: #cc1d1d;
+  border-color: #cc1d1d;
+  box-shadow: 0 4px 10px rgba(204, 29, 29, 0.25);
+}
+
+.admin-section-main .table-responsive {
+  margin-bottom: 0;
+}
+
+.admin-panel {
+  animation: admin-panel-fade 0.2s ease-in-out;
+}
+
+.table-editing textarea {
+  min-height: 2.25rem;
+  resize: vertical;
+}
+
+.table-editing .btn-group .btn {
+  min-width: 70px;
+}
+
+.admin-users-multiselect {
+  min-width: 220px;
+  min-height: 2.5rem;
+}
+
+@media (min-width: 992px) {
+  .admin-section-main {
+    max-width: min(1600px, calc(100vw - 170px - 5rem));
+    margin-right: 5rem;
+  }
+}
+
+@media (max-width: 991.98px) {
+  .admin-section-main {
+    margin-left: 0;
+    margin-right: 1rem;
+    padding-right: 1.5rem;
+    width: 100%;
+  }
+}
+
+@keyframes admin-panel-fade {
+  from {
+    opacity: 0;
+    transform: translateY(6px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}

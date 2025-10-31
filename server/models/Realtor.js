@@ -1,10 +1,10 @@
 const mongoose = require('mongoose');
 const { Schema } = mongoose;
+const { normalizePhoneForDb } = require('../utils/phone');
 
 // normalizers so existing CSV/form strings still "just work"
 const toTrim = v => (v == null ? v : String(v).trim());
 const toLowerTrim = v => (v == null ? v : String(v).trim().toLowerCase());
-const toPhone = v => (v ? String(v).replace(/[^\d]/g, '').slice(-10) : ''); // keep last 10 digits
 
 const RealtorSchema = new Schema({
   // 🔐 tenant (required for RBAC scoping)
@@ -15,7 +15,7 @@ const RealtorSchema = new Schema({
   lastName:   { type: String, set: toTrim, default: '' },
 
   email:      { type: String, set: toLowerTrim, default: '', index: true },
-  phone:      { type: String, set: toPhone,     default: '', index: true },
+  phone:      { type: String, set: v => normalizePhoneForDb(v).phone, default: '', index: true },
 
   brokerage:  { type: String, set: toTrim, default: '' },
 

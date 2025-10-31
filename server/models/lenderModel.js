@@ -1,5 +1,6 @@
 const mongoose = require('mongoose');
 const { Schema } = mongoose;
+const { normalizePhoneForDb } = require('../utils/phone');
 
 // light normalizers so existing CSV/form strings "just work"
 const toDateOrNull = v => {
@@ -13,7 +14,6 @@ const toDateOrNull = v => {
   const d = new Date(String(v));
   return Number.isNaN(d.getTime()) ? null : d;
 };
-const toPhone = v => (v ? String(v).replace(/[^\d]/g, '').slice(-10) : ''); // keep last 10
 const toLowerTrim = v => (v == null ? v : String(v).trim().toLowerCase());
 const toTrim = v => (v == null ? v : String(v).trim());
 
@@ -27,7 +27,7 @@ const LenderSchema = new Schema({
   lastName:        { type: String, set: toTrim, default: '' },
 
   email:           { type: String, set: toLowerTrim, default: '', index: true },
-  phone:           { type: String, set: toPhone,     default: '', index: true },
+  phone:           { type: String, set: v => normalizePhoneForDb(v).phone, default: '', index: true },
 
   // was String in your model; store as Date while accepting strings/serials
   visitDate:       { type: Date, set: toDateOrNull, default: null },

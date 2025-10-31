@@ -1,4 +1,5 @@
 import { dom } from './domCache.js';
+import { formatPhoneDisplay } from '../shared/phone.js';
 
 export function fullName(){
   const first = dom.inputs.firstName?.value?.trim() || '';
@@ -8,14 +9,15 @@ export function fullName(){
 
 export function updateHeader(){
   const name  = fullName();
-  const phone = dom.inputs.phone?.value?.trim() || 'Phone Number';
+  const phoneRaw = dom.inputs.phone?.value?.trim() || '';
+  const phone = phoneRaw ? formatPhoneDisplay(phoneRaw) : 'Phone Number';
   const email = dom.inputs.email?.value?.trim() || 'Email';
 
   dom.hdrName.textContent = name;
   dom.titleName.textContent = name;
   dom.hdrPhone.textContent = phone;
   dom.hdrEmail.textContent = email;
-  dom.hdrPhone.href = phone && phone !== 'Phone Number' ? `tel:${phone}` : '#';
+  dom.hdrPhone.href = phoneRaw ? `tel:${phoneRaw}` : '#';
   dom.hdrEmail.href = email && email !== 'Email' ? `mailto:${email}` : '#';
 }
 

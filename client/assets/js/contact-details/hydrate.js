@@ -1,10 +1,11 @@
-// assets/js/contact-details/hydrate.js
+﻿// assets/js/contact-details/hydrate.js
 import { getState } from './state.js';
 import { DOM, refreshDOM } from './domCache.js';
 import { refreshStatusUI } from './status.js';
 import { populateCommunities } from './communitySection.js';
-import { fillRealtorFields } from './realtorSearch.js';
+import { fillRealtorFields, updateRealtorDisplay } from './realtorSearch.js';
 import * as api from './api.js';
+import { formatPhoneDisplay } from '../shared/phone.js';
 
 let summaryListenersBound = false;
 
@@ -13,6 +14,11 @@ function populateBaseFields(contact) {
   setInputValue('lastName',  contact?.lastName);
   setInputValue('email',     contact?.email);
   setInputValue('phone',     contact?.phone);
+
+  const phoneInput = document.getElementById('phone');
+  if (phoneInput) {
+    phoneInput.value = formatPhoneDisplay(contact?.phone || '');
+  }
   // add more when ready (e.g. 'source', etc.)
 }
 
@@ -28,7 +34,7 @@ export async function hydrateAll() {
   }
   refreshStatusUI();
 
-  // 👉 NEW: base inputs
+  // ðŸ‘‰ NEW: base inputs
   populateBaseFields(contact);
   setInputValue('owner', contact?.owner);
   setDateInputValue('visit-date', contact?.visitDate);
@@ -86,13 +92,13 @@ export function updateTopBarSummary() {
   // Facing
   const facing = Array.from(document.querySelectorAll('input[name="facing"]:checked'))
     .map(cb => cb.value);
-  setText('summary-facing', facing.length ? facing.join(', ') : '—');
+  setText('summary-facing', facing.length ? facing.join(', ') : 'â€”');
 
   // Floorplans (labels of checked boxes)
   const plans = Array.from(document.querySelectorAll('#floorplans-container input:checked'))
     .map(cb => cb.closest('label')?.innerText.trim())
     .filter(Boolean);
-  setText('summary-floorplans', plans.length ? plans.join(', ') : '—');
+  setText('summary-floorplans', plans.length ? plans.join(', ') : 'â€”');
 
   // Living
   const living = [];
@@ -100,11 +106,11 @@ export function updateTopBarSummary() {
   if (document.getElementById('renting')?.checked)         living.push('Renting');
   if (document.getElementById('own-selling')?.checked)     living.push('Own & Selling');
   if (document.getElementById('own-not-selling')?.checked) living.push('Own & Not Selling');
-  setText('summary-living', living.length ? living.join(', ') : '—');
+  setText('summary-living', living.length ? living.join(', ') : 'â€”');
 }
 
 async function populateRealtor(contact) {
-  // If the template doesn’t include these, bail quietly
+  // If the template doesnâ€™t include these, bail quietly
   const anyRealtorField = ['realtorFirstName','realtorLastName','realtorEmail','realtorPhone','realtorBrokerage']
     .some(id => document.getElementById(id));
   if (!anyRealtorField) return;
@@ -125,16 +131,20 @@ async function populateRealtor(contact) {
     // Defensive: some APIs nest the person under .realtor/.person
     const realtorObj = obj?.realtor || obj?.person || obj;
 
-    fillRealtorFields({
+    const populated = {
       firstName: realtorObj?.firstName || '',
       lastName:  realtorObj?.lastName  || '',
       email:     realtorObj?.email     || '',
       phone:     realtorObj?.phone     || '',
       brokerage: realtorObj?.brokerage || realtorObj?.lenderBrokerage || '',
-    });
+    };
+    fillRealtorFields(populated);
+    updateRealtorDisplay(populated);
   } catch (e) {
     console.warn('[hydrate] realtor fetch failed; leaving fields blank', e);
-    fillRealtorFields({ firstName:'', lastName:'', email:'', phone:'', brokerage:'' });
+    const blank = { firstName:'', lastName:'', email:'', phone:'', brokerage:'' };
+    fillRealtorFields(blank);
+    updateRealtorDisplay(blank);
   }
 }
 
@@ -142,7 +152,7 @@ async function populateRealtor(contact) {
 function setText(id, value) {
   const el = document.getElementById(id);
   if (!el) return;
-  el.textContent = (value && String(value).trim()) ? value : '—';
+  el.textContent = (value && String(value).trim()) ? value : 'â€”';
 }
 
 function setInputValue(id, value) {
@@ -222,4 +232,6 @@ function hydrateMoreDetails(contact) {
     setIf('own-not-selling', 'ownNotSelling');
   }
 }
+
+
 
