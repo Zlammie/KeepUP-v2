@@ -52,4 +52,61 @@ export async function fetchRealtorById(id) {
 }
 
 
+export async function fetchTasks(params = {}) {
+  const search = new URLSearchParams();
+  if (params.linkedModel) search.set('linkedModel', params.linkedModel);
+  if (params.linkedId) search.set('linkedId', params.linkedId);
+  if (params.status) search.set('status', params.status);
+  if (params.type) search.set('type', params.type);
+  if (params.limit) search.set('limit', params.limit);
+
+  const query = search.toString();
+  return json(query ? `/api/tasks?${query}` : '/api/tasks');
+}
+
 // Add other endpoints here (status update, autosave fields, etc.)
+export async function createTask(payload) {
+  const res = await fetch('/api/tasks', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(payload)
+  });
+
+  let data = null;
+  try {
+    data = await res.json();
+  } catch (_) {
+    data = null;
+  }
+
+  if (!res.ok) {
+    const message = data?.error || 'Failed to create task';
+    throw new Error(message);
+  }
+
+  return data;
+}
+
+export async function updateTask(taskId, payload) {
+  if (!taskId) throw new Error('updateTask: missing taskId');
+
+  const res = await fetch(`/api/tasks/${encodeURIComponent(taskId)}`, {
+    method: 'PATCH',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(payload)
+  });
+
+  let data = null;
+  try {
+    data = await res.json();
+  } catch (_) {
+    data = null;
+  }
+
+  if (!res.ok) {
+    const message = data?.error || 'Failed to update task';
+    throw new Error(message);
+  }
+
+  return data;
+}

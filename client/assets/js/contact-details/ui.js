@@ -61,11 +61,34 @@ function initMoreInfoPanel() {
 }
 
 function initTodoPanel() {
-  const btn   = document.getElementById('todo-toggle');
+  const toggle = document.getElementById('todo-toggle');
   const panel = document.getElementById('todo-panel');
-  if (!btn || !panel) return;
-  btn.addEventListener('click', () => {
+  if (!toggle || !panel) return;
+
+  const body = panel.querySelector('.todo-body');
+  if (body) {
+    const bodyId = body.id || `${panel.id}-body`;
+    body.id = bodyId;
+    toggle.setAttribute('aria-controls', bodyId);
+  }
+
+  function apply() {
+    const isCollapsed = panel.classList.contains('collapsed');
+    toggle.setAttribute('aria-expanded', String(!isCollapsed));
+  }
+
+  function togglePanel(event) {
+    if (event) event.preventDefault();
     panel.classList.toggle('collapsed');
-    btn.textContent = panel.classList.contains('collapsed') ? '▸ Tasks' : '▾ Tasks';
+    apply();
+  }
+
+  toggle.addEventListener('click', togglePanel);
+  toggle.addEventListener('keydown', (event) => {
+    if (event.key === 'Enter' || event.key === ' ') {
+      togglePanel(event);
+    }
   });
+
+  apply();
 }

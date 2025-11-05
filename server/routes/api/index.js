@@ -11,6 +11,7 @@ const floorPlanRoutes = require('../floorPlanRoutes');
 const lotViewRoutes = require('../lotViewRoutes');
 const competitionApi = require('./competitions.api');
 const adminCompanyApi = require('./admin-company.api');
+const tasksApi = require('./tasks.api');
 const adminUsersApi = require('./admin-users.api');
 const adminImpersonationApi = require('./admin-impersonation.api');
 const competitionRoutes = require('../competitionRoutes');
@@ -32,6 +33,7 @@ router.use('/floorplans', floorPlanRoutes);
 router.use('/admin/company', adminCompanyApi);
 router.use('/admin/users', adminUsersApi);
 router.use('/admin/impersonation', adminImpersonationApi);
+router.use('/tasks', tasksApi);
 router.use('/', lotViewRoutes); // if this exposes /lots or other root endpoints
 router.use('/competitions', competitionApi);
 router.use('/competitions', competitionRoutes);

@@ -14,6 +14,7 @@ const Community   = require('../models/Community');
 const Competition = require('../models/Competition');
 const FloorPlanComp = require('../models/floorPlanComp');
 const Company = require('../models/Company');
+const Task = require('../models/Task');
 const {
   filterCommunitiesForUser,
   hasCommunityAccess,
@@ -38,6 +39,88 @@ router.get(['/', '/index'], ensureAuth, requireRole('READONLY','USER','MANAGER',
 
 router.get('/add-lead', ensureAuth, requireRole('READONLY','USER','MANAGER','COMPANY_ADMIN','SUPER_ADMIN'),
   (req, res) => res.render('pages/add-lead', { active: 'add-lead' })
+);
+
+router.get(
+  '/task',
+  ensureAuth,
+  requireRole('READONLY', 'USER', 'MANAGER', 'COMPANY_ADMIN', 'SUPER_ADMIN'),
+  async (req, res, next) => {
+    try {
+      const baseFilter = { ...base(req) };
+      const today = new Date();
+      const endOfToday = new Date(today);
+      endOfToday.setHours(23, 59, 59, 999);
+
+      const allowedStatuses = Array.isArray(Task.STATUS)
+        ? Task.STATUS.filter((status) => status !== 'Completed')
+        : ['Pending', 'In Progress', 'Overdue'];
+
+      const filter = {
+        ...baseFilter,
+        status: { $in: allowedStatuses },
+        $or: [
+          { dueDate: { $lte: endOfToday } },
+          { status: 'Overdue' }
+        ]
+      };
+
+      const assignedId = isId(req.user?._id) ? new mongoose.Types.ObjectId(req.user._id) : null;
+      const canViewAll =
+        isSuper(req) ||
+        isCompanyAdmin(req) ||
+        (req.user?.roles || []).includes('MANAGER');
+
+      if (!canViewAll) {
+        if (assignedId) {
+          filter.assignedTo = assignedId;
+        } else {
+          filter._id = { $in: [] }; // bail safely if we cannot scope to a user
+        }
+      }
+
+      const tasks = await Task.find(filter)
+        .sort({ dueDate: 1, priority: -1, createdAt: -1 })
+        .limit(500)
+        .lean();
+
+      const categories = Array.isArray(Task.CATEGORIES) ? Task.CATEGORIES.slice() : [];
+      const fallbackCategory = categories.includes('Custom')
+        ? 'Custom'
+        : categories[0] || 'Custom';
+
+      const grouped = new Map();
+      categories.forEach((category) => grouped.set(category, []));
+      grouped.set(fallbackCategory, grouped.get(fallbackCategory) || []);
+
+      tasks.forEach((task) => {
+        const category = categories.includes(task.category) ? task.category : fallbackCategory;
+        grouped.get(category).push(task);
+      });
+
+      const taskGroups = categories
+        .map((category) => ({
+          category,
+          tasks: grouped.get(category) || []
+        }))
+        .filter((group) => Array.isArray(group.tasks) && group.tasks.length > 0);
+
+      const taskMeta = {
+        categories,
+        statuses: Array.isArray(Task.STATUS) ? Task.STATUS : [],
+        priorities: Array.isArray(Task.PRIORITIES) ? Task.PRIORITIES : [],
+        types: Array.isArray(Task.TYPES) ? Task.TYPES : []
+      };
+
+      res.render('pages/task', {
+        active: 'task',
+        taskGroups,
+        taskMeta
+      });
+    } catch (err) {
+      next(err);
+    }
+  }
 );
 
 // ????????????????????????? lists ?????????????????????????
