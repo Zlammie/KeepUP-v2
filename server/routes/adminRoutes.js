@@ -7,7 +7,7 @@ const Community      = require('../models/Community');
 const validateObjectId = require('../middleware/validateObjectId');
 
 // All admin routes require login + role
-router.use(ensureAuth, requireRole('COMPANY_ADMIN', 'SUPER_ADMIN'));
+router.use(ensureAuth, requireRole('MANAGER', 'COMPANY_ADMIN', 'SUPER_ADMIN'));
 
 router.get('/users', listUsers);
 router.post('/users', createUser);

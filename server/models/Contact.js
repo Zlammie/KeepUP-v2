@@ -1,6 +1,7 @@
 // server/models/Contact.js
 const mongoose = require('mongoose');
 const { Schema } = mongoose;
+const { normalizePhoneForDb } = require('../utils/phone');
 const lenderStatusValues = ['invite','submittedapplication','subdocs','missingdocs','approved','cannotqualify'];
 const toDateOrNull = v => {
   if (!v) return null;
@@ -22,10 +23,7 @@ function normEmail(v) {
   const t = (v || '').trim().toLowerCase();
   return t || null;
 }
-function normPhone(v) {
-  const t = (v || '').toString().replace(/\D+/g, '');
-  return t || null;
-}
+
 
 /**
  * Contact (master identity per company)
@@ -49,7 +47,7 @@ const ContactSchema = new Schema(
     firstName: { type: String, trim: true },
     lastName:  { type: String, trim: true },
     email:     { type: String, lowercase: true, trim: true, index: true },
-    phone:     { type: String, set: v => (v || '').toString().trim() },
+    phone:     { type: String, set: v => normalizePhoneForDb(v).phone },
     visitDate:  { type: Date, set: toDateOrNull, default: null },
     source:    { type: String, trim: true },
     lotLineUp:  { type: String, trim: true },
@@ -176,7 +174,9 @@ ContactSchema.pre('save', function (next) {
   }
   // NEW: keep normalized fields in sync
   this.emailNorm = normEmail(this.email);
-  this.phoneNorm = normPhone(this.phone);
+  const phoneNormalized = normalizePhoneForDb(this.phone);
+  this.phone = phoneNormalized.phone;
+  this.phoneNorm = phoneNormalized.phoneNorm;
   next();
 });
 
@@ -187,7 +187,9 @@ function applyNormsToUpdate(u) {
     $set.emailNorm = normEmail($set.email);
   }
   if (Object.prototype.hasOwnProperty.call($set, 'phone')) {
-    $set.phoneNorm = normPhone($set.phone);
+    const normalized = normalizePhoneForDb($set.phone);
+    $set.phone = normalized.phone;
+    $set.phoneNorm = normalized.phoneNorm;
   }
   u.$set = $set;
   return u;

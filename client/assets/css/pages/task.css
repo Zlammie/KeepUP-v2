@@ -1,0 +1,46 @@
+.task-page .task-summary-card {
+  border-radius: 1rem;
+}
+
+.task-page .task-summary-card .small {
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.task-page .task-category-container .task-category-card {
+  min-height: 100%;
+}
+
+.task-page .task-category-card .card-header {
+  min-height: 84px;
+}
+
+.task-page .task-category-card .list-group-item {
+  border-color: rgba(15, 23, 42, 0.06);
+}
+
+.priority-pill {
+  font-weight: 600;
+  text-transform: uppercase;
+  font-size: 0.75rem;
+  border: 1px solid transparent;
+  padding: 0.15rem 0.65rem;
+}
+
+.priority-pill.priority-low {
+  background-color: #e6f6f4;
+  color: #0f766e;
+  border-color: rgba(15, 118, 110, 0.35);
+}
+
+.priority-pill.priority-medium {
+  background-color: #fff4e6;
+  color: #b45309;
+  border-color: rgba(180, 83, 9, 0.35);
+}
+
+.priority-pill.priority-high {
+  background-color: #fee2e2;
+  color: #b91c1c;
+  border-color: rgba(185, 28, 28, 0.35);
+}

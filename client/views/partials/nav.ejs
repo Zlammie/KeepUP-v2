@@ -8,7 +8,10 @@
   </div>
   <div class="top-right">
     <a href="/toolbar/help"><button class="top-btn"><img src="/assets/icons/help.svg" alt="Help"></button></a>
-    <a href="/admin/users"><button class="top-btn"><img src="/assets/icons/account-icon.svg" alt="Account"></button> </a>
+    <% const canAccessAdmin = permissions && permissions.canAccessAdminSection; %>
+    <% if (canAccessAdmin) { %>
+      <a href="/admin/users"><button class="top-btn"><img src="/assets/icons/account-icon.svg" alt="Account"></button> </a>
+    <% } %>
     
     <button class="top-btn"><img src="/assets/icons/notifications.svg" alt="Notifications"></button>
   </div>
@@ -41,10 +44,32 @@
             <span>Competition</span>
           </a>
         </li>
-        <form action="/logout" method="post" style="display:inline">
-          <button class="btn btn-link nav-link" type="submit">Logout</button>
-        </form>
+        <li>
+          <a href="/task" class="nav-link">
+            <img src="/assets/icons/add_task.svg" alt="Task">
+            <span>Task</span>
+          </a>
+        </li>
+        <% if (canAccessAdmin) { %>
+          <li>
+            <a href="/admin-section" class="nav-link">
+              <img src="/assets/icons/account-icon.svg" alt="Admin Section">
+              <span>Admin Section</span>
+            </a>
+          </li>
+        <% } %>
+        <li class="logout-item">
+          <form action="/logout" method="post">
+            <button class="nav-link nav-button" type="submit">Logout</button>
+          </form>
+        </li>
       </ul>
     </div>
   </nav>
+  <% if (permissions && permissions.isImpersonating && permissions.impersonation) { %>
+    <div class="impersonation-banner" style="background-color:#fff3cd;color:#5f370e;padding:0.75rem 1rem;font-weight:600;border-bottom:1px solid #f0ad4e;">
+      Impersonating <span><%= permissions.impersonation.companyName || permissions.impersonation.companyId %></span>. Visit the
+      <a href="/admin-section" style="color:inherit;text-decoration:underline;">Admin Section &rarr; Impersonation</a> tab to stop.
+    </div>
+  <% } %>
 </div>

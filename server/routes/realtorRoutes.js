@@ -4,6 +4,7 @@ const fs = require('fs');
 const router = express.Router();
 const Realtor = require('../models/Realtor');
 const RealtorAssignment = require('../models/RealtorAssignment');
+const { normalizePhoneForDb } = require('../utils/phone');
 
 const xlsx = require('xlsx');
 
@@ -18,10 +19,6 @@ const isSuper = req => (req.user?.roles || []).includes('SUPER_ADMIN');
 const companyFilter = req => (isSuper(req) ? {} : { company: req.user.company });
 
 const toStr = v => (v ?? '').toString().trim();
-const normalizePhone = v => {
-  const s = toStr(v).replace(/[^\d]/g, '');
-  return s.length >= 10 ? s.slice(-10) : s;
-};
 const normalizeEmail = v => toStr(v).toLowerCase();
 
 //Realtor Assignment Helpers
@@ -41,7 +38,7 @@ router.post('/',
       const body = { ...req.body };
       body.company = isSuper(req) ? (body.company || req.user.company) : req.user.company;
       if (body.email) body.email = normalizeEmail(body.email);
-      if (body.phone) body.phone = normalizePhone(body.phone);
+      if (body.phone) body.phone = normalizePhoneForDb(body.phone).phone;
 
       // 1) find by identity within company
       let realtor = null;
@@ -79,7 +76,7 @@ router.post('/',
       if (err?.code === 11000) {
         try {
           const email = req.body.email ? normalizeEmail(req.body.email) : '';
-          const phone = req.body.phone ? normalizePhone(req.body.phone) : '';
+        const phone = req.body.phone ? normalizePhoneForDb(req.body.phone).phone : '';
           const existing = await Realtor.findOne({
             company: req.user.company,
             $or: [
@@ -178,7 +175,7 @@ router.put('/:id',
       delete updates.company;
 
       if (updates.email) updates.email = normalizeEmail(updates.email);
-      if (updates.phone) updates.phone = normalizePhone(updates.phone);
+      if (updates.phone) updates.phone = normalizePhoneForDb(updates.phone).phone;
 
       const updated = await Realtor.findOneAndUpdate(
         { _id: id, ...companyFilter(req) },
@@ -236,7 +233,8 @@ router.post('/import',
         const firstName = toStr(r.FirstName || r['First Name'] || r.firstName);
         const lastName  = toStr(r.LastName  || r['Last Name']  || r.lastName);
         const email     = normalizeEmail(r.Email || r.email);
-        const phone     = normalizePhone(r.Phone || r.phone);
+        const phoneData = normalizePhoneForDb(r.Phone || r.phone);
+        const phone     = phoneData.phone;
         const brokerage = toStr(r.Brokerage || r.brokerage || r.Company || r.company);
 
         if (!firstName && !lastName && !email && !phone) { skipped++; continue; }
@@ -380,7 +378,7 @@ router.post('/assign',
         if (!realtor) return res.status(404).json({ error: 'Realtor not found' });
       } else {
         const email = normalizeEmail(req.body.email);
-        const phone = normalizePhone(req.body.phone);
+        const phone = normalizePhoneForDb(req.body.phone).phone;
 
         realtor = (email || phone)
           ? await Realtor.findOne({
@@ -421,7 +419,7 @@ router.post('/assign',
       // if unique conflict on Realtor, re-find and link
       if (err?.code === 11000) {
         const email = normalizeEmail(req.body.email);
-        const phone = normalizePhone(req.body.phone);
+        const phone = normalizePhoneForDb(req.body.phone).phone;
         const existing = await Realtor.findOne({
           company: req.user.company,
           $or: [

@@ -13,6 +13,9 @@ import { setupCommentSection } from './commentLoader.js';
 import { on, emit } from './events.js';
 import { initMiscUI } from './ui.js';
 import { initLotSearch } from './lotSearch.js';
+import { initTaskPanel } from './tasks.js';
+import { initLotSalesPriceAutomation } from './lotSalesPriceTask.js';
+import { initLenderLinkAutomation } from './lenderLinkTask.js';
 
 window.addEventListener('DOMContentLoaded', async () => {
   const root = document.getElementById('contact-details-root');
@@ -23,6 +26,7 @@ window.addEventListener('DOMContentLoaded', async () => {
 
   const contactId = root.dataset.contactId;
   const initialStatus = root.dataset.initialStatus;
+  const currentUserId = root.dataset.currentUserId || null;
 
   try {
     // 1) Load state so other modules can read it
@@ -40,6 +44,9 @@ window.addEventListener('DOMContentLoaded', async () => {
     initLenderSearch();
     initLotSearch();
     setupCommentSection();
+    initTaskPanel({ contactId, currentUserId });
+    initLotSalesPriceAutomation();
+    initLenderLinkAutomation();
 
     // 4) First paint
     await hydrateAll();

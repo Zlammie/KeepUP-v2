@@ -13,6 +13,7 @@ import {
   closingStatusLabels, closingStatusClasses,
   lenderStatusLabels, lenderStatusClasses
 } from './statusMaps.js';
+import { formatPhoneDisplay } from '../shared/phone.js';
 
 export const renderTitleAndBasics = (lot) => {
   els.lotTitle.textContent =  `${lot.address ?? ''}`;
@@ -103,7 +104,10 @@ export const renderRightColumn = (purchaser, realtor, primaryEntry) => {
     const parts = `${o.firstName ?? ''} ${o.lastName ?? ''}`.trim();
     return parts || o.name || o.fullName || '';
   };
-  const phoneFrom = (o) => o?.phone ?? o?.mobile ?? o?.cell ?? o?.primaryPhone ?? '';
+  const phoneFrom = (o) => {
+    const raw = o?.phone ?? o?.mobile ?? o?.cell ?? o?.primaryPhone ?? '';
+    return formatPhoneDisplay(raw);
+  };
   const emailFrom = (o) => o?.email ?? o?.emailAddress ?? '';
 
   // Purchaser
@@ -167,7 +171,8 @@ export const renderRightColumn = (purchaser, realtor, primaryEntry) => {
   if (!target) all('#lenderNameFinance').forEach(n => set(n, nameLine));
 
   // Phone / Email (with a few extra fallbacks)
-  const phone = first(L.phone, L.mobile, L.cell, L.primaryPhone, primaryEntry?.lenderPhone);
+  const rawPhone = first(L.phone, L.mobile, L.cell, L.primaryPhone, primaryEntry?.lenderPhone);
+  const phone = formatPhoneDisplay(rawPhone);
   const email = first(L.email, L.emailAddress, primaryEntry?.lenderEmail);
   set(els?.lenderPhoneFinance || el('lenderPhoneFinance'), phone);
   set(els?.lenderEmailFinance || el('lenderEmailFinance'), email);

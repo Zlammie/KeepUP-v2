@@ -1,5 +1,6 @@
 // /assets/js/contacts/render.js
 import { formatDate } from './date.js';
+import { formatPhoneDisplay } from '../shared/phone.js';
 import { updateContact, toggleFlag } from './api.js';
 import { openCommentModal } from './modal.js';
 
@@ -179,20 +180,41 @@ export function renderTable(contacts) {
     // Editable fields
     ['firstName', 'lastName', 'email', 'phone'].forEach((field) => {
       const cell = document.createElement('td');
-      cell.textContent = contact[field] || '';
+      const isPhone = field === 'phone';
+      const currentValue = contact[field] || '';
+      const displayValue = isPhone ? formatPhoneDisplay(currentValue) : currentValue;
+
+      cell.textContent = displayValue;
       cell.contentEditable = true;
       cell.dataset.field = field;
+      cell.dataset.displayValue = displayValue;
+      cell.dataset.comparable = isPhone ? currentValue.replace(/\D+/g, '') : currentValue;
+
+      if (isPhone) {
+        cell.addEventListener('focus', () => {
+          cell.textContent = contact[field] || '';
+        });
+      }
 
       cell.addEventListener('blur', async (e) => {
         const newValue = e.target.textContent.trim();
-        if (newValue === (contact[field] || '')) return; // no-op if unchanged
+        const comparableValue = isPhone ? newValue.replace(/\D+/g, '') : newValue;
+        if (comparableValue === cell.dataset.comparable) {
+          e.target.textContent = cell.dataset.displayValue || '';
+          return;
+        }
         try {
           await updateContact(contact._id, { [field]: newValue });
           contact[field] = newValue; // keep row model in sync
+          const updatedDisplay = isPhone ? formatPhoneDisplay(newValue) : newValue;
+          cell.dataset.displayValue = updatedDisplay;
+          cell.dataset.comparable = comparableValue;
+          e.target.textContent = updatedDisplay;
         } catch (err) {
           console.error(err);
           // revert UI if save fails
-          e.target.textContent = contact[field] || '';
+          const fallback = cell.dataset.displayValue || contact[field] || '';
+          e.target.textContent = fallback;
         }
       });
 

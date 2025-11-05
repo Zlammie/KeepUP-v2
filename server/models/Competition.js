@@ -4,10 +4,10 @@ const {
   DEFAULT_SYNC_FIELDS,
   sanitizeSyncFields,
 } = require('../config/competitionSync');
+const { normalizePhoneForDb } = require('../utils/phone');
 
 // light normalizers
 const toLowerTrim = v => (v == null ? v : String(v).trim().toLowerCase());
-const toPhone10   = v => (v ? String(v).replace(/[^\d]/g, '').slice(-10) : '');
 const toNumOrNull = v => (v === '' || v == null ? null : Number(v));
 
 const MonthlyMetricsSchema = new Schema({
@@ -34,7 +34,7 @@ const CompetitionSchema = new Schema({
   // Attributes
   lotSize:          { type: String },
   salesPerson:      { type: String },
-  salesPersonPhone: { type: String, set: toPhone10 },
+  salesPersonPhone: { type: String, set: v => normalizePhoneForDb(v).phone },
   salesPersonEmail: { type: String, set: toLowerTrim },
 
   schoolISD:        { type: String },

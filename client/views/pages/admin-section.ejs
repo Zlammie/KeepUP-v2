@@ -1,0 +1,1615 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Admin Section</title>
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet" />
+  <link rel="stylesheet" href="/assets/css/main.css" />
+</head>
+<body>
+  <%- include('../partials/nav') %>
+  <%- include('../partials/top-nav-admin') %>
+
+  <main class="main-content admin-section-main py-5">
+    <header class="mb-4">
+      <h1 class="h3 mb-1">Admin Section</h1>
+      <p class="text-muted mb-0">
+        Configure how KeepUP behaves for your company. Tabs below will expand as new tools land.
+      </p>
+    </header>
+
+    <div class="card shadow-sm">
+      <div class="card-body">
+        <% const showImpersonationTab = permissions && permissions.canUseImpersonation; %>
+        <nav class="admin-tabs mb-4" aria-label="Admin tabs">
+          <ul class="nav nav-pills flex-wrap gap-2" role="tablist">
+            <li class="nav-item" role="presentation">
+              <button class="nav-link active" id="admin-tab-company" data-admin-target="company" type="button" role="tab" aria-controls="admin-panel-company" aria-selected="true">
+                Company
+              </button>
+            </li>
+            <li class="nav-item" role="presentation">
+              <button class="nav-link" id="admin-tab-users" data-admin-target="users" type="button" role="tab" aria-controls="admin-panel-users" aria-selected="false">
+                Users
+              </button>
+            </li>
+            <% if (showImpersonationTab) { %>
+              <li class="nav-item" role="presentation">
+                <button class="nav-link" id="admin-tab-impersonation" data-admin-target="impersonation" type="button" role="tab" aria-controls="admin-panel-impersonation" aria-selected="false">
+                  Impersonation
+                </button>
+              </li>
+            <% } %>
+            <li class="nav-item" role="presentation">
+              <button class="nav-link" id="admin-tab-billing" data-admin-target="billing" type="button" role="tab" aria-controls="admin-panel-billing" aria-selected="false">
+                Billing
+              </button>
+            </li>
+            <li class="nav-item" role="presentation">
+              <button class="nav-link" id="admin-tab-settings" data-admin-target="settings" type="button" role="tab" aria-controls="admin-panel-settings" aria-selected="false">
+                Settings
+              </button>
+            </li>
+          </ul>
+        </nav>
+
+        <section id="admin-panel-company" class="admin-panel" role="tabpanel" aria-labelledby="admin-tab-company">
+          <h2 class="h4 mb-3">Company Info</h2>
+          <p class="text-muted mb-4">
+            These settings personalize KeepUP for your team. Changes here stay scoped to your company.
+          </p>
+
+          <form id="company-settings-form" class="row g-4">
+            <div class="col-12">
+              <h3 class="h6 text-uppercase text-muted mb-2">Company Details</h3>
+              <div class="row g-3">
+                <div class="col-md-6">
+                  <label for="companyName" class="form-label">Company Name</label>
+                  <input type="text" id="companyName" name="companyName" class="form-control" placeholder="Keep Up Homes" />
+                </div>
+              </div>
+            </div>
+
+            <div class="col-12">
+              <h3 class="h6 text-uppercase text-muted mb-2">Company Address</h3>
+              <div class="row g-3">
+                <div class="col-12">
+                  <label for="companyStreet" class="form-label">Street</label>
+                  <input type="text" id="companyStreet" name="street" class="form-control" placeholder="123 Main Street" />
+                </div>
+                <div class="col-md-4">
+                  <label for="companyCity" class="form-label">City</label>
+                  <input type="text" id="companyCity" name="city" class="form-control" placeholder="Austin" />
+                </div>
+                <div class="col-md-4">
+                  <label for="companyState" class="form-label">State</label>
+                  <input type="text" id="companyState" name="state" class="form-control" placeholder="TX" />
+                </div>
+                <div class="col-md-4">
+                  <label for="companyZip" class="form-label">ZIP</label>
+                  <input type="text" id="companyZip" name="zip" class="form-control" placeholder="78701" />
+                </div>
+              </div>
+            </div>
+
+            <div class="col-12">
+              <h3 class="h6 text-uppercase text-muted mb-2">Primary Contact</h3>
+              <div class="row g-3">
+                <div class="col-md-4">
+                  <label for="primaryName" class="form-label">Name</label>
+                  <input type="text" id="primaryName" name="primaryName" class="form-control" placeholder="Jane Smith" />
+                </div>
+                <div class="col-md-4">
+                  <label for="primaryEmail" class="form-label">Email</label>
+                  <input type="email" id="primaryEmail" name="primaryEmail" class="form-control" placeholder="jane@keepup.com" />
+                </div>
+                <div class="col-md-4">
+                  <label for="primaryPhone" class="form-label">Phone</label>
+                  <input type="tel" id="primaryPhone" name="primaryPhone" class="form-control" placeholder="(555) 555-5555" />
+                </div>
+              </div>
+            </div>
+
+            <div class="col-12">
+              <h3 class="h6 text-uppercase text-muted mb-2">Branding</h3>
+              <div class="row g-3">
+                <div class="col-md-6">
+                  <label for="companyLogo" class="form-label">Logo URL</label>
+                  <input type="url" id="companyLogo" name="logo" class="form-control" placeholder="https://example.com/logo.png" />
+                  <div class="form-text">Link to a high-resolution PNG or SVG.</div>
+                </div>
+                <div class="col-md-3">
+                  <label for="colorPrimary" class="form-label">Primary Color</label>
+                  <input type="color" id="colorPrimary" name="primaryColor" class="form-control form-control-color" value="#cc1d1d" title="Choose primary brand color" />
+                </div>
+                <div class="col-md-3">
+                  <label for="colorSecondary" class="form-label">Secondary Color</label>
+                  <input type="color" id="colorSecondary" name="secondaryColor" class="form-control form-control-color" value="#1f3c88" title="Choose secondary brand color" />
+                </div>
+              </div>
+            </div>
+
+            <div class="col-12">
+              <h3 class="h6 text-uppercase text-muted mb-2">Timezone</h3>
+              <div class="col-md-4">
+                <label for="companyTimezone" class="form-label">Default Timezone</label>
+                <select id="companyTimezone" name="timezone" class="form-select">
+                  <option value="">Select timezone...</option>
+                  <option value="America/New_York">Eastern (ET)</option>
+                  <option value="America/Chicago">Central (CT)</option>
+                  <option value="America/Denver">Mountain (MT)</option>
+                  <option value="America/Los_Angeles">Pacific (PT)</option>
+                </select>
+              </div>
+            </div>
+
+            <div class="col-12">
+              <h3 class="h6 text-uppercase text-muted mb-2">Internal Notes</h3>
+              <textarea id="companyNotes" name="notes" class="form-control" rows="4" placeholder="Keep internal reminders here."></textarea>
+            </div>
+
+            <div class="col-12 d-flex justify-content-end gap-2 align-items-center flex-wrap">
+              <div id="company-settings-status" class="small text-muted me-auto"></div>
+              <div class="d-flex gap-2">
+                <button type="reset" class="btn btn-outline-secondary">Discard</button>
+                <button type="submit" class="btn btn-primary" id="company-settings-save">Save Company Settings</button>
+              </div>
+            </div>
+          </form>
+        </section>
+
+        <section id="admin-panel-users" class="admin-panel d-none" role="tabpanel" aria-labelledby="admin-tab-users">
+          <div class="d-flex flex-wrap justify-content-between align-items-center gap-3 mb-3">
+            <div>
+              <h2 class="h4 mb-1">Team Members</h2>
+              <p class="text-muted mb-0">
+                Review the users tied to your company, along with their access, scope, and activity status.
+              </p>
+            </div>
+            <div class="d-flex flex-wrap gap-2">
+              <button type="button" class="btn btn-outline-primary" id="admin-users-edit-toggle">
+                Edit Users
+              </button>
+              <button type="button" class="btn btn-secondary" disabled title="Coming soon">
+                Invite User
+              </button>
+            </div>
+          </div>
+
+          <div id="admin-users-loading" class="text-muted">
+            Loading users&hellip;
+          </div>
+
+          <div id="admin-users-error" class="alert alert-danger d-none" role="alert"></div>
+
+          <div id="admin-users-list" class="table-responsive d-none">
+            <table class="table table-striped table-hover table-sm align-middle" id="admin-users-table">
+              <thead class="table-light">
+                <tr>
+                  <th scope="col">First Name</th>
+                  <th scope="col">Last Name</th>
+                  <th scope="col">Email</th>
+                  <th scope="col">Phone</th>
+                  <th scope="col">Role</th>
+                  <th scope="col">Status</th>
+                  <th scope="col">Communities</th>
+                  <th scope="col">Manager</th>
+                  <th scope="col" class="text-end d-none" id="admin-users-actions-header">Actions</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr>
+                  <td colspan="9" class="text-center text-muted">Loading users&hellip;</td>
+                </tr>
+              </tbody>
+            </table>
+        </div>
+      </section>
+
+        <% if (showImpersonationTab) { %>
+        <section id="admin-panel-impersonation" class="admin-panel d-none" role="tabpanel" aria-labelledby="admin-tab-impersonation">
+          <h2 class="h4 mb-3">Impersonation Mode</h2>
+          <p class="text-muted mb-3">
+            Temporarily adopt a company's context to troubleshoot issues or configure settings on their behalf. You'll retain SUPER ADMIN privileges while impersonating.
+          </p>
+
+          <div id="impersonation-status" class="alert <%= permissions.isImpersonating ? 'alert-warning' : 'alert-info' %>">
+            <% if (permissions.isImpersonating && permissions.impersonation) { %>
+              Currently impersonating <strong><%= permissions.impersonation.companyName || permissions.impersonation.companyId %></strong>.
+              Any tenant-scoped views and APIs will respect this company until you stop impersonating.
+            <% } else { %>
+              Not impersonating any company. Select one below to assume their context.
+            <% } %>
+          </div>
+
+          <div class="row g-3 align-items-end mb-3">
+            <div class="col-md-5">
+              <label for="impersonation-search" class="form-label">Find company</label>
+              <input type="search" id="impersonation-search" class="form-control" placeholder="Search by name or slug" />
+            </div>
+            <div class="col-auto d-flex gap-2">
+              <button type="button" class="btn btn-outline-primary" id="impersonation-search-button">Search</button>
+              <button type="button" class="btn btn-outline-secondary <%= permissions.isImpersonating ? '' : 'd-none' %>" id="impersonation-clear-button">
+                Stop impersonating
+              </button>
+            </div>
+          </div>
+
+          <div id="impersonation-error" class="alert alert-danger d-none" role="alert"></div>
+          <div id="impersonation-loading" class="text-muted d-none">Loading companies...</div>
+
+          <div class="table-responsive" id="impersonation-results">
+            <table class="table table-striped table-hover table-sm align-middle" id="impersonation-table">
+              <thead class="table-light">
+                <tr>
+                  <th scope="col">Company</th>
+                  <th scope="col">Slug</th>
+                  <th scope="col" class="text-end">Actions</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr>
+                  <td colspan="3" class="text-center text-muted py-4">Use the search to load companies.</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+
+          <div class="row g-4 mt-4">
+            <div class="col-lg-6">
+              <div class="card shadow-sm h-100">
+                <div class="card-header">
+                  <div class="d-flex justify-content-between align-items-center">
+                    <h3 class="h6 mb-0">Create Company</h3>
+                    <span class="badge bg-secondary">SUPER ADMIN</span>
+                  </div>
+                </div>
+                <div class="card-body">
+                  <form id="impersonation-create-company-form" class="row g-3">
+                    <div class="col-12">
+                      <label for="impersonationCompanyName" class="form-label">Company Name</label>
+                      <input type="text" id="impersonationCompanyName" name="companyName" class="form-control" placeholder="Acme Homes" required />
+                    </div>
+                    <div class="col-12">
+                      <label for="impersonationCompanySlug" class="form-label">Slug (optional)</label>
+                      <input type="text" id="impersonationCompanySlug" name="slug" class="form-control" placeholder="acme-homes" />
+                      <div class="form-text">Used in URLs; leave blank to auto-generate later.</div>
+                    </div>
+                    <div class="col-12 d-flex justify-content-between align-items-center">
+                      <div id="impersonation-create-company-status" class="small text-muted"></div>
+                      <button type="submit" class="btn btn-primary">Create Company</button>
+                    </div>
+                  </form>
+                </div>
+              </div>
+            </div>
+            <div class="col-lg-6">
+              <div class="card shadow-sm h-100">
+                <div class="card-header">
+                  <div class="d-flex justify-content-between align-items-center">
+                    <h3 class="h6 mb-0">Create User</h3>
+                    <span class="badge bg-secondary">SUPER ADMIN</span>
+                  </div>
+                </div>
+                <div class="card-body">
+                  <form id="impersonation-create-user-form" class="row g-3">
+                    <div class="col-md-6">
+                      <label for="impersonationUserEmail" class="form-label">Email</label>
+                      <input type="email" id="impersonationUserEmail" name="email" class="form-control" placeholder="user@company.com" required />
+                    </div>
+                    <div class="col-md-6">
+                      <label for="impersonationUserPassword" class="form-label">Temporary Password</label>
+                      <input type="text" id="impersonationUserPassword" name="password" class="form-control" placeholder="At least 8 characters" required />
+                    </div>
+                    <div class="col-md-6">
+                      <label for="impersonationUserFirstName" class="form-label">First Name</label>
+                      <input type="text" id="impersonationUserFirstName" name="firstName" class="form-control" />
+                    </div>
+                    <div class="col-md-6">
+                      <label for="impersonationUserLastName" class="form-label">Last Name</label>
+                      <input type="text" id="impersonationUserLastName" name="lastName" class="form-control" />
+                    </div>
+                    <div class="col-md-6">
+                      <label for="impersonationUserPhone" class="form-label">Phone</label>
+                      <input type="tel" id="impersonationUserPhone" name="phone" class="form-control" placeholder="(555) 555-5555" />
+                    </div>
+                    <div class="col-md-6">
+                      <label for="impersonationUserRole" class="form-label">Role</label>
+                      <select id="impersonationUserRole" name="role" class="form-select" required>
+                        <option value="USER">User</option>
+                        <option value="MANAGER">Manager</option>
+                        <option value="COMPANY_ADMIN">Company Admin</option>
+                        <option value="SUPER_ADMIN">Super Admin</option>
+                      </select>
+                    </div>
+                    <div class="col-md-6">
+                      <label for="impersonationUserStatus" class="form-label">Status</label>
+                      <select id="impersonationUserStatus" name="status" class="form-select">
+                        <option value="ACTIVE" selected>Active</option>
+                        <option value="INVITED">Invited</option>
+                        <option value="SUSPENDED">Suspended</option>
+                      </select>
+                    </div>
+                    <div class="col-md-6">
+                      <label for="impersonationUserCompanyId" class="form-label">Company ID</label>
+                      <input
+                        type="text"
+                        id="impersonationUserCompanyId"
+                        name="companyId"
+                        class="form-control"
+                        placeholder="64e1c..."
+                        value="<%= permissions && permissions.isImpersonating && permissions.impersonation ? permissions.impersonation.companyId : '' %>"
+                        required
+                      />
+                      <div class="form-text">Defaults to the impersonated company when available.</div>
+                    </div>
+                    <div class="col-12 d-flex justify-content-between align-items-center">
+                      <div id="impersonation-create-user-status" class="small text-muted"></div>
+                      <button type="submit" class="btn btn-primary">Create User</button>
+                    </div>
+                  </form>
+                </div>
+              </div>
+            </div>
+          </div>
+        </section>
+        <% } %>
+
+      <section id="admin-panel-billing" class="admin-panel d-none" role="tabpanel" aria-labelledby="admin-tab-billing">
+        <h2 class="h4 mb-3">Billing Overview</h2>
+        <p class="text-muted mb-4">
+          Company Admins can confirm addresses, monitor seat usage, and request upgrades. Platform-level billing stays locked down.
+        </p>
+
+          <form id="billing-settings-form" class="row g-4">
+            <div class="col-12">
+              <h3 class="h6 text-uppercase text-muted mb-2">Billing Contact</h3>
+              <div class="row g-3">
+                <div class="col-12">
+                  <label for="billingStreet" class="form-label">Billing Address</label>
+                  <input type="text" id="billingStreet" name="billingStreet" class="form-control" placeholder="456 Builder Way" />
+                </div>
+                <div class="col-md-4">
+                  <label for="billingCity" class="form-label">City</label>
+                  <input type="text" id="billingCity" name="billingCity" class="form-control" placeholder="Dallas" />
+                </div>
+                <div class="col-md-4">
+                  <label for="billingState" class="form-label">State</label>
+                  <input type="text" id="billingState" name="billingState" class="form-control" placeholder="TX" />
+                </div>
+                <div class="col-md-4">
+                  <label for="billingZip" class="form-label">ZIP</label>
+                  <input type="text" id="billingZip" name="billingZip" class="form-control" placeholder="75001" />
+                </div>
+              </div>
+            </div>
+
+            <div class="col-12">
+              <h3 class="h6 text-uppercase text-muted mb-2">Subscription</h3>
+              <div class="row g-3">
+                <div class="col-md-4">
+                  <label for="billingPlan" class="form-label">Plan</label>
+                  <input type="text" id="billingPlan" name="billingPlan" class="form-control" value="Growth" readonly />
+                  <div class="form-text">Plan labels are managed by the platform team.</div>
+                </div>
+                <div class="col-md-4">
+                  <label for="billingStatus" class="form-label">Billing Status</label>
+                  <input type="text" id="billingStatus" name="billingStatus" class="form-control" value="Active" readonly />
+                </div>
+              </div>
+            </div>
+
+            <div class="col-12">
+              <h3 class="h6 text-uppercase text-muted mb-2">Seats</h3>
+              <div class="row g-3 align-items-end">
+                <div class="col-md-3">
+                  <label for="seatsPurchased" class="form-label">Seats Purchased</label>
+                  <input type="number" id="seatsPurchased" name="seatsPurchased" class="form-control" min="1" value="10" />
+                  <div class="form-text">Adjust to request more seats for your team.</div>
+                </div>
+                <div class="col-md-3">
+                  <label for="seatsUsed" class="form-label">Seats Used</label>
+                  <input type="number" id="seatsUsed" name="seatsUsed" class="form-control" value="8" readonly />
+                </div>
+              </div>
+            </div>
+
+            <div class="col-12">
+              <h3 class="h6 text-uppercase text-muted mb-2">Extra Services</h3>
+              <div class="row g-3">
+                <div class="col-md-4">
+                  <div class="form-check form-switch">
+                    <input class="form-check-input" type="checkbox" id="serviceAnalytics" name="services[analytics]" />
+                    <label class="form-check-label" for="serviceAnalytics">Advanced Analytics</label>
+                  </div>
+                  <div class="form-text">Deeper reporting across communities.</div>
+                </div>
+                <div class="col-md-4">
+                  <div class="form-check form-switch">
+                    <input class="form-check-input" type="checkbox" id="serviceOnboarding" name="services[onboarding]" checked />
+                    <label class="form-check-label" for="serviceOnboarding">Onboarding Support</label>
+                  </div>
+                  <div class="form-text">Dedicated launch assistance for new hires.</div>
+                </div>
+                <div class="col-md-4">
+                  <div class="form-check form-switch">
+                    <input class="form-check-input" type="checkbox" id="serviceIntegrations" name="services[integrations]" />
+                    <label class="form-check-label" for="serviceIntegrations">CRM Integrations</label>
+                  </div>
+                  <div class="form-text">Sync KeepUP with your CRM stack.</div>
+                </div>
+              </div>
+            </div>
+
+            <div class="col-12 d-flex justify-content-end gap-2">
+              <button type="reset" class="btn btn-outline-secondary">Discard</button>
+              <button type="submit" class="btn btn-primary">Save Billing Settings</button>
+            </div>
+          </form>
+        </section>
+
+        <section id="admin-panel-settings" class="admin-panel d-none" role="tabpanel" aria-labelledby="admin-tab-settings">
+          <div class="text-muted">
+            <p class="mb-1">Global settings will land in this tab.</p>
+            <p class="mb-0">Feature toggles and preferences specific to your team.</p>
+          </div>
+        </section>
+      </div>
+    </div>
+  </main>
+
+  <script nonce="<%= cspNonce %>">
+    document.addEventListener('DOMContentLoaded', () => {
+      const tabButtons = Array.from(document.querySelectorAll('[data-admin-target]'));
+      const panels = new Map(
+        Array.from(document.querySelectorAll('.admin-panel')).map((panel) => [panel.id.replace('admin-panel-', ''), panel])
+      );
+
+      const readJsonResponse = async (response) => {
+        const contentType = (response.headers.get('content-type') || '').toLowerCase();
+        if (!contentType.includes('application/json')) {
+          const text = await response.text();
+          throw new Error(text.slice(0, 200) || 'Unexpected response format.');
+        }
+        return response.json();
+      };
+
+      const permissions = <%- JSON.stringify(permissions || {}) %>;
+      const canEditCompany = !!(permissions && permissions.canEditCompany);
+      const canManageUsers = !!(permissions && permissions.canManageUsers);
+
+      const state = {
+        loadedPanels: new Set(),
+        company: {
+          loading: false,
+          saving: false,
+          data: null
+        },
+        users: {
+          loading: false,
+          payload: null,
+          editing: false,
+          currentUserId: null
+        },
+        impersonation: {
+          loading: false,
+          saving: false,
+          data: null,
+          lastQuery: ''
+        }
+      };
+
+      const usersEls = {
+        loading: document.getElementById('admin-users-loading'),
+        error: document.getElementById('admin-users-error'),
+        tableWrapper: document.getElementById('admin-users-list'),
+        table: document.getElementById('admin-users-table'),
+        tableBody: document.querySelector('#admin-users-table tbody'),
+        actionsHeader: document.getElementById('admin-users-actions-header')
+      };
+
+      const usersControls = {
+        editToggle: document.getElementById('admin-users-edit-toggle')
+      };
+      if (usersControls.editToggle && !canManageUsers) {
+        usersControls.editToggle.classList.add('d-none');
+      }
+
+      const impersonationEls = {
+        status: document.getElementById('impersonation-status'),
+        error: document.getElementById('impersonation-error'),
+        loading: document.getElementById('impersonation-loading'),
+        tableBody: document.querySelector('#impersonation-table tbody'),
+        searchInput: document.getElementById('impersonation-search'),
+        searchButton: document.getElementById('impersonation-search-button'),
+        clearButton: document.getElementById('impersonation-clear-button')
+      };
+
+      const impersonationForms = {
+        createCompany: document.getElementById('impersonation-create-company-form'),
+        createCompanyStatus: document.getElementById('impersonation-create-company-status'),
+        createUser: document.getElementById('impersonation-create-user-form'),
+        createUserStatus: document.getElementById('impersonation-create-user-status')
+      };
+
+      const companyForm = document.getElementById('company-settings-form');
+      const companyStatusEl = document.getElementById('company-settings-status');
+      const companySaveButton = document.getElementById('company-settings-save');
+
+      const companyInputs = {
+        name: document.getElementById('companyName'),
+        street: document.getElementById('companyStreet'),
+        city: document.getElementById('companyCity'),
+        state: document.getElementById('companyState'),
+        zip: document.getElementById('companyZip'),
+        primaryName: document.getElementById('primaryName'),
+        primaryEmail: document.getElementById('primaryEmail'),
+        primaryPhone: document.getElementById('primaryPhone'),
+        logoUrl: document.getElementById('companyLogo'),
+        primaryColor: document.getElementById('colorPrimary'),
+        secondaryColor: document.getElementById('colorSecondary'),
+        timezone: document.getElementById('companyTimezone'),
+        notes: document.getElementById('companyNotes')
+      };
+      const companyViewOnlyMessage =
+        'Company settings are view-only for Manager accounts. Contact a Company Admin to make changes.';
+
+      if (companyForm && !canEditCompany) {
+        companyForm.querySelectorAll('input, select, textarea').forEach((field) => {
+          field.setAttribute('disabled', 'disabled');
+        });
+        if (companySaveButton) {
+          companySaveButton.classList.add('d-none');
+        }
+        if (companyStatusEl) {
+          companyStatusEl.textContent = companyViewOnlyMessage;
+          companyStatusEl.classList.add('text-muted');
+        }
+      }
+
+      const defaultPrimaryColor = companyInputs.primaryColor?.value || '#cc1d1d';
+      const defaultSecondaryColor = companyInputs.secondaryColor?.value || '#1f3c88';
+
+      const escapeHtml = (value) =>
+        String(value ?? '')
+          .replace(/&/g, '&amp;')
+          .replace(/</g, '&lt;')
+          .replace(/>/g, '&gt;')
+          .replace(/"/g, '&quot;')
+          .replace(/'/g, '&#39;');
+
+      const formatPhoneNumber = (value) => {
+        const raw = String(value ?? '').trim();
+        if (!raw) return '';
+        const digits = raw.replace(/\D+/g, '');
+        if (digits.length === 11 && digits.startsWith('1')) {
+          const national = digits.slice(-10);
+          return `+1 (${national.slice(0, 3)}) ${national.slice(3, 6)}-${national.slice(6)}`;
+        }
+        if (digits.length === 10) {
+          return `(${digits.slice(0, 3)}) ${digits.slice(3, 6)}-${digits.slice(6)}`;
+        }
+        return raw;
+      };
+
+      const setCompanyStatus = (message, tone = 'muted') => {
+        if (!companyStatusEl) return;
+        companyStatusEl.textContent = message || '';
+        companyStatusEl.classList.remove('text-muted', 'text-success', 'text-danger');
+        if (!message) {
+          companyStatusEl.classList.add('text-muted');
+          return;
+        }
+        const toneClass = tone === 'success' ? 'text-success' : tone === 'danger' ? 'text-danger' : 'text-muted';
+        companyStatusEl.classList.add(toneClass);
+      };
+
+      const clearCompanyStatus = () => setCompanyStatus('', 'muted');
+
+      const getInputValue = (input) => {
+        if (!input || typeof input.value !== 'string') return '';
+        return input.value.trim();
+      };
+
+      const showUsersLoading = (message = 'Loading users...') => {
+        if (usersEls.loading) {
+          usersEls.loading.textContent = message;
+          usersEls.loading.classList.remove('d-none');
+        }
+        usersEls.error?.classList.add('d-none');
+        usersEls.tableWrapper?.classList.add('d-none');
+      };
+
+      const showUsersError = (message) => {
+        if (usersEls.error) {
+          usersEls.error.textContent = message || 'Unable to load users right now.';
+          usersEls.error.classList.remove('d-none');
+        }
+        usersEls.loading?.classList.add('d-none');
+        usersEls.tableWrapper?.classList.add('d-none');
+      };
+
+      const showUsersTable = () => {
+        usersEls.loading?.classList.add('d-none');
+        usersEls.error?.classList.add('d-none');
+        usersEls.tableWrapper?.classList.remove('d-none');
+      };
+
+      const fetchCompanyPayload = async () => {
+        const response = await fetch('/api/admin/company', {
+          headers: { Accept: 'application/json' },
+          credentials: 'same-origin'
+        });
+        let data;
+        try {
+          data = await readJsonResponse(response);
+        } catch (parseErr) {
+          if (!response.ok) throw parseErr;
+          throw parseErr;
+        }
+        if (!response.ok) {
+          throw new Error(data?.error || `Request failed (${response.status})`);
+        }
+        return data;
+      };
+
+      const populateCompanyForm = (payload) => {
+        if (!companyForm || !payload) return;
+        const address = payload.address || {};
+        const primaryContact = payload.primaryContact || {};
+        const branding = payload.branding || {};
+
+        if (companyInputs.name) companyInputs.name.value = payload.companyName || '';
+        if (companyInputs.street) companyInputs.street.value = address.street || '';
+        if (companyInputs.city) companyInputs.city.value = address.city || '';
+        if (companyInputs.state) companyInputs.state.value = address.state || '';
+        if (companyInputs.zip) companyInputs.zip.value = address.zip || '';
+
+        if (companyInputs.primaryName) companyInputs.primaryName.value = primaryContact.name || '';
+        if (companyInputs.primaryEmail) companyInputs.primaryEmail.value = primaryContact.email || '';
+        if (companyInputs.primaryPhone) {
+          companyInputs.primaryPhone.value = primaryContact.phoneDisplay || primaryContact.phone || '';
+        }
+
+        if (companyInputs.logoUrl) companyInputs.logoUrl.value = branding.logoUrl || '';
+        if (companyInputs.primaryColor) {
+          companyInputs.primaryColor.value = branding.primaryColor || defaultPrimaryColor;
+        }
+        if (companyInputs.secondaryColor) {
+          companyInputs.secondaryColor.value = branding.secondaryColor || defaultSecondaryColor;
+        }
+
+        if (companyInputs.timezone) {
+          const tzValue = payload.timezone || '';
+          Array.from(companyInputs.timezone.querySelectorAll('option[data-dynamic="true"]') || []).forEach((option) =>
+            option.remove()
+          );
+          if (tzValue) {
+            const hasOption = Array.from(companyInputs.timezone.options || []).some(
+              (option) => option.value === tzValue
+            );
+            if (!hasOption) {
+              const option = document.createElement('option');
+              option.value = tzValue;
+              option.textContent = tzValue;
+              option.dataset.dynamic = 'true';
+              companyInputs.timezone.appendChild(option);
+            }
+          }
+          companyInputs.timezone.value = tzValue;
+        }
+        if (companyInputs.notes) companyInputs.notes.value = payload.notes || '';
+      };
+
+      const loadCompanyPanel = async ({ force = false } = {}) => {
+        if (!companyForm) return;
+        if (state.company.loading) return;
+        if (!force && state.loadedPanels.has('company') && state.company.data) {
+          populateCompanyForm(state.company.data);
+          return;
+        }
+
+        state.company.loading = true;
+        setCompanyStatus('Loading company settings...', 'muted');
+        if (companySaveButton && !state.company.saving && canEditCompany) {
+          companySaveButton.disabled = true;
+        }
+
+        try {
+          const payload = await fetchCompanyPayload();
+          state.company.data = payload;
+          state.loadedPanels.add('company');
+          populateCompanyForm(payload);
+          if (canEditCompany) {
+            clearCompanyStatus();
+          } else if (companyStatusEl) {
+            companyStatusEl.textContent = companyViewOnlyMessage;
+            companyStatusEl.classList.remove('text-success', 'text-danger');
+            companyStatusEl.classList.add('text-muted');
+          }
+        } catch (err) {
+          console.error('Failed to load company tab:', err);
+          setCompanyStatus(err.message || 'Unable to load company settings.', 'danger');
+        } finally {
+          state.company.loading = false;
+          if (companySaveButton && !state.company.saving && canEditCompany) {
+            companySaveButton.disabled = false;
+          }
+        }
+      };
+
+      const handleCompanySubmit = async (event) => {
+        event.preventDefault();
+        if (!companyForm || state.company.saving || state.company.loading) return;
+        if (!canEditCompany) return;
+
+        const payload = {
+          companyId: state.company.data?.companyId,
+          companyName: getInputValue(companyInputs.name),
+          address: {
+            street: getInputValue(companyInputs.street),
+            city: getInputValue(companyInputs.city),
+            state: getInputValue(companyInputs.state),
+            zip: getInputValue(companyInputs.zip)
+          },
+          primaryContact: {
+            name: getInputValue(companyInputs.primaryName),
+            email: getInputValue(companyInputs.primaryEmail),
+            phone: getInputValue(companyInputs.primaryPhone)
+          },
+          branding: {
+            logoUrl: getInputValue(companyInputs.logoUrl),
+            primaryColor: companyInputs.primaryColor?.value || '',
+            secondaryColor: companyInputs.secondaryColor?.value || ''
+          },
+          timezone: getInputValue(companyInputs.timezone),
+          notes: getInputValue(companyInputs.notes)
+        };
+
+        state.company.saving = true;
+        setCompanyStatus('Saving...', 'muted');
+        if (companySaveButton) companySaveButton.disabled = true;
+
+        try {
+          const response = await fetch('/api/admin/company', {
+            method: 'PUT',
+            headers: {
+              'Content-Type': 'application/json',
+              Accept: 'application/json'
+            },
+            credentials: 'same-origin',
+            body: JSON.stringify(payload)
+          });
+
+          let data;
+          try {
+            data = await readJsonResponse(response);
+          } catch (parseErr) {
+            if (!response.ok) throw parseErr;
+            throw parseErr;
+          }
+
+          if (!response.ok) {
+            throw new Error(data?.error || `Save failed (${response.status})`);
+          }
+
+          state.company.data = data;
+          state.loadedPanels.add('company');
+          populateCompanyForm(data);
+          setCompanyStatus('Company settings saved.', 'success');
+          setTimeout(() => {
+            if (!state.company.saving) clearCompanyStatus();
+          }, 4000);
+        } catch (err) {
+          console.error('Failed to save company settings:', err);
+          setCompanyStatus(err.message || 'Failed to save company settings.', 'danger');
+        } finally {
+          state.company.saving = false;
+          if (companySaveButton) companySaveButton.disabled = false;
+        }
+      };
+
+      const fetchUsersPayload = async () => {
+        const response = await fetch('/api/admin/users', {
+          headers: { Accept: 'application/json' },
+          credentials: 'same-origin'
+        });
+        if (!response.ok) {
+          throw new Error(`Request failed (${response.status})`);
+        }
+        return readJsonResponse(response);
+      };
+
+      const renderUsers = () => {
+        if (!usersEls.tableBody) return;
+
+        const payload = state.users.payload;
+        if (!payload) {
+          usersEls.tableBody.innerHTML = `
+            <tr>
+              <td colspan="9" class="text-center text-muted py-4">
+                No users loaded.
+              </td>
+            </tr>
+          `;
+          return;
+        }
+
+        const editing = state.users.editing;
+        const currentUserId = state.users.currentUserId || null;
+
+        if (usersEls.actionsHeader) {
+          usersEls.actionsHeader.classList.toggle('d-none', !editing);
+        }
+
+        const roleOptions = payload.roleOptions || [];
+        const statusOptionsAll = payload.statusOptions || [];
+        const statusOptionsEditable = statusOptionsAll.filter((option) =>
+          ['ACTIVE', 'SUSPENDED'].includes(option.value)
+        );
+        const communityOptions = payload.communities || [];
+        const managerOptions = payload.managers || [];
+
+        if (!payload.users || !payload.users.length) {
+          usersEls.tableBody.innerHTML = `
+            <tr>
+              <td colspan="9" class="text-center text-muted py-4">
+                No users found for this company yet.
+              </td>
+            </tr>
+          `;
+          return;
+        }
+
+        const roleLookup = new Map(roleOptions.map((option) => [option.value, option.label]));
+        const statusLookup = new Map(statusOptionsAll.map((option) => [option.value, option.label]));
+        const communityLookup = new Map(communityOptions.map((community) => [community.id, community.label]));
+
+        const renderReadOnlyRow = (user) => {
+          const phoneDisplay = user.phoneDisplay || formatPhoneNumber(user.phone);
+          const roleLabel = (Array.isArray(user.roles) ? user.roles : [])
+            .map((role) => roleLookup.get(role))
+            .find(Boolean) || 'User';
+          const statusLabel = statusLookup.get(user.status)?.replace('Suspended', 'Inactive')
+            || (user.status === 'SUSPENDED' ? 'Inactive' : user.status || 'Unknown');
+          const communityLabels = (Array.isArray(user.communities) ? user.communities : [])
+            .map((id) => communityLookup.get(id))
+            .filter(Boolean);
+          const communitiesDisplay = communityLabels.length ? communityLabels.join(', ') : 'All Communities';
+          const managerDisplay = user.managerName
+            ? escapeHtml(user.managerName)
+            : '&mdash;';
+
+          return `
+            <tr data-user-id="${escapeHtml(user.id)}">
+              <td>${escapeHtml(user.firstName || '')}</td>
+              <td>${escapeHtml(user.lastName || '')}</td>
+              <td>${escapeHtml(user.email)}</td>
+              <td>${escapeHtml(phoneDisplay || '')}</td>
+              <td>${escapeHtml(roleLabel)}</td>
+              <td>${escapeHtml(statusLabel)}</td>
+              <td>${escapeHtml(communitiesDisplay)}</td>
+              <td>${managerDisplay}</td>
+              <td class="text-end text-muted">&mdash;</td>
+            </tr>
+          `;
+        };
+
+        const renderEditableRow = (user) => {
+          const selectedCommunities = new Set(Array.isArray(user.communities) ? user.communities : []);
+          const managerValue = user.managerId || '';
+          const isSelf = currentUserId && user.id === currentUserId;
+
+          const roleSelect = roleOptions
+            .map((option) => {
+              const selected = (Array.isArray(user.roles) ? user.roles : []).includes(option.value) ? 'selected' : '';
+              return `<option value="${escapeHtml(option.value)}" ${selected}>${escapeHtml(option.label)}</option>`;
+            })
+            .join('');
+
+          const statusOptionMarkup = (() => {
+            const options = statusOptionsEditable
+              .map((option) => {
+                const normalizedLabel = option.value === 'SUSPENDED' ? 'Inactive' : option.label;
+                const selected = option.value === user.status ? 'selected' : '';
+                return `<option value="${escapeHtml(option.value)}" ${selected}>${escapeHtml(normalizedLabel)}</option>`;
+              });
+
+            if (user.status && !statusOptionsEditable.some((option) => option.value === user.status)) {
+              const fallbackLabel = statusLookup.get(user.status) || user.status;
+              options.unshift(
+                `<option value="${escapeHtml(user.status)}" selected disabled>${escapeHtml(fallbackLabel)} (read-only)</option>`
+              );
+            }
+
+            return options.join('');
+          })();
+
+          const communitySelect = communityOptions
+            .map((community) => {
+              const selected = selectedCommunities.has(community.id) ? 'selected' : '';
+              return `<option value="${escapeHtml(community.id)}" ${selected}>${escapeHtml(community.label)}</option>`;
+            })
+            .join('');
+
+          const managerSelect = [
+            '<option value="">None</option>',
+            ...managerOptions.map((manager) => {
+              const selected = manager.id === managerValue ? 'selected' : '';
+              return `<option value="${escapeHtml(manager.id)}" ${selected}>${escapeHtml(manager.label)}</option>`;
+            })
+          ].join('');
+
+          const deleteButton = isSelf
+            ? '<button type="button" class="btn btn-sm btn-outline-secondary ms-2" data-action="delete-user" disabled title="You cannot delete your own account.">Delete</button>'
+            : '<button type="button" class="btn btn-sm btn-danger ms-2" data-action="delete-user">Delete</button>';
+
+          return `
+            <tr data-user-id="${escapeHtml(user.id)}">
+              <td>
+                <input type="text" class="form-control form-control-sm" name="firstName" value="${escapeHtml(user.firstName || '')}" />
+              </td>
+              <td>
+                <input type="text" class="form-control form-control-sm" name="lastName" value="${escapeHtml(user.lastName || '')}" />
+              </td>
+              <td>
+                <span class="form-control-plaintext form-control-sm">${escapeHtml(user.email)}</span>
+              </td>
+              <td>
+                <input type="text" class="form-control form-control-sm" name="phone" value="${escapeHtml(user.phone || '')}" placeholder="(555) 555-5555" />
+              </td>
+              <td>
+                <select class="form-select form-select-sm" name="role">
+                  ${roleSelect}
+                </select>
+              </td>
+              <td>
+                <select class="form-select form-select-sm" name="status">
+                  ${statusOptionMarkup}
+                </select>
+              </td>
+              <td>
+                <select class="form-select form-select-sm admin-users-multiselect" name="communities" multiple size="4">
+                  ${communitySelect}
+                </select>
+              </td>
+              <td>
+                <select class="form-select form-select-sm" name="manager">
+                  ${managerSelect}
+                </select>
+              </td>
+              <td class="text-end">
+                <div class="btn-group btn-group-sm">
+                  <button type="button" class="btn btn-primary" data-action="save-user">Save</button>
+                  <button type="button" class="btn btn-outline-secondary" data-action="cancel-user">Cancel</button>
+                </div>
+                ${deleteButton}
+              </td>
+            </tr>
+          `;
+        };
+
+        const rows = payload.users
+          .map((user) => (editing ? renderEditableRow(user) : renderReadOnlyRow(user)))
+          .join('');
+
+        usersEls.tableBody.innerHTML = rows;
+
+        if (editing && usersEls.table) {
+          usersEls.table.classList.add('table-editing');
+        } else {
+          usersEls.table?.classList.remove('table-editing');
+        }
+      };
+
+      const loadUsersPanel = async ({ force = false, silent = false } = {}) => {
+        if (state.users.loading) return;
+
+        if (!force && state.loadedPanels.has('users')) {
+          renderUsers();
+          updateEditToggleVisual();
+          showUsersTable();
+          return;
+        }
+
+        state.users.loading = true;
+        if (!silent) showUsersLoading();
+
+        try {
+          const payload = await fetchUsersPayload();
+          state.users.payload = payload;
+          state.users.currentUserId = payload.currentUserId || null;
+          state.loadedPanels.add('users');
+          renderUsers();
+          updateEditToggleVisual();
+          showUsersTable();
+        } catch (err) {
+          console.error('Failed to load users tab:', err);
+          showUsersError(err.message || 'Unable to load users right now.');
+        } finally {
+          state.users.loading = false;
+        }
+      };
+
+      const refreshUsersData = (options = {}) => loadUsersPanel({ ...options, force: true });
+
+      const showImpersonationLoading = (message = 'Loading companies...') => {
+        if (!permissions || !permissions.canUseImpersonation) return;
+        if (impersonationEls.loading) {
+          impersonationEls.loading.textContent = message;
+          impersonationEls.loading.classList.remove('d-none');
+        }
+      };
+
+      const hideImpersonationLoading = () => {
+        impersonationEls.loading?.classList.add('d-none');
+      };
+
+      const setImpersonationFormStatus = (element, message, tone = 'muted') => {
+        if (!element) return;
+        element.textContent = message || '';
+        element.classList.remove('text-muted', 'text-success', 'text-danger');
+        if (!message) {
+          element.classList.add('text-muted');
+          return;
+        }
+        const toneClass = tone === 'success' ? 'text-success' : tone === 'danger' ? 'text-danger' : 'text-muted';
+        element.classList.add(toneClass);
+      };
+
+      const showImpersonationError = (message) => {
+        if (!permissions || !permissions.canUseImpersonation) return;
+        if (!impersonationEls.error) return;
+        impersonationEls.error.textContent = message || 'Something went wrong.';
+        impersonationEls.error.classList.remove('d-none');
+        hideImpersonationLoading();
+      };
+
+      const fetchImpersonationPayload = async (query = '') => {
+        const url = new URL('/api/admin/impersonation', window.location.origin);
+        if (query) url.searchParams.set('search', query);
+        const response = await fetch(url.toString(), {
+          headers: { Accept: 'application/json' },
+          credentials: 'same-origin'
+        });
+
+        let data;
+        try {
+          data = await readJsonResponse(response);
+        } catch (err) {
+          if (!response.ok) throw err;
+          throw err;
+        }
+
+        if (!response.ok) {
+          throw new Error(data?.error || `Request failed (${response.status})`);
+        }
+
+        return data;
+      };
+
+      const renderImpersonation = () => {
+        if (!permissions || !permissions.canUseImpersonation) return;
+        if (!state.impersonation.data) return;
+
+        const payload = state.impersonation.data;
+        const active = payload.active && payload.active.companyId ? payload.active : null;
+
+        if (impersonationEls.status) {
+          impersonationEls.status.classList.remove('alert-warning', 'alert-info');
+          if (active) {
+            impersonationEls.status.classList.add('alert-warning');
+            impersonationEls.status.innerHTML = `Currently impersonating <strong>${escapeHtml(
+              active.companyName || active.companyId
+            )}</strong>. Any tenant-scoped views and APIs will respect this company until you stop impersonating.`;
+          } else {
+            impersonationEls.status.classList.add('alert-info');
+            impersonationEls.status.innerHTML =
+              'Not impersonating any company. Select one below to assume their context.';
+          }
+        }
+
+        if (impersonationEls.clearButton) {
+          const disableClear = !active || state.impersonation.saving;
+          impersonationEls.clearButton.classList.toggle('d-none', !active);
+          impersonationEls.clearButton.disabled = disableClear;
+        }
+
+        if (!impersonationEls.tableBody) return;
+
+        const companies = Array.isArray(payload.companies) ? payload.companies : [];
+        if (!companies.length) {
+          impersonationEls.tableBody.innerHTML = `
+            <tr>
+              <td colspan="3" class="text-center text-muted py-4">
+                ${escapeHtml(
+                  state.impersonation.lastQuery ? 'No companies match this search.' : 'No companies available.'
+                )}
+              </td>
+            </tr>
+          `;
+          return;
+        }
+
+        const disableButtons = state.impersonation.saving;
+        const rows = companies
+          .map((company) => {
+            const isActive = active && active.companyId === company.id;
+            const buttonLabel = isActive ? 'Active' : 'Impersonate';
+            const buttonVariant = isActive ? 'btn-secondary' : 'btn-outline-primary';
+            const disabledAttr = isActive || disableButtons ? 'disabled' : '';
+            return `
+              <tr data-company-id="${escapeHtml(company.id)}">
+                <td>${escapeHtml(company.name || 'Unnamed Company')}</td>
+                <td></td>
+                <td class="text-end">
+                  <button type="button" class="btn btn-sm ${buttonVariant}" data-action="impersonate" ${disabledAttr}>
+                    ${escapeHtml(buttonLabel)}
+                  </button>
+                </td>
+              </tr>
+            `;
+          })
+          .join('');
+
+        impersonationEls.tableBody.innerHTML = rows;
+      };
+
+      const loadImpersonationPanel = async ({ force = false } = {}) => {
+        if (!permissions || !permissions.canUseImpersonation) return;
+        if (state.impersonation.loading) return;
+
+        const query = impersonationEls.searchInput ? impersonationEls.searchInput.value.trim() : '';
+        if (
+          !force &&
+          state.loadedPanels.has('impersonation') &&
+          state.impersonation.data &&
+          state.impersonation.lastQuery === query
+        ) {
+          renderImpersonation();
+          return;
+        }
+
+        state.impersonation.loading = true;
+        showImpersonationLoading(query ? 'Searching companies...' : 'Loading companies...');
+        impersonationEls.error?.classList.add('d-none');
+
+        try {
+          const payload = await fetchImpersonationPayload(query);
+          state.impersonation.data = payload;
+          state.impersonation.lastQuery = query;
+          state.loadedPanels.add('impersonation');
+          renderImpersonation();
+        } catch (err) {
+          console.error('Failed to load impersonation data:', err);
+          showImpersonationError(err.message || 'Unable to load impersonation data.');
+        } finally {
+          state.impersonation.loading = false;
+          hideImpersonationLoading();
+        }
+      };
+
+      const impersonateCompany = async (companyId) => {
+        if (!permissions || !permissions.canUseImpersonation) return;
+        if (!companyId || state.impersonation.saving) return;
+
+        state.impersonation.saving = true;
+        showImpersonationLoading('Switching company...');
+        impersonationEls.error?.classList.add('d-none');
+
+        try {
+          const response = await fetch('/api/admin/impersonation', {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+              Accept: 'application/json'
+            },
+            credentials: 'same-origin',
+            body: JSON.stringify({ companyId })
+          });
+          const data = await readJsonResponse(response);
+          if (!response.ok) {
+            const message = data?.error || `Request failed (${response.status})`;
+            throw new Error(message);
+          }
+          window.location.reload();
+        } catch (err) {
+          console.error('Failed to impersonate company:', err);
+          showImpersonationError(err.message || 'Failed to impersonate company.');
+        } finally {
+          state.impersonation.saving = false;
+          hideImpersonationLoading();
+        }
+      };
+
+      const clearImpersonation = async () => {
+        if (!permissions || !permissions.canUseImpersonation) return;
+        if (state.impersonation.saving) return;
+
+        state.impersonation.saving = true;
+        showImpersonationLoading('Clearing impersonation...');
+        impersonationEls.error?.classList.add('d-none');
+
+        try {
+          const response = await fetch('/api/admin/impersonation', {
+            method: 'DELETE',
+            headers: { Accept: 'application/json' },
+            credentials: 'same-origin'
+          });
+          const data = await readJsonResponse(response);
+          if (!response.ok) {
+            const message = data?.error || `Request failed (${response.status})`;
+            throw new Error(message);
+          }
+          window.location.reload();
+        } catch (err) {
+          console.error('Failed to stop impersonating:', err);
+          showImpersonationError(err.message || 'Failed to stop impersonating.');
+        } finally {
+          state.impersonation.saving = false;
+          hideImpersonationLoading();
+        }
+      };
+
+      if (permissions && permissions.canUseImpersonation) {
+        if (impersonationForms.createCompany) {
+          impersonationForms.createCompany.addEventListener('submit', async (event) => {
+            event.preventDefault();
+            const form = event.currentTarget;
+            const submitButton = form.querySelector('button[type="submit"]');
+            const statusEl = impersonationForms.createCompanyStatus;
+            const formData = new FormData(form);
+            const companyName = (formData.get('companyName') || '').toString().trim();
+            const slug = (formData.get('slug') || '').toString().trim();
+
+            if (!companyName) {
+              setImpersonationFormStatus(statusEl, 'Company name is required.', 'danger');
+              return;
+            }
+
+            if (submitButton) submitButton.disabled = true;
+            setImpersonationFormStatus(statusEl, 'Creating company...', 'muted');
+
+            try {
+              const response = await fetch('/api/admin/company', {
+                method: 'POST',
+                headers: {
+                  'Content-Type': 'application/json',
+                  Accept: 'application/json'
+                },
+                credentials: 'same-origin',
+                body: JSON.stringify({ companyName, slug })
+              });
+
+              const data = await readJsonResponse(response);
+              if (!response.ok) {
+                const message = data?.error || `Create failed (${response.status})`;
+                throw new Error(message);
+              }
+
+              setImpersonationFormStatus(statusEl, 'Company created successfully.', 'success');
+              form.reset();
+              await loadImpersonationPanel({ force: true });
+            } catch (err) {
+              console.error('Failed to create company:', err);
+              setImpersonationFormStatus(statusEl, err.message || 'Failed to create company.', 'danger');
+            } finally {
+              if (submitButton) submitButton.disabled = false;
+            }
+          });
+        }
+
+        if (impersonationForms.createUser) {
+          impersonationForms.createUser.addEventListener('submit', async (event) => {
+            event.preventDefault();
+            const form = event.currentTarget;
+            const submitButton = form.querySelector('button[type="submit"]');
+            const statusEl = impersonationForms.createUserStatus;
+            const formData = new FormData(form);
+
+            const email = (formData.get('email') || '').toString().trim();
+            const password = (formData.get('password') || '').toString().trim();
+            const companyId = (formData.get('companyId') || '').toString().trim();
+            const role = (formData.get('role') || '').toString().trim();
+            const status = (formData.get('status') || '').toString().trim() || 'ACTIVE';
+            const firstName = (formData.get('firstName') || '').toString().trim();
+            const lastName = (formData.get('lastName') || '').toString().trim();
+            const phone = (formData.get('phone') || '').toString().trim();
+
+            if (!email || !password || !companyId) {
+              setImpersonationFormStatus(statusEl, 'Email, password, and company ID are required.', 'danger');
+              return;
+            }
+
+            if (submitButton) submitButton.disabled = true;
+            setImpersonationFormStatus(statusEl, 'Creating user...', 'muted');
+
+            try {
+              const payload = {
+                email,
+                password,
+                companyId,
+                role,
+                status
+              };
+              if (firstName) payload.firstName = firstName;
+              if (lastName) payload.lastName = lastName;
+              if (phone) payload.phone = phone;
+
+              const response = await fetch('/api/admin/users', {
+                method: 'POST',
+                headers: {
+                  'Content-Type': 'application/json',
+                  Accept: 'application/json'
+                },
+                credentials: 'same-origin',
+                body: JSON.stringify(payload)
+              });
+
+              const data = await readJsonResponse(response);
+              if (!response.ok) {
+                const message = data?.error || `Create failed (${response.status})`;
+                throw new Error(message);
+              }
+
+              setImpersonationFormStatus(statusEl, 'User created successfully.', 'success');
+              form.reset();
+              const companyInput = form.querySelector('input[name="companyId"]');
+              if (companyInput && permissions.isImpersonating && permissions.impersonation) {
+                companyInput.value = permissions.impersonation.companyId;
+              }
+              const statusSelect = form.querySelector('select[name="status"]');
+              if (statusSelect) statusSelect.value = 'ACTIVE';
+
+              await refreshUsersData({ force: true, silent: true });
+            } catch (err) {
+              console.error('Failed to create user:', err);
+              setImpersonationFormStatus(statusEl, err.message || 'Failed to create user.', 'danger');
+            } finally {
+              if (submitButton) submitButton.disabled = false;
+            }
+          });
+        }
+      }
+
+      const panelLoaders = {
+        company: loadCompanyPanel,
+        users: loadUsersPanel
+      };
+      if (permissions && permissions.canUseImpersonation) {
+        panelLoaders.impersonation = loadImpersonationPanel;
+      }
+
+      const activatePanel = (target, button) => {
+        if (!target) return;
+
+        tabButtons.forEach((btn) => {
+          const isActive = btn === button;
+          btn.classList.toggle('active', isActive);
+          btn.setAttribute('aria-selected', String(isActive));
+        });
+
+        panels.forEach((panel, key) => {
+          const show = key === target;
+          panel.classList.toggle('d-none', !show);
+          panel.classList.toggle('active', show);
+        });
+
+        const loader = panelLoaders[target];
+        if (typeof loader === 'function') {
+          loader();
+        }
+      };
+
+      const updateEditToggleVisual = () => {
+        if (!usersControls.editToggle) return;
+        const editing = state.users.editing;
+        usersControls.editToggle.textContent = editing ? 'Done Editing' : 'Edit Users';
+        usersControls.editToggle.classList.toggle('btn-outline-primary', !editing);
+        usersControls.editToggle.classList.toggle('btn-primary', editing);
+      };
+
+      const handleEditToggle = async () => {
+        if (!state.users.payload) {
+          await loadUsersPanel();
+        }
+        state.users.editing = !state.users.editing;
+        updateEditToggleVisual();
+        renderUsers();
+        showUsersTable();
+      };
+
+      const collectMultiSelectValues = (select) =>
+        Array.from(select?.selectedOptions || []).map((option) => option.value);
+
+      const saveUserRow = async (row, triggerButton, userId) => {
+        if (!row || !userId) return;
+
+        const firstName = row.querySelector('[name="firstName"]')?.value ?? '';
+        const lastName = row.querySelector('[name="lastName"]')?.value ?? '';
+        const phone = row.querySelector('[name="phone"]')?.value ?? '';
+        const role = row.querySelector('[name="role"]')?.value ?? '';
+        const status = row.querySelector('[name="status"]')?.value ?? '';
+        const communities = collectMultiSelectValues(row.querySelector('[name="communities"]'));
+        const manager = row.querySelector('[name="manager"]')?.value ?? '';
+        const payload = {
+          firstName,
+          lastName,
+          phone,
+          role,
+          status,
+          communities,
+          manager: manager || null
+        };
+
+        triggerButton.disabled = true;
+        const cancelButton = row.querySelector('button[data-action="cancel-user"]');
+        if (cancelButton) cancelButton.disabled = true;
+
+        try {
+          const response = await fetch(`/api/admin/users/${encodeURIComponent(userId)}`, {
+            method: 'PUT',
+            headers: {
+              'Content-Type': 'application/json',
+              Accept: 'application/json'
+            },
+            credentials: 'same-origin',
+            body: JSON.stringify(payload)
+          });
+
+          if (!response.ok) {
+            const errorPayload = await response.json().catch(() => ({}));
+            const message = errorPayload.error || `Save failed (${response.status})`;
+            throw new Error(message);
+          }
+
+          await refreshUsersData({ silent: true });
+          renderUsers();
+          updateEditToggleVisual();
+          showUsersTable();
+          usersEls.error?.classList.add('d-none');
+        } catch (err) {
+          console.error('Failed to save user', err);
+          showUsersError(err.message || 'Failed to save user changes.');
+          if (state.users.payload) {
+            usersEls.tableWrapper?.classList.remove('d-none');
+          }
+        } finally {
+          triggerButton.disabled = false;
+          if (cancelButton) cancelButton.disabled = false;
+        }
+      };
+
+      const deleteUserRow = async (row, triggerButton, userId) => {
+        if (!row || !userId) return;
+
+        if (state.users.currentUserId && userId === state.users.currentUserId) {
+          showUsersError('You cannot delete your own account.');
+          usersEls.loading?.classList.add('d-none');
+          usersEls.tableWrapper?.classList.remove('d-none');
+          return;
+        }
+
+        const confirmed = window.confirm('Delete this user? This action cannot be undone.');
+        if (!confirmed) return;
+
+        triggerButton.disabled = true;
+
+        try {
+          const response = await fetch(`/api/admin/users/${encodeURIComponent(userId)}`, {
+            method: 'DELETE',
+            headers: { Accept: 'application/json' },
+            credentials: 'same-origin'
+          });
+
+          if (!response.ok) {
+            const errorPayload = await response.json().catch(() => ({}));
+            const message = errorPayload.error || `Delete failed (${response.status})`;
+            throw new Error(message);
+          }
+
+          await refreshUsersData({ silent: true });
+          renderUsers();
+          updateEditToggleVisual();
+          showUsersTable();
+          usersEls.error?.classList.add('d-none');
+        } catch (err) {
+          console.error('Failed to delete user', err);
+          showUsersError(err.message || 'Failed to delete user.');
+          if (state.users.payload) {
+            usersEls.tableWrapper?.classList.remove('d-none');
+          }
+        } finally {
+          triggerButton.disabled = false;
+        }
+      };
+
+      const handleUserTableClick = async (event) => {
+        const actionButton = event.target.closest('button[data-action]');
+        if (!actionButton) return;
+        const action = actionButton.dataset.action;
+        if (!action) return;
+
+        const row = actionButton.closest('tr[data-user-id]');
+        if (!row) return;
+        const userId = row.dataset.userId;
+
+        if (action === 'cancel-user') {
+          renderUsers();
+          return;
+        }
+
+        if (action === 'save-user') {
+          await saveUserRow(row, actionButton, userId);
+          return;
+        }
+
+        if (action === 'delete-user') {
+          await deleteUserRow(row, actionButton, userId);
+          return;
+        }
+      };
+
+      if (usersEls.tableBody) {
+        usersEls.tableBody.addEventListener('click', handleUserTableClick);
+      }
+
+      if (usersControls.editToggle) {
+        usersControls.editToggle.addEventListener('click', handleEditToggle);
+      }
+
+      if (companyForm) {
+        companyForm.addEventListener('submit', handleCompanySubmit);
+        companyForm.addEventListener('reset', (event) => {
+          event.preventDefault();
+          if (state.company.data) {
+            populateCompanyForm(state.company.data);
+          }
+          clearCompanyStatus();
+        });
+      }
+
+      if (permissions && permissions.canUseImpersonation) {
+        if (impersonationEls.searchButton) {
+          impersonationEls.searchButton.addEventListener('click', (event) => {
+            event.preventDefault();
+            loadImpersonationPanel({ force: true });
+          });
+        }
+        if (impersonationEls.searchInput) {
+          impersonationEls.searchInput.addEventListener('keydown', (event) => {
+            if (event.key === 'Enter') {
+              event.preventDefault();
+              loadImpersonationPanel({ force: true });
+            }
+          });
+        }
+        if (impersonationEls.tableBody) {
+          impersonationEls.tableBody.addEventListener('click', (event) => {
+            const actionButton = event.target.closest('button[data-action="impersonate"]');
+            if (!actionButton || actionButton.disabled) return;
+            const row = actionButton.closest('tr[data-company-id]');
+            if (!row) return;
+            const companyId = row.dataset.companyId;
+            impersonateCompany(companyId);
+          });
+        }
+        if (impersonationEls.clearButton) {
+          impersonationEls.clearButton.addEventListener('click', (event) => {
+            event.preventDefault();
+            clearImpersonation();
+          });
+        }
+      }
+
+      tabButtons.forEach((button) => {
+        button.addEventListener('click', () => activatePanel(button.dataset.adminTarget, button));
+      });
+
+      loadCompanyPanel();
+      updateEditToggleVisual();
+    });
+  </script>
+</body>
+</html>

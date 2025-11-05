@@ -6,6 +6,7 @@ const router = express.Router();
 const Lender = require("../models/lenderModel");
 const ensureAuth  = require("../middleware/ensureAuth");
 const requireRole = require("../middleware/requireRole");
+const { normalizePhoneForDb } = require("../utils/phone");
 
 // ───────── helpers ─────────
 const isObjectId = v => mongoose.Types.ObjectId.isValid(String(v));
@@ -13,10 +14,6 @@ const isSuper = req => (req.user?.roles || []).includes("SUPER_ADMIN");
 const companyFilter = req => (isSuper(req) ? {} : { company: req.user.company });
 
 const toStr = v => (v ?? "").toString().trim();
-const normalizePhone = v => {
-  const s = toStr(v).replace(/[^\d]/g, "");
-  return s.length >= 10 ? s.slice(-10) : s;
-};
 const normalizeEmail = v => toStr(v).toLowerCase();
 const parseDateMaybe = v => {
   if (!v) return null;
@@ -119,7 +116,7 @@ router.post("/",
 
       // normalize
       const email = body.email ? normalizeEmail(body.email) : "";
-      const phone = body.phone ? normalizePhone(body.phone) : "";
+      const phone = body.phone ? normalizePhoneForDb(body.phone).phone : "";
       const visitDate = body.visitDate ? parseDateMaybe(body.visitDate) : null;
 
       // 1) Try to find an existing lender by identity
@@ -171,7 +168,7 @@ router.post("/",
       if (err?.code === 11000) {
         try {
           const email = req.body.email ? normalizeEmail(req.body.email) : "";
-          const phone = req.body.phone ? normalizePhone(req.body.phone) : "";
+          const phone = req.body.phone ? normalizePhoneForDb(req.body.phone).phone : "";
           const existing = await Lender.findOne({
             company: req.user.company,
             $or: [
@@ -203,7 +200,7 @@ router.put("/:id",
       delete updates.company; // never allow tenant change
 
       if (updates.email) updates.email = normalizeEmail(updates.email);
-      if (updates.phone) updates.phone = normalizePhone(updates.phone);
+      if (updates.phone) updates.phone = normalizePhoneForDb(updates.phone).phone;
       if (updates.visitDate) updates.visitDate = parseDateMaybe(updates.visitDate);
 
       const updated = await Lender.findOneAndUpdate(

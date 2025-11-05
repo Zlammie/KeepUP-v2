@@ -1,0 +1,199 @@
+  <main class="add-lead-wrapper">
+    <h1>Add a New Floor Plan</h1>
+
+    <form id="floorPlanForm" class="mb-5">
+      <div class="mb-3">
+        <label for="planNumber" class="form-label">Floor Plan #</label>
+        <input id="planNumber" class="form-control" name="planNumber" required />
+      </div>
+      <div class="mb-3">
+        <label for="name" class="form-label">Floor Plan Name</label>
+        <input id="name" class="form-control" name="name" required />
+      </div>
+      <div class="row g-3">
+        <div class="col-md-3">
+          <label for="squareFeet" class="form-label">Square Feet</label>
+          <input id="squareFeet" class="form-control" name="squareFeet" type="number" min="0" required />
+        </div>
+        <div class="col-md-3">
+          <label for="beds" class="form-label">Beds</label>
+          <input id="beds" class="form-control" name="beds" type="number" min="0" required />
+        </div>
+        <div class="col-md-3">
+          <label for="baths" class="form-label">Baths</label>
+          <input id="baths" class="form-control" name="baths" type="number" step="0.5" min="0" required />
+        </div>
+        <div class="col-md-3">
+          <label for="garage" class="form-label">Garage Spaces</label>
+          <input id="garage" class="form-control" name="garage" type="number" min="0" required />
+        </div>
+      </div>
+      <div class="mb-3 mt-3">
+        <label for="communities" class="form-label">Communities</label>
+        <select id="communities" class="form-select" name="communities" multiple required>
+          <!-- Options populated via JS -->
+        </select>
+        <div class="form-text">Hold Ctrl/Cmd to select multiple communities.</div>
+      </div>
+      <button type="submit" class="btn btn-primary">Create Floor Plan</button>
+      <div id="statusMsg" class="status mt-2"></div>
+    </form>
+
+    <section class="mt-4" id="existingPlansSection">
+      <h2 class="h4">Existing Floor Plans</h2>
+      <div class="table-responsive">
+        <table class="table table-striped table-sm align-middle" id="plansTable">
+          <thead>
+            <tr>
+              <th scope="col">Plan #</th>
+              <th scope="col">Name</th>
+              <th scope="col">Square Feet</th>
+              <th scope="col">Beds</th>
+              <th scope="col">Baths</th>
+              <th scope="col">Garage</th>
+              <th scope="col">Communities</th>
+              <th scope="col">Created</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td colspan="8" class="text-center text-muted">Loading floor plans...</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </section>
+  </main>
+
+  <script nonce="<%= cspNonce %>">
+    document.addEventListener('DOMContentLoaded', () => {
+      const form = document.getElementById('floorPlanForm');
+      const statusEl = document.getElementById('statusMsg');
+      const communitiesSelect = document.getElementById('communities');
+      const plansTableBody = document.querySelector('#plansTable tbody');
+
+      const communitiesMap = new Map();
+      let plansCache = [];
+
+      const html = String.raw;
+
+      function setStatus(message, isError = false) {
+        if (!statusEl) return;
+        statusEl.textContent = message || '';
+        statusEl.classList.toggle('text-danger', isError);
+        statusEl.classList.toggle('text-success', !isError && message);
+      }
+
+      function renderCommunities(communities) {
+        communitiesSelect.innerHTML = '';
+        communities.forEach(c => {
+          communitiesMap.set(c._id, c.name || '(unnamed)');
+          const opt = document.createElement('option');
+          opt.value = c._id;
+          opt.textContent = c.name;
+          communitiesSelect.appendChild(opt);
+        });
+      }
+
+      function renderPlans(plans) {
+        if (!plans.length) {
+          plansTableBody.innerHTML = '<tr><td colspan="8" class="text-center text-muted">No floor plans yet.</td></tr>';
+          return;
+        }
+
+        const rows = plans.map(plan => {
+          const specs = plan.specs || {};
+          const communityLabels = (Array.isArray(plan.communities) ? plan.communities : [])
+            .map(id => communitiesMap.get(id) || id)
+            .filter(Boolean);
+
+          const created = plan.createdAt ? new Date(plan.createdAt) : null;
+
+          return html`<tr>
+            <td>${plan.planNumber || ''}</td>
+            <td>${plan.name || ''}</td>
+            <td>${specs.squareFeet ?? ''}</td>
+            <td>${specs.beds ?? ''}</td>
+            <td>${specs.baths ?? ''}</td>
+            <td>${specs.garage ?? ''}</td>
+            <td>${communityLabels.length ? communityLabels.join(', ') : 'None'}</td>
+            <td>${created && !Number.isNaN(created.valueOf()) ? created.toLocaleString() : 'N/A'}</td>
+          </tr>`;
+        });
+
+        plansTableBody.innerHTML = rows.join('');
+      }
+
+      async function loadCommunities() {
+        const res = await fetch('/api/communities');
+        if (!res.ok) throw new Error(`GET /api/communities -> ${res.status}`);
+        return res.json();
+      }
+
+      async function loadPlans() {
+        const res = await fetch('/api/floorplans');
+        if (!res.ok) throw new Error(`GET /api/floorplans -> ${res.status}`);
+        return res.json();
+      }
+
+      async function hydrate() {
+        try {
+          const [communities, plans] = await Promise.all([loadCommunities(), loadPlans()]);
+          renderCommunities(communities);
+          plansCache = plans;
+          renderPlans(plansCache);
+        } catch (err) {
+          console.error('Failed to hydrate page:', err);
+          plansTableBody.innerHTML = '<tr><td colspan="8" class="text-center text-danger">Failed to load floor plans.</td></tr>';
+        }
+      }
+
+      function prependPlan(plan) {
+        plansCache = [plan, ...plansCache.filter(p => p._id !== plan._id)];
+        renderPlans(plansCache);
+      }
+
+      form.addEventListener('submit', async (event) => {
+        event.preventDefault();
+        setStatus('');
+
+        const payload = {
+          planNumber: document.getElementById('planNumber').value.trim(),
+          name: document.getElementById('name').value.trim(),
+          specs: {
+            squareFeet: Number(document.getElementById('squareFeet').value) || 0,
+            beds: Number(document.getElementById('beds').value) || 0,
+            baths: Number(document.getElementById('baths').value) || 0,
+            garage: Number(document.getElementById('garage').value) || 0
+          },
+          communities: Array.from(communitiesSelect.selectedOptions, opt => opt.value)
+        };
+
+        try {
+          const res = await fetch('/api/floorplans', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(payload)
+          });
+
+          if (!res.ok) {
+            const errorPayload = await res.json().catch(() => ({}));
+            throw new Error(errorPayload.error || `Request failed (${res.status})`);
+          }
+
+          const plan = await res.json();
+          setStatus(`Created Floor Plan: ${plan.planNumber} - ${plan.name}`);
+          form.reset();
+          prependPlan(plan);
+        } catch (error) {
+          console.error('Create floor plan failed:', error);
+          setStatus(`Error: ${error.message}`, true);
+        }
+      });
+
+      hydrate();
+    });
+  </script>
+</body>
+</html>
+

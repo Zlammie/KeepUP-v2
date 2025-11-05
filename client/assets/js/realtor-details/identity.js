@@ -1,6 +1,7 @@
 // Compact identity header + edit toggle logic
 
 import { dom } from './domCache.js';
+import { formatPhoneDisplay } from '../shared/phone.js';
 
 export function fullNameFromInputs() {
   const first = dom.inputs.firstName?.value?.trim() || '';
@@ -10,14 +11,15 @@ export function fullNameFromInputs() {
 
 export function updateHeaderFromInputs() {
   const name  = fullNameFromInputs();
-  const phone = dom.inputs.phone?.value?.trim() || 'Phone Number';
+  const phoneRaw = dom.inputs.phone?.value?.trim() || '';
+  const phone = phoneRaw ? formatPhoneDisplay(phoneRaw) : 'Phone Number';
   const email = dom.inputs.email?.value?.trim() || 'Email';
 
   dom.hdrName.textContent = name;
   dom.titleName.textContent = name;
 
   dom.hdrPhone.textContent = phone;
-  dom.hdrPhone.href = phone && phone !== 'Phone Number' ? `tel:${phone}` : '#';
+  dom.hdrPhone.href = phoneRaw ? `tel:${phoneRaw}` : '#';
 
   dom.hdrEmail.textContent = email;
   dom.hdrEmail.href = email && email !== 'Email' ? `mailto:${email}` : '#';

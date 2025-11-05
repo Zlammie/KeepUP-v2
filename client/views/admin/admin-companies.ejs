@@ -16,24 +16,10 @@
       <div class="card">
         <div class="card-header fw-semibold">Add Company</div>
         <div class="card-body">
-          <form method="POST" action="/admin/companies" class="vstack gap-3">
-            <div>
-              <label class="form-label">Name</label>
-              <input name="name" class="form-control" required value="<%= form?.name || '' %>" />
-              <div class="form-text">Required. Must be unique.</div>
-            </div>
-
-            <div>
-              <label class="form-label">Slug (optional)</label>
-              <input name="slug" class="form-control" value="<%= form?.slug || '' %>" />
-              <div class="form-text">Leave blank to auto-generate from name.</div>
-            </div>
-
-            <div class="hstack gap-2">
-              <button class="btn btn-primary" type="submit">Create</button>
-              <a href="/admin/companies" class="btn btn-outline-secondary">Reset</a>
-            </div>
-          </form>
+          <p class="mb-0 text-muted">
+            Company creation now lives in the Admin Section &rarr; Impersonation tab.
+            Only SUPER ADMIN accounts can create new companies.
+          </p>
         </div>
       </div>
     </div>
@@ -61,7 +47,7 @@
           </tbody>
         </table>
       <% } else { %>
-        <div class="alert alert-info">No companies yet—use the form to add your first company.</div>
+        <div class="alert alert-info">No companies yet&mdash;use the Admin Section Impersonation tab to add one.
       <% } %>
     </div>
   </div>

@@ -1,0 +1,539 @@
+const express = require('express');
+const mongoose = require('mongoose');
+
+const Task = require('../../models/Task');
+const Contact = require('../../models/Contact');
+const requireRole = require('../../middleware/requireRole');
+
+const router = express.Router();
+
+const { Types } = mongoose;
+
+const TASK_STATUS = new Set(Task.STATUS || []);
+const TASK_TYPES = new Set(Task.TYPES || []);
+const TASK_PRIORITIES = new Set(Task.PRIORITIES || []);
+const TASK_CATEGORIES = new Set(Task.CATEGORIES || []);
+const TASK_LINKED_MODELS = new Set(Task.LINKED_MODELS || []);
+
+const DEFAULT_TYPE = TASK_TYPES.has('Follow-Up')
+  ? 'Follow-Up'
+  : (Array.isArray(Task.TYPES) && Task.TYPES[0]) || 'Custom';
+
+const DEFAULT_PRIORITY = TASK_PRIORITIES.has('Medium')
+  ? 'Medium'
+  : (Array.isArray(Task.PRIORITIES) && Task.PRIORITIES[0]) || 'Medium';
+
+const DEFAULT_STATUS = TASK_STATUS.has('Pending')
+  ? 'Pending'
+  : (Array.isArray(Task.STATUS) && Task.STATUS[0]) || 'Pending';
+
+const COMM_TYPES = new Set(['Follow-Up', 'Call', 'Email', 'Meeting', 'Reminder', 'Note']);
+const OPERATIONS_TYPES = new Set(['Document', 'Approval', 'Review']);
+const SYSTEM_TYPES = new Set(['Data Fix', 'System Suggestion']);
+const ADMIN_TYPES = new Set(['Admin']);
+
+function inferCategoryFromType(type) {
+  if (!type) return 'Custom';
+  if (COMM_TYPES.has(type)) return 'Communication';
+  if (ADMIN_TYPES.has(type)) return 'Admin';
+  if (SYSTEM_TYPES.has(type)) return 'System';
+  if (OPERATIONS_TYPES.has(type)) return 'Operations';
+  return 'Custom';
+}
+
+function canViewAllTasks(user) {
+  const roles = Array.isArray(user?.roles) ? user.roles : [];
+  return roles.includes('SUPER_ADMIN') || roles.includes('COMPANY_ADMIN') || roles.includes('MANAGER');
+}
+
+function sanitizeCategory(category, fallbackType) {
+  const trimmed = typeof category === 'string' ? category.trim() : '';
+  if (TASK_CATEGORIES.has(trimmed)) return trimmed;
+  return inferCategoryFromType(fallbackType);
+}
+
+function getCategoryList() {
+  const list = Array.from(TASK_CATEGORIES);
+  if (!list.length) {
+    list.push('Custom');
+  } else if (!list.includes('Custom')) {
+    list.push('Custom');
+  }
+  return list;
+}
+
+function ensureObjectId(value) {
+  if (!value) return null;
+  const str = String(value);
+  return Types.ObjectId.isValid(str) ? new Types.ObjectId(str) : null;
+}
+
+function toIso(value) {
+  if (!value) return null;
+  const date = value instanceof Date ? value : new Date(value);
+  return Number.isNaN(date.getTime()) ? null : date.toISOString();
+}
+
+function serializeTask(task) {
+  if (!task) return null;
+
+  const toString = (val) => (val == null ? null : String(val));
+
+  return {
+    _id: toString(task._id),
+    company: toString(task.company),
+    assignedTo: toString(task.assignedTo),
+    createdBy: toString(task.createdBy),
+    linkedModel: task.linkedModel ?? null,
+    linkedId: toString(task.linkedId),
+    title: task.title || '',
+    description: task.description || '',
+    type: task.type || 'Follow-Up',
+    category: task.category || 'Custom',
+    priority: task.priority || 'Medium',
+    status: task.status || 'Pending',
+    dueDate: toIso(task.dueDate),
+    completedAt: toIso(task.completedAt),
+    autoCreated: Boolean(task.autoCreated),
+    reason: task.reason || null,
+    createdAt: toIso(task.createdAt),
+    updatedAt: toIso(task.updatedAt)
+  };
+}
+
+router.get(
+  '/',
+  requireRole('READONLY', 'USER', 'MANAGER', 'COMPANY_ADMIN', 'SUPER_ADMIN'),
+  async (req, res) => {
+    try {
+      const companyId = ensureObjectId(req.user?.company);
+      if (!companyId) {
+        return res.status(400).json({ error: 'Missing company context' });
+      }
+
+      const {
+        linkedModel = 'Contact',
+        linkedId,
+        status,
+        type,
+        limit
+      } = req.query || {};
+
+      if (!linkedId) {
+        return res.status(400).json({ error: 'linkedId is required' });
+      }
+
+      if (linkedModel !== 'Contact') {
+        return res.status(400).json({ error: 'Only contact-linked tasks are supported right now.' });
+      }
+
+      const linkedObjectId = ensureObjectId(linkedId);
+      if (!linkedObjectId) {
+        return res.status(400).json({ error: 'Invalid linkedId' });
+      }
+
+      const filters = {
+        company: companyId,
+        linkedModel: 'Contact',
+        linkedId: linkedObjectId
+      };
+
+      if (status) {
+        const statuses = String(status)
+          .split(',')
+          .map((s) => s.trim())
+          .filter(Boolean);
+
+        const validStatuses = statuses.filter((s) => TASK_STATUS.has(s));
+        if (!validStatuses.length) {
+          return res.status(400).json({ error: 'Invalid status filter' });
+        }
+        filters.status = validStatuses.length === 1 ? validStatuses[0] : { $in: validStatuses };
+      }
+
+      if (type) {
+        const types = String(type)
+          .split(',')
+          .map((s) => s.trim())
+          .filter(Boolean);
+        const validTypes = types.filter((t) => TASK_TYPES.has(t));
+        if (!validTypes.length) {
+          return res.status(400).json({ error: 'Invalid type filter' });
+        }
+        filters.type = validTypes.length === 1 ? validTypes[0] : { $in: validTypes };
+      }
+
+      let limitInt = parseInt(limit, 10);
+      if (Number.isNaN(limitInt) || limitInt <= 0) limitInt = 100;
+      limitInt = Math.min(limitInt, 250);
+
+      const tasks = await Task.find(filters)
+        .sort({ createdAt: -1 })
+        .limit(limitInt)
+        .lean();
+
+      return res.json({
+        tasks: tasks.map(serializeTask)
+      });
+    } catch (err) {
+      console.error('[tasks.api] Failed to list tasks:', err);
+      return res.status(500).json({ error: 'Failed to load tasks' });
+    }
+  }
+);
+
+router.get(
+  '/overview',
+  requireRole('READONLY', 'USER', 'MANAGER', 'COMPANY_ADMIN', 'SUPER_ADMIN'),
+  async (req, res) => {
+    try {
+      const companyId = ensureObjectId(req.user?.company);
+      if (!companyId) {
+        return res.status(400).json({ error: 'Missing company context' });
+      }
+
+      const endOfToday = new Date();
+      endOfToday.setHours(23, 59, 59, 999);
+      const startOfToday = new Date();
+      startOfToday.setHours(0, 0, 0, 0);
+
+      const statusFilter = Array.from(TASK_STATUS).filter((status) => status !== 'Completed');
+      if (!statusFilter.length) statusFilter.push('Pending', 'In Progress', 'Overdue');
+
+      const assignedId = ensureObjectId(req.user?._id);
+      const filter = {
+        company: companyId,
+        status: { $in: statusFilter },
+        $or: [
+          { dueDate: { $lte: endOfToday } },
+          { status: 'Overdue' }
+        ]
+      };
+
+      if (!canViewAllTasks(req.user)) {
+        if (assignedId) {
+          filter.assignedTo = assignedId;
+        } else {
+          return res.json({
+            categories: [],
+            meta: {
+              totals: { due: 0, overdue: 0 },
+              categories: getCategoryList(),
+              statuses: Array.from(TASK_STATUS),
+              priorities: Array.from(TASK_PRIORITIES),
+              types: Array.from(TASK_TYPES)
+            }
+          });
+        }
+      }
+
+      const tasks = await Task.find(filter)
+        .sort({ dueDate: 1, priority: -1, createdAt: -1 })
+        .limit(500)
+        .lean();
+
+      const categoriesList = getCategoryList();
+
+      const fallbackCategory = categoriesList.includes('Custom') ? 'Custom' : categoriesList[0];
+
+      const grouped = new Map();
+      categoriesList.forEach((category) => grouped.set(category, []));
+
+      tasks.forEach((task) => {
+        const category = TASK_CATEGORIES.has(task.category) ? task.category : fallbackCategory;
+        const bucket = grouped.get(category);
+        bucket.push(serializeTask(task));
+      });
+
+      const responseCategories = categoriesList
+        .map((category) => {
+          const items = grouped.get(category) || [];
+          if (!items.length) return null;
+          const overdueCount = items.filter((task) => {
+            if (!task.dueDate) return false;
+            if ((task.status || '').toLowerCase() === 'completed') return false;
+            const due = new Date(task.dueDate);
+            if (Number.isNaN(due.getTime())) return false;
+            return due < startOfToday;
+          }).length;
+          return {
+            name: category,
+            total: items.length,
+            overdue: overdueCount,
+            tasks: items
+          };
+        })
+        .filter(Boolean);
+
+      const overdueTotal = responseCategories.reduce((acc, category) => acc + category.overdue, 0);
+
+      return res.json({
+        categories: responseCategories,
+        meta: {
+          totals: {
+            due: tasks.length,
+            overdue: overdueTotal
+          },
+          categories: categoriesList,
+          statuses: Array.from(TASK_STATUS),
+          priorities: Array.from(TASK_PRIORITIES),
+          types: Array.from(TASK_TYPES)
+        }
+      });
+    } catch (err) {
+      console.error('[tasks.api] Failed to load overview:', err);
+      return res.status(500).json({ error: 'Failed to load task overview' });
+    }
+  }
+);
+
+router.post(
+  '/',
+  requireRole('USER', 'MANAGER', 'COMPANY_ADMIN', 'SUPER_ADMIN'),
+  async (req, res) => {
+    try {
+      const companyId = ensureObjectId(req.user?.company);
+      const actorId = ensureObjectId(req.user?._id);
+      if (!companyId || !actorId) {
+        return res.status(400).json({ error: 'Missing company context' });
+      }
+
+      const {
+        title,
+        description,
+        dueDate,
+        linkedId,
+        linkedModel = null,
+        type = DEFAULT_TYPE,
+        priority,
+        reason,
+        category,
+        status,
+        assignedTo
+      } = req.body || {};
+
+      const trimmedTitle = (title || '').trim();
+      if (!trimmedTitle) {
+        return res.status(400).json({ error: 'Title is required' });
+      }
+
+      const normalizedModel =
+        typeof linkedModel === 'string' && linkedModel.trim().length
+          ? linkedModel.trim()
+          : null;
+
+      if (normalizedModel && TASK_LINKED_MODELS.size && !TASK_LINKED_MODELS.has(normalizedModel)) {
+        return res.status(400).json({ error: 'Unsupported linked model' });
+      }
+
+      let linkedObjectId = null;
+
+      if (normalizedModel === 'Contact') {
+        const contactId = ensureObjectId(linkedId);
+        if (!contactId) {
+          return res.status(400).json({ error: 'A valid contact id is required.' });
+        }
+
+        const contact = await Contact.findOne({
+          _id: contactId,
+          company: companyId
+        })
+          .select('_id')
+          .lean();
+
+        if (!contact) {
+          return res.status(404).json({ error: 'Contact not found' });
+        }
+
+        linkedObjectId = contact._id;
+      } else if (normalizedModel) {
+        return res.status(400).json({ error: 'Only contact-linked or unlinked tasks are supported right now.' });
+      }
+
+      let normalizedDueDate = null;
+      if (dueDate) {
+        const parsed = new Date(dueDate);
+        if (Number.isNaN(parsed.getTime())) {
+          return res.status(400).json({ error: 'Invalid due date' });
+        }
+        normalizedDueDate = parsed;
+      }
+
+      const sanitizedType = TASK_TYPES.has(type) ? type : DEFAULT_TYPE;
+      const sanitizedPriority = TASK_PRIORITIES.has(priority) ? priority : DEFAULT_PRIORITY;
+      const sanitizedCategory = sanitizeCategory(category, sanitizedType);
+      const sanitizedStatus = (() => {
+        const incoming = typeof status === 'string' ? status.trim() : '';
+        return TASK_STATUS.has(incoming) ? incoming : DEFAULT_STATUS;
+      })();
+
+      const safeDescription = typeof description === 'string' ? description.trim() : '';
+      const safeReason = typeof reason === 'string' ? reason.trim() : '';
+
+      const assignedObjectId = ensureObjectId(assignedTo) || actorId;
+
+      const autoCreatedFlag = Boolean(req.body?.autoCreated);
+
+      const task = await Task.create({
+        company: companyId,
+        assignedTo: assignedObjectId,
+        createdBy: actorId,
+        linkedModel: normalizedModel,
+        linkedId: linkedObjectId || undefined,
+        title: trimmedTitle,
+        description: safeDescription || undefined,
+        type: sanitizedType,
+        category: sanitizedCategory,
+        priority: sanitizedPriority,
+        status: sanitizedStatus,
+        dueDate: normalizedDueDate || undefined,
+        autoCreated: autoCreatedFlag,
+        reason: safeReason || undefined
+      });
+
+      const plainTask = serializeTask(task);
+      return res.status(201).json({ task: plainTask });
+    } catch (err) {
+      console.error('[tasks.api] Failed to create task:', err);
+      return res.status(500).json({ error: 'Failed to create task' });
+    }
+  }
+);
+
+router.patch(
+  '/:taskId',
+  requireRole('USER', 'MANAGER', 'COMPANY_ADMIN', 'SUPER_ADMIN'),
+  async (req, res) => {
+    try {
+      const companyId = ensureObjectId(req.user?.company);
+      if (!companyId) {
+        return res.status(400).json({ error: 'Missing company context' });
+      }
+
+      const taskObjectId = ensureObjectId(req.params.taskId);
+      if (!taskObjectId) {
+        return res.status(400).json({ error: 'Invalid task id' });
+      }
+
+      const task = await Task.findOne({ _id: taskObjectId, company: companyId });
+      if (!task) {
+        return res.status(404).json({ error: 'Task not found' });
+      }
+
+      const payload = req.body || {};
+      const hasOwn = Object.prototype.hasOwnProperty;
+      let hasChanges = false;
+
+      if (hasOwn.call(payload, 'title')) {
+        const nextTitle = typeof payload.title === 'string' ? payload.title.trim() : '';
+        if (!nextTitle) {
+          return res.status(400).json({ error: 'Title is required' });
+        }
+        if (task.title !== nextTitle) {
+          task.title = nextTitle;
+          hasChanges = true;
+        }
+      }
+
+      if (hasOwn.call(payload, 'description')) {
+        const nextDescription = typeof payload.description === 'string' ? payload.description.trim() : '';
+        if (nextDescription) {
+          if (task.description !== nextDescription) {
+            task.description = nextDescription;
+            hasChanges = true;
+          }
+        } else if (task.description) {
+          task.set('description', undefined);
+          hasChanges = true;
+        }
+      }
+
+      if (hasOwn.call(payload, 'reason')) {
+        const nextReason = typeof payload.reason === 'string' ? payload.reason.trim() : '';
+        if (nextReason) {
+          if (task.reason !== nextReason) {
+            task.reason = nextReason;
+            hasChanges = true;
+          }
+        } else if (task.reason) {
+          task.set('reason', undefined);
+          hasChanges = true;
+        }
+      }
+
+      if (hasOwn.call(payload, 'dueDate')) {
+        const dueValue = payload.dueDate;
+        if (!dueValue) {
+          if (task.dueDate) {
+            task.set('dueDate', undefined);
+            hasChanges = true;
+          }
+        } else {
+          const parsed = new Date(dueValue);
+          if (Number.isNaN(parsed.getTime())) {
+            return res.status(400).json({ error: 'Invalid due date' });
+          }
+          if (!task.dueDate || task.dueDate.getTime() !== parsed.getTime()) {
+            task.dueDate = parsed;
+            hasChanges = true;
+          }
+        }
+      }
+
+      if (hasOwn.call(payload, 'type')) {
+        const nextType = typeof payload.type === 'string' ? payload.type.trim() : '';
+        if (!TASK_TYPES.has(nextType)) {
+          return res.status(400).json({ error: 'Invalid task type' });
+        }
+        if (task.type !== nextType) {
+          task.type = nextType;
+          task.category = inferCategoryFromType(nextType);
+          hasChanges = true;
+        }
+      }
+
+      if (hasOwn.call(payload, 'priority')) {
+        const nextPriority = typeof payload.priority === 'string' ? payload.priority.trim() : '';
+        if (!TASK_PRIORITIES.has(nextPriority)) {
+          return res.status(400).json({ error: 'Invalid priority' });
+        }
+        if (task.priority !== nextPriority) {
+          task.priority = nextPriority;
+          hasChanges = true;
+        }
+      }
+
+      if (hasOwn.call(payload, 'status')) {
+        const nextStatus = typeof payload.status === 'string' ? payload.status.trim() : '';
+        if (!TASK_STATUS.has(nextStatus)) {
+          return res.status(400).json({ error: 'Invalid status' });
+        }
+        if (task.status !== nextStatus) {
+          task.status = nextStatus;
+          hasChanges = true;
+          if (nextStatus === 'Completed') {
+            task.completedAt = new Date();
+          } else if (task.completedAt) {
+            task.set('completedAt', undefined);
+          }
+        } else if (nextStatus === 'Completed' && !task.completedAt) {
+          task.completedAt = new Date();
+          hasChanges = true;
+        }
+      }
+
+      if (!hasChanges) {
+        return res.json({ task: serializeTask(task) });
+      }
+
+      await task.save();
+      return res.json({ task: serializeTask(task) });
+    } catch (err) {
+      console.error('[tasks.api] Failed to update task:', err);
+      return res.status(500).json({ error: 'Failed to update task' });
+    }
+  }
+);
+
+
+module.exports = router;

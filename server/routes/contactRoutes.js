@@ -19,6 +19,7 @@ const {
   filterCommunitiesForUser,
   hasCommunityAccess,
 } = require('../utils/communityScope');
+const { normalizePhoneForDb } = require('../utils/phone');
 
 // ───────────────────────── helpers ─────────────────────────
 const isObjectId = v => mongoose.Types.ObjectId.isValid(String(v));
@@ -82,7 +83,6 @@ const toIsoStringOrNull = (v) => {
   const d = v instanceof Date ? v : new Date(String(v));
   return Number.isNaN(d.valueOf()) ? null : d.toISOString();
 };
-function normalizePhone(v){ const s = toStr(v).replace(/[^\d]/g, ''); return s.length >= 10 ? s.slice(-10) : s; }
 function parseDateMaybe(v){
   if (!v) return null;
   if (typeof v === 'number') { const base = new Date(Date.UTC(1899, 11, 30)); return new Date(base.getTime() + v * 86400000); }
@@ -127,9 +127,10 @@ router.post(
            const firstName = (req.body.firstName || '').trim();
       const lastName  = (req.body.lastName  || '').trim();
       const emailRaw  = (req.body.email || '').trim();
-      const phoneRaw  = (req.body.phone || '').toString();
+      const phoneNormalized = normalizePhoneForDb(req.body.phone);
+      const phoneRaw = phoneNormalized.phone;
       const emailNorm = emailRaw.toLowerCase();
-      const phoneNorm = phoneRaw.replace(/\D+/g, '');
+      const phoneNorm = phoneNormalized.phoneNorm;
       const visitDate = req.body.visitDate ? new Date(req.body.visitDate) : null;
       const requestedStatus = toStatusCase(req.body.status);
       const statusValue = requestedStatus || 'New';
@@ -429,13 +430,18 @@ router.put('/:id',
       }
 
       if (Object.prototype.hasOwnProperty.call(b, 'phone')) {
-        const phone = normalizePhone(b.phone);
+        const normalizedPhone = normalizePhoneForDb(b.phone);
+        const phone = normalizedPhone.phone;
         if (!phone) {
           $unset.phone = '';
+          $unset.phoneNorm = '';
           delete $set.phone;
+          if (Object.prototype.hasOwnProperty.call($set, 'phoneNorm')) delete $set.phoneNorm;
         } else {
           $set.phone = phone;
+          $set.phoneNorm = normalizedPhone.phoneNorm;
           if (Object.prototype.hasOwnProperty.call($unset, 'phone')) delete $unset.phone;
+          if (Object.prototype.hasOwnProperty.call($unset, 'phoneNorm')) delete $unset.phoneNorm;
         }
       }
 
@@ -963,9 +969,10 @@ router.post('/import',
         const firstName = toStr(r.FirstName || r['First Name'] || r.firstName);
         const lastName  = toStr(r.LastName  || r['Last Name']  || r.lastName);
         const emailRaw  = toStr(r.Email || r.email);
-        const phoneRaw  = normalizePhone(r.Phone || r.phone);
+        const phoneData = normalizePhoneForDb(r.Phone || r.phone);
+        const phoneRaw = phoneData.phone;
         const emailNorm = emailRaw.toLowerCase();
-        const phoneNorm = phoneRaw; // normalizePhone already digits-only
+        const phoneNorm = phoneData.phoneNorm;
         const visitDate = parseDateMaybe(r.VisitDate || r['Visit Date'] || r.visitDate);
 
         if (!firstName && !lastName && !emailRaw && !phoneNorm) { skipped++; continue; }

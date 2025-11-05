@@ -33,7 +33,7 @@
           </div>
           <div class="form-group">
             <label for="salesPersonPhone">Sales Person Phone #</label>
-            <input type="text" id="salesPersonPhone" name="salesPersonPhone" value="<%= competition.salesPersonPhone || '' %>">
+            <input type="text" id="salesPersonPhone" name="salesPersonPhone" value="<%= formatPhone(competition.salesPersonPhone || '') %>">
           </div>
           <div class="form-group">
             <label for="salesPersonEmail">Sales Person Email</label>

@@ -57,6 +57,8 @@ module.exports = async function ensureAuth(req, res, next) {
 
     if (!rolesArr.length) rolesArr.push(DEFAULT_ROLE);
 
+    const isSuperAdmin = rolesArr.includes(User.ROLES?.SUPER_ADMIN || 'SUPER_ADMIN');
+
     if (process.env.AUTH_DEBUG || process.env.NODE_ENV !== 'production') {
       console.info('[ensureAuth] user roles normalized', {
         userId: String(u._id),
@@ -71,12 +73,29 @@ module.exports = async function ensureAuth(req, res, next) {
     // allowedCommunityIds: default to [] (means "all communities in this company")
     const allowed = Array.isArray(u.allowedCommunityIds) ? u.allowedCommunityIds : [];
 
+    const impersonation =
+      isSuperAdmin && req.session?.impersonation?.companyId
+        ? {
+            companyId: String(req.session.impersonation.companyId),
+            companyName: req.session.impersonation.companyName || null,
+            startedAt: req.session.impersonation.startedAt || null
+          }
+        : null;
+
+    if (!isSuperAdmin && req.session?.impersonation) {
+      delete req.session.impersonation;
+    }
+
+    const effectiveCompany = impersonation?.companyId || companyId;
+
     req.user = {
       _id: u._id,
       email: u.email,
-      company: companyId,
+      company: effectiveCompany,
+      homeCompany: companyId,
       roles: rolesArr,
-      allowedCommunityIds: allowed
+      allowedCommunityIds: allowed,
+      impersonation
     };
 
     return next();

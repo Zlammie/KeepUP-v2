@@ -1,9 +1,9 @@
 const mongoose = require('mongoose');
 const { Schema } = mongoose;
+const { normalizePhoneForDb } = require('../utils/phone');
 
 // ── light normalizers ──
 const toLowerTrim = v => (v == null ? v : String(v).trim().toLowerCase());
-const toPhone10   = v => (v ? String(v).replace(/[^\d]/g, '').slice(-10) : '');
 const toNumOrNull = v => (v === '' || v == null ? null : Number(v));
 const toObjectIdOrNull = v => (typeof v === 'string' && v.trim() === '' ? null : v);
 
@@ -46,7 +46,7 @@ const CommunityCompetitionProfileSchema = new Schema({
   // ===== Editable fields on "My Community — Competition" =====
   // Sales contact (normalize a bit)
   salesPerson:       { type: String, default: '' },
-  salesPersonPhone:  { type: String, set: toPhone10, default: '' },
+  salesPersonPhone:  { type: String, set: v => normalizePhoneForDb(v).phone, default: '' },
   salesPersonEmail:  { type: String, set: toLowerTrim, default: '' },
 
   // Location + model

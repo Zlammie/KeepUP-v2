@@ -33,6 +33,7 @@
 /* 5. Pages */
 @import "pages/contact-details.css";
 @import "pages/realtor-details.css";
+@import "pages/task.css";
 
 @import "pages/contact.css";
 @import "pages/myCommunity.css";
@@ -44,3 +45,4 @@
 @import "pages/lenders.css";
 @import "pages/update-competition.css";
 @import "pages/competition-dashboard.css";
+@import "pages/admin-section.css";

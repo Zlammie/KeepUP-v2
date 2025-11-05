@@ -1,5 +1,6 @@
 // assets/js/contact-details/lenderSearch.js
 import { getState } from './state.js';
+import { formatPhoneDisplay } from '../shared/phone.js';
 
 export function initLenderSearch() {
   renderLenderSummary();
@@ -95,7 +96,7 @@ function createLenderCard(entry) {
   container.insertAdjacentHTML('beforeend', `
     <div><strong>${(lender.firstName||'')} ${(lender.lastName||'')}</strong></div>
     <div>Email: ${lender.email || '—'}</div>
-    <div>Phone: ${lender.phone || '—'}</div>
+    <div>Phone: ${formatPhoneDisplay(lender.phone || '') || '—'}</div>
     <div>Brokerage: ${lender.brokerage || lender.lenderBrokerage || '—'}</div>
 
     <label class="primary-label">
@@ -298,7 +299,8 @@ function renderSearchResults(list) {
     const name = `${esc(l.firstName || '')} ${esc(l.lastName || '')}`.trim() || '—';
     const broker = esc(l.brokerage || l.lenderBrokerage || '—');
     const email  = esc(l.email || '—');
-    const phone  = esc(l.phone || '—');
+    const phoneDisplay = formatPhoneDisplay(l.phone || '') || '—';
+    const phone  = esc(phoneDisplay);
 
     row.innerHTML = `
       <div class="name"><strong>${name}</strong></div>
@@ -314,7 +316,7 @@ function selectLender(l) {
   setValue('lender-firstName', l.firstName || '');
   setValue('lender-lastName',  l.lastName  || '');
   setValue('lender-email',     l.email     || '');
-  setValue('lender-phone',     l.phone     || '');
+  setValue('lender-phone',     formatPhoneDisplay(l.phone || ''));
   setValue('lender-brokerage', l.brokerage || l.lenderBrokerage || '');
 
   document.getElementById('lender-info-fields').style.display = 'block';

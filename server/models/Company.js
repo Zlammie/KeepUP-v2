@@ -3,9 +3,22 @@ const mongoose = require('mongoose');
 const { Schema } = mongoose;
 
 const BrandingSchema = new Schema({
-  logoUrl: { type: String, default: null },     // add later in UI
-  primaryColor: { type: String, default: null }, // e.g. "#0ea5e9"
-  secondaryColor: { type: String, default: null }
+  logoUrl: { type: String, default: null, trim: true },
+  primaryColor: { type: String, default: null, trim: true }, // e.g. "#0ea5e9"
+  secondaryColor: { type: String, default: null, trim: true }
+}, { _id: false });
+
+const AddressSchema = new Schema({
+  street: { type: String, trim: true, default: null },
+  city: { type: String, trim: true, default: null },
+  state: { type: String, trim: true, default: null },
+  zip: { type: String, trim: true, default: null }
+}, { _id: false });
+
+const PrimaryContactSchema = new Schema({
+  name: { type: String, trim: true, default: null },
+  email: { type: String, trim: true, lowercase: true, default: null },
+  phone: { type: String, trim: true, default: null }
 }, { _id: false });
 
 const SettingsSchema = new Schema({
@@ -31,7 +44,12 @@ const CompanySchema = new Schema({
   branding: { type: BrandingSchema, default: () => ({}) },
 
   // Billing hooks (fill in when/if you adopt a provider)
-  billingCustomerId: { type: String, default: null }
+  billingCustomerId: { type: String, default: null },
+
+  // Company profile + admin-only notes
+  address: { type: AddressSchema, default: () => ({}) },
+  primaryContact: { type: PrimaryContactSchema, default: () => ({}) },
+  notes: { type: String, trim: true, default: '' }
 }, { timestamps: true });
 
 // Helper: auto-generate slug from name on create (don’t clobber if provided)

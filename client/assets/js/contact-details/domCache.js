@@ -33,12 +33,14 @@ export function cacheDOM() {
   DOM.linkLotBtn        = document.getElementById('link-lot-btn');
   DOM.unlinkLotBtn      = document.getElementById('unlink-lot-btn');
   DOM.linkedLotDisplay  = document.getElementById('linked-lot-display');
+  DOM.linkedSalesPriceInput = document.getElementById('linked-sales-price');
+  DOM.linkedSalesDateInput  = document.getElementById('linked-sale-date');
 
   // Realtor/Lender search
   DOM.realtorSearch = document.getElementById('realtor-search');
   DOM.realtorList   = document.getElementById('realtor-results');
-  DOM.lenderSearch  = document.getElementById('lender-search');
-  DOM.lenderList    = document.getElementById('lender-results');
+  DOM.lenderSearch  = document.getElementById('lender-search-input');
+  DOM.lenderList    = document.getElementById('lender-search-results');
 
   // Optional: “More Details” panel
   DOM.moreInfoBody   = document.querySelector('#more-info-body');
@@ -58,6 +60,8 @@ export function refreshDOM() {
   // These inputs may appear only when Purchased or after linking a lot
   DOM.saleDateInput  = document.getElementById('sale-date');
   DOM.salePriceInput = document.getElementById('sale-price');
+  DOM.linkedSalesPriceInput = document.getElementById('linked-sales-price');
+  DOM.linkedSalesDateInput  = document.getElementById('linked-sale-date');
 }
 
 function warnIfMissing(name, el) {

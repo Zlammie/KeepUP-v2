@@ -3,6 +3,7 @@ import { state } from './state.js';
 import { escapeHtml } from './utils.js';
 import { patchContactLender } from './api.js';
 import { splitDateTimeForInputs } from '../address-details/utils.js';
+import { formatPhoneDisplay } from '../shared/phone.js';
 
 const TZ = 'America/Chicago';
 
@@ -435,7 +436,7 @@ export function renderTable(rows = []) {
     const name = (contact.firstName || contact.lastName)
       ? `${contact.firstName || ''} ${contact.lastName || ''}`.trim()
       : '(Unnamed)';
-    const phone = contact.phone || 'N/A';
+    const phone = formatPhoneDisplay(contact.phone || '') || 'N/A';
     const email = contact.email || 'N/A';
     const communities = Array.isArray(contact.communities)
       ? contact.communities.join(', ')
@@ -484,7 +485,7 @@ export function renderPurchasedTable(rows = []) {
     const name = (contact.firstName || contact.lastName)
       ? `${contact.firstName || ''} ${contact.lastName || ''}`.trim()
       : '(Unnamed)';
-    const phone = contact.phone || 'N/A';
+    const phone = formatPhoneDisplay(contact.phone || '') || 'N/A';
     const email = contact.email || 'N/A';
     const communities = Array.isArray(contact.communities)
       ? contact.communities.join(', ')
