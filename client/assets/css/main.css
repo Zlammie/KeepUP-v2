@@ -25,6 +25,7 @@
 @import "components/comment.css";
 @import "components/lender-snippet.css";
 @import "components/section.css";
+@import "components/todo-panel.css";
 
 /* 4. Utilities */
 @import "utilities/spacing.css";

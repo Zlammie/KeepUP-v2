@@ -4,13 +4,11 @@ import {
   formatCurrency,
   formatDateTime,
   toLocalInputDateTime,
-  splitDateTimeForInputs,
-  formatClosingSummary
+  splitDateTimeForInputs
 } from './utils.js';
 import {
   buildingLabels, buildingClasses,
   walkStatusLabels, walkStatusClasses,
-  closingStatusLabels, closingStatusClasses,
   lenderStatusLabels, lenderStatusClasses
 } from './statusMaps.js';
 import { formatPhoneDisplay } from '../shared/phone.js';
@@ -68,30 +66,17 @@ export const renderTopBar = (lot, primaryEntry) => {
     }
 
     const rawCS = primaryEntry.closingStatus || 'notLocked';
-    if (els.closingStatusValue) {
-      els.closingStatusValue.innerHTML =
-        `<span class="status-badge ${closingStatusClasses[rawCS]}">${closingStatusLabels[rawCS]}</span>`;
+    if (els.closingStatusSelect) {
+      els.closingStatusSelect.value = rawCS;
     }
-
     const { date: closingDatePart, time: closingTimePart } =
       splitDateTimeForInputs(primaryEntry.closingDateTime || '');
     const closingDateEl = els.closingDateInput;
     const closingTimeEl = els.closingTimeInput;
-    const closingSummaryEl = els.closingSummaryValue;
     if (closingDateEl) closingDateEl.value = closingDatePart || '';
     if (closingTimeEl) {
       closingTimeEl.value = closingTimePart || '';
       closingTimeEl.classList.toggle('is-blank', !closingTimePart);
-    }
-    if (closingSummaryEl) {
-      if (closingDatePart) {
-        closingSummaryEl.textContent = formatClosingSummary({ date: closingDatePart, time: closingTimePart });
-        closingSummaryEl.classList.remove('is-placeholder');
-      } else {
-        const placeholder = closingSummaryEl.dataset?.placeholder || 'Not scheduled';
-        closingSummaryEl.textContent = placeholder;
-        closingSummaryEl.classList.add('is-placeholder');
-      }
     }
   }
 };
@@ -248,22 +233,11 @@ export const setInitialFormValues = (lot, primaryEntry) => {
   {
     const dateEl = els.closingDateInput;
     const timeEl = els.closingTimeInput;
-    const summaryEl = els.closingSummaryValue;
     const { date, time } = splitDateTimeForInputs(primaryEntry?.closingDateTime || '');
     if (dateEl) dateEl.value = date || '';
     if (timeEl) {
       timeEl.value = time || '';
       timeEl.classList.toggle('is-blank', !time);
-    }
-    if (summaryEl) {
-      if (!date) {
-        const placeholder = summaryEl.dataset?.placeholder || 'Not scheduled';
-        summaryEl.textContent = placeholder;
-        summaryEl.classList.add('is-placeholder');
-      } else {
-        summaryEl.textContent = formatClosingSummary({ date, time });
-        summaryEl.classList.remove('is-placeholder');
-      }
     }
   }
   {

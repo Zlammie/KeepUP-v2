@@ -1,7 +1,7 @@
 // /assets/js/address-details/hydrate.js
 import * as API from './api.js';
 import { els } from './domCache.js';
-import { splitDateTimeForInputs, formatClosingSummary } from './utils.js';
+import { splitDateTimeForInputs } from './utils.js';
 import {
   renderTitleAndBasics,
   renderTopBar,
@@ -151,7 +151,6 @@ const generalPatch = (v) => ({
   {
     const dateEl = els.closingDateInput;
     const timeEl = els.closingTimeInput;
-    const summaryEl = els.closingSummaryValue;
     const { date, time } = splitDateTimeForInputs(primaryEntry?.closingDateTime || '');
     if (dateEl) dateEl.value = date || '';
     if (timeEl) {
@@ -162,16 +161,6 @@ const generalPatch = (v) => ({
         timeEl.step = '60';
       } catch {}
       timeEl.classList.toggle('is-blank', !time);
-    }
-    if (summaryEl) {
-      if (!date) {
-        const placeholder = summaryEl.dataset?.placeholder || 'Not scheduled';
-        summaryEl.textContent = placeholder;
-        summaryEl.classList.add('is-placeholder');
-      } else {
-        summaryEl.textContent = formatClosingSummary({ date, time });
-        summaryEl.classList.remove('is-placeholder');
-      }
     }
   }
 };

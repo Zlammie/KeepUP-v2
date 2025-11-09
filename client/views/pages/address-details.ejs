@@ -6,289 +6,398 @@
   <link rel="stylesheet" href="/assets/css/main.css" />
   <link rel="stylesheet" href="/assets/css/pages/address-details.css"/>
 </head>
-<body data-community-id="<%= communityId %>" data-lot-id="<%= lotId %>">
+<body class="address-details-page" data-community-id="<%= communityId %>" data-lot-id="<%= lotId %>">
   <%- include('../partials/nav') %>
   <%- include('../partials/top-nav-community') %>
 
-  <header class="addr-header">
-    <div class="addr-left">
-      <!-- Row 1: Address + General -->
-      <div class="address-row">
-        <h1 id="lotTitle">Loading…</h1>
-
-      <div class="general-select-wrap">
-        <label class="visually-hidden" for="generalStatusSelect">General</label>
-        <select id="generalStatusSelect" class="status-select in-header">
-          <option>Available</option>
-          <option>SPEC</option>
-          <option>Sold</option>
-          <option>Closed</option>
-          <option>Coming Soon</option>
-          <option>Model</option>
-          <option>Hold</option>
-        </select>
-      </div>
-      </div>
-
-      <!-- Subline -->
-      <div class="sub-info">
-        <span id="jobNumberValue" class="value readonly"></span> •
-        <span id="lotBlockPhaseValue" class="value readonly"></span>
-      </div>
-
-      <!-- Row 2: Building + Walk -->
-      <div class="status-row">
-        <div class="chip chip--building in-header">
-          <span class="chip__label">Building</span>
-          <div id="buildingStatusValue" class="chip__value readonly"></div>
-        </div>
-
-        <div class="chip chip--walk in-header">
-          <span class="chip__label">Walk</span>  <!-- ← you were missing the opening < on this span -->
-          <div id="walkStatusValue" class="chip__value readonly"></div>
-        </div>
-      </div>
-    </div>
-
-    <div class="price-card card">
-      <!-- Top: List Price -->
-      <div class="field wide">
-        <label for="listPriceInput">List Price</label>
-        <input id="listPriceInput" class="value" inputmode="numeric" placeholder="$450,000" />
-      </div>
-
-      <!-- Bottom: Sales Price | Sales Date -->
-      <div class="price-row">
-        <div class="field">
-          <label>Sales Price</label>
-          <div id="salesPriceValue" class="value readonly price-figure"></div>
-        </div>
-        <div class="field">
-          <label>Sales Date</label>
-          <div id="salesDateValue" class="value readonly"></div>
-        </div>
-      </div>
-    </div>
-
- <div class="addr-right">
-
-   <section class="closing-card card">
-     <div class="closing-card__head">
-       <div class="chip chip--closing closing-status-pill" aria-label="Closing status">
-         <div id="closingStatusValue" class="chip__value readonly"></div>
-       </div>
-       <div
-         id="closingSummaryValue"
-         class="closing-summary is-placeholder"
-         data-placeholder="Not scheduled"
-       >Not scheduled</div>
-     </div>
-     <div class="closing-card__inputs">
-       <div class="field">
-         <input
-           id="closingDateInput"
-           type="date"
-           class="value"
-           autocomplete="off"
-           aria-label="Closing Date"
-           title="Closing Date"
-         />
-       </div>
-       <div class="field">
-         <input
-           id="closingTimeInput"
-           type="time"
-           class="value"
-           step="60"
-           min="00:00"
-           max="23:59"
-           autocomplete="off"
-           aria-label="Closing Time"
-           title="Closing Time"
-         />
-       </div>
-     </div>
-   </section>
-  </div>
-  </header>
-  <!-- CONTACT STRIP: Purchaser / Realtor / Lender -->
-  <section class="contact-strip card card--grey">
-    <div class="contact-card card card--white">
-      <h3><span class="value readonly" id="purchaserValue" data-placeholder="No Purchaser"></span></h3>
-      <div class="row two">
-        <div class="field icon-field">
-          <span class="icon-pill">
-          <img class="icon" src="/assets/icons/phone.svg" alt="" aria-hidden="true">
-          </span>
-          <div id="purchaserPhoneValue" class="value readonly one-line"></div>
-        </div>
-        <div class="field icon-field">
-          <span class="icon-pill">
-          <img class="icon" src="/assets/icons/email.svg" alt="" aria-hidden="true">
-          </span>
-          <div id="purchaserEmailValue" class="value readonly"></div>
-        </div>
-      </div>
-      
-    </div>
-    <div class="contact-card card card--white">
-      <h3><span class="value readonly" id="realtorNameValue" data-placeholder="No realtor linked"></span></h3>
-      <div class="row two">
-        <div class="field icon-field">
-          <span class="icon-pill">
-          <img class="icon" src="/assets/icons/phone.svg" alt="" aria-hidden="true">
-          </span>   
-          <div id="realtorPhoneValue" class="value readonly" ></div>
-        </div>
-        <div class="field icon-field">
-          <span class="icon-pill">
-          <img class="icon" src="/assets/icons/email.svg" alt="" aria-hidden="true">
-          </span>
-          <div id="realtorEmailValue" class="value readonly"></div>
-        </div>
-      </div>
-      
-    </div>
-      <div class="contact-card card card--white lender-card">
-      <!-- Header row: Name (with brokerage) + Status chip on the right -->
-      <div class="lender-header">
-        <h3>
-          <span id="lenderNameFinance" class="value readonly"></span>
-        </h3>
-
-        <!-- No label; same ID so your JS keeps populating it -->
-        <div class="chip in-header" id="lenderStatusChip">
-          <div id="lenderStatusValue" class="chip__value readonly"></div>
-        </div>
-      </div>
-      <div class="row two">
-        <div class="field icon-field">
-          <span class="icon-pill">
-          <img class="icon" src="/assets/icons/phone.svg" alt="" aria-hidden="true">
-          </span>
-          <div id="lenderPhoneFinance" class="value readonly"></div></div>
-        <div class="field icon-field">
-          <span class="icon-pill">
-          <img class="icon" src="/assets/icons/email.svg" alt="" aria-hidden="true">
-          </span>
-          <div id="lenderEmailFinance" class="value readonly"></div>
-       </div>
-      </div>
-      
-    </div>
-  </section>
-
-  <!-- MAIN GRID: Left (Building Info), Right (Design Center) -->
-  <main class="grid">
-    <!-- LEFT COLUMN: Building Info (stacked cards) -->
-    <section class="pane pane--left">
-     <div class="card">
-        <h2>Building Info</h2>
-        <div class="form-grid">
-
-           <div class="field wide">
-            <label for="buildingStatusSelect">Building Status</label>
-            <select id="buildingStatusSelect" class="value">
-              <option value="Not-Started">Not Started</option>
-              <option value="Under-Construction">Under Construction</option>
-              <option value="Finished">Finished</option>
-            </select>
-          </div>
-          <!-- Row 1: Floor Plan | Elevation -->
-          <div class="field">
-            <label for="floorPlanSelect">Floor Plan</label>
-            <select id="floorPlanSelect" class="value">
-              <option value="" disabled selected>— Select Floor Plan —</option>
-            </select>
-          </div>
-          <div class="field">
-            <label for="elevationInput">Elevation</label>
-            <input id="elevationInput" class="value" />
-          </div>
-
-          <!-- Row 2: Release Date | Expected Completion -->
-          <div class="field">
-            <label for="releaseDateInput">Release Date</label>
-            <input id="releaseDateInput" type="date" class="value" />
-          </div>
-          <div class="field">
-            <label for="expectedCompletionInput">Expected Completion Date</label>
-            <input id="expectedCompletionInput" type="date" class="value" />
-          </div>
-
-          <!-- Row 3: Building Status (full width so it doesn't break the pairs) -->
-         
-        </div>
-      </div>
-
-  
-
-      <div class="card">
-        <h2>Walk Status</h2>
-        <div class="row two">
-          <div class="field">
-            <label for="walkStatusSelect">Overall</label>
-            <select id="walkStatusSelect" class="value">
-              <option value="waitingOnBuilder">Waiting on Builder</option>
-              <option value="datesSentToPurchaser">Dates Sent to Purchaser</option>
-              <option value="datesConfirmed">Dates Confirmed</option>
-              <option value="thirdPartyComplete">3rd Party Complete</option>
-              <option value="firstWalkComplete">1st Walk Complete</option>
-              <option value="finalSignOffComplete">Final Sign Off Complete</option>
-            </select>
-          </div>
-          <div class="field">
-            <label for="closingStatusSelect">Closing Status</label>
-            <select id="closingStatusSelect" class="value">
-              <option value="notLocked">Not Locked</option>
-              <option value="locked">Locked</option>
-              <option value="underwriting">Underwriting</option>
-              <option value="clearToClose">Clear to Close</option>
-            </select>
-          </div>
-        </div>
-        <div class="walks-grid">
-          <div class="field">
-            <label for="thirdPartyDate">3rd Party</label>
-            <div class="row inline">
-              <input id="thirdPartyDate" type="date" class="value" />
-              <input id="thirdPartyTime"    type="time" class="value" step="60" min="00:00" max="23:59" autocomplete="off" />
-              <button id="thirdPartyTimeClear" type="button" class="icon-btn" title="Clear time">×</button>
+  <div class="address-layout">
+    <div class="address-layout__main">
+      <header class="addr-header">
+        <section class="card addr-card">
+          <div class="address-row">
+            <div class="address-row__title">
+              <h1 id="lotTitle">Loading...</h1>
+              <div class="sub-info">
+                <span id="jobNumberValue" class="value readonly"></span>
+                <span class="sub-info__divider">&#8226;</span>
+                <span id="lotBlockPhaseValue" class="value readonly"></span>
+              </div>
+            </div>
+            <div class="address-row__actions">
+              <div class="general-select-wrap">
+                <label class="visually-hidden" for="generalStatusSelect">General</label>
+                <select id="generalStatusSelect" class="status-select in-header">
+                  <option>Available</option>
+                  <option>SPEC</option>
+                  <option>Sold</option>
+                  <option>Closed</option>
+                  <option>Coming Soon</option>
+                  <option>Model</option>
+                  <option>Hold</option>
+                </select>
+              </div>
             </div>
           </div>
-          <div class="field">
-            <label for="firstWalkDate">1st Walk</label>
-            <div class="row inline">
-              <input id="firstWalkDate" type="date" class="value" />
-              <input id="firstWalkTime"     type="time" class="value" step="60" min="00:00" max="23:59" autocomplete="off" />
-              <button id="firstWalkTimeClear" type="button" class="icon-btn" title="Clear time">×</button>
-            </div>
-          </div>
-          <div class="field">
-            <label for="finalSignOffDate">Final Sign Off</label>
-            <div class="row inline">
-              <input id="finalSignOffDate" type="date" class="value" />
-              <input id="finalSignOffTime"  type="time" class="value" step="60" min="00:00" max="23:59" autocomplete="off" />
-              <button id="finalSignOffTimeClear" type="button" class="icon-btn" title="Clear time">×</button>
-            </div>
-          </div>
-        </div>
-      </div>
-    </section>
 
-    <!-- RIGHT COLUMN: Design Center / Selections -->
-    <aside class="pane pane--right">
-      <div class="card fill">
-        <h2>Design Center / Selections</h2>
-        <div id="designNotes" class="notes" contenteditable> Coming soon</div>
-        <div class="chip chip--dc">
-        <span class="chip__label">Design Status</span>
-        <div id="designCenterStatusValue" class="chip__value readonly"></div>
-      </div>
+          <div class="status-row">
+            <div class="chip chip--building in-header">
+              <span class="chip__label">Building</span>
+              <div id="buildingStatusValue" class="chip__value readonly"></div>
+            </div>
+            <div class="chip chip--walk in-header">
+              <span class="chip__label">Walk</span>
+              <div id="walkStatusValue" class="chip__value readonly"></div>
+            </div>
+          </div>
+        </section>
+
+          <section class="card price-card">
+            <div class="field wide">
+              <label for="listPriceInput">List Price</label>
+              <input id="listPriceInput" class="value" inputmode="numeric" placeholder="$450,000" />
+            </div>
+            <div class="price-row">
+              <div class="field">
+                <label>Sales Price</label>
+                <div id="salesPriceValue" class="value readonly price-figure"></div>
+              </div>
+              <div class="field">
+                <label>Sales Date</label>
+                <div id="salesDateValue" class="value readonly"></div>
+              </div>
+            </div>
+          </section>
+
+        <section class="card closing-card">
+          <div class="closing-card__head">
+            <div class="closing-status-wrap" aria-label="Closing status">
+              <span class="closing-status-label">Closing</span>
+              <div class="closing-status-controls">
+                <label class="visually-hidden" for="closingStatusSelect">Closing Status</label>
+                <select id="closingStatusSelect" class="status-select in-header">
+                  <option value="notLocked">Not Locked</option>
+                  <option value="locked">Locked</option>
+                  <option value="underwriting">Underwriting</option>
+                  <option value="clearToClose">Clear to Close</option>
+                </select>
+                <div id="lenderStatusValue" class="lender-status-value"></div>
+              </div>
+            </div>
+          </div>
+            <div class="closing-card__inputs">
+              <div class="field">
+                <input
+                  id="closingDateInput"
+                  type="date"
+                  class="value"
+                  autocomplete="off"
+                  aria-label="Closing Date"
+                  title="Closing Date"
+                />
+              </div>
+              <div class="field">
+                <input
+                  id="closingTimeInput"
+                  type="time"
+                  class="value"
+                  step="60"
+                  min="00:00"
+                  max="23:59"
+                  autocomplete="off"
+                  aria-label="Closing Time"
+                  title="Closing Time"
+                />
+              </div>
+            </div>
+          </section>
+        </header>
+
+      <!-- CONTACT STRIP: Purchaser / Realtor / Lender -->
+        <section class="contact-strip">
+          <div class="contact-card card card--white">
+            <h3><span class="value readonly" id="purchaserValue" data-placeholder="No Purchaser"></span></h3>
+            <div class="row two">
+              <div class="field icon-field">
+                <span class="icon-pill">
+                <img class="icon" src="/assets/icons/phone.svg" alt="" aria-hidden="true">
+                </span>
+                <div id="purchaserPhoneValue" class="value readonly one-line"></div>
+              </div>
+              <div class="field icon-field">
+                <span class="icon-pill">
+                <img class="icon" src="/assets/icons/email.svg" alt="" aria-hidden="true">
+                </span>
+                <div id="purchaserEmailValue" class="value readonly"></div>
+              </div>
+            </div>
+
+          </div>
+          <div class="contact-card card card--white">
+            <h3><span class="value readonly" id="realtorNameValue" data-placeholder="No realtor linked"></span></h3>
+            <div class="row two">
+              <div class="field icon-field">
+                <span class="icon-pill">
+                <img class="icon" src="/assets/icons/phone.svg" alt="" aria-hidden="true">
+                </span>   
+                <div id="realtorPhoneValue" class="value readonly" ></div>
+              </div>
+              <div class="field icon-field">
+                <span class="icon-pill">
+                <img class="icon" src="/assets/icons/email.svg" alt="" aria-hidden="true">
+                </span>
+                <div id="realtorEmailValue" class="value readonly"></div>
+              </div>
+            </div>
+
+          </div>
+            <div class="contact-card card card--white lender-card">
+            <!-- Header row: Name (with brokerage) -->
+            <div class="lender-header">
+              <h3>
+                <span id="lenderNameFinance" class="value readonly"></span>
+              </h3>
+            </div>
+            <div class="row two">
+              <div class="field icon-field">
+                <span class="icon-pill">
+                <img class="icon" src="/assets/icons/phone.svg" alt="" aria-hidden="true">
+                </span>
+                <div id="lenderPhoneFinance" class="value readonly"></div></div>
+              <div class="field icon-field">
+                <span class="icon-pill">
+                <img class="icon" src="/assets/icons/email.svg" alt="" aria-hidden="true">
+                </span>
+                <div id="lenderEmailFinance" class="value readonly"></div>
+             </div>
+            </div>
+
+          </div>
+        </section>
+
+      <main class="grid">
+          <!-- LEFT COLUMN: Building Info (stacked cards) -->
+          <section class="pane pane--left">
+           <div class="card">
+              <h2>Building Info</h2>
+              <div class="form-grid">
+
+                 <div class="field wide">
+                  <label for="buildingStatusSelect">Building Status</label>
+                  <select id="buildingStatusSelect" class="value">
+                    <option value="Not-Started">Not Started</option>
+                    <option value="Under-Construction">Under Construction</option>
+                    <option value="Finished">Finished</option>
+                  </select>
+                </div>
+                <!-- Row 1: Floor Plan | Elevation -->
+                <div class="field">
+                  <label for="floorPlanSelect">Floor Plan</label>
+                  <select id="floorPlanSelect" class="value">
+                    <option value="" disabled selected>— Select Floor Plan —</option>
+                  </select>
+                </div>
+                <div class="field">
+                  <label for="elevationInput">Elevation</label>
+                  <input id="elevationInput" class="value" />
+                </div>
+
+                <!-- Row 2: Release Date | Expected Completion -->
+                <div class="field">
+                  <label for="releaseDateInput">Release Date</label>
+                  <input id="releaseDateInput" type="date" class="value" />
+                </div>
+                <div class="field">
+                  <label for="expectedCompletionInput">Expected Completion Date</label>
+                  <input id="expectedCompletionInput" type="date" class="value" />
+                </div>
+
+                <!-- Row 3: Building Status (full width so it doesn't break the pairs) -->
+
+              </div>
+            </div>
+
+
+
+            <div class="card">
+              <h2>Walk Status</h2>
+              <div class="row two">
+                <div class="field">
+                  <label for="walkStatusSelect">Overall</label>
+                  <select id="walkStatusSelect" class="value">
+                    <option value="waitingOnBuilder">Waiting on Builder</option>
+                    <option value="datesSentToPurchaser">Dates Sent to Purchaser</option>
+                    <option value="datesConfirmed">Dates Confirmed</option>
+                    <option value="thirdPartyComplete">3rd Party Complete</option>
+                    <option value="firstWalkComplete">1st Walk Complete</option>
+                    <option value="finalSignOffComplete">Final Sign Off Complete</option>
+                  </select>
+                </div>
+              </div>
+              <div class="walks-grid">
+                <div class="field">
+                  <label for="thirdPartyDate">3rd Party</label>
+                  <div class="row inline">
+                    <input id="thirdPartyDate" type="date" class="value" />
+                    <input id="thirdPartyTime"    type="time" class="value" step="60" min="00:00" max="23:59" autocomplete="off" />
+                    <button id="thirdPartyTimeClear" type="button" class="icon-btn" title="Clear time">×</button>
+                  </div>
+                </div>
+                <div class="field">
+                  <label for="firstWalkDate">1st Walk</label>
+                  <div class="row inline">
+                    <input id="firstWalkDate" type="date" class="value" />
+                    <input id="firstWalkTime"     type="time" class="value" step="60" min="00:00" max="23:59" autocomplete="off" />
+                    <button id="firstWalkTimeClear" type="button" class="icon-btn" title="Clear time">×</button>
+                  </div>
+                </div>
+                <div class="field">
+                  <label for="finalSignOffDate">Final Sign Off</label>
+                  <div class="row inline">
+                    <input id="finalSignOffDate" type="date" class="value" />
+                    <input id="finalSignOffTime"  type="time" class="value" step="60" min="00:00" max="23:59" autocomplete="off" />
+                    <button id="finalSignOffTimeClear" type="button" class="icon-btn" title="Clear time">×</button>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </section>
+
+          <!-- RIGHT COLUMN: Design Center / Selections -->
+          <aside class="pane pane--right">
+            <div class="card fill">
+              <h2>Design Center / Selections</h2>
+              <div id="designNotes" class="notes" contenteditable> Coming soon</div>
+              <div class="chip chip--dc">
+              <span class="chip__label">Design Status</span>
+              <div id="designCenterStatusValue" class="chip__value readonly"></div>
+            </div>
+            </div>
+
+          </aside>
+        </main>
+    </div>
+    <aside class="address-layout__sidebar">
+      <div class="card task-panel-card">
+        <div id="todo-panel" class="todo-panel" aria-live="polite">
+          <header class="todo-header">
+            <button id="todo-toggle" class="todo-toggle" type="button" aria-expanded="true">
+              <span class="todo-toggle-icon" aria-hidden="true">&#9662;</span>
+              <span class="todo-toggle-text">Tasks</span>
+              <span id="todo-count" class="todo-count">0</span>
+            </button>
+            <button id="todo-add" class="todo-add-btn" type="button">
+              <img src="/assets/icons/add_task.svg" alt="" aria-hidden="true" />
+              <span>Add Task</span>
+            </button>
+          </header>
+          <section id="todo-panel-body" class="todo-body">
+            <div class="todo-summary">
+              <button type="button" class="todo-pill is-active" data-filter="all">
+                <span class="pill-label">All</span>
+                <span class="pill-count" aria-hidden="true">0</span>
+              </button>
+              <button type="button" class="todo-pill" data-filter="Pending">
+                <span class="pill-label">Pending</span>
+                <span class="pill-count" aria-hidden="true">0</span>
+              </button>
+              <button type="button" class="todo-pill" data-filter="Completed">
+                <span class="pill-label">Completed</span>
+                <span class="pill-count" aria-hidden="true">0</span>
+              </button>
+            </div>
+
+            <div class="todo-helper">
+              <p class="todo-helper-title">Plan the next steps</p>
+              <p class="todo-helper-body">Capture follow-up actions, deadlines, and reminders without leaving this page.</p>
+            </div>
+
+            <ul id="todo-list" class="todo-list">
+              <li class="todo-empty">
+                <div class="todo-empty-state">
+                  <img src="/assets/icons/add_task.svg" alt="" aria-hidden="true" />
+                  <p class="todo-empty-text">No tasks yet. Add one to keep this lot moving forward.</p>
+                </div>
+              </li>
+            </ul>
+            <footer class="todo-footer">
+              <button id="todo-view-all" class="todo-view-all-btn" type="button">View All Tasks</button>
+            </footer>
+          </section>
+        </div>
       </div>
     </aside>
-  </main>
+  </div>
+
+  <div id="task-modal" class="task-modal" aria-hidden="true" hidden>
+    <div class="task-modal__backdrop" data-task-modal-close></div>
+    <div class="task-modal__dialog" role="dialog" aria-modal="true" aria-labelledby="task-modal-title">
+      <header class="task-modal__header">
+        <h2 id="task-modal-title">Edit Task</h2>
+        <button type="button" id="task-modal-close" class="task-modal__close" aria-label="Close task editor">&times;</button>
+      </header>
+      <form id="task-modal-form" class="task-modal__form" novalidate>
+        <div class="task-modal__content">
+          <div class="task-modal__row">
+            <label for="task-modal-title-input">Title</label>
+            <input id="task-modal-title-input" name="title" type="text" maxlength="160" required />
+          </div>
+          <div class="task-modal__row">
+            <span class="task-modal__row-label">Task Type</span>
+            <div id="task-type-buttons" class="task-type-group" role="group" aria-label="Task type">
+              <button type="button" class="task-type-button is-selected" data-type="Follow-Up" aria-pressed="true">Follow-Up</button>
+              <button type="button" class="task-type-button" data-type="Reminder" aria-pressed="false">Reminder</button>
+              <button type="button" class="task-type-button" data-type="Document" aria-pressed="false">Document</button>
+              <button type="button" class="task-type-button" data-type="Approval" aria-pressed="false">Approval</button>
+              <button type="button" class="task-type-button" data-type="Review" aria-pressed="false">Review</button>
+              <button type="button" class="task-type-button" data-type="Note" aria-pressed="false">Note</button>
+              <button type="button" class="task-type-button" data-type="Custom" aria-pressed="false">Custom</button>
+            </div>
+            <div id="task-followup-sub" class="task-type-subgroup" hidden aria-hidden="true">
+              <span class="task-type-subtitle">Follow-Up via</span>
+              <div class="task-type-subbuttons" role="group" aria-label="Follow-up method">
+                <button type="button" class="task-type-subbutton is-selected" data-followup="Follow-Up" aria-pressed="true">General</button>
+                <button type="button" class="task-type-subbutton" data-followup="Call" aria-pressed="false">Call</button>
+                <button type="button" class="task-type-subbutton" data-followup="Email" aria-pressed="false">Email</button>
+                <button type="button" class="task-type-subbutton" data-followup="Meeting" aria-pressed="false">Meeting</button>
+              </div>
+            </div>
+          </div>
+          <div class="task-modal__grid two-col">
+            <div class="task-modal__row">
+              <label for="task-modal-due">Due date</label>
+              <input id="task-modal-due" name="dueDate" type="date" />
+            </div>
+            <div class="task-modal__row">
+              <label for="task-modal-priority">Priority</label>
+              <select id="task-modal-priority" name="priority"></select>
+            </div>
+          </div>
+          <div class="task-modal__grid two-col">
+            <div class="task-modal__row">
+              <label for="task-modal-status">Status</label>
+              <select id="task-modal-status" name="status"></select>
+            </div>
+          </div>
+          <div class="task-modal__row">
+            <label for="task-modal-notes">Notes</label>
+            <textarea id="task-modal-notes" name="description" rows="4" maxlength="2000"></textarea>
+          </div>
+        </div>
+        <p id="task-modal-error" class="task-modal__error" role="alert" hidden></p>
+        <div class="task-modal__actions">
+          <div class="task-modal__actions-left">
+            <button type="button" id="task-modal-complete" class="task-modal__secondary">Mark as Completed</button>
+          </div>
+          <div class="task-modal__actions-right">
+            <button type="button" id="task-modal-cancel" class="task-modal__secondary">Cancel</button>
+            <button type="submit" id="task-modal-save" class="task-modal__primary">Save Changes</button>
+          </div>
+        </div>
+      </form>
+    </div>
+  </div>
 
   <script type="module" src="/assets/js/address-details/index.js"></script>
 </body>
 </html>
+

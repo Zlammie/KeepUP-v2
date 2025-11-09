@@ -53,11 +53,12 @@
               <th scope="col">Garage</th>
               <th scope="col">Communities</th>
               <th scope="col">Created</th>
+              <th scope="col">Actions</th>
             </tr>
           </thead>
           <tbody>
             <tr>
-              <td colspan="8" class="text-center text-muted">Loading floor plans...</td>
+              <td colspan="9" class="text-center text-muted">Loading floor plans...</td>
             </tr>
           </tbody>
         </table>
@@ -65,17 +66,102 @@
     </section>
   </main>
 
+  <div id="editPlanModal" class="modal-overlay" style="display:none;">
+    <div class="modal-content" style="max-width: 520px; width: 100%;">
+      <div class="d-flex justify-content-between align-items-start mb-3">
+        <div>
+          <h5 class="mb-1">Edit Floor Plan Communities</h5>
+          <p class="text-muted mb-0" id="editPlanSummary"></p>
+        </div>
+        <button type="button" class="btn-close" aria-label="Close" id="closeEditPlan"></button>
+      </div>
+      <form id="editPlanForm" autocomplete="off">
+        <div class="mb-3">
+          <label for="editCommunities" class="form-label">Communities</label>
+          <select id="editCommunities" class="form-select" multiple></select>
+          <div class="form-text">Hold Ctrl/Cmd to select multiple communities.</div>
+        </div>
+        <div class="d-flex justify-content-end gap-2">
+          <button type="button" class="btn btn-outline-secondary" id="cancelEditPlan">Cancel</button>
+          <button type="submit" class="btn btn-primary">Save Changes</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
   <script nonce="<%= cspNonce %>">
     document.addEventListener('DOMContentLoaded', () => {
       const form = document.getElementById('floorPlanForm');
       const statusEl = document.getElementById('statusMsg');
       const communitiesSelect = document.getElementById('communities');
       const plansTableBody = document.querySelector('#plansTable tbody');
+      const editModal = document.getElementById('editPlanModal');
+      const editForm = document.getElementById('editPlanForm');
+      const editCommunitiesSelect = document.getElementById('editCommunities');
+      const editPlanSummary = document.getElementById('editPlanSummary');
+      const closeEditPlanBtn = document.getElementById('closeEditPlan');
+      const cancelEditPlanBtn = document.getElementById('cancelEditPlan');
 
       const communitiesMap = new Map();
       let plansCache = [];
+      let currentEditPlanId = null;
 
       const html = String.raw;
+
+      const planIdOf = (plan) => {
+        if (!plan) return '';
+        const id = plan._id ?? plan.id;
+        return id ? String(id) : '';
+      };
+
+      const normalizeCommunityId = (entry) => {
+        if (!entry) return null;
+        if (typeof entry === 'string') return entry;
+        if (typeof entry === 'object') {
+          const id = entry._id ?? entry.id ?? entry.value;
+          return id ? String(id) : null;
+        }
+        return null;
+      };
+
+      const getCommunityIds = (plan) => {
+        if (!plan || !Array.isArray(plan.communities)) return [];
+        return plan.communities
+          .map(normalizeCommunityId)
+          .filter(Boolean);
+      };
+
+      const getCommunityLabels = (plan) => {
+        if (!plan || !Array.isArray(plan.communities)) return [];
+        return plan.communities
+          .map((entry) => {
+            if (!entry) return null;
+            if (typeof entry === 'string') {
+              return communitiesMap.get(entry) || '(unknown)';
+            }
+            if (typeof entry === 'object') {
+              const id = entry._id ?? entry.id ?? entry.value;
+              const label = entry.name || entry.communityName || communitiesMap.get(String(id)) || '(unknown)';
+              if (id && label && label !== '(unknown)' && !communitiesMap.has(String(id))) {
+                communitiesMap.set(String(id), label);
+              }
+              return label || '(unknown)';
+            }
+            return '(unknown)';
+          })
+          .filter(Boolean);
+      };
+
+      function populateSelectOptions(select) {
+        if (!select) return;
+        select.innerHTML = '';
+        communitiesMap.forEach((label, id) => {
+          const option = document.createElement('option');
+          option.value = id;
+          option.textContent = label;
+          select.appendChild(option);
+        });
+      }
 
       function setStatus(message, isError = false) {
         if (!statusEl) return;
@@ -85,29 +171,33 @@
       }
 
       function renderCommunities(communities) {
-        communitiesSelect.innerHTML = '';
-        communities.forEach(c => {
-          communitiesMap.set(c._id, c.name || '(unnamed)');
-          const opt = document.createElement('option');
-          opt.value = c._id;
-          opt.textContent = c.name;
-          communitiesSelect.appendChild(opt);
+        communitiesMap.clear();
+        communities.forEach((c) => {
+          const id = c && (c._id ?? c.id);
+          if (!id) return;
+          const label = c.name || c.communityName || '(unnamed)';
+          communitiesMap.set(String(id), label);
         });
+
+        populateSelectOptions(communitiesSelect);
+        populateSelectOptions(editCommunitiesSelect);
       }
 
       function renderPlans(plans) {
         if (!plans.length) {
-          plansTableBody.innerHTML = '<tr><td colspan="8" class="text-center text-muted">No floor plans yet.</td></tr>';
+          plansTableBody.innerHTML = '<tr><td colspan="9" class="text-center text-muted">No floor plans yet.</td></tr>';
           return;
         }
 
         const rows = plans.map(plan => {
           const specs = plan.specs || {};
-          const communityLabels = (Array.isArray(plan.communities) ? plan.communities : [])
-            .map(id => communitiesMap.get(id) || id)
-            .filter(Boolean);
+          const communityLabels = getCommunityLabels(plan).filter(Boolean);
 
           const created = plan.createdAt ? new Date(plan.createdAt) : null;
+          const planId = planIdOf(plan);
+          const actionCell = planId
+            ? `<button type="button" class="btn btn-sm btn-outline-primary" data-action="edit-plan" data-plan-id="${planId}">Edit</button>`
+            : '<span class="text-muted">N/A</span>';
 
           return html`<tr>
             <td>${plan.planNumber || ''}</td>
@@ -118,6 +208,7 @@
             <td>${specs.garage ?? ''}</td>
             <td>${communityLabels.length ? communityLabels.join(', ') : 'None'}</td>
             <td>${created && !Number.isNaN(created.valueOf()) ? created.toLocaleString() : 'N/A'}</td>
+            <td>${actionCell}</td>
           </tr>`;
         });
 
@@ -144,14 +235,99 @@
           renderPlans(plansCache);
         } catch (err) {
           console.error('Failed to hydrate page:', err);
-          plansTableBody.innerHTML = '<tr><td colspan="8" class="text-center text-danger">Failed to load floor plans.</td></tr>';
+          plansTableBody.innerHTML = '<tr><td colspan="9" class="text-center text-danger">Failed to load floor plans.</td></tr>';
         }
       }
 
       function prependPlan(plan) {
-        plansCache = [plan, ...plansCache.filter(p => p._id !== plan._id)];
+        const newId = planIdOf(plan);
+        plansCache = [plan, ...plansCache.filter(p => planIdOf(p) !== newId)];
         renderPlans(plansCache);
       }
+
+      function setEditModalVisible(visible) {
+        if (!editModal) return;
+        editModal.style.display = visible ? 'flex' : 'none';
+        if (!visible) {
+          currentEditPlanId = null;
+          if (editForm) editForm.reset();
+          if (editPlanSummary) editPlanSummary.textContent = '';
+        }
+      }
+
+      function openEditModal(planId) {
+        if (!planId || !editCommunitiesSelect) return;
+        const plan = plansCache.find((p) => planIdOf(p) === String(planId));
+        if (!plan) return;
+
+        currentEditPlanId = String(planId);
+        if (editPlanSummary) {
+          const parts = [];
+          if (plan.planNumber) parts.push(`#${plan.planNumber}`);
+          if (plan.name) parts.push(plan.name);
+          editPlanSummary.textContent = parts.join(' • ') || 'Selected floor plan';
+        }
+
+        populateSelectOptions(editCommunitiesSelect);
+        const selectedIds = new Set(getCommunityIds(plan));
+        Array.from(editCommunitiesSelect.options).forEach((opt) => {
+          opt.selected = selectedIds.has(opt.value);
+        });
+
+        setEditModalVisible(true);
+      }
+
+      function closeEditModal() {
+        setEditModalVisible(false);
+      }
+
+      plansTableBody.addEventListener('click', (event) => {
+        const btn = event.target.closest('[data-action="edit-plan"]');
+        if (!btn) return;
+        const planId = btn.getAttribute('data-plan-id');
+        if (planId) openEditModal(planId);
+      });
+
+      cancelEditPlanBtn?.addEventListener('click', closeEditModal);
+      closeEditPlanBtn?.addEventListener('click', closeEditModal);
+      editModal?.addEventListener('click', (event) => {
+        if (event.target === editModal) closeEditModal();
+      });
+      document.addEventListener('keydown', (event) => {
+        if (event.key === 'Escape' && editModal && editModal.style.display === 'flex') {
+          closeEditModal();
+        }
+      });
+
+      editForm?.addEventListener('submit', async (event) => {
+        event.preventDefault();
+        if (!currentEditPlanId || !editCommunitiesSelect) return;
+
+        const selectedCommunities = Array.from(editCommunitiesSelect.selectedOptions, (opt) => opt.value);
+
+        try {
+          const res = await fetch(`/api/floorplans/${encodeURIComponent(currentEditPlanId)}`, {
+            method: 'PUT',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ communities: selectedCommunities })
+          });
+
+          if (!res.ok) {
+            const payload = await res.json().catch(() => ({}));
+            throw new Error(payload.error || `Request failed (${res.status})`);
+          }
+
+          const updatedPlan = await res.json();
+          const updatedId = planIdOf(updatedPlan) || currentEditPlanId;
+          plansCache = plansCache.map((plan) => (planIdOf(plan) === updatedId ? updatedPlan : plan));
+          renderPlans(plansCache);
+          setStatus(`Updated communities for ${updatedPlan.name || updatedPlan.planNumber || 'floor plan'}`);
+          closeEditModal();
+        } catch (error) {
+          console.error('Update floor plan failed:', error);
+          setStatus(`Error: ${error.message}`, true);
+        }
+      });
 
       form.addEventListener('submit', async (event) => {
         event.preventDefault();

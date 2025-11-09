@@ -357,7 +357,7 @@ router.get('/manage-my-community-competition/:communityId',
 
 router.get('/my-community-competition',
   ensureAuth, requireRole('READONLY','USER','MANAGER','COMPANY_ADMIN','SUPER_ADMIN'),
-  (req, res) => res.render('pages/my-community-competition', { title: 'My Community ? Competition' })
+  (req, res) => res.render('pages/my-community-competition', { title: 'My Company - Competition' })
 );
 
 router.get('/competition-dashboard',

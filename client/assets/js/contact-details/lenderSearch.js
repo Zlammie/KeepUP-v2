@@ -1,5 +1,6 @@
 // assets/js/contact-details/lenderSearch.js
 import { getState } from './state.js';
+import { evaluateLenderHighlight } from './lenderLinkTask.js';
 import { formatPhoneDisplay } from '../shared/phone.js';
 
 export function initLenderSearch() {
@@ -65,67 +66,123 @@ function renderLenderCards() {
   if (!list) return;
 
   list.innerHTML = '';
-  if (!Array.isArray(contact.lenders)) return;
+  const lenders = Array.isArray(contact.lenders) ? contact.lenders : [];
 
-  contact.lenders.forEach((entry) => {
+  lenders.forEach((entry) => {
     list.appendChild(createLenderCard(entry));
   });
 
   setupPrimaryLenderRadios();
+  requestAnimationFrame(evaluateLenderHighlight);
 }
 
 function createLenderCard(entry) {
   const container = document.createElement('div');
   const lender = entry?.lender || {};
-  container.className = 'lender-card';
+  const classes = ['lender-card'];
+  if (entry?.isPrimary) classes.push('primary');
+  container.className = classes.join(' ');
+  container.dataset.entryId = entry?._id || '';
 
-  const removeBtn = document.createElement('button');
-  removeBtn.type = 'button';
-  removeBtn.className = 'remove-lender-btn';
-  removeBtn.dataset.entryId = entry._id;
-  removeBtn.innerHTML = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24">
-    <polyline points="3 6 5 6 21 6"></polyline>
-    <path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"></path>
-    <path d="M10 11v6"></path>
-    <path d="M14 11v6"></path>
-    <path d="M9 6V4a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2"></path>
-  </svg>`;
-  removeBtn.addEventListener('click', () => onRemoveLender(entry));
-  container.prepend(removeBtn);
+  const placeholder = '&mdash;';
+  const combineName = (first, last) => {
+    const parts = [first, last].map((part) => String(part || '').trim()).filter(Boolean);
+    return parts.join(' ').trim();
+  };
+  const asDisplay = (value) => {
+    const trimmed = String(value || '').trim();
+    if (!trimmed) return { text: placeholder, titleAttr: '' };
+    const safe = esc(trimmed);
+    return { text: safe, titleAttr: ` title="${safe}"` };
+  };
 
-  container.insertAdjacentHTML('beforeend', `
-    <div><strong>${(lender.firstName||'')} ${(lender.lastName||'')}</strong></div>
-    <div>Email: ${lender.email || '—'}</div>
-    <div>Phone: ${formatPhoneDisplay(lender.phone || '') || '—'}</div>
-    <div>Brokerage: ${lender.brokerage || lender.lenderBrokerage || '—'}</div>
+  const fullName = combineName(lender.firstName, lender.lastName);
+  const nameInfo = asDisplay(fullName);
+  const brokerageInfo = asDisplay(lender.brokerage || lender.lenderBrokerage);
 
-    <label class="primary-label">
-      <input type="radio" name="primaryLender" value="${entry._id}" ${entry.isPrimary ? 'checked' : ''} class="no-auto"/>
-      <span>Primary Lender</span>
-    </label>
+  const email = String(lender.email || '').trim();
+  const phoneRaw = String(lender.phone || '').trim();
+  const phoneDisplay = formatPhoneDisplay(phoneRaw) || '';
+  const phoneDigits = phoneRaw.replace(/[^\d+]/g, '');
 
-    <label>Status:
-      <select class="lender-status no-auto">
-        <option value="">-- Select Status --</option>
-        <option${entry.status==='invite'?' selected':''} value="invite">Invite</option>
-        <option${entry.status==='submittedapplication'?' selected':''} value="submittedapplication">Submitted Application</option>
-        <option${entry.status==='subdocs'?' selected':''} value="subdocs">Submitted Docs</option>
-        <option${entry.status==='missingdocs'?' selected':''} value="missingdocs">Missing Docs</option>
-        <option${entry.status==='approved'?' selected':''} value="approved">Approved</option>
-        <option${entry.status==='cannotqualify'?' selected':''} value="cannotqualify">Cannot Qualify</option>
-      </select>
-    </label>
+  const emailHref = email ? `mailto:${encodeURIComponent(email)}` : '';
+  const phoneHref = phoneDisplay ? `tel:${encodeURIComponent(phoneDigits || phoneDisplay)}` : '';
 
-    <label>Invite Date:
-      <input type="date" class="lender-invite-date no-auto" value="${entry.inviteDate?.split('T')[0]||''}" />
-    </label>
-    <label>Approved Date:
-      <input type="date" class="lender-approved-date no-auto" value="${entry.approvedDate?.split('T')[0]||''}" />
-    </label>
+  const emailMarkup = email
+    ? `<a href="${esc(emailHref)}">${esc(email)}</a>`
+    : placeholder;
+  const phoneMarkup = phoneDisplay
+    ? `<a href="${esc(phoneHref)}">${esc(phoneDisplay)}</a>`
+    : placeholder;
 
-    <button type="button" class="save-lender-btn">Save</button>
-    <span class="lender-save-hint" aria-live="polite" style="margin-left:.5rem;"></span>
-  `);
+  container.innerHTML = `
+    <div class="lender-card__header">
+      <div class="lender-card__identity">
+        <div class="lender-card__name"${nameInfo.titleAttr}>${nameInfo.text}</div>
+        <div class="lender-card__brokerage"${brokerageInfo.titleAttr}>${brokerageInfo.text}</div>
+      </div>
+      <button type="button" class="remove-lender-btn" data-entry-id="${entry._id}" aria-label="Remove lender">
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24">
+          <polyline points="3 6 5 6 21 6"></polyline>
+          <path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"></path>
+          <path d="M10 11v6"></path>
+          <path d="M14 11v6"></path>
+          <path d="M9 6V4a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2"></path>
+        </svg>
+      </button>
+    </div>
+
+    <div class="lender-card__meta-grid">
+      <div class="lender-card__meta">
+        <span class="lender-card__meta-label">Email</span>
+        <span class="lender-card__meta-value">${emailMarkup}</span>
+      </div>
+      <div class="lender-card__meta">
+        <span class="lender-card__meta-label">Phone</span>
+        <span class="lender-card__meta-value">${phoneMarkup}</span>
+      </div>
+    </div>
+
+    <div class="lender-card__controls">
+      <label class="primary-label">
+        <input type="radio" name="primaryLender" value="${entry._id}" ${entry.isPrimary ? 'checked' : ''} class="no-auto"/>
+        <span>Primary Lender</span>
+      </label>
+      <label class="lender-card__status">
+        <span class="lender-card__status-label">Status</span>
+        <select class="lender-status no-auto">
+          <option value="">-- Select Status --</option>
+          <option${entry.status==='invite'?' selected':''} value="invite">Invite</option>
+          <option${entry.status==='submittedapplication'?' selected':''} value="submittedapplication">Submitted Application</option>
+          <option${entry.status==='subdocs'?' selected':''} value="subdocs">Submitted Docs</option>
+          <option${entry.status==='missingdocs'?' selected':''} value="missingdocs">Missing Docs</option>
+          <option${entry.status==='approved'?' selected':''} value="approved">Approved</option>
+          <option${entry.status==='cannotqualify'?' selected':''} value="cannotqualify">Cannot Qualify</option>
+        </select>
+      </label>
+    </div>
+
+    <div class="lender-card__dates">
+      <label class="lender-card__date-field">
+        <span>Invite Date</span>
+        <input type="date" class="lender-invite-date no-auto" value="${entry.inviteDate?.split('T')[0]||''}" />
+      </label>
+      <label class="lender-card__date-field">
+        <span>Approved Date</span>
+        <input type="date" class="lender-approved-date no-auto" value="${entry.approvedDate?.split('T')[0]||''}" />
+      </label>
+    </div>
+
+    <div class="lender-card__footer">
+      <button type="button" class="save-lender-btn">Save</button>
+      <span class="lender-save-hint" aria-live="polite"></span>
+    </div>
+  `;
+
+  const removeBtn = container.querySelector('.remove-lender-btn');
+  if (removeBtn) {
+    removeBtn.addEventListener('click', () => onRemoveLender(entry));
+  }
 
   container.querySelector('.save-lender-btn')
     .addEventListener('click', () => onSaveLender(entry, container));

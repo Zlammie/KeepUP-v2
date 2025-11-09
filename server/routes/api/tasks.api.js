@@ -3,6 +3,8 @@ const mongoose = require('mongoose');
 
 const Task = require('../../models/Task');
 const Contact = require('../../models/Contact');
+const Community = require('../../models/Community');
+const Competition = require('../../models/Competition');
 const requireRole = require('../../middleware/requireRole');
 
 const router = express.Router();
@@ -111,20 +113,19 @@ router.get(
         return res.status(400).json({ error: 'Missing company context' });
       }
 
-      const {
-        linkedModel = 'Contact',
-        linkedId,
-        status,
-        type,
-        limit
-      } = req.query || {};
+      const { linkedModel = 'Contact', linkedId, status, type, limit } = req.query || {};
 
       if (!linkedId) {
         return res.status(400).json({ error: 'linkedId is required' });
       }
 
-      if (linkedModel !== 'Contact') {
-        return res.status(400).json({ error: 'Only contact-linked tasks are supported right now.' });
+      const normalizedModel =
+        typeof linkedModel === 'string' && linkedModel.trim().length
+          ? linkedModel.trim()
+          : 'Contact';
+
+      if (normalizedModel && TASK_LINKED_MODELS.size && !TASK_LINKED_MODELS.has(normalizedModel)) {
+        return res.status(400).json({ error: 'Unsupported linked model' });
       }
 
       const linkedObjectId = ensureObjectId(linkedId);
@@ -132,9 +133,50 @@ router.get(
         return res.status(400).json({ error: 'Invalid linkedId' });
       }
 
+      if (normalizedModel === 'Contact') {
+        // Contact validation handled implicitly by company scoping below
+      } else if (normalizedModel === 'Lot') {
+        const lotOwner = await Community.findOne({
+          company: companyId,
+          'lots._id': linkedObjectId
+        })
+          .select('_id')
+          .lean();
+
+        if (!lotOwner) {
+          return res.status(404).json({ error: 'Lot not found' });
+        }
+      } else if (normalizedModel === 'Community') {
+        const community = await Community.findOne({
+          _id: linkedObjectId,
+          company: companyId
+        })
+          .select('_id')
+          .lean();
+
+        if (!community) {
+          return res.status(404).json({ error: 'Community not found' });
+        }
+      } else if (normalizedModel === 'Competition') {
+        const competition = await Competition.findOne({
+          _id: linkedObjectId,
+          company: companyId
+        })
+          .select('_id')
+          .lean();
+
+        if (!competition) {
+          return res.status(404).json({ error: 'Competition not found' });
+        }
+      } else if (normalizedModel) {
+        return res
+          .status(400)
+          .json({ error: 'Only contact-, community-, competition-, or lot-linked tasks are supported right now.' });
+      }
+
       const filters = {
         company: companyId,
-        linkedModel: 'Contact',
+        linkedModel: normalizedModel,
         linkedId: linkedObjectId
       };
 
@@ -346,8 +388,64 @@ router.post(
         }
 
         linkedObjectId = contact._id;
+      } else if (normalizedModel === 'Lot') {
+        const lotObjectId = ensureObjectId(linkedId);
+        if (!lotObjectId) {
+          return res.status(400).json({ error: 'A valid lot id is required.' });
+        }
+
+        const lotOwner = await Community.findOne({
+          company: companyId,
+          'lots._id': lotObjectId
+        })
+          .select('_id')
+          .lean();
+
+        if (!lotOwner) {
+          return res.status(404).json({ error: 'Lot not found' });
+        }
+
+        linkedObjectId = lotObjectId;
+      } else if (normalizedModel === 'Community') {
+        const communityObjectId = ensureObjectId(linkedId);
+        if (!communityObjectId) {
+          return res.status(400).json({ error: 'A valid community id is required.' });
+        }
+
+        const communityDoc = await Community.findOne({
+          _id: communityObjectId,
+          company: companyId
+        })
+          .select('_id')
+          .lean();
+
+        if (!communityDoc) {
+          return res.status(404).json({ error: 'Community not found' });
+        }
+
+        linkedObjectId = communityDoc._id;
+      } else if (normalizedModel === 'Competition') {
+        const competitionObjectId = ensureObjectId(linkedId);
+        if (!competitionObjectId) {
+          return res.status(400).json({ error: 'A valid competition id is required.' });
+        }
+
+        const competitionDoc = await Competition.findOne({
+          _id: competitionObjectId,
+          company: companyId
+        })
+          .select('_id')
+          .lean();
+
+        if (!competitionDoc) {
+          return res.status(404).json({ error: 'Competition not found' });
+        }
+
+        linkedObjectId = competitionDoc._id;
       } else if (normalizedModel) {
-        return res.status(400).json({ error: 'Only contact-linked or unlinked tasks are supported right now.' });
+        return res
+          .status(400)
+          .json({ error: 'Only contact-, community-, competition-, or lot-linked tasks are supported right now.' });
       }
 
       let normalizedDueDate = null;

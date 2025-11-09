@@ -123,7 +123,7 @@
   font-size: 0.9rem;
 }
 
-/* span ‚ÄúAny‚Äù across both columns and center it */
+/* span ìAnyî across both columns and center it */
 .option-group .any-option {
   grid-column: 1 / -1;      /* span all 2 columns */
   justify-self: center;     /* center the label in that space */
@@ -230,7 +230,7 @@
 /* 3) Collapsed state */
 .todo-panel.collapsed {
   width: auto;               /* shrink to fit header */
-  min-width: fit-content;    /* ensure the button text isn‚Äôt clipped */
+  min-width: fit-content;    /* ensure the button text isnít clipped */
   padding: 0;                
   overflow: visible;         /* allow the header to show outside */
 }
@@ -251,7 +251,7 @@
 }
 
 
-/* (optional) ensure their inner padding/width doesn‚Äôt overflow */
+/* (optional) ensure their inner padding/width doesnít overflow */
 .bottom-cont > #community-section > .com-left-cont,
 .bottom-cont > #lot-link-container > #purchased-community-selector,
 .bottom-cont > #linked-lot-display {
@@ -307,7 +307,7 @@
 #more-info-panel.open ~ .comment-section {
   display: none;
 }
-/* open state‚Äîpane body slides into view */
+/* open stateópane body slides into view */
 #more-info-panel.open #more-info-body {
   width: 700px;
   
@@ -363,7 +363,7 @@
   position: absolute;
   top: 0.5rem;
   right: 0.5rem;
-  /* ‚Ä¶icon color, hover states‚Ä¶ */
+  /* Öicon color, hover statesÖ */
 }
 
 /* (optional) remove the focus outline if you prefer a custom style */
@@ -416,6 +416,17 @@
   border-color: #007bff;
 }
 
+.primary-label-missing-primary {
+  border-color: #c0392b;
+  background: rgba(192, 57, 43, 0.08);
+  box-shadow: 0 0 0 1px rgba(192, 57, 43, 0.2);
+}
+
+.primary-label-missing-primary span {
+  color: #c0392b;
+  font-weight: 600;
+}
+
 /* ===== Linked Lender Card Styling ===== */
 .lender-card {
   background: #fff;
@@ -438,6 +449,19 @@
   color: #222;
   margin-bottom: 0.25rem;
   display: inline-block;
+}
+
+.lender-card-missing-primary {
+  border-color: #c0392b !important;
+  box-shadow: 0 0 0 2px rgba(192, 57, 43, 0.18);
+}
+.lender-invite-date-missing {
+  border-color: #c0392b;
+  box-shadow: 0 0 0 1px rgba(192, 57, 43, 0.2);
+}
+.lender-invite-date-missing:focus {
+  outline: none;
+  box-shadow: 0 0 0 2px rgba(192, 57, 43, 0.35);
 }
 .lender-card > div:first-of-type {
   font-weight: 500;
@@ -477,7 +501,7 @@
   padding: 0.35rem 0.5rem;
   border: 1px solid #ccc;
   border-radius: 4px;
- font-family: inherit;       /* use your app‚Äôs font, not the browser default */
+ font-family: inherit;       /* use your appís font, not the browser default */
   font-size: 0.9rem;          /* bump just slightly for readability */
   color: #222;                /* darker, more modern text */
   line-height: 1.4;           /* space out the digits a bit */
@@ -1106,7 +1130,7 @@ body.task-modal-open {
 /* Community Summary */
 
 
-/* Scoped time layout so it won‚Äôt affect other areas */
+/* Scoped time layout so it wonít affect other areas */
 #community-section .time-summary {
   display: flex;
   justify-content: space-between;
@@ -1126,7 +1150,7 @@ body.task-modal-open {
   display: inline-flex;
   align-items: baseline;
   gap: 0.25rem;
-  flex: 0 0 auto;               /* don‚Äôt let them stretch weirdly */
+  flex: 0 0 auto;               /* donít let them stretch weirdly */
 }
 
 #community-summary .lot-line-up-summary .time-summary .time-item strong,
@@ -1171,7 +1195,7 @@ body.task-modal-open {
 }
 .card-block .block-value {
   color: #212529;
-  overflow-wrap: anywhere;  /* long lists won‚Äôt push layout */
+  overflow-wrap: anywhere;  /* long lists wonít push layout */
   line-height: 1.3;
 }
 
@@ -1260,7 +1284,7 @@ body.task-modal-open {
 
 /* === Community section font tuning === */
 #community-section .card-block .block-label {
-  font-size: 0.9rem;   /* slightly smaller than default (16px ‚Üí ~14.5px) */
+  font-size: 0.9rem;   /* slightly smaller than default (16px ? ~14.5px) */
 }
 
 #community-section .card-block .block-value {
@@ -1339,7 +1363,7 @@ body.task-modal-open {
   padding: .5rem;
 }
 
-/* Optional: individual result rows (tweak to your app‚Äôs markup) */
+/* Optional: individual result rows (tweak to your appís markup) */
 #lot-search-results .result-item {
   padding: .4rem .5rem;
   border-radius: .35rem;
@@ -1512,7 +1536,7 @@ body.task-modal-open {
   flex: 1 1 auto;      /* take remaining space */
   min-width: 0;        /* allow shrinking instead of wrapping */
   overflow: hidden;
-  text-overflow: ellipsis;  /* show ‚Ä¶ if text too long */
+  text-overflow: ellipsis;  /* show Ö if text too long */
   white-space: nowrap;      /* keep on the same line */
 }
 
@@ -1668,7 +1692,7 @@ body.task-modal-open {
 /* Textarea: smaller, cleaner */
 .comment-form textarea#comment-text {
   width: 100%;
-  min-height: 90px;                   /* ‚Üì from ‚Äútoo tall‚Äù */
+  min-height: 90px;                   /* ? from ìtoo tallî */
   max-height: 180px;
   resize: vertical;                   /* let them drag taller if needed */
   box-sizing: border-box;
@@ -1754,3 +1778,330 @@ body.task-modal-open {
   outline: none;
   box-shadow: 0 0 0 2px rgba(192, 57, 43, 0.35);
 }
+
+/* ---- Lender card refresh overrides ---- */
+.primary-label {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  margin: 0;
+  padding: 0.35em 0.75em;
+  border: 1px solid #d0d7e2;
+  border-radius: 999px;
+  cursor: pointer;
+  background-color: #f8fafc;
+  transition: background-color 0.2s ease, border-color 0.2s ease, color 0.2s ease;
+}
+
+.primary-label input[type="radio"] {
+  accent-color: #2563eb;
+  margin: 0;
+  width: 1rem;
+  height: 1rem;
+}
+
+.primary-label span {
+  font-size: 0.9rem;
+  color: #1f2937;
+  font-weight: 500;
+}
+
+.primary-label input[type="radio"]:checked + span,
+.primary-label input[type="radio"]:checked ~ span {
+  font-weight: 600;
+  color: #fff;
+}
+
+.primary-label input[type="radio"]:checked ~ span,
+.primary-label input[type="radio"]:checked + span {
+  background-color: #2563eb;
+  border-color: #2563eb;
+  padding: 0.25em 0.65em;
+  border-radius: 999px;
+}
+
+.primary-label:hover {
+  border-color: #2563eb;
+}
+
+.primary-label-missing-primary {
+  border-color: #c0392b;
+  background: rgba(192, 57, 43, 0.08);
+  box-shadow: 0 0 0 1px rgba(192, 57, 43, 0.2);
+}
+
+.primary-label-missing-primary span {
+  color: #c0392b;
+  font-weight: 600;
+}
+
+.lender-card {
+  background: #fff;
+  border: 1px solid #dce3ee;
+  border-radius: 12px;
+  padding: 1rem 1.1rem;
+  margin-bottom: 1rem;
+  box-shadow: 0 6px 16px rgba(15, 23, 42, 0.08);
+  font-size: 0.9rem;
+  line-height: 1.4;
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+  position: relative;
+}
+
+.lender-card.primary:not(.lender-card-missing-primary) {
+  border-color: #2563eb;
+  box-shadow: 0 0 0 2px rgba(37, 99, 235, 0.18);
+}
+
+.lender-card-missing-primary {
+  border-color: #c0392b !important;
+  box-shadow: 0 0 0 2px rgba(192, 57, 43, 0.18);
+}
+
+.lender-card__header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 0.75rem;
+}
+
+.lender-card__identity {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+  min-width: 0;
+}
+
+.lender-card__name {
+  font-size: 1.05rem;
+  font-weight: 600;
+  color: #111827;
+  line-height: 1.25;
+  overflow-wrap: anywhere;
+}
+
+.lender-card__brokerage {
+  font-size: 0.85rem;
+  color: #64748b;
+  overflow-wrap: anywhere;
+}
+
+.lender-card__meta-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+  gap: 0.75rem;
+}
+
+.lender-card__meta {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+}
+
+.lender-card__meta-label {
+  font-size: 0.7rem;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: #94a3b8;
+}
+
+.lender-card__meta-value {
+  font-size: 0.9rem;
+  font-weight: 500;
+  color: #1f2937;
+  overflow-wrap: anywhere;
+  line-height: 1.35;
+}
+
+.lender-card__meta-value a {
+  color: inherit;
+  text-decoration: none;
+  word-break: break-word;
+}
+
+.lender-card__meta-value a:hover {
+  text-decoration: underline;
+}
+
+.lender-card__controls {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.75rem;
+  align-items: center;
+}
+
+.lender-card__controls .primary-label {
+  margin: 0;
+}
+
+.lender-card__status {
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+  min-width: 180px;
+  font-size: 0.85rem;
+  color: #475569;
+}
+
+.lender-card__status select {
+  padding: 0.45rem 0.6rem;
+  border: 1px solid #cbd5e1;
+  border-radius: 6px;
+  font-size: 0.9rem;
+  font-family: inherit;
+  color: #0f172a;
+  transition: border-color 0.2s ease, box-shadow 0.2s ease;
+}
+
+.lender-card__status select:focus-visible {
+  outline: 2px solid rgba(37, 99, 235, 0.35);
+  outline-offset: 2px;
+  border-color: #2563eb;
+}
+
+.lender-card__dates {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+  gap: 0.75rem;
+}
+
+.lender-card__date-field {
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+  font-size: 0.85rem;
+  color: #475569;
+}
+
+.lender-card__date-field input[type="date"] {
+  padding: 0.45rem 0.6rem;
+  border: 1px solid #cbd5e1;
+  border-radius: 6px;
+  font-size: 0.9rem;
+  color: #0f172a;
+  transition: border-color 0.2s ease, box-shadow 0.2s ease;
+}
+
+.lender-card__date-field input[type="date"]:focus-visible {
+  outline: 2px solid rgba(37, 99, 235, 0.35);
+  outline-offset: 2px;
+  border-color: #2563eb;
+}
+
+.lender-invite-date-missing {
+  border-color: #b42318 !important;
+  border-style: solid;
+  border-width: 2px;
+  background: rgba(244, 63, 94, 0.14);
+  box-shadow: 0 0 0 1px rgba(180, 35, 24, 0.35);
+}
+
+.lender-invite-date-missing:focus,
+.lender-invite-date-missing:focus-visible {
+  outline: 2px solid rgba(180, 35, 24, 0.5);
+  outline-offset: 2px;
+  box-shadow: 0 0 0 2px rgba(244, 63, 94, 0.35);
+}
+
+.lender-approved-date-missing {
+  border-color: #b42318 !important;
+  border-style: solid;
+  border-width: 2px;
+  background: rgba(244, 63, 94, 0.14);
+  box-shadow: 0 0 0 1px rgba(180, 35, 24, 0.35);
+}
+
+.lender-approved-date-missing:focus,
+.lender-approved-date-missing:focus-visible {
+  outline: 2px solid rgba(180, 35, 24, 0.5);
+  outline-offset: 2px;
+  box-shadow: 0 0 0 2px rgba(244, 63, 94, 0.35);
+}
+
+.lender-card .remove-lender-btn {
+  border: none;
+  background: transparent;
+  color: #94a3b8;
+  padding: 0.2rem;
+  border-radius: 999px;
+  cursor: pointer;
+  transition: color 0.2s ease, background-color 0.2s ease;
+}
+
+.lender-card .remove-lender-btn:hover {
+  color: #dc2626;
+  background: rgba(220, 38, 38, 0.08);
+}
+
+.lender-card .remove-lender-btn:focus-visible {
+  outline: 2px solid rgba(59, 130, 246, 0.5);
+  outline-offset: 2px;
+}
+
+.lender-card .remove-lender-btn svg {
+  width: 18px;
+  height: 18px;
+  stroke: currentColor;
+  stroke-width: 1.8;
+  fill: none;
+}
+
+.lender-card__footer {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  flex-wrap: wrap;
+}
+
+.lender-card__footer .save-lender-btn {
+  background: #2563eb;
+  color: #fff;
+  border: none;
+  border-radius: 6px;
+  padding: 0.5rem 1.05rem;
+  font-size: 0.9rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background-color 0.2s ease, box-shadow 0.2s ease;
+}
+
+.lender-card__footer .save-lender-btn:hover {
+  background: #1d4ed8;
+}
+
+.lender-card__footer .save-lender-btn:focus-visible {
+  outline: 2px solid rgba(59, 130, 246, 0.4);
+  outline-offset: 2px;
+}
+
+/* Save hint */
+.lender-card__footer .lender-save-hint {
+  min-height: 1.2rem;
+  font-size: 0.8rem;
+  color: #64748b;
+}
+
+.lender-card__status-label {
+  font-size: 0.75rem;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: #94a3b8;
+  font-weight: 600;
+}
+
+
+
+.community-select-missing {
+  border: 2px solid #b42318 !important;
+  background: rgba(244, 63, 94, 0.14);
+  box-shadow: 0 0 0 1px rgba(180, 35, 24, 0.35);
+}
+
+.community-select-missing:focus-visible {
+  outline: 2px solid rgba(180, 35, 24, 0.5);
+  outline-offset: 2px;
+  box-shadow: 0 0 0 2px rgba(244, 63, 94, 0.35);
+}
+

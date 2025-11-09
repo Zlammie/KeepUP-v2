@@ -16,9 +16,10 @@ export function updateFieldVisibility() {
 
   // base requireds
   els.firstName.required = true;
-  els.lastName.required = true;
-  els.email.required = true;
-  els.phone.required = true;
+  els.lastName.required = false;
+  els.email.required = false;
+  els.phone.required = false;
+  if (els.visitDate) els.visitDate.required = false;
   els.lenderFirstName.required = false;
   els.lenderLastName.required = false;
 

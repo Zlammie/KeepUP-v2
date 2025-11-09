@@ -6,7 +6,9 @@ import {
   monthNames,
   latestMetrics,
   totalLots,
-  competitionId
+  competitionId,
+  builderName,
+  communityName
 } from './data.js';
 import * as DOM from './dom.js';
 import {
@@ -21,10 +23,64 @@ import { renderBadges, bindProsCons } from './prosCons.js';
 import { populateTopPlans } from './plans.js';
 import { initFloorPlansModal, loadFloorPlansList } from './floorPlans.js';
 import { initFloorPlanModal } from './modal.js';
+import { initTaskPanel } from '../contact-details/tasks.js';
+import { createTask as createTaskApi, fetchTasks as fetchTasksApi } from '../contact-details/api.js';
+import { emit } from '../contact-details/events.js';
 
 
 
 let currentMonth = null;
+const resolveTaskTitle = () =>
+  window.UPDATE_COMP_BOOT?.defaultTaskTitle ||
+  (builderName && communityName
+    ? `Follow up on ${builderName} – ${communityName}`
+    : 'Follow up on this competition');
+
+const targetMonthDate = new Date(new Date().getFullYear(), new Date().getMonth() - 1, 1);
+const TARGET_MONTH_KEY = `${targetMonthDate.getFullYear()}-${String(targetMonthDate.getMonth() + 1).padStart(2, '0')}`;
+
+const RECURRING_TASKS = [
+  {
+    reason: 'competition-update-promotion',
+    title: 'Update competition promotion',
+    description: 'Review this competitor’s current promotion and update the metrics tab.'
+  },
+  {
+    reason: 'competition-update-top-plans',
+    title: 'Refresh top 3 plans',
+    description: 'Verify the Top 3 Plans for this competition are current.'
+  },
+  {
+    reason: 'competition-update-sold-lots',
+    title: 'Update sold lot counts',
+    description: 'Confirm the sold lot totals for this competition.'
+  },
+  {
+    reason: 'competition-update-qmi-lots',
+    title: 'Update quick move-in lots',
+    description: 'Review and refresh quick move-in inventory for this competition.'
+  },
+  {
+    reason: 'competition-review-qmi',
+    title: 'Review quick move-in homes',
+    description: 'Verify the quick move-in table is accurate for this competition.'
+  },
+  {
+    reason: 'competition-review-sold-homes',
+    title: 'Review sold homes',
+    description: 'Confirm the sold homes table reflects the latest information.'
+  },
+  {
+    reason: 'competition-update-sales-summary',
+    title: 'Update sales, cancels & closings',
+    description: 'Refresh the sales summary numbers for this competition.'
+  },
+  {
+    reason: 'competition-update-floor-plan-prices',
+    title: 'Update floor plan base prices',
+    description: 'Fill in the base price grid for the current month’s floor plans.'
+  }
+];
 
 async function hydrateMonthlyUI(month) {
   try {
@@ -48,6 +104,24 @@ async function hydrateMonthlyUI(month) {
  * Application entrypoint
  */
 document.addEventListener('DOMContentLoaded', async () => {
+  const taskPanelController = initTaskPanel({
+    linkedModel: 'Competition',
+    linkedId: competitionId,
+    defaultTitleBuilder: resolveTaskTitle
+  });
+
+  ensureRecurringTasksForCompetition(competitionId)
+    .then((created) => {
+      if (created) {
+        taskPanelController?.setContext({
+          linkedModel: 'Competition',
+          linkedId: competitionId,
+          defaultTitleBuilder: resolveTaskTitle
+        });
+      }
+    })
+    .catch((err) => console.error('[update-competition] recurring task seed failed', err));
+
   // Back to details (CSP-safe: no inline script)
   const back = document.getElementById('backToDetailsBtn');
   if (back) {
@@ -162,3 +236,72 @@ document.addEventListener('DOMContentLoaded', async () => {
     metricsLink.click();
   }
 });
+
+function formatMonthLabel(monthKey) {
+  const [y, m] = String(monthKey).split('-').map(Number);
+  if (!Number.isFinite(y) || !Number.isFinite(m)) return monthKey;
+  const dt = new Date(y, m - 1, 1);
+  return dt.toLocaleString(undefined, { month: 'long', year: 'numeric' });
+}
+
+async function ensureRecurringTasksForCompetition(id) {
+  if (!id || !TARGET_MONTH_KEY) return false;
+
+  let existing = [];
+  try {
+    const res = await fetchTasksApi({
+      linkedModel: 'Competition',
+      linkedId: id,
+      limit: 200
+    });
+    existing = Array.isArray(res?.tasks) ? res.tasks : [];
+  } catch (err) {
+    console.error('[update-competition] failed to load tasks for recurring check', err);
+    return false;
+  }
+
+  const createdReasons = new Set(
+    existing
+      .filter((task) => {
+        const reason = (task?.reason || '').toLowerCase();
+        if (!reason) return false;
+        const createdAt = task?.createdAt ? new Date(task.createdAt) : null;
+        if (!createdAt || Number.isNaN(createdAt.getTime())) return false;
+        return (
+          createdAt.getFullYear() === targetMonthDate.getFullYear() &&
+          createdAt.getMonth() === targetMonthDate.getMonth()
+        );
+      })
+      .map((task) => String(task.reason || '').toLowerCase())
+  );
+
+  let createdAny = false;
+
+  for (const config of RECURRING_TASKS) {
+    const reasonKey = `${config.reason}-${TARGET_MONTH_KEY}`.toLowerCase();
+    if (createdReasons.has(reasonKey)) continue;
+
+    try {
+      const response = await createTaskApi({
+        title: `${config.title} (${formatMonthLabel(TARGET_MONTH_KEY)})`,
+        description: config.description,
+        linkedModel: 'Competition',
+        linkedId: id,
+        type: 'Reminder',
+        category: 'System',
+        priority: 'Medium',
+        status: 'Pending',
+        autoCreated: true,
+        reason: reasonKey
+      });
+      if (response?.task) {
+        emit('tasks:external-upsert', response.task);
+        createdAny = true;
+      }
+    } catch (err) {
+      console.error('[update-competition] failed to create recurring competition task', err);
+    }
+  }
+
+  return createdAny;
+}

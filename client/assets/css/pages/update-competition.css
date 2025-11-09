@@ -154,3 +154,17 @@
 .folder-panel > :first-child {
   margin-top: 0;
 }
+
+.plan-price-input--warning {
+  outline: 2px solid rgba(220, 38, 38, 0.9);
+  outline-offset: 1px;
+  border-color: rgba(248, 113, 113, 0.9);
+  box-shadow: 0 0 0 1px rgba(220, 38, 38, 0.35);
+}
+
+.sales-summary-input--warning {
+  outline: 2px solid rgba(220, 38, 38, 0.9);
+  outline-offset: 1px;
+  border-color: rgba(248, 113, 113, 0.9);
+  box-shadow: 0 0 0 1px rgba(220, 38, 38, 0.35);
+}

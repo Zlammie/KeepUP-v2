@@ -5,11 +5,10 @@ import { debounce } from './utils.js';
 import {
   buildingClasses, buildingLabels,
   walkStatusClasses, walkStatusLabels,
-  closingStatusClasses, closingStatusLabels
+  closingStatusClasses
 } from './statusMaps.js';
 import {
   splitDateTimeForInputs,
-  formatClosingSummary,
   formatCurrency,
   parseCurrency
 } from './utils.js';
@@ -188,7 +187,6 @@ export const attachAllControls = ({ communityId, lotId, lot, purchaserContact, p
   const closingStatusSelect = els.closingStatusSelect;
   const closingDateInput = els.closingDateInput;
   const closingTimeInput = els.closingTimeInput;
-  const closingSummaryEl = els.closingSummaryValue;
   let currentPrimaryEntry = primaryEntry || null;
   if (!currentPrimaryEntry && Array.isArray(purchaserContact?.lenders)) {
     currentPrimaryEntry =
@@ -234,39 +232,16 @@ export const attachAllControls = ({ communityId, lotId, lot, purchaserContact, p
       if (updated?.closingStatus) {
         currentPrimaryEntry = updated;
       }
-      const badgeKey = closingStatusClasses[effective] ? effective : 'notLocked';
-      els.closingStatusValue.innerHTML =
-        `<span class="status-badge ${closingStatusClasses[badgeKey]}">${closingStatusLabels[badgeKey]}</span>`;
     });
   }
 
-  const summaryPlaceholder = closingSummaryEl?.dataset?.placeholder || 'Not scheduled';
-  const setClosingSummary = (date, time) => {
-    if (!closingSummaryEl) return;
-    if (!date) {
-      closingSummaryEl.textContent = summaryPlaceholder;
-      closingSummaryEl.classList.add('is-placeholder');
-      return;
-    }
-    closingSummaryEl.textContent = formatClosingSummary({ date, time });
-    closingSummaryEl.classList.remove('is-placeholder');
-  };
-
-  const refreshSummaryFromInputs = () => {
-    if (!closingDateInput) return;
-    const dateVal = closingDateInput.value?.trim() || '';
-    const timeVal = closingTimeInput?.value?.trim() || '';
-    if (closingTimeInput) {
-      closingTimeInput.classList.toggle('is-blank', !timeVal);
-    }
-    setClosingSummary(dateVal, timeVal);
-  };
-
   const syncClosingPreview = (raw) => {
     const { date, time } = splitDateTimeForInputs(raw);
-    if (closingDateInput) closingDateInput.value = date;
-    if (closingTimeInput) closingTimeInput.value = time;
-    refreshSummaryFromInputs();
+    if (closingDateInput) closingDateInput.value = date || '';
+    if (closingTimeInput) {
+      closingTimeInput.value = time || '';
+      closingTimeInput.classList.toggle('is-blank', !time);
+    }
   };
   syncClosingPreview(currentPrimaryEntry?.closingDateTime || '');
 
@@ -279,6 +254,7 @@ export const attachAllControls = ({ communityId, lotId, lot, purchaserContact, p
     const timePart = timeVal ? timeVal.slice(0, 5) : '';
     if (closingTimeInput && timePart !== timeVal) {
       closingTimeInput.value = timePart;
+      closingTimeInput.classList.toggle('is-blank', !timePart);
     }
 
     const payload = timePart ? `${dateVal}T${timePart}` : dateVal;
@@ -288,12 +264,10 @@ export const attachAllControls = ({ communityId, lotId, lot, purchaserContact, p
   };
 
   if (closingDateInput) {
-    closingDateInput.addEventListener('input', refreshSummaryFromInputs);
     closingDateInput.addEventListener('change', saveClosing);
     closingDateInput.addEventListener('blur', saveClosing);
   }
   if (closingTimeInput) {
-    closingTimeInput.addEventListener('input', refreshSummaryFromInputs);
     closingTimeInput.addEventListener('change', saveClosing);
     closingTimeInput.addEventListener('blur', saveClosing);
   }

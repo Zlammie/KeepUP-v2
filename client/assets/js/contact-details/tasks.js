@@ -31,7 +31,9 @@ const taskState = {
   filter: 'all'
 };
 
-function normalizeTask(raw) {
+let taskPanelInstance = null;
+
+function normalizeTask(raw, fallbackModel = 'Contact') {
   if (!raw) return null;
   const fallbackDate = new Date().toISOString();
   return {
@@ -44,7 +46,7 @@ function normalizeTask(raw) {
     category: raw.category || 'Communication',
     dueDate: raw.dueDate || null,
     completedAt: raw.completedAt || null,
-    linkedModel: raw.linkedModel || 'Contact',
+    linkedModel: raw.linkedModel || fallbackModel,
     linkedId: raw.linkedId ? String(raw.linkedId) : null,
     assignedTo: raw.assignedTo ? String(raw.assignedTo) : null,
     createdBy: raw.createdBy ? String(raw.createdBy) : null,
@@ -290,9 +292,19 @@ function populateSelectOptions(select, options) {
   });
 }
 
-export function initTaskPanel({ contactId, currentUserId }) {
+function createTaskPanel({
+  contactId = null,
+  currentUserId = null,
+  linkedModel = 'Contact',
+  linkedId = null,
+  defaultTitleBuilder = null
+} = {}) {
   const panel = document.getElementById('todo-panel');
-  if (!panel) return;
+  if (!panel) {
+    return {
+      setContext() {}
+    };
+  }
 
   const toggle = panel.querySelector('#todo-toggle');
   const addBtn = panel.querySelector('#todo-add');
@@ -301,7 +313,25 @@ export function initTaskPanel({ contactId, currentUserId }) {
   const countEl = panel.querySelector('#todo-count');
   const filterButtons = Array.from(panel.querySelectorAll('.todo-pill'));
 
-  if (!contactId) return;
+  let contextContactId = contactId ?? null;
+  let contextLinkedId = linkedId ?? null;
+  let contextLinkedModel = linkedModel || 'Contact';
+  let contextDefaultTitleBuilder =
+    typeof defaultTitleBuilder === 'function' ? defaultTitleBuilder : null;
+
+  const resolveLinkedId = () => contextLinkedId ?? contextContactId ?? null;
+  const resolveTargetModel = () => contextLinkedModel || 'Contact';
+  const getDefaultTitle = () =>
+    (typeof contextDefaultTitleBuilder === 'function'
+      ? contextDefaultTitleBuilder()
+      : buildDefaultTitle());
+  const updatePanelAvailability = (enabled) => {
+    panel.classList.toggle('is-disabled', !enabled);
+    if (addBtn) {
+      addBtn.disabled = !enabled;
+      addBtn.setAttribute('aria-disabled', String(!enabled));
+    }
+  };
 
   const modalRoot = document.getElementById('task-modal');
   const modal = {
@@ -402,8 +432,13 @@ export function initTaskPanel({ contactId, currentUserId }) {
   };
 
   on('tasks:external-upsert', (task) => {
-    const normalized = normalizeTask(task);
+    const normalized = normalizeTask(task, resolveTargetModel());
     if (!normalized) return;
+    const currentId = resolveLinkedId();
+    if (currentId) {
+      const normalizedId = normalized.linkedId ? String(normalized.linkedId) : null;
+      if (!normalizedId || normalizedId !== String(currentId)) return;
+    }
     replaceTask(normalized);
     refresh();
   });
@@ -507,7 +542,7 @@ export function initTaskPanel({ contactId, currentUserId }) {
     clearModalError();
     modal.form.reset();
 
-    const titleValue = isCreate ? buildDefaultTitle() : task?.title || '';
+    const titleValue = isCreate ? getDefaultTitle() : task?.title || '';
     if (modal.title) modal.title.value = titleValue;
 
     const dueValue = isCreate ? '' : toDateInputValue(task?.dueDate);
@@ -625,18 +660,27 @@ export function initTaskPanel({ contactId, currentUserId }) {
       status: statusValue
     };
 
+    const effectiveLinkedId = resolveLinkedId();
+    const targetModel = resolveTargetModel();
+
     clearModalError();
+    if (!effectiveLinkedId) {
+      showModalError('Select a record before saving tasks.');
+      return;
+    }
+
     setModalLoading(true);
 
     try {
       if (modalMode === 'create' || !activeTaskId) {
         const createPayload = {
           ...payload,
-          linkedModel: 'Contact',
-          linkedId: contactId
+          ...(effectiveLinkedId
+            ? { linkedModel: targetModel, linkedId: effectiveLinkedId }
+            : {})
         };
         const response = await createTask(createPayload);
-        const normalized = normalizeTask(response.task);
+        const normalized = normalizeTask(response.task, targetModel);
         if (normalized) {
           taskState.items.unshift(normalized);
         }
@@ -646,7 +690,7 @@ export function initTaskPanel({ contactId, currentUserId }) {
         closeTaskModal();
       } else {
         const response = await updateTask(activeTaskId, payload);
-        const normalized = normalizeTask(response.task);
+        const normalized = normalizeTask(response.task, targetModel);
         replaceTask(normalized);
         updateCompleteButton(normalized?.status);
         refresh();
@@ -672,7 +716,7 @@ export function initTaskPanel({ contactId, currentUserId }) {
 
     try {
       const response = await updateTask(task._id, { status: nextStatus });
-      const normalized = normalizeTask(response.task);
+      const normalized = normalizeTask(response.task, resolveTargetModel());
       button.setAttribute('aria-pressed', nextStatus === 'Completed' ? 'true' : 'false');
       replaceTask(normalized);
       refresh();
@@ -719,14 +763,21 @@ export function initTaskPanel({ contactId, currentUserId }) {
 
   refresh();
 
-  (async () => {
+  const loadTasksForContext = async () => {
+    const effectiveLinkedId = resolveLinkedId();
+    if (!effectiveLinkedId) {
+      taskState.items = [];
+      refresh();
+      return;
+    }
+    const targetModel = resolveTargetModel();
     try {
       const response = await fetchTasks({
-        linkedModel: 'Contact',
-        linkedId: contactId
+        linkedModel: targetModel,
+        linkedId: effectiveLinkedId
       });
       const normalized = Array.isArray(response?.tasks)
-        ? response.tasks.map(normalizeTask).filter(Boolean)
+        ? response.tasks.map((task) => normalizeTask(task, targetModel)).filter(Boolean)
         : [];
       taskState.items = normalized;
     } catch (err) {
@@ -735,7 +786,36 @@ export function initTaskPanel({ contactId, currentUserId }) {
     } finally {
       refresh();
     }
-  })();
+  };
+
+  const setContext = async (contextUpdates = {}) => {
+    if (Object.prototype.hasOwnProperty.call(contextUpdates, 'contactId')) {
+      contextContactId = contextUpdates.contactId ?? null;
+    }
+    if (
+      Object.prototype.hasOwnProperty.call(contextUpdates, 'linkedModel') &&
+      contextUpdates.linkedModel
+    ) {
+      contextLinkedModel = contextUpdates.linkedModel;
+    }
+    if (Object.prototype.hasOwnProperty.call(contextUpdates, 'linkedId')) {
+      contextLinkedId = contextUpdates.linkedId ?? null;
+    }
+    if (Object.prototype.hasOwnProperty.call(contextUpdates, 'defaultTitleBuilder')) {
+      const builder = contextUpdates.defaultTitleBuilder;
+      contextDefaultTitleBuilder =
+        typeof builder === 'function' ? builder : builder === null ? null : contextDefaultTitleBuilder;
+    }
+
+    const hasContext = Boolean(resolveLinkedId());
+    updatePanelAvailability(hasContext);
+    if (!hasContext) {
+      taskState.items = [];
+      refresh();
+      return;
+    }
+    await loadTasksForContext();
+  };
 
   filterButtons.forEach((btn) => {
     btn.addEventListener('click', () => {
@@ -748,6 +828,7 @@ export function initTaskPanel({ contactId, currentUserId }) {
 
   addBtn?.addEventListener('click', (event) => {
     event.preventDefault();
+    if (addBtn.disabled) return;
     if (panel.classList.contains('collapsed')) {
       panel.classList.remove('collapsed');
       toggle?.setAttribute('aria-expanded', 'true');
@@ -756,4 +837,17 @@ export function initTaskPanel({ contactId, currentUserId }) {
   });
 
 
+  updatePanelAvailability(Boolean(resolveLinkedId()));
+  loadTasksForContext();
+
+  return { setContext };
+}
+
+export function initTaskPanel(options = {}) {
+  if (taskPanelInstance) {
+    taskPanelInstance.setContext?.(options);
+    return taskPanelInstance;
+  }
+  taskPanelInstance = createTaskPanel(options);
+  return taskPanelInstance;
 }

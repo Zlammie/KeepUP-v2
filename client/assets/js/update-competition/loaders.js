@@ -22,6 +22,8 @@ import * as DOM from './dom.js';
 // ## Module-scope state
 let allQuickHomes = [];
 let allFloorPlans = [];
+const targetMonthDate = new Date(new Date().getFullYear(), new Date().getMonth() - 1, 1);
+const TARGET_MONTH_KEY = `${targetMonthDate.getFullYear()}-${String(targetMonthDate.getMonth() + 1).padStart(2, '0')}`;
 
 /**
  * 0) Initialize data: fetch all Quick-Move-Ins and Floor Plans
@@ -90,6 +92,8 @@ export async function loadMonth(monthKey) {
       loadMonth(monthKey);
     });
   });
+
+  applyPriceHighlight(DOM.priceBody, monthKey === TARGET_MONTH_KEY);
 }
 
 /**
@@ -395,6 +399,7 @@ export async function loadSales(monthKey) {
     <td><input type="number" class="form-control sales-input" data-field="closings" value="${r.closings ?? ''}" /></td>
   `;
   DOM.salesBody.appendChild(tr);
+  applySalesHighlight(tr, monthKey === TARGET_MONTH_KEY);
 
   // keep your existing blur/change handler; ensure new creates set month
   tr.querySelectorAll('.sales-input').forEach(input => {
@@ -420,4 +425,23 @@ export async function loadSales(monthKey) {
       });
     });
   });
+}
+
+function applyPriceHighlight(container, active) {
+  if (!container) return;
+  container.querySelectorAll('input.price-input').forEach((input) => {
+    const hasPrice = isNum(input.value);
+    const shouldHighlight = active && !hasPrice;
+    input.classList.toggle('plan-price-input--warning', shouldHighlight);
+  });
+}
+
+function applySalesHighlight(row, active) {
+  if (!row) return;
+  row
+    .querySelectorAll('.sales-input')
+    .forEach((input) => {
+      const shouldHighlight = active && !isNum(input.value);
+      input.classList.toggle('sales-summary-input--warning', shouldHighlight);
+    });
 }

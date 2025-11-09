@@ -1,5 +1,15 @@
 // client/assets/js/mcc/priceTable.js
 import { PROFILE_API, PLANS_API } from './context.js';
+import { createTask as createTaskApi, fetchTasks as fetchTasksApi } from '../contact-details/api.js';
+import { emit } from '../contact-details/events.js';
+
+const targetMonthDate = new Date(new Date().getFullYear(), new Date().getMonth() - 1, 1);
+const TARGET_MONTH_KEY = `${targetMonthDate.getFullYear()}-${String(targetMonthDate.getMonth() + 1).padStart(2, '0')}`;
+const BASE_PRICE_REASON_PREFIX = 'community-add-base-prices';
+const COMMUNITY_ID =
+  typeof window !== 'undefined'
+    ? window?.MCC_BOOT?.communityId || document.body?.dataset?.communityId || ''
+    : '';
 
 export function priceTable() {
   const table = document.getElementById('monthTable');
@@ -56,7 +66,66 @@ export function priceTable() {
     priceMap = prices || {};
     tbody.innerHTML = ''; plans.forEach(p => tbody.appendChild(buildRow(p)));
     wireInputs();
+    const isTargetMonth = month === TARGET_MONTH_KEY;
+    applyPriceHighlight(tbody, isTargetMonth);
+    if (isTargetMonth) ensureBasePriceTask(month).catch((err) =>
+      console.error('[mcc] failed to ensure base price task', err)
+    );
   }
 
   return { load };
+}
+
+function formatMonthLabel(monthKey) {
+  const [y, m] = String(monthKey).split('-').map(Number);
+  if (!Number.isFinite(y) || !Number.isFinite(m)) return monthKey;
+  const dt = new Date(y, m - 1, 1);
+  return dt.toLocaleString(undefined, { month: 'long', year: 'numeric' });
+}
+
+function applyPriceHighlight(container, active) {
+  container
+    .querySelectorAll('input.plan-price-input')
+    .forEach((input) => input.classList.toggle('plan-price-input--warning', Boolean(active)));
+}
+
+async function ensureBasePriceTask(monthKey) {
+  if (!COMMUNITY_ID || monthKey !== TARGET_MONTH_KEY) return;
+  const reason = `${BASE_PRICE_REASON_PREFIX}-${monthKey}`.toLowerCase();
+
+  let tasks = [];
+  try {
+    const response = await fetchTasksApi({
+      linkedModel: 'Community',
+      linkedId: COMMUNITY_ID,
+      limit: 200
+    });
+    tasks = Array.isArray(response?.tasks) ? response.tasks : [];
+  } catch (err) {
+    console.error('[mcc] unable to read tasks for base price reminder', err);
+    return;
+  }
+
+  const alreadyExists = tasks.some(
+    (task) => String(task?.reason || '').trim().toLowerCase() === reason
+  );
+  if (alreadyExists) return;
+
+  try {
+    const response = await createTaskApi({
+      title: `Add floor plan base prices for ${formatMonthLabel(monthKey)}`,
+      description: 'Update the base prices for this community’s floor plans in Manage My Community Competition.',
+      linkedModel: 'Community',
+      linkedId: COMMUNITY_ID,
+      type: 'Reminder',
+      category: 'System',
+      priority: 'Medium',
+      status: 'Pending',
+      autoCreated: true,
+      reason
+    });
+    if (response?.task) emit('tasks:external-upsert', response.task);
+  } catch (err) {
+    console.error('[mcc] failed to create base price reminder task', err);
+  }
 }

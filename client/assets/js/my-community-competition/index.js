@@ -1,6 +1,7 @@
 // client/assets/js/my-community-competition/index.js
 import { currentCommunityId, sqftMonth, setSqftMonth } from './state.js';
 import {
+  builderTitle,
   allCompetitionsList,
   linkedContainer,
   availableListCount,
@@ -23,6 +24,7 @@ import { drawSalesGraph, drawBasePriceGraph, drawQmiSoldsGraph, drawSqftComparis
 import { setupSectionToggles } from './toggles.js';
 import { qmiSoldTable } from './qmiSoldTable.js';
 import { initAmenities } from './amenities.js';
+import { initTaskPanel } from '../contact-details/tasks.js';
 
 let linked = [];
 let allCompetitions = [];
@@ -35,12 +37,14 @@ const qmiTableCard = document.getElementById('qmiTableCard');
 const qmiTableToggle = document.getElementById('qmiTableToggle');
 const communitySelectEl = document.getElementById('communitySelect');
 const sqftMonthSelect = document.getElementById('sqftMonthSelect');
+const builderTitleEl = builderTitle;
 
 let qmiTableOverlay = null;
 let qmiTableExpanded = false;
 let qmiTableEscListener = null;
 let listMode = 'external';
 let listSearchTerm = '';
+let taskPanelController = null;
 
 const OVERVIEW_COLLAPSE_KEY = 'mcc:overviewCollapsed';
 
@@ -188,6 +192,15 @@ function collapseQmiTable(options = {}) {
     qmiTableEscListener = null;
   }
 }
+
+const buildCommunityTaskTitle = () => {
+  const rawLabel = builderTitleEl?.textContent?.trim();
+  const label = rawLabel && rawLabel !== '�?"' ? rawLabel : '';
+  if (label) return `Follow up on ${label}`;
+  const selectedOption = communitySelectEl?.selectedOptions?.[0];
+  const optionLabel = selectedOption?.textContent?.trim();
+  return optionLabel ? `Follow up on ${optionLabel}` : 'Follow up on this community';
+};
 
 function toggleQmiTable() {
   if (qmiTableExpanded) {
@@ -359,7 +372,7 @@ function renderLinkedList() {
     const cityDisplay = cleanText(c.city) || 'City not set';
     const stateDisplay = cleanText(c.state) || 'TX';
     const marketDisplay = cleanText(c.market);
-    const badgeHtml = c.isInternal ? '<span class="internal-badge">My Community</span>' : '';
+    const badgeHtml = c.isInternal ? '<span class="internal-badge">My Company</span>' : '';
     const metaLine = `${cityDisplay}, ${stateDisplay}${marketDisplay ? ` • ${marketDisplay}` : ''}`;
 
     const item = document.createElement('div');
@@ -655,6 +668,18 @@ function init() {
     });
   }
 
+  taskPanelController = initTaskPanel({
+    linkedModel: 'Community',
+    linkedId: currentCommunityId,
+    defaultTitleBuilder: buildCommunityTaskTitle
+  });
+
+  communitySelectEl?.addEventListener('change', () => {
+    if (!communitySelectEl.value || communitySelectEl.value === 'undefined') {
+      taskPanelController?.setContext({ linkedId: null });
+    }
+  });
+
   setListMode(listMode, true);
 
   Promise.allSettled([fetchAllCompetitions(), fetchInternalCommunities()])
@@ -707,6 +732,13 @@ window.addEventListener('mcc:profileLoaded', (e) => {
     latestQmiData = null;
     qmiTablesInstance.load(currentCommunityId).catch(console.error);
   }
+
+  const selectedId = e.detail?.communityId || currentCommunityId;
+  taskPanelController?.setContext({
+    linkedModel: 'Community',
+    linkedId: selectedId,
+    defaultTitleBuilder: buildCommunityTaskTitle
+  });
 });
 
 document.addEventListener('DOMContentLoaded', init);

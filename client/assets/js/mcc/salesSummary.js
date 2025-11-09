@@ -1,6 +1,10 @@
 // client/assets/js/mcc/salesSummary.js
 import { PROFILE_API } from './context.js';
 
+const targetMonthDate = new Date(new Date().getFullYear(), new Date().getMonth() - 1, 1);
+const TARGET_MONTH_KEY = `${targetMonthDate.getFullYear()}-${String(targetMonthDate.getMonth() + 1).padStart(2, '0')}`;
+const HIGHLIGHT_INPUT_IDS = new Set(['salesCount', 'salesCancels', 'salesClosings']);
+
 export function salesSummary() {
   const table = document.getElementById('salesTable');
   if (!table) return { load: async () => {} };
@@ -62,7 +66,17 @@ export function salesSummary() {
       sales: data.sales ?? 0, cancels: data.cancels ?? 0, closings: data.closings ?? 0
     }));
     wireInputs();
+    applySalesHighlight(tbody, month === TARGET_MONTH_KEY);
   }
 
   return { load };
+}
+
+function applySalesHighlight(container, active) {
+  container
+    .querySelectorAll('input.form-control')
+    .forEach((input) => {
+      const shouldHighlight = active && HIGHLIGHT_INPUT_IDS.has(input.id);
+      input.classList.toggle('sales-summary-input--warning', shouldHighlight);
+    });
 }

@@ -13,22 +13,13 @@ const ensureAuth  = require('../middleware/ensureAuth');
 const requireRole = require('../middleware/requireRole');
 
 const upload = require('../middleware/upload');
-const {
-  getAllowedCommunityIds,
-  hasCommunityAccess,
-  filterCommunitiesForUser,
-} = require('../utils/communityScope');
+const { hasCommunityAccess } = require('../utils/communityScope');
 const { syncInternalCompetitions } = require('../services/competitionSync');
 
 // ??????????????????????????????????????????????????????????????????????????? helpers ???????????????????????????????????????????????????????????????????????????
 const isObjectId = v => mongoose.Types.ObjectId.isValid(String(v));
 const isSuper = req => (req.user?.roles || []).includes('SUPER_ADMIN');
 const companyFilter = req => (isSuper(req) ? {} : { company: req.user.company });
-const toObjectIdArray = (ids = []) =>
-  ids
-    .filter(id => isObjectId(id))
-    .map(id => new mongoose.Types.ObjectId(id));
-
 const toStringId = (value) => {
   if (!value) return null;
   if (typeof value === 'string') return value;
@@ -222,22 +213,10 @@ router.get('/',
     try {
       const roles = req.user?.roles || [];
       const isSuperAdmin = roles.includes('SUPER_ADMIN');
-      const isCompanyAdmin = roles.includes('COMPANY_ADMIN');
 
       const q = String(req.query.q || '').trim();
       const base = { company: req.user.company };
-
-      const allowedStrings = getAllowedCommunityIds(req.user);
-      const allowedObjectIds = toObjectIdArray(allowedStrings);
-
-      let accessFilter = base;
-      if (!isSuperAdmin) {
-        if (allowedObjectIds.length) {
-          accessFilter = { ...base, _id: { $in: allowedObjectIds } };
-        } else if (!isCompanyAdmin) {
-          accessFilter = { ...base, _id: { $in: [] } };
-        }
-      }
+      const accessFilter = isSuperAdmin ? {} : base;
 
       const textFilter = q
         ? {
@@ -255,7 +234,7 @@ router.get('/',
         .sort({ name: 1 })
         .lean();
 
-      res.json(filterCommunitiesForUser(req.user, communities));
+      res.json(communities);
     } catch (err) {
       console.error('Fetch communities error:', err);
       res.status(500).json({ error: 'Failed to fetch communities' });
@@ -577,8 +556,7 @@ router.get('/select-options',
         .sort({ name: 1, communityName: 1 })
         .lean();
 
-      const scopedRows = filterCommunitiesForUser(req.user, rows);
-      const data = scopedRows.map(c => {
+      const data = rows.map(c => {
         const name = c.name || c.communityName || '(unnamed)';
         const builder = c.builder || c.builderName || '';
         return { id: c._id, label: builder ? `${builder} ??? ${name}` : name };
