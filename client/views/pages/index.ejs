@@ -52,6 +52,53 @@
       <h1 class="h3">Update Notes</h1>
 
       <article class="mb-4">
+        <h2 class="h5 mb-2">Version 1.1.0</h2>
+
+        <p class="mb-1 fw-semibold">Task</p>
+        <p class="mb-3">
+          We introduced task and follow-up workflows across Keep Up so you can create tailored tasks for contacts,
+          realtors, lenders, addresses, and competition studies. Tasks now auto-generate when critical data is missing
+          or becomes stale, and category-specific queues keep leads, communities, and competitors organized.
+        </p>
+
+        <p class="mb-1 fw-semibold">Task for Contacts</p>
+        <ul class="mb-3">
+          <li>Purchased contacts now trigger tasks to capture sales price and sales date.</li>
+          <li>Lender reminders highlight missing lender info or when a primary lender is not selected.</li>
+          <li>Invite date gaps raise a task before move-in milestones slip.</li>
+          <li>Status changes to Approved create tasks if an approved date is missing.</li>
+          <li>Contacts missing a community assignment generate a follow-up task.</li>
+        </ul>
+
+        <p class="mb-1 fw-semibold">Task for Address</p>
+        <ul class="mb-3">
+          <li>SPEC addresses without a list price get a task until pricing is filled in.</li>
+          <li>SPEC addresses missing a release date prompt an immediate task.</li>
+          <li>If the release date is in the future but the status is not SPEC, CLOSED, or SOLD, a task recommends updating the status.</li>
+          <li>Linked purchasers with addresses that are not SOLD or CLOSED flag a task to reconcile status.</li>
+          <li>SPEC, SOLD, or CLOSED addresses without a floor plan receive a task to link one.</li>
+          <li>Closing dates in the past that still show an open status generate a reminder to close out the address.</li>
+        </ul>
+
+        <p class="mb-1 fw-semibold">UI</p>
+        <ul class="mb-3">
+          <li>Fixed the linked lender card email so it stays within the card bounds.</li>
+          <li>Adjusted Address Details layout and added the new task bar.</li>
+        </ul>
+
+        <p class="mb-1 fw-semibold">Admin Section</p>
+        <ul class="mb-3">
+          <li>Launched a dedicated admin area for managing users, floor plans, and communities.</li>
+          <li>Top navigation now shows Admin Section, Manage Communities, and Manage Floor Plans as distinct entries.</li>
+        </ul>
+
+        <p class="mb-1 fw-semibold">Community Admin Section</p>
+        <ul>
+          <li>Admins can multi-select floor plans per community to keep offerings in sync.</li>
+        </ul>
+      </article>
+
+      <article class="mb-4">
         <h2 class="h5 mb-2">Version 1.0.3 - Pending Release</h2>
 
         <p class="mb-1 fw-semibold">Major Updates</p>
