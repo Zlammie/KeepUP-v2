@@ -51,9 +51,25 @@ export function salesSummary() {
     const debouncedSave = () => { clearTimeout(t); t = setTimeout(() => save().catch(console.error), 400); };
 
     [salesEl, cancelsEl, closingsEl].forEach(el => {
-      el.addEventListener('input', () => { recompute(); debouncedSave(); });
-      el.addEventListener('blur', () => { recompute(); save().catch(console.error); });
+      el.addEventListener('input', () => { recompute(); debouncedSave(); refreshSalesWarnings(); });
+      el.addEventListener('blur', () => { recompute(); save().catch(console.error); refreshSalesWarnings(); });
+      refreshSalesWarnings();
     });
+  }
+
+  function refreshSalesWarnings() {
+    const isTarget = currentMonth === TARGET_MONTH_KEY;
+    tbody
+      .querySelectorAll('input.form-control')
+      .forEach((input) => {
+        const shouldCheck = HIGHLIGHT_INPUT_IDS.has(input.id);
+        if (!shouldCheck) {
+          input.classList.remove('sales-summary-input--warning');
+          return;
+        }
+        const hasValue = input.value !== '' && !Number.isNaN(Number(input.value));
+        input.classList.toggle('sales-summary-input--warning', isTarget && !hasValue);
+      });
   }
 
   async function load(month) {
@@ -66,17 +82,8 @@ export function salesSummary() {
       sales: data.sales ?? 0, cancels: data.cancels ?? 0, closings: data.closings ?? 0
     }));
     wireInputs();
-    applySalesHighlight(tbody, month === TARGET_MONTH_KEY);
+    refreshSalesWarnings();
   }
 
   return { load };
-}
-
-function applySalesHighlight(container, active) {
-  container
-    .querySelectorAll('input.form-control')
-    .forEach((input) => {
-      const shouldHighlight = active && HIGHLIGHT_INPUT_IDS.has(input.id);
-      input.classList.toggle('sales-summary-input--warning', shouldHighlight);
-    });
 }

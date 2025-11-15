@@ -15,6 +15,7 @@ const Competition = require('../models/Competition');
 const FloorPlanComp = require('../models/floorPlanComp');
 const Company = require('../models/Company');
 const Task = require('../models/Task');
+const { hydrateTaskLinks, groupTasksByAttachment } = require('../utils/taskLinkedDetails');
 const {
   filterCommunitiesForUser,
   hasCommunityAccess,
@@ -48,21 +49,13 @@ router.get(
   async (req, res, next) => {
     try {
       const baseFilter = { ...base(req) };
-      const today = new Date();
-      const endOfToday = new Date(today);
-      endOfToday.setHours(23, 59, 59, 999);
-
       const allowedStatuses = Array.isArray(Task.STATUS)
         ? Task.STATUS.filter((status) => status !== 'Completed')
         : ['Pending', 'In Progress', 'Overdue'];
 
       const filter = {
         ...baseFilter,
-        status: { $in: allowedStatuses },
-        $or: [
-          { dueDate: { $lte: endOfToday } },
-          { status: 'Overdue' }
-        ]
+        status: { $in: allowedStatuses }
       };
 
       const assignedId = isId(req.user?._id) ? new mongoose.Types.ObjectId(req.user._id) : null;
@@ -84,6 +77,10 @@ router.get(
         .limit(500)
         .lean();
 
+      await hydrateTaskLinks(tasks, {
+        companyIds: baseFilter.company ? [baseFilter.company] : []
+      });
+
       const categories = Array.isArray(Task.CATEGORIES) ? Task.CATEGORIES.slice() : [];
       const fallbackCategory = categories.includes('Custom')
         ? 'Custom'
@@ -99,11 +96,120 @@ router.get(
       });
 
       const taskGroups = categories
-        .map((category) => ({
-          category,
-          tasks: grouped.get(category) || []
-        }))
+        .map((category) => {
+          const categoryTasks = grouped.get(category) || [];
+          return {
+            category,
+            tasks: categoryTasks,
+            linkedGroups: category === 'System' ? groupTasksByAttachment(categoryTasks) : []
+          };
+        })
         .filter((group) => Array.isArray(group.tasks) && group.tasks.length > 0);
+
+      const allowedCommunityIds = Array.isArray(req.user?.allowedCommunityIds)
+        ? req.user.allowedCommunityIds.filter((id) => isId(id))
+        : [];
+
+      let managedCommunities = [];
+      if (allowedCommunityIds.length) {
+        const communityObjectIds = allowedCommunityIds.map((id) => new mongoose.Types.ObjectId(id));
+        managedCommunities = await Community.find({
+          ...baseFilter,
+          _id: { $in: communityObjectIds }
+        })
+          .select('name city state')
+          .sort({ name: 1 })
+          .lean();
+      }
+
+      const contactIds = Array.from(
+        new Set(
+          tasks
+            .filter((task) => task && task.linkedModel === 'Contact' && task.linkedId)
+            .map((task) => String(task.linkedId))
+        )
+      );
+
+      let purchaserContacts = [];
+      let contactStatuses = [];
+      if (contactIds.length) {
+        const contactObjectIds = contactIds.map((id) => new mongoose.Types.ObjectId(id));
+        const contacts = await Contact.find({
+          ...baseFilter,
+          _id: { $in: contactObjectIds }
+        })
+          .select('firstName lastName status')
+          .lean();
+
+        const contactMeta = new Map();
+        contacts.forEach((contact) => {
+          const key = String(contact._id);
+          const label = [contact.firstName, contact.lastName].filter(Boolean).join(' ').trim() || 'Contact';
+          const statusValue =
+            typeof contact.status === 'string' && contact.status.trim().length
+              ? contact.status.trim()
+              : 'Unknown';
+          contactMeta.set(key, { key, label, status: statusValue });
+        });
+
+        if (contactMeta.size) {
+          const contactTaskCounts = new Map();
+          tasks.forEach((task) => {
+            if (!task || task.linkedModel !== 'Contact' || !task.linkedId) return;
+            const key = String(task.linkedId);
+            contactTaskCounts.set(key, (contactTaskCounts.get(key) || 0) + 1);
+          });
+
+          const prioritizedStatusBuckets = [
+            { key: 'new', label: 'New' },
+            { key: 'target', label: 'Target' },
+            { key: 'possible', label: 'Possible' },
+            { key: 'negotiation', label: 'Negotiation' },
+            { key: 'beback', label: 'Be-Back' }
+          ];
+          const bucketLabels = new Map(
+            prioritizedStatusBuckets.map((bucket) => [bucket.key, bucket.label])
+          );
+          const bucketCounts = new Map();
+
+          contactTaskCounts.forEach((count, key) => {
+            const meta = contactMeta.get(key);
+            if (!meta) return;
+            const normalized = (meta.status || '').toLowerCase();
+            const canonical = normalized.replace(/[^a-z]/g, '') || 'unknown';
+            if (canonical === 'purchased') return;
+            const bucketKey = bucketLabels.has(canonical) ? canonical : 'misc';
+            const bucketLabel = bucketLabels.has(canonical) ? bucketLabels.get(canonical) : 'Misc';
+            const existing =
+              bucketCounts.get(bucketKey) || { key: bucketKey, label: bucketLabel, count: 0 };
+            existing.label = bucketLabel;
+            existing.count += count;
+            bucketCounts.set(bucketKey, existing);
+          });
+
+          contactStatuses = [];
+          prioritizedStatusBuckets.forEach((bucket) => {
+            const entry = bucketCounts.get(bucket.key);
+            if (entry && entry.count > 0) {
+              contactStatuses.push(entry);
+            }
+          });
+          const miscEntry = bucketCounts.get('misc');
+          if (miscEntry && miscEntry.count > 0) {
+            contactStatuses.push(miscEntry);
+          }
+
+          purchaserContacts = Array.from(contactMeta.values())
+            .filter((meta) => (meta.status || '').toLowerCase() === 'purchased')
+            .map((meta) => ({
+              key: meta.key,
+              label: meta.label,
+              count: contactTaskCounts.get(meta.key) || 0
+            }))
+            .filter((entry) => entry.count > 0)
+            .sort((a, b) => a.label.localeCompare(b.label));
+        }
+      }
 
       const taskMeta = {
         categories,
@@ -115,7 +221,10 @@ router.get(
       res.render('pages/task', {
         active: 'task',
         taskGroups,
-        taskMeta
+        taskMeta,
+        managedCommunities,
+        purchaserContacts,
+        contactStatuses
       });
     } catch (err) {
       next(err);

@@ -16,6 +16,18 @@ const DEFAULT_PRIORITIES = ['Low', 'Medium', 'High'];
 const DEFAULT_STATUSES = ['Pending', 'In Progress', 'Completed', 'Overdue'];
 const DEFAULT_CATEGORIES = ['Custom'];
 const FOLLOWUP_TYPES = new Set(['Follow-Up', 'Call', 'Email', 'Meeting']);
+const CONTACT_STATUS_KEYS = ['new', 'target', 'possible', 'negotiation', 'beback'];
+const CONTACT_STATUS_SET = new Set(CONTACT_STATUS_KEYS);
+const AGGREGATE_FILTER_TYPES = new Set([
+  'purchasers',
+  'purchaser',
+  'communities',
+  'community',
+  'competitions',
+  'competition'
+]);
+const PRIORITY_KEYS = ['none', 'low', 'medium', 'high'];
+let state = null;
 
 function parseInitialData() {
   const node = document.getElementById(DATA_NODE_ID);
@@ -24,7 +36,8 @@ function parseInitialData() {
       groups: [],
       meta: {},
       currentUserId: '',
-      endpoints: {}
+      endpoints: {},
+      purchasers: []
     };
   }
 
@@ -34,7 +47,8 @@ function parseInitialData() {
       groups: Array.isArray(parsed.groups) ? parsed.groups : [],
       meta: typeof parsed.meta === 'object' && parsed.meta ? parsed.meta : {},
       currentUserId: typeof parsed.currentUserId === 'string' ? parsed.currentUserId : '',
-      endpoints: typeof parsed.endpoints === 'object' && parsed.endpoints ? parsed.endpoints : {}
+      endpoints: typeof parsed.endpoints === 'object' && parsed.endpoints ? parsed.endpoints : {},
+      purchasers: Array.isArray(parsed.purchasers) ? parsed.purchasers : []
     };
   } catch (err) {
     console.error('[task-page] failed to parse initial data', err);
@@ -42,9 +56,22 @@ function parseInitialData() {
       groups: [],
       meta: {},
       currentUserId: '',
-      endpoints: {}
+      endpoints: {},
+      purchasers: []
     };
   }
+}
+
+function normalizeLinkedGroups(groups) {
+  if (!Array.isArray(groups)) return [];
+  return groups
+    .map((group) => ({
+      key: typeof group.key === 'string' && group.key ? group.key : `linked-${Math.random().toString(36).slice(2)}`,
+      label: typeof group.label === 'string' && group.label ? group.label : 'Linked record',
+      context: typeof group.context === 'string' ? group.context : '',
+      tasks: Array.isArray(group.tasks) ? group.tasks.slice() : []
+    }))
+    .filter((group) => Array.isArray(group.tasks) && group.tasks.length > 0);
 }
 
 function normalizeGroups(groups) {
@@ -54,9 +81,211 @@ function normalizeGroups(groups) {
       name: typeof group.category === 'string' && group.category
         ? group.category
         : (typeof group.name === 'string' && group.name ? group.name : 'Custom'),
-      tasks: Array.isArray(group.tasks) ? group.tasks.slice() : []
+      tasks: Array.isArray(group.tasks) ? group.tasks.slice() : [],
+      linkedGroups: normalizeLinkedGroups(group.linkedGroups)
     }))
     .filter((group) => typeof group.name === 'string');
+}
+
+const TASK_TABLE_COLUMNS = [
+  { key: 'title', label: 'Task' },
+  { key: 'due', label: 'Due' },
+  { key: 'priority', label: 'Priority' },
+  { key: 'status', label: 'Status' },
+  { key: 'linked', label: 'Linked' }
+];
+
+function createTableHeadRow() {
+  const headRow = document.createElement('div');
+  headRow.className = 'task-table__row task-table__head';
+  headRow.setAttribute('role', 'row');
+  TASK_TABLE_COLUMNS.forEach(({ key, label }) => {
+    const cell = document.createElement('div');
+    cell.className = `task-table__cell task-table__cell--${key}`;
+    cell.setAttribute('role', 'columnheader');
+    cell.textContent = label;
+    headRow.appendChild(cell);
+  });
+  return headRow;
+}
+
+function createTaskCell(className, label) {
+  const cell = document.createElement('div');
+  cell.className = `task-table__cell task-table__cell--${className}`;
+  if (label) cell.dataset.label = label;
+  cell.setAttribute('role', 'cell');
+  return cell;
+}
+
+function buildTaskRow(task) {
+  const row = document.createElement('div');
+  row.className = 'task-table__row';
+  row.setAttribute('role', 'row');
+  if (task && task._id) {
+    row.dataset.taskId = String(task._id);
+    row.tabIndex = 0;
+  }
+
+  const { hasDue, overdue, label: dueLabel } = formatDue(task);
+  if (hasDue && overdue) row.classList.add('is-overdue');
+
+  const titleCell = createTaskCell('title', 'Task');
+  const titleWrap = document.createElement('div');
+  titleWrap.className = 'task-table__task';
+  const safeTitle = task && task.title ? String(task.title) : 'Untitled Task';
+  const titleEl = document.createElement('div');
+  titleEl.className = 'task-table__task-title';
+  titleEl.textContent = safeTitle;
+  titleEl.title = safeTitle;
+  titleWrap.appendChild(titleEl);
+  const description = task && task.description ? String(task.description).trim() : '';
+  if (description) {
+    const descEl = document.createElement('div');
+    descEl.className = 'task-table__task-desc';
+    descEl.textContent = description;
+    titleWrap.appendChild(descEl);
+  }
+  titleCell.appendChild(titleWrap);
+
+  const dueCell = createTaskCell('due', 'Due');
+  if (hasDue) {
+    const dueText = document.createElement('span');
+    dueText.className = 'task-table__due';
+    if (overdue) dueText.classList.add('is-overdue');
+    dueText.textContent = dueLabel;
+    dueCell.appendChild(dueText);
+
+    const caption = document.createElement('small');
+    caption.className = 'task-table__due-caption';
+    caption.classList.add(overdue ? 'text-danger' : 'text-muted');
+    caption.textContent = overdue ? 'Overdue' : 'On track';
+    dueCell.appendChild(caption);
+  } else {
+    const noDue = document.createElement('span');
+    noDue.className = 'text-muted';
+    noDue.textContent = dueLabel;
+    dueCell.appendChild(noDue);
+  }
+
+  const priorityCell = createTaskCell('priority', 'Priority');
+  const priority = task && task.priority ? String(task.priority) : '';
+  if (priority) {
+    priorityCell.appendChild(
+      createBadge(`badge rounded-pill priority-pill priority-${priority.toLowerCase()}`, priority)
+    );
+  } else {
+    const dash = document.createElement('span');
+    dash.className = 'text-muted';
+    dash.textContent = 'None';
+    priorityCell.appendChild(dash);
+  }
+
+  const statusCell = createTaskCell('status', 'Status');
+  const statusLabel = task && task.status ? String(task.status) : 'Pending';
+  statusCell.appendChild(createBadge('badge rounded-pill text-bg-light text-uppercase', statusLabel));
+
+  const linkedCell = createTaskCell('linked', 'Linked');
+  const linkedName = task && task.linkedName ? String(task.linkedName) : '';
+  const linkedModel = task && task.linkedModel ? String(task.linkedModel) : '';
+  const linkedHref = getLinkedHref(task);
+  const linkedContext =
+    linkedModel === 'Lot'
+      ? (task && task.linkedCommunityName ? task.linkedCommunityName : 'Lot')
+      : linkedModel;
+
+  if (linkedName || linkedModel) {
+    if (linkedName) {
+      if (linkedHref) {
+        const nameLink = document.createElement('a');
+        nameLink.href = linkedHref;
+        nameLink.className = 'task-linked-link';
+        nameLink.textContent = linkedName;
+        nameLink.addEventListener('click', (event) => event.stopPropagation());
+        linkedCell.appendChild(nameLink);
+      } else {
+        const nameEl = document.createElement('div');
+        nameEl.className = 'task-linked-name';
+        nameEl.textContent = linkedName;
+        linkedCell.appendChild(nameEl);
+      }
+    }
+    if (linkedContext) {
+      const contextEl = document.createElement('small');
+      contextEl.className = 'task-linked-context text-muted';
+      contextEl.textContent = linkedContext;
+      linkedCell.appendChild(contextEl);
+    }
+  } else {
+    const dash = document.createElement('span');
+    dash.className = 'text-muted';
+    dash.textContent = 'None';
+    linkedCell.appendChild(dash);
+  }
+
+  row.append(titleCell, dueCell, priorityCell, statusCell, linkedCell);
+  return row;
+}
+
+function buildTaskTable(tasks, label) {
+  const table = document.createElement('div');
+  table.className = 'task-table';
+  table.setAttribute('role', 'table');
+  if (label) table.setAttribute('aria-label', label);
+
+  const headRow = createTableHeadRow();
+  const body = document.createElement('div');
+  body.className = 'task-table__body';
+
+  if (Array.isArray(tasks) && tasks.length) {
+    tasks.forEach((task) => {
+      body.appendChild(buildTaskRow(task));
+    });
+  } else {
+    const empty = document.createElement('div');
+    empty.className = 'task-table__empty text-center';
+    const message = document.createElement('p');
+    message.className = 'mb-0';
+    message.textContent = 'No tasks available.';
+    empty.appendChild(message);
+    body.appendChild(empty);
+  }
+
+  table.append(headRow, body);
+  return table;
+}
+
+function buildLinkedGroupSection(linkedGroup, categoryName) {
+  const section = document.createElement('section');
+  section.className = 'task-linked-group';
+
+  const header = document.createElement('header');
+  header.className = 'task-linked-group__header';
+
+  const titleWrap = document.createElement('div');
+  const title = document.createElement('div');
+  title.className = 'task-linked-group__title';
+  title.textContent = linkedGroup.label;
+
+  titleWrap.appendChild(title);
+
+  if (linkedGroup.context) {
+    const context = document.createElement('small');
+    context.className = 'task-linked-group__context text-muted';
+    context.textContent = linkedGroup.context;
+    titleWrap.appendChild(context);
+  }
+
+  const countBadge = createBadge('badge text-bg-light', linkedGroup.tasks.length);
+
+  header.append(titleWrap, countBadge);
+
+  const table = buildTaskTable(
+    linkedGroup.tasks,
+    `${linkedGroup.label} tasks${categoryName ? ` in ${categoryName}` : ''}`
+  );
+
+  section.append(header, table);
+  return section;
 }
 
 function getStartOfToday() {
@@ -175,6 +404,466 @@ function renderEmptyState(container) {
   container.append(card);
 }
 
+function normalizeText(value) {
+  if (value == null) return '';
+  return String(value).trim().toLowerCase();
+}
+
+function normalizeStatusKey(value) {
+  return normalizeText(value).replace(/[^a-z]/g, '');
+}
+
+function buildFilterId(group, value) {
+  const val = value && value.length ? value : 'all';
+  return `${group}:${val}`;
+}
+
+function isTaskMarkedPurchased(task) {
+  if (!task || task.linkedModel !== 'Contact') return false;
+  return normalizeStatusKey(task.linkedStatus) === 'purchased';
+}
+
+function isPurchaserTask(task) {
+  if (!task || task.linkedModel !== 'Contact') return false;
+  if (isTaskMarkedPurchased(task)) return true;
+  if (task.linkedId && state && state.purchaserIdSet) {
+    return state.purchaserIdSet.has(String(task.linkedId));
+  }
+  return false;
+}
+
+function derivePurchaserIdSetFromGroups(groups) {
+  const set = new Set();
+  collectAllTasks(groups).forEach((task) => {
+    if (isTaskMarkedPurchased(task) && task.linkedId) {
+      set.add(String(task.linkedId));
+    }
+  });
+  return set;
+}
+
+function buildTaskMap(groups) {
+  const map = new Map();
+  if (!Array.isArray(groups)) return map;
+  const addTask = (task) => {
+    if (task && task._id) {
+      map.set(String(task._id), task);
+    }
+  };
+  groups.forEach((group) => {
+    if (!group) return;
+    if (Array.isArray(group.tasks)) {
+      group.tasks.forEach(addTask);
+    }
+    if (Array.isArray(group.linkedGroups)) {
+      group.linkedGroups.forEach((linked) => {
+        if (Array.isArray(linked.tasks)) linked.tasks.forEach(addTask);
+      });
+    }
+  });
+  return map;
+}
+
+function collectAllTasks(groups) {
+  const results = [];
+  const seen = new Set();
+  if (!Array.isArray(groups)) return results;
+  const addTask = (task) => {
+    if (!task || !task._id) return;
+    const id = String(task._id);
+    if (seen.has(id)) return;
+    seen.add(id);
+    results.push(task);
+  };
+  groups.forEach((group) => {
+    if (!group) return;
+    if (Array.isArray(group.tasks)) {
+      group.tasks.forEach(addTask);
+    }
+    if (Array.isArray(group.linkedGroups)) {
+      group.linkedGroups.forEach((linked) => {
+        if (Array.isArray(linked.tasks)) linked.tasks.forEach(addTask);
+      });
+    }
+  });
+  return results;
+}
+
+function groupTasksByEntity(tasks, entity) {
+  const map = new Map();
+  tasks.forEach((task) => {
+    if (!task) return;
+    let linkedModel = typeof task.linkedModel === 'string' ? task.linkedModel : '';
+    let linkedId = task.linkedId ? String(task.linkedId) : '';
+    let label = task.linkedName || linkedModel || 'Task';
+    let labelNormalized = normalizeText(label);
+    let matches = false;
+    switch (entity) {
+      case 'purchaser':
+        matches = isPurchaserTask(task);
+        break;
+      case 'community':
+        if (linkedModel === 'Community') {
+          matches = true;
+        } else if (task.linkedCommunityId) {
+          matches = true;
+          linkedModel = 'Community';
+          linkedId = task.linkedCommunityId;
+          label = task.linkedCommunityName || label;
+          labelNormalized = normalizeText(label);
+        }
+        break;
+      case 'competition':
+        matches = linkedModel === 'Competition';
+        break;
+      default:
+        matches = false;
+    }
+    if (!matches) return;
+    const key = linkedId || `${linkedModel}:${labelNormalized}` || labelNormalized;
+    if (!map.has(key)) {
+      map.set(key, {
+        key,
+        label,
+        labelNormalized,
+        tasks: []
+      });
+    }
+    map.get(key).tasks.push(task);
+  });
+  return Array.from(map.values()).filter((entry) => Array.isArray(entry.tasks) && entry.tasks.length);
+}
+
+function matchesEntityGroup(group, filter) {
+  if (!group || !filter) return false;
+  const normalizedValue = normalizeText(filter.value);
+  const normalizedLabel = normalizeText(filter.label || filter.value);
+  if (filter.value && group.key && String(group.key) === filter.value) return true;
+  if (normalizedValue && normalizeText(group.key) === normalizedValue) return true;
+  if (normalizedLabel && group.labelNormalized === normalizedLabel) return true;
+  return false;
+}
+
+function buildEntityCategoriesForFilter(filter) {
+  if (!filter || !AGGREGATE_FILTER_TYPES.has(filter.type)) return null;
+  const tasks = collectAllTasks(state.allCategories);
+  if (!tasks.length) return [];
+
+  let groups = [];
+  switch (filter.type) {
+    case 'purchasers':
+      groups = groupTasksByEntity(tasks, 'purchaser');
+      break;
+    case 'purchaser':
+      groups = groupTasksByEntity(tasks, 'purchaser').filter((group) => matchesEntityGroup(group, filter));
+      break;
+    case 'communities':
+      groups = groupTasksByEntity(tasks, 'community');
+      break;
+    case 'community':
+      groups = groupTasksByEntity(tasks, 'community').filter((group) => matchesEntityGroup(group, filter));
+      break;
+    case 'competitions':
+      groups = groupTasksByEntity(tasks, 'competition');
+      break;
+    case 'competition':
+      groups = groupTasksByEntity(tasks, 'competition').filter((group) => matchesEntityGroup(group, filter));
+      break;
+    default:
+      groups = [];
+  }
+
+  return groups.map((group) => ({
+    name: group.label,
+    tasks: group.tasks.slice(),
+    linkedGroups: []
+  }));
+}
+
+function findTaskById(taskId) {
+  if (!taskId || !state || !state.taskMap) return null;
+  return state.taskMap.get(String(taskId)) || null;
+}
+
+function setSelectValue(select, value) {
+  if (!select || value == null) return;
+  const stringValue = String(value);
+  const options = Array.from(select.options || []);
+  let option = options.find((opt) => opt.value === stringValue);
+  if (!option) {
+    option = document.createElement('option');
+    option.value = stringValue;
+    option.textContent = stringValue;
+    select.add(option);
+  }
+  select.value = stringValue;
+}
+
+function formatDateInput(value) {
+  if (!value) return '';
+  const date = value instanceof Date ? value : new Date(value);
+  if (Number.isNaN(date.getTime())) return '';
+  return date.toISOString().slice(0, 10);
+}
+
+function getLinkedHref(task) {
+  if (!task || !task.linkedModel) return '';
+  const id = task.linkedId ? String(task.linkedId) : '';
+  if (!id) return '';
+  switch (task.linkedModel) {
+    case 'Contact':
+      return `/contact-details?id=${encodeURIComponent(id)}`;
+    case 'Competition':
+      return `/update-competition/${encodeURIComponent(id)}`;
+    case 'Lot': {
+      const communityId = task.linkedCommunityId ? String(task.linkedCommunityId) : '';
+      const params = new URLSearchParams();
+      if (communityId) params.set('communityId', communityId);
+      params.set('lotId', id);
+      return `/address-details?${params.toString()}`;
+    }
+    default:
+      return '';
+  }
+}
+
+function getTodayBounds() {
+  const start = getStartOfToday();
+  const end = new Date(start);
+  end.setHours(23, 59, 59, 999);
+  return { start, end };
+}
+
+function matchesDueFilter(task, dueType) {
+  const dueDate = task && task.dueDate ? new Date(task.dueDate) : null;
+  const bounds = getTodayBounds();
+  const status = typeof task.status === 'string' ? task.status.toLowerCase() : '';
+  if (!dueDate || Number.isNaN(dueDate.getTime())) {
+    if (dueType === 'overdue') return status === 'overdue';
+    if (dueType === 'no-due') return status !== 'overdue';
+    return false;
+  }
+
+  switch (dueType) {
+    case 'today':
+      return dueDate >= bounds.start && dueDate <= bounds.end;
+    case 'overdue':
+      if (status === 'completed') return false;
+      if (status === 'overdue') return true;
+      return dueDate < bounds.start;
+    case 'upcoming':
+      return dueDate > bounds.end;
+    default:
+      return true;
+  }
+}
+
+function matchesFilter(task, filter) {
+  if (!filter || !task) return true;
+
+  switch (filter.type) {
+    case 'due':
+      return matchesDueFilter(task, filter.value);
+    case 'contacts':
+      return task.linkedModel === 'Contact';
+    case 'contact-status': {
+      if (task.linkedModel !== 'Contact') return false;
+      const statusKey = normalizeStatusKey(task.linkedStatus);
+      if (filter.value === 'misc') {
+        return !CONTACT_STATUS_SET.has(statusKey) && statusKey !== 'purchased';
+      }
+      return statusKey === filter.value;
+    }
+    case 'purchasers':
+      return isPurchaserTask(task);
+    case 'purchaser': {
+      if (!isPurchaserTask(task)) return false;
+      const linkedId = task.linkedId ? String(task.linkedId) : '';
+      if (linkedId) return linkedId === filter.value;
+      return normalizeText(task.linkedName) === filter.labelNormalized;
+    }
+    case 'communities':
+      return task.linkedModel === 'Community' || Boolean(task.linkedCommunityId);
+    case 'community': {
+      if (task.linkedModel === 'Community') {
+        const linkedId = task.linkedId ? String(task.linkedId) : '';
+        if (filter.value && linkedId) return linkedId === filter.value;
+        if (filter.valueNormalized && linkedId) return normalizeText(linkedId) === filter.valueNormalized;
+        return normalizeText(task.linkedName) === filter.labelNormalized;
+      }
+      if (task.linkedCommunityId) {
+        if (filter.value && task.linkedCommunityId === filter.value) return true;
+        if (filter.valueNormalized && normalizeText(task.linkedCommunityId) === filter.valueNormalized) return true;
+        if (filter.labelNormalized && normalizeText(task.linkedCommunityName) === filter.labelNormalized) return true;
+      }
+      return false;
+    }
+    case 'competitions':
+      return task.linkedModel === 'Competition';
+    case 'competition':
+      if (task.linkedModel !== 'Competition') return false;
+      return normalizeText(task.linkedName) === filter.labelNormalized;
+    case 'priority': {
+      const priority = typeof task.priority === 'string' ? task.priority.toLowerCase() : '';
+      if (filter.value === 'none') {
+        return !priority;
+      }
+      return priority === filter.value;
+    }
+    default:
+      return true;
+  }
+}
+
+function filterCategories(groups, filter) {
+  if (!filter) return groups.slice();
+  const filtered = [];
+
+  groups.forEach((group) => {
+    if (!group) return;
+    const baseTasks = Array.isArray(group.tasks) ? group.tasks : [];
+    const filteredTasks = baseTasks.filter((task) => matchesFilter(task, filter));
+
+    let filteredLinkedGroups = [];
+    if (Array.isArray(group.linkedGroups)) {
+      filteredLinkedGroups = group.linkedGroups
+        .map((linked) => {
+          if (!linked || !Array.isArray(linked.tasks)) return null;
+          const tasks = linked.tasks.filter((task) => matchesFilter(task, filter));
+          if (!tasks.length) return null;
+          return { ...linked, tasks };
+        })
+        .filter(Boolean);
+    }
+
+    if (filteredTasks.length || filteredLinkedGroups.length) {
+      filtered.push({
+        ...group,
+        tasks: filteredTasks,
+        linkedGroups: filteredLinkedGroups
+      });
+    }
+  });
+
+  return filtered;
+}
+
+function getElementFilterId(element) {
+  if (!element) return '';
+  const group = element.dataset.taskFilterGroup || '';
+  if (!group) return '';
+  const value = element.dataset.taskFilterValue || 'all';
+  return buildFilterId(group, value);
+}
+
+function updateFilterUI() {
+  const nodes = document.querySelectorAll('[data-task-filter-group]');
+  nodes.forEach((node) => node.classList.remove('is-active'));
+  if (!state || !state.activeFilter) return;
+
+  const active = state.activeFilter;
+  const activeId = buildFilterId(active.type, active.idValue || active.value || 'all');
+  const parentId = active.parentId || '';
+  nodes.forEach((node) => {
+    const nodeId = getElementFilterId(node);
+    if (nodeId === activeId || (parentId && nodeId === parentId)) {
+      node.classList.add('is-active');
+    }
+  });
+}
+
+function buildFilterFromDataset(group, value, label, parentId) {
+  const normalizedValue = normalizeText(value);
+  const normalizedLabel = normalizeText(label);
+  switch (group) {
+    case 'due':
+      if (!value) return null;
+      return { type: 'due', value, idValue: value };
+    case 'contacts':
+      return { type: 'contacts', value: 'all', idValue: 'all' };
+    case 'contact-status': {
+      if (!value) return null;
+      const key = normalizeStatusKey(value);
+      return {
+        type: 'contact-status',
+        value: key,
+        idValue: key,
+        parentId: parentId || 'contacts:all'
+      };
+    }
+    case 'purchasers':
+      return { type: 'purchasers', value: 'all', idValue: 'all' };
+    case 'purchaser':
+      if (!value) return null;
+      return {
+        type: 'purchaser',
+        value,
+        label,
+        labelNormalized: normalizedLabel,
+        idValue: value,
+        parentId: parentId || 'purchasers:all'
+      };
+    case 'communities':
+      return { type: 'communities', value: 'all', idValue: 'all' };
+    case 'community':
+      if (!value && !label) return null;
+      return {
+        type: 'community',
+        value,
+        valueNormalized: normalizedValue,
+        label,
+        labelNormalized: normalizedLabel,
+        idValue: value || label || 'all',
+        parentId: parentId || 'communities:all'
+      };
+    case 'competitions':
+      return { type: 'competitions', value: 'all', idValue: 'all' };
+    case 'competition':
+      if (!label && !value) return null;
+      return {
+        type: 'competition',
+        value: label || value,
+        label: label || value,
+        labelNormalized: normalizedLabel || normalizedValue,
+        idValue: label || value,
+        parentId: parentId || 'competitions:all'
+      };
+    case 'priority': {
+      const key = (value || '').toLowerCase();
+      if (!PRIORITY_KEYS.includes(key)) return null;
+      return {
+        type: 'priority',
+        value: key,
+        idValue: key
+      };
+    }
+    default:
+      return null;
+  }
+}
+
+function handleFilterClick(target, event, setFilter) {
+  if (!target) return;
+  const group = target.dataset.taskFilterGroup;
+  if (!group) return;
+  const value = target.dataset.taskFilterValue || '';
+  const label = target.dataset.taskFilterLabel || '';
+  const parentId = target.dataset.taskFilterParent || '';
+  const filter = buildFilterFromDataset(group, value, label, parentId);
+
+  if (target.tagName === 'BUTTON') {
+    event.preventDefault();
+    event.stopPropagation();
+  }
+
+  const detailsHost = target.closest('details');
+  if (detailsHost) detailsHost.open = true;
+
+  if (!filter) return;
+  setFilter(filter);
+}
+
+
 function renderCategories(container, categories) {
   if (!container) return;
   container.innerHTML = '';
@@ -184,109 +873,54 @@ function renderCategories(container, categories) {
     return;
   }
 
-  const row = document.createElement('div');
-  row.className = 'row g-3';
-
-  const startOfToday = getStartOfToday();
+  const stack = document.createElement('div');
+  stack.className = 'task-category-stack';
 
   categories.forEach((group) => {
-    const col = document.createElement('div');
-    col.className = 'col-12 col-lg-6';
+    const tasks = Array.isArray(group.tasks) ? group.tasks : [];
+    const linkedGroups = Array.isArray(group.linkedGroups) ? group.linkedGroups : [];
+    const categoryName = typeof group.name === 'string' && group.name ? group.name : 'Uncategorized';
 
     const card = document.createElement('article');
-    card.className = 'card shadow-sm border-0 h-100 task-category-card';
-    card.dataset.category = group.name;
+    card.className = 'card shadow-sm border-0 task-category-card task-table-card';
+    card.dataset.category = categoryName;
 
     const header = document.createElement('header');
-    header.className = 'card-header bg-white border-0 pb-0 d-flex align-items-start justify-content-between';
+    header.className = 'card-header bg-white border-0 pb-0 d-flex flex-wrap align-items-center justify-content-between gap-2';
 
     const headingWrap = document.createElement('div');
     const heading = document.createElement('h2');
     heading.className = 'h5 mb-1';
-    heading.textContent = group.name;
+    heading.textContent = categoryName;
 
     const sub = document.createElement('p');
     sub.className = 'text-muted small mb-0';
-    sub.textContent = `${group.tasks.length} due`;
+    sub.textContent = `${tasks.length} ${tasks.length === 1 ? 'task' : 'tasks'}`;
 
     headingWrap.append(heading, sub);
 
-    const badge = createBadge('badge text-bg-primary rounded-pill align-self-start', group.tasks.length);
-
+    const badge = createBadge('badge text-bg-primary rounded-pill align-self-start', tasks.length);
     header.append(headingWrap, badge);
 
-    const list = document.createElement('ul');
-    list.className = 'list-group list-group-flush mt-3';
+    const body = document.createElement('div');
+    body.className = 'card-body pt-0';
 
-    group.tasks.forEach((task) => {
-      const item = document.createElement('li');
-      item.className = 'list-group-item d-flex justify-content-between align-items-start gap-3';
+    if (linkedGroups.length) {
+      const groupedList = document.createElement('div');
+      groupedList.className = 'task-linked-group-list';
+      linkedGroups.forEach((linkedGroup) => {
+        groupedList.appendChild(buildLinkedGroupSection(linkedGroup, categoryName));
+      });
+      body.appendChild(groupedList);
+    } else {
+      body.appendChild(buildTaskTable(tasks, `${categoryName} tasks`));
+    }
 
-      const left = document.createElement('div');
-      left.className = 'flex-grow-1';
-
-      const title = document.createElement('div');
-      title.className = 'fw-semibold text-truncate';
-      const safeTitle = task && task.title ? String(task.title) : 'Untitled Task';
-      title.textContent = safeTitle;
-      title.title = safeTitle;
-
-      left.appendChild(title);
-
-      const description = task && task.description ? String(task.description).trim() : '';
-      if (description) {
-        const descEl = document.createElement('p');
-        descEl.className = 'text-muted small mb-1';
-        descEl.textContent = description;
-        left.appendChild(descEl);
-      }
-
-      const metaRow = document.createElement('div');
-      metaRow.className = 'd-flex flex-wrap align-items-center gap-2 small text-muted';
-
-      const statusLabel = task && task.status ? String(task.status) : 'Pending';
-      metaRow.appendChild(createBadge('badge rounded-pill text-bg-light text-uppercase', statusLabel));
-
-      const priority = task && task.priority ? String(task.priority) : '';
-      if (priority) {
-        const priorityBadge = createBadge(
-          `badge rounded-pill priority-pill priority-${priority.toLowerCase()}`,
-          priority
-        );
-        metaRow.appendChild(priorityBadge);
-      }
-
-      if (task && task.linkedModel === 'Contact' && task.linkedId) {
-        metaRow.appendChild(createBadge('badge rounded-pill text-bg-secondary', 'Linked Contact'));
-      }
-
-      left.appendChild(metaRow);
-
-      const right = document.createElement('div');
-      right.className = 'text-end flex-shrink-0';
-
-      const dueInfo = document.createElement('div');
-      const { hasDue, overdue, label } = formatDue(task);
-      if (hasDue) {
-        dueInfo.className = `small ${overdue ? 'text-danger fw-semibold' : 'text-muted'}`;
-        dueInfo.textContent = overdue ? `Overdue ${label}` : `Due ${label}`;
-      } else {
-        dueInfo.className = 'small text-muted';
-        dueInfo.textContent = label;
-      }
-
-      right.appendChild(dueInfo);
-
-      item.append(left, right);
-      list.appendChild(item);
-    });
-
-    card.append(header, list);
-    col.appendChild(card);
-    row.appendChild(col);
+    card.append(header, body);
+    stack.appendChild(card);
   });
 
-  container.appendChild(row);
+  container.appendChild(stack);
 }
 
 async function fetchJson(url, options = {}) {
@@ -384,28 +1018,50 @@ document.addEventListener('DOMContentLoaded', () => {
       : '/api/tasks'
   };
 
-  const state = {
-    categories: normalizeGroups(initial.groups),
-    meta: deriveMeta(initial.meta || {}),
-    defaults: deriveDefaults(deriveMeta(initial.meta || {})),
+  const initialMeta = deriveMeta(initial.meta || {});
+  const initialCategories = normalizeGroups(initial.groups);
+  const initialPurchasers = Array.isArray(initial.purchasers) ? initial.purchasers : [];
+  const initialPurchaserSet = new Set(
+    initialPurchasers
+      .map((entry) => (entry && entry.key ? String(entry.key) : null))
+      .filter(Boolean)
+  );
+  const derivedPurchasers = derivePurchaserIdSetFromGroups(initialCategories);
+  initialPurchaserSet.forEach((id) => derivedPurchasers.add(id));
+
+  state = {
+    allCategories: initialCategories,
+    categories: initialCategories.slice(),
+    meta: initialMeta,
+    defaults: deriveDefaults(initialMeta),
     currentUserId: initial.currentUserId || '',
     isFetching: false,
+    activeFilter: null,
+    entityCategories: null,
+    taskMap: buildTaskMap(initialCategories),
+    purchaserIdSet: derivedPurchasers,
     modal: {
       baseType: null,
       followupType: 'Follow-Up',
-      submitting: false
+      submitting: false,
+      currentTaskId: null,
+      currentTaskStatus: 'Pending',
+      mode: 'create'
     }
   };
 
-  // Ensure defaults align with meta reference (two-step to avoid stale reference)
-  state.meta = deriveMeta(initial.meta || {});
-  state.defaults = deriveDefaults(state.meta);
+  initCollapsibleToggles(document);
 
-  function sortCategories() {
+  function sortCategories(groups) {
     const order = state.meta.categories || [];
-    return state.categories
+    if (!Array.isArray(groups)) return [];
+    const hasEntityView = Array.isArray(state.entityCategories) && state.entityCategories.length;
+    return groups
       .slice()
       .sort((a, b) => {
+        if (hasEntityView) {
+          return a.name.localeCompare(b.name);
+        }
         const ai = order.indexOf(a.name);
         const bi = order.indexOf(b.name);
         if (ai === -1 && bi === -1) return a.name.localeCompare(b.name);
@@ -422,15 +1078,50 @@ document.addEventListener('DOMContentLoaded', () => {
   }
 
   function render() {
-    const ordered = sortCategories();
+    const sourceGroups = Array.isArray(state.entityCategories) && state.entityCategories.length
+      ? state.entityCategories
+      : state.categories;
+    const ordered = sortCategories(sourceGroups);
     renderCategories(container, ordered);
-    const summary = state.meta.totals && typeof state.meta.totals.due === 'number'
+    const summary = (!state.activeFilter && state.meta.totals && typeof state.meta.totals.due === 'number')
       ? {
           due: state.meta.totals.due,
           overdue: state.meta.totals.overdue || 0
         }
       : computeSummary(ordered);
     renderSummary(summary);
+    updateFilterUI();
+  }
+
+  function setActiveFilter(filter) {
+    if (filter) {
+      state.activeFilter = { ...filter };
+      const entityCategories = buildEntityCategoriesForFilter(filter);
+      if (entityCategories) {
+        state.entityCategories = entityCategories;
+        state.categories = [];
+      } else {
+        state.entityCategories = null;
+        state.categories = filterCategories(state.allCategories, filter);
+      }
+    } else {
+      state.activeFilter = null;
+      state.entityCategories = null;
+      state.categories = state.allCategories.slice();
+    }
+    render();
+  }
+
+  function initCollapsibleToggles(root) {
+    const toggles = (root || document).querySelectorAll('[data-task-collapse-toggle]');
+    toggles.forEach((toggle) => {
+      const host = toggle.closest('details');
+      if (!host) return;
+      toggle.setAttribute('aria-expanded', host.open ? 'true' : 'false');
+      host.addEventListener('toggle', () => {
+        toggle.setAttribute('aria-expanded', host.open ? 'true' : 'false');
+      });
+    });
   }
 
   async function refreshOverview() {
@@ -442,10 +1133,22 @@ document.addEventListener('DOMContentLoaded', () => {
       const categories = Array.isArray(data.categories)
         ? normalizeGroups(data.categories)
         : [];
-      state.categories = categories;
       state.meta = deriveMeta(data.meta || {});
       state.defaults = deriveDefaults(state.meta);
-      render();
+      state.allCategories = categories;
+      state.taskMap = buildTaskMap(categories);
+      state.purchaserIdSet = derivePurchaserIdSetFromGroups(categories);
+      const currentFilter = state.activeFilter ? { ...state.activeFilter } : null;
+      if (currentFilter) {
+        state.activeFilter = null;
+        state.entityCategories = null;
+        state.categories = categories.slice();
+        setActiveFilter(currentFilter);
+      } else {
+        state.entityCategories = null;
+        state.categories = categories.slice();
+        render();
+      }
     } catch (err) {
       console.error('[task-page] failed to refresh overview', err);
       window.alert(err.message || 'Unable to refresh tasks right now.');
@@ -487,14 +1190,18 @@ document.addEventListener('DOMContentLoaded', () => {
     }
   }
 
+  function populateModalSelects() {
+    populateSelect(modalPriority, state.meta.priorities, state.defaults.priority);
+    populateSelect(modalStatus, state.meta.statuses, state.defaults.status);
+    populateSelect(modalCategory, state.meta.categories, state.defaults.category);
+  }
+
   function resetModal() {
     if (!modalRoot || !modalForm) return;
     modalForm.reset();
     setModalError(modalRoot, '');
     resetTypeSelection();
-    populateSelect(modalPriority, state.meta.priorities, state.defaults.priority);
-    populateSelect(modalStatus, state.meta.statuses, state.defaults.status);
-    populateSelect(modalCategory, state.meta.categories, state.defaults.category);
+    populateModalSelects();
     if (modalTitle) modalTitle.textContent = 'Add Task';
     if (modalSave) {
       modalSave.disabled = false;
@@ -504,6 +1211,11 @@ document.addEventListener('DOMContentLoaded', () => {
       modalComplete.hidden = true;
     }
     if (modalDue) modalDue.value = '';
+    if (modalNotes) modalNotes.value = '';
+    if (modalTitleInput) modalTitleInput.value = '';
+    state.modal.currentTaskId = null;
+    state.modal.currentTaskStatus = 'Pending';
+    state.modal.mode = 'create';
     updateTypeButtons();
   }
 
@@ -516,10 +1228,55 @@ document.addEventListener('DOMContentLoaded', () => {
     });
   }
 
+  function openModalForTask(task) {
+    if (!modalRoot || !task) return;
+    if (modalForm) modalForm.reset();
+    setModalError(modalRoot, '');
+    state.modal.mode = 'edit';
+    state.modal.currentTaskId = task._id ? String(task._id) : null;
+    state.modal.currentTaskStatus = typeof task.status === 'string' ? task.status : 'Pending';
+    state.modal.baseType = FOLLOWUP_TYPES.has(task.type) ? 'Follow-Up' : (task.type || state.defaults.type);
+    state.modal.followupType = FOLLOWUP_TYPES.has(task.type) ? task.type : 'Follow-Up';
+    populateModalSelects();
+    updateTypeButtons();
+    if (modalTitle) modalTitle.textContent = 'Edit Task';
+    if (modalTitleInput) modalTitleInput.value = task.title || '';
+    if (modalNotes) modalNotes.value = task.description || '';
+    if (modalDue) modalDue.value = formatDateInput(task.dueDate);
+    setSelectValue(modalCategory, task.category || state.defaults.category);
+    setSelectValue(modalPriority, task.priority || '');
+    setSelectValue(modalStatus, task.status || state.defaults.status);
+    if (modalSave) {
+      modalSave.disabled = false;
+      modalSave.textContent = 'Update Task';
+    }
+    if (modalComplete) {
+      modalComplete.hidden = false;
+      modalComplete.textContent =
+        state.modal.currentTaskStatus === 'Completed' ? 'Mark as Pending' : 'Mark as Completed';
+    }
+    toggleModal(modalRoot, true);
+    window.requestAnimationFrame(() => {
+      if (modalTitleInput) modalTitleInput.focus();
+    });
+  }
+
+  function openTaskEditorById(taskId) {
+    const task = findTaskById(taskId);
+    if (!task) {
+      console.warn('[task-page] could not find task', taskId);
+      return;
+    }
+    openModalForTask(task);
+  }
+
   function closeModal() {
     if (!modalRoot) return;
     toggleModal(modalRoot, false);
     state.modal.submitting = false;
+    state.modal.currentTaskId = null;
+    state.modal.currentTaskStatus = 'Pending';
+    state.modal.mode = 'create';
   }
 
   function setModalSubmitting(isSubmitting) {
@@ -533,6 +1290,15 @@ document.addEventListener('DOMContentLoaded', () => {
   async function createTask(payload) {
     return fetchJson(endpoints.create, {
       method: 'POST',
+      body: JSON.stringify(payload)
+    });
+  }
+
+  async function updateTaskRequest(taskId, payload) {
+    const base = endpoints.update || '/api/tasks';
+    const url = `${base.replace(/\/$/, '')}/${encodeURIComponent(taskId)}`;
+    return fetchJson(url, {
+      method: 'PATCH',
       body: JSON.stringify(payload)
     });
   }
@@ -572,7 +1338,12 @@ document.addEventListener('DOMContentLoaded', () => {
     setModalError(modalRoot, '');
     setModalSubmitting(true);
 
-    createTask(payload)
+    const isEdit = Boolean(state.modal.currentTaskId);
+    const request = isEdit
+      ? updateTaskRequest(state.modal.currentTaskId, payload)
+      : createTask(payload);
+
+    request
       .then((data) => {
         closeModal();
         // Re-fetch overview to respect server-side due filters.
@@ -581,6 +1352,26 @@ document.addEventListener('DOMContentLoaded', () => {
       .catch((err) => {
         console.error('[task-page] failed to create task', err);
         setModalError(modalRoot, err.message || 'Unable to save the task. Please try again.');
+      })
+      .finally(() => {
+        setModalSubmitting(false);
+      });
+  }
+
+  function handleModalComplete(event) {
+    event.preventDefault();
+    if (!state.modal.currentTaskId) return;
+    const nextStatus =
+      state.modal.currentTaskStatus === 'Completed' ? 'Pending' : 'Completed';
+    setModalSubmitting(true);
+    updateTaskRequest(state.modal.currentTaskId, { status: nextStatus })
+      .then(() => {
+        closeModal();
+        refreshOverview();
+      })
+      .catch((err) => {
+        console.error('[task-page] failed to update task status', err);
+        setModalError(modalRoot, err.message || 'Unable to update the task status. Please try again.');
       })
       .finally(() => {
         setModalSubmitting(false);
@@ -618,7 +1409,66 @@ document.addEventListener('DOMContentLoaded', () => {
     });
   }
 
+  if (modalStatus) {
+    modalStatus.addEventListener('change', () => {
+      if (state.modal.mode === 'edit' && modalStatus.value) {
+        state.modal.currentTaskStatus = modalStatus.value;
+        if (modalComplete) {
+          modalComplete.textContent =
+            modalStatus.value === 'Completed' ? 'Mark as Pending' : 'Mark as Completed';
+        }
+      }
+    });
+  }
+
   document.addEventListener('click', (event) => {
+    const collapseToggle = event.target.closest('[data-task-collapse-toggle]');
+    if (collapseToggle) {
+      event.preventDefault();
+      const host = collapseToggle.closest('details');
+      if (host) {
+        host.open = !host.open;
+        collapseToggle.setAttribute('aria-expanded', host.open ? 'true' : 'false');
+      }
+      return;
+    }
+
+    const filterTarget = event.target.closest('[data-task-filter-group]');
+    if (filterTarget) {
+      const currentId = state.activeFilter
+        ? buildFilterId(state.activeFilter.type, state.activeFilter.idValue || state.activeFilter.value || 'all')
+        : '';
+      handleFilterClick(filterTarget, event, (newFilter) => {
+        if (!newFilter) {
+          setActiveFilter(null);
+          return;
+        }
+        const nextId = buildFilterId(newFilter.type, newFilter.idValue || newFilter.value || 'all');
+        if (currentId && currentId === nextId) {
+          setActiveFilter(null);
+        } else {
+          setActiveFilter(newFilter);
+        }
+      });
+      return;
+    }
+
+    const linkTarget = event.target.closest('a.task-linked-link');
+    if (linkTarget) {
+      // Allow default navigation but prevent row modal from opening
+      return;
+    }
+
+    const taskRow = event.target.closest('[data-task-id]');
+    if (taskRow) {
+      const taskId = taskRow.dataset.taskId;
+      if (taskId) {
+        event.preventDefault();
+        openTaskEditorById(taskId);
+      }
+      return;
+    }
+
     const trigger = event.target.closest('.task-add-trigger');
     if (trigger) {
       event.preventDefault();
@@ -647,10 +1497,29 @@ document.addEventListener('DOMContentLoaded', () => {
     });
   }
 
+  if (modalComplete) {
+    modalComplete.addEventListener('click', handleModalComplete);
+  }
+
   document.addEventListener('keydown', (event) => {
     if (event.key === 'Escape' && modalRoot && !modalRoot.hidden) {
       closeModal();
+      return;
     }
+    if (event.key !== 'Enter' && event.key !== ' ') return;
+    const row = event.target.closest('[data-task-id]');
+    if (!row) return;
+    const isInteractive =
+      event.target.tagName === 'BUTTON' ||
+      event.target.tagName === 'A' ||
+      event.target.tagName === 'INPUT' ||
+      event.target.closest('button') ||
+      event.target.closest('a') ||
+      event.target.closest('input');
+    if (isInteractive) return;
+    event.preventDefault();
+    const taskId = row.dataset.taskId;
+    if (taskId) openTaskEditorById(taskId);
   });
 
   if (modalForm) {

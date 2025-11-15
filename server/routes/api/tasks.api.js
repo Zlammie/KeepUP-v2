@@ -6,6 +6,7 @@ const Contact = require('../../models/Contact');
 const Community = require('../../models/Community');
 const Competition = require('../../models/Competition');
 const requireRole = require('../../middleware/requireRole');
+const { hydrateTaskLinks, groupTasksByAttachment } = require('../../utils/taskLinkedDetails');
 
 const router = express.Router();
 
@@ -78,28 +79,33 @@ function toIso(value) {
 
 function serializeTask(task) {
   if (!task) return null;
+  const source = typeof task.toObject === 'function' ? task.toObject() : task;
 
   const toString = (val) => (val == null ? null : String(val));
 
   return {
-    _id: toString(task._id),
-    company: toString(task.company),
-    assignedTo: toString(task.assignedTo),
-    createdBy: toString(task.createdBy),
-    linkedModel: task.linkedModel ?? null,
-    linkedId: toString(task.linkedId),
-    title: task.title || '',
-    description: task.description || '',
-    type: task.type || 'Follow-Up',
-    category: task.category || 'Custom',
-    priority: task.priority || 'Medium',
-    status: task.status || 'Pending',
-    dueDate: toIso(task.dueDate),
-    completedAt: toIso(task.completedAt),
-    autoCreated: Boolean(task.autoCreated),
-    reason: task.reason || null,
-    createdAt: toIso(task.createdAt),
-    updatedAt: toIso(task.updatedAt)
+    _id: toString(source._id),
+    company: toString(source.company),
+    assignedTo: toString(source.assignedTo),
+    createdBy: toString(source.createdBy),
+    linkedModel: source.linkedModel ?? null,
+    linkedId: toString(source.linkedId),
+    linkedName: source.linkedName || null,
+    linkedStatus: source.linkedStatus || null,
+    linkedCommunityId: toString(source.linkedCommunityId),
+    linkedCommunityName: source.linkedCommunityName || null,
+    title: source.title || '',
+    description: source.description || '',
+    type: source.type || 'Follow-Up',
+    category: source.category || 'Custom',
+    priority: source.priority || 'Medium',
+    status: source.status || 'Pending',
+    dueDate: toIso(source.dueDate),
+    completedAt: toIso(source.completedAt),
+    autoCreated: Boolean(source.autoCreated),
+    reason: source.reason || null,
+    createdAt: toIso(source.createdAt),
+    updatedAt: toIso(source.updatedAt)
   };
 }
 
@@ -214,6 +220,8 @@ router.get(
         .limit(limitInt)
         .lean();
 
+      await hydrateTaskLinks(tasks, { companyIds: [companyId] });
+
       return res.json({
         tasks: tasks.map(serializeTask)
       });
@@ -234,8 +242,6 @@ router.get(
         return res.status(400).json({ error: 'Missing company context' });
       }
 
-      const endOfToday = new Date();
-      endOfToday.setHours(23, 59, 59, 999);
       const startOfToday = new Date();
       startOfToday.setHours(0, 0, 0, 0);
 
@@ -245,11 +251,7 @@ router.get(
       const assignedId = ensureObjectId(req.user?._id);
       const filter = {
         company: companyId,
-        status: { $in: statusFilter },
-        $or: [
-          { dueDate: { $lte: endOfToday } },
-          { status: 'Overdue' }
-        ]
+        status: { $in: statusFilter }
       };
 
       if (!canViewAllTasks(req.user)) {
@@ -273,6 +275,8 @@ router.get(
         .sort({ dueDate: 1, priority: -1, createdAt: -1 })
         .limit(500)
         .lean();
+
+      await hydrateTaskLinks(tasks, { companyIds: [companyId] });
 
       const categoriesList = getCategoryList();
 
@@ -302,7 +306,8 @@ router.get(
             name: category,
             total: items.length,
             overdue: overdueCount,
-            tasks: items
+            tasks: items,
+            linkedGroups: category === 'System' ? groupTasksByAttachment(items) : []
           };
         })
         .filter(Boolean);
@@ -472,6 +477,31 @@ router.post(
 
       const autoCreatedFlag = Boolean(req.body?.autoCreated);
 
+      if (autoCreatedFlag && safeReason) {
+        const duplicateFilter = {
+          company: companyId,
+          reason: safeReason
+        };
+
+        if (normalizedModel !== null && normalizedModel !== undefined) {
+          duplicateFilter.linkedModel = normalizedModel;
+        } else {
+          duplicateFilter.linkedModel = null;
+        }
+
+        if (linkedObjectId) {
+          duplicateFilter.linkedId = linkedObjectId;
+        } else {
+          duplicateFilter.linkedId = { $exists: false };
+        }
+
+        const existingTask = await Task.findOne(duplicateFilter).lean();
+        if (existingTask) {
+          await hydrateTaskLinks([existingTask], { companyIds: [companyId] });
+          return res.status(200).json({ task: serializeTask(existingTask) });
+        }
+      }
+
       const task = await Task.create({
         company: companyId,
         assignedTo: assignedObjectId,
@@ -489,8 +519,9 @@ router.post(
         reason: safeReason || undefined
       });
 
-      const plainTask = serializeTask(task);
-      return res.status(201).json({ task: plainTask });
+      const plainTask = task.toObject();
+      await hydrateTaskLinks([plainTask], { companyIds: [companyId] });
+      return res.status(201).json({ task: serializeTask(plainTask) });
     } catch (err) {
       console.error('[tasks.api] Failed to create task:', err);
       return res.status(500).json({ error: 'Failed to create task' });
@@ -621,11 +652,15 @@ router.patch(
       }
 
       if (!hasChanges) {
-        return res.json({ task: serializeTask(task) });
+        const plainTask = task.toObject();
+        await hydrateTaskLinks([plainTask], { companyIds: [companyId] });
+        return res.json({ task: serializeTask(plainTask) });
       }
 
       await task.save();
-      return res.json({ task: serializeTask(task) });
+      const plainTask = task.toObject();
+      await hydrateTaskLinks([plainTask], { companyIds: [companyId] });
+      return res.json({ task: serializeTask(plainTask) });
     } catch (err) {
       console.error('[tasks.api] Failed to update task:', err);
       return res.status(500).json({ error: 'Failed to update task' });

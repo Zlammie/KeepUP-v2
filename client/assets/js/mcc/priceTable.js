@@ -49,14 +49,28 @@ export function priceTable() {
         clearTimeout(t); t = setTimeout(async () => {
           try { priceMap = await putPrice(currentMonth, planId, input.value === '' ? null : Number(input.value)); }
           catch(e){ console.error('save price', e); }
+          refreshPriceWarnings();
         }, 400);
+        refreshPriceWarnings();
       });
       input.addEventListener('blur', async () => {
         clearTimeout(t);
         try { priceMap = await putPrice(currentMonth, input.dataset.plan, (input.value === '' ? null : Number(input.value))); }
         catch(e){ console.error('save price', e); }
+        refreshPriceWarnings();
       });
+      refreshPriceWarnings();
     });
+  }
+
+  function refreshPriceWarnings() {
+    const isTarget = currentMonth === TARGET_MONTH_KEY;
+    tbody
+      .querySelectorAll('input.plan-price-input')
+      .forEach((input) => {
+        const hasValue = input.value !== '' && !Number.isNaN(Number(input.value));
+        input.classList.toggle('plan-price-input--warning', isTarget && !hasValue);
+      });
   }
 
   async function load(month) {
@@ -66,9 +80,8 @@ export function priceTable() {
     priceMap = prices || {};
     tbody.innerHTML = ''; plans.forEach(p => tbody.appendChild(buildRow(p)));
     wireInputs();
-    const isTargetMonth = month === TARGET_MONTH_KEY;
-    applyPriceHighlight(tbody, isTargetMonth);
-    if (isTargetMonth) ensureBasePriceTask(month).catch((err) =>
+    refreshPriceWarnings();
+    if (month === TARGET_MONTH_KEY) ensureBasePriceTask(month).catch((err) =>
       console.error('[mcc] failed to ensure base price task', err)
     );
   }
@@ -81,12 +94,6 @@ function formatMonthLabel(monthKey) {
   if (!Number.isFinite(y) || !Number.isFinite(m)) return monthKey;
   const dt = new Date(y, m - 1, 1);
   return dt.toLocaleString(undefined, { month: 'long', year: 'numeric' });
-}
-
-function applyPriceHighlight(container, active) {
-  container
-    .querySelectorAll('input.plan-price-input')
-    .forEach((input) => input.classList.toggle('plan-price-input--warning', Boolean(active)));
 }
 
 async function ensureBasePriceTask(monthKey) {
