@@ -64,6 +64,70 @@ export async function fetchTasks(params = {}) {
   return json(query ? `/api/tasks?${query}` : '/api/tasks');
 }
 
+export async function fetchFollowUpSchedules(params = {}) {
+  const search = new URLSearchParams();
+  if (params.status) search.set('status', params.status);
+  const query = search.toString();
+  return json(query ? `/api/task-schedules?${query}` : '/api/task-schedules');
+}
+
+export async function assignFollowUpSchedule(contactId, scheduleId, options = {}) {
+  if (!contactId || !scheduleId) {
+    throw new Error('assignFollowUpSchedule requires contactId and scheduleId');
+  }
+
+  const payload = { scheduleId };
+  if (options.reasonPrefix) {
+    payload.reasonPrefix = options.reasonPrefix;
+  }
+
+  const res = await fetch(`/api/contacts/${encodeURIComponent(contactId)}/followup-schedule`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(payload)
+  });
+
+  let data = null;
+  try {
+    data = await res.json();
+  } catch (_) {
+    data = null;
+  }
+
+  if (!res.ok) {
+    throw new Error(data?.error || 'Unable to assign follow-up schedule');
+  }
+
+  return data;
+}
+
+export async function unassignFollowUpSchedule(contactId, options = {}) {
+  if (!contactId) {
+    throw new Error('unassignFollowUpSchedule requires contactId');
+  }
+  const search = new URLSearchParams();
+  if (options.cleanup) search.set('cleanup', '1');
+  const query = search.toString();
+  const endpoint = query
+    ? `/api/contacts/${encodeURIComponent(contactId)}/followup-schedule?${query}`
+    : `/api/contacts/${encodeURIComponent(contactId)}/followup-schedule`;
+
+  const res = await fetch(endpoint, { method: 'DELETE' });
+
+  let data = null;
+  try {
+    data = await res.json();
+  } catch (_) {
+    data = null;
+  }
+
+  if (!res.ok) {
+    throw new Error(data?.error || 'Unable to unassign follow-up schedule');
+  }
+
+  return data;
+}
+
 // Add other endpoints here (status update, autosave fields, etc.)
 export async function createTask(payload) {
   const res = await fetch('/api/tasks', {

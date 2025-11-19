@@ -11,7 +11,6 @@ const TASK_TYPES = Object.freeze([
   'Document',
   'Approval',
   'Review',
-  'Note',
   'Data Fix',
   'System Suggestion',
   'Admin',
@@ -40,6 +39,23 @@ const LINKED_MODELS = Object.freeze([
   'Competition',
   null
 ]);
+
+const AssignmentSchema = new Schema(
+  {
+    target: {
+      type: String,
+      enum: ['contact', 'realtor', 'lender'],
+      required: true
+    },
+    refId: { type: Schema.Types.ObjectId, default: null },
+    status: {
+      type: String,
+      enum: TASK_STATUS,
+      default: 'Pending'
+    }
+  },
+  { _id: false }
+);
 
 const TaskSchema = new Schema(
   {
@@ -77,12 +93,55 @@ const TaskSchema = new Schema(
       default: 'Pending'
     },
     dueDate: { type: Date },
+    assignments: {
+      type: [AssignmentSchema],
+      default: []
+    },
+    reminderAt: { type: Date },
     completedAt: { type: Date },
     autoCreated: { type: Boolean, default: false },
     reason: { type: String, trim: true }
   },
   { timestamps: true }
 );
+
+function sanitizeAssignments(task) {
+  if (!Array.isArray(task.assignments) || !task.assignments.length) {
+    task.assignments = [
+      {
+        target: 'contact',
+        refId: task.linkedId || null,
+        status: task.status || 'Pending'
+      }
+    ];
+  }
+  task.assignments = task.assignments.map((assignment) => {
+    const normalizedStatus = TASK_STATUS.includes(assignment.status)
+      ? assignment.status
+      : 'Pending';
+    return {
+      target: assignment.target,
+      refId: assignment.refId || null,
+      status: normalizedStatus
+    };
+  });
+  const allCompleted = task.assignments.every((assignment) => assignment.status === 'Completed');
+  if (allCompleted) {
+    task.status = 'Completed';
+  } else if (task.status === 'Completed') {
+    task.status = 'In Progress';
+  }
+}
+
+TaskSchema.pre('save', function preSave(next) {
+  sanitizeAssignments(this);
+  next();
+});
+
+TaskSchema.pre('validate', function preValidate(next) {
+  sanitizeAssignments(this);
+  next();
+});
 
 TaskSchema.index({ company: 1, status: 1, dueDate: 1 });
 TaskSchema.index({ company: 1, assignedTo: 1, status: 1 });

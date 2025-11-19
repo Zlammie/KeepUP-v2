@@ -5,6 +5,8 @@ import { updateHeader, disableEditor, wireEditorToggle } from './identity.js';
 import { populateForm, setupAutosave } from './editor.js';
 import { initTopBar } from './topbar.js';
 import { renderTable, renderPurchasedTable } from './table.js';
+import { initTaskPanel } from '../contact-details/tasks.js';
+import { initState } from '../contact-details/state.js';
 
 const normalizeStatus = (raw = '') => {
   const s = String(raw).trim().toLowerCase();
@@ -61,6 +63,151 @@ const annotateContacts = (list = []) =>
 
 const TAB = { ALL: 'all', PURCHASED: 'purchased' };
 
+let taskPanelInstance = null;
+let taskDrawerNameEl = null;
+let taskBackdropEl = null;
+let todoPanelEl = null;
+let currentTaskPromise = Promise.resolve();
+
+function ensureTaskPanel() {
+  if (!taskPanelInstance) {
+    const currentUserId = document.body.dataset.currentUserId || '';
+    taskPanelInstance = initTaskPanel({ currentUserId, defaultAssignmentTarget: 'contact' });
+    todoPanelEl = document.getElementById('todo-panel');
+    taskBackdropEl = document.getElementById('task-drawer-backdrop');
+    taskDrawerNameEl = document.getElementById('task-panel-contact-name');
+  }
+  return Boolean(taskPanelInstance);
+}
+
+function getLenderDisplayName() {
+  const raw = dom.hdrName?.textContent || '';
+  const trimmed = raw.trim();
+  return trimmed || 'Lender';
+}
+
+function showTaskDrawer(name, context = 'contact') {
+  if (!ensureTaskPanel()) return false;
+
+  if (taskDrawerNameEl) {
+    taskDrawerNameEl.textContent = name || 'Contact';
+  }
+  if (todoPanelEl) {
+    todoPanelEl.dataset.context = context;
+    todoPanelEl.removeAttribute('hidden');
+  }
+  if (taskBackdropEl) taskBackdropEl.removeAttribute('hidden');
+  document.body.classList.add('task-panel-open');
+  return true;
+}
+
+async function openContactTaskDrawer(contactId, contactName, contactStatus = 'New') {
+  if (!contactId) return;
+  if (!showTaskDrawer(contactName || 'Contact', 'contact')) return;
+
+  currentTaskPromise = currentTaskPromise
+    .catch(() => {})
+    .then(() => initState({ contactId, initialStatus: contactStatus || 'New' }))
+    .catch((err) => {
+      console.error('[lender-view] Failed to load contact for tasks', err);
+    })
+    .then(() => {
+      taskPanelInstance.setContext?.({
+        contactId,
+        linkedModel: 'Contact',
+        linkedId: contactId,
+        assignmentTarget: 'contact',
+        defaultTitleBuilder: null,
+        lenderOptions: null
+      });
+    });
+
+  await currentTaskPromise;
+}
+
+async function openLenderTaskDrawer() {
+  if (!state.lenderId) return;
+  const lenderName = getLenderDisplayName();
+  if (!showTaskDrawer(lenderName, 'lender')) return;
+
+  const lenderTitleBuilder = () => {
+    const name = getLenderDisplayName();
+    return name ? `Follow up with ${name}` : 'Follow up with this lender';
+  };
+
+  currentTaskPromise = currentTaskPromise
+    .catch(() => {})
+    .then(() => {
+      taskPanelInstance.setContext?.({
+        contactId: null,
+        linkedModel: 'Lender',
+        linkedId: state.lenderId,
+        assignmentTarget: 'lender',
+        defaultTitleBuilder: lenderTitleBuilder,
+        lenderOptions: [
+          {
+            id: state.lenderId,
+            name: lenderName,
+            isPrimary: true
+          }
+        ]
+      });
+    })
+    .catch((err) => {
+      console.error('[lender-view] Failed to open lender tasks', err);
+    });
+
+  await currentTaskPromise;
+}
+
+function closeTaskDrawer() {
+  document.body.classList.remove('task-panel-open');
+  if (taskBackdropEl) taskBackdropEl.setAttribute('hidden', 'true');
+  if (todoPanelEl) {
+    todoPanelEl.setAttribute('hidden', 'true');
+    delete todoPanelEl.dataset.context;
+  }
+}
+
+function wireTaskButtons() {
+  const tables = document.querySelectorAll('.linked-table');
+  tables.forEach((table) => {
+    table.addEventListener('click', (event) => {
+      const button = event.target.closest('.table-icon-btn');
+      if (!button) return;
+      const context = button.closest('.table-action-buttons');
+      if (!context) return;
+      const action = button.dataset.action;
+      const contactId = context.dataset.contact;
+      if (action === 'task' && contactId) {
+        const contactName = context.dataset.contactName || 'Contact';
+        const contactStatus = context.dataset.contactStatus || 'New';
+        openContactTaskDrawer(contactId, contactName, contactStatus);
+      }
+    });
+  });
+
+  const lenderActions = document.getElementById('lenderActionButtons');
+  lenderActions?.addEventListener('click', (event) => {
+    const button = event.target.closest('.table-icon-btn');
+    if (!button) return;
+    if (button.dataset.action === 'task') {
+      openLenderTaskDrawer();
+    }
+  });
+
+  document.addEventListener('click', (event) => {
+    if (event.target.closest('[data-task-drawer-close]')) {
+      closeTaskDrawer();
+    }
+  });
+
+  const backdrop = document.getElementById('task-drawer-backdrop');
+  if (backdrop) {
+    backdrop.addEventListener('click', () => closeTaskDrawer());
+  }
+}
+
 function toggleTabs(target = TAB.ALL) {
   const { tabs } = dom;
   if (!tabs) return;
@@ -113,6 +260,7 @@ async function init(){
     // kick off top bar (counts + filtering + More/Back + community)
     initTopBar(state.allContacts);
     initTabs();
+    wireTaskButtons();
   }catch(err){
     console.error(err);
     if(dom.tableBody) dom.tableBody.innerHTML = `<tr><td colspan="9">Error loading data.</td></tr>`;

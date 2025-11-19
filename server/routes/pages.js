@@ -15,6 +15,9 @@ const Competition = require('../models/Competition');
 const FloorPlanComp = require('../models/floorPlanComp');
 const Company = require('../models/Company');
 const Task = require('../models/Task');
+const User = require('../models/User');
+const AutoFollowUpSchedule = require('../models/AutoFollowUpSchedule');
+const AutoFollowUpAssignment = require('../models/AutoFollowUpAssignment');
 const { hydrateTaskLinks, groupTasksByAttachment } = require('../utils/taskLinkedDetails');
 const {
   filterCommunitiesForUser,
@@ -33,6 +36,275 @@ const normalizeGarageType = (value) => {
   return null;
 };
 
+const formatRoleName = (role) => {
+  if (!role || typeof role !== 'string') return 'Team Member';
+  return role
+    .toLowerCase()
+    .split('_')
+    .map((segment) => segment.charAt(0).toUpperCase() + segment.slice(1))
+    .join(' ');
+};
+
+const buildAutoFollowUpSchedules = () => {
+  return [
+    {
+      id: 'rapid-response',
+      name: 'Rapid Lead Reply',
+      summary: '4 touchpoints during the first 48 hours that mix text, email, and a personal call.',
+      targetStage: 'New Lead',
+      defaultOwner: 'Online Sales Concierge',
+      tags: ['Speed to Lead', 'Text + Call', 'Automation'],
+      metrics: { durationDays: 3, touchpoints: 4 },
+      lastUpdatedAt: '2025-10-04T15:30:00.000Z',
+      steps: [
+        {
+          id: 'rr-step-1',
+          dayOffset: 0,
+          channel: 'SMS',
+          title: 'Instant text introduction',
+          ownerRole: 'Online Sales Concierge',
+          instructions: 'Quick intro + question to confirm preferred contact method.',
+          waitForReply: true
+        },
+        {
+          id: 'rr-step-2',
+          dayOffset: 0,
+          channel: 'Call',
+          title: 'First call: qualify and offer appointment',
+          ownerRole: 'Online Sales Concierge',
+          instructions: 'Use call sheet + log outcome in KeepUP.',
+          waitForReply: false
+        },
+        {
+          id: 'rr-step-3',
+          dayOffset: 1,
+          channel: 'Email',
+          title: 'Send curated community recap',
+          ownerRole: 'Marketing Assist',
+          instructions: 'Include floorplan packet + CTA for scheduling.',
+          waitForReply: false
+        },
+        {
+          id: 'rr-step-4',
+          dayOffset: 2,
+          channel: 'SMS',
+          title: 'Reminder text with quick CTA',
+          ownerRole: 'Online Sales Concierge',
+          instructions: 'Friendly reminder referencing value prop from call.',
+          waitForReply: true
+        }
+      ]
+    },
+    {
+      id: 'handoff-cadence',
+      name: 'Warm Handoff to Community Rep',
+      summary: 'Ensures the onsite team connects after OSC books an appointment.',
+      targetStage: 'Appointment Scheduled',
+      defaultOwner: 'Community Representative',
+      tags: ['Handoff', 'Onsite Team'],
+      metrics: { durationDays: 6, touchpoints: 3 },
+      lastUpdatedAt: '2025-09-15T10:00:00.000Z',
+      steps: [
+        {
+          id: 'wh-step-1',
+          dayOffset: 0,
+          channel: 'Email',
+          title: 'Meeting confirmation + driving directions',
+          ownerRole: 'Community Representative',
+          instructions: 'Personalize greeting + include parking instructions.',
+          waitForReply: false
+        },
+        {
+          id: 'wh-step-2',
+          dayOffset: 2,
+          channel: 'Call',
+          title: 'Pre-tour reminder call',
+          ownerRole: 'Community Representative',
+          instructions: 'Confirm attendees + capture any blockers.',
+          waitForReply: false
+        },
+        {
+          id: 'wh-step-3',
+          dayOffset: 6,
+          channel: 'SMS',
+          title: 'Quick check-in after visit',
+          ownerRole: 'Community Representative',
+          instructions: 'Send thank you text + next-step CTA.',
+          waitForReply: true
+        }
+      ]
+    },
+    {
+      id: 'nurture-vip',
+      name: 'VIP Prospect Nurture',
+      summary: 'Longer cadence for high-intent prospects that need weekly touches.',
+      targetStage: 'Warm Nurture',
+      defaultOwner: 'Sales Manager',
+      tags: ['High Intent', '12 Day Program'],
+      metrics: { durationDays: 12, touchpoints: 5 },
+      lastUpdatedAt: '2025-08-22T09:12:00.000Z',
+      steps: [
+        {
+          id: 'vip-step-1',
+          dayOffset: 0,
+          channel: 'Email',
+          title: 'Roadmap email with next steps',
+          ownerRole: 'Sales Manager',
+          instructions: 'Reference financing + build timeline.',
+          waitForReply: false
+        },
+        {
+          id: 'vip-step-2',
+          dayOffset: 3,
+          channel: 'SMS',
+          title: 'Share quick video update',
+          ownerRole: 'Sales Manager',
+          instructions: 'Embed video link + confirm availability.',
+          waitForReply: true
+        },
+        {
+          id: 'vip-step-3',
+          dayOffset: 6,
+          channel: 'Call',
+          title: 'Value call: incentives + timelines',
+          ownerRole: 'Sales Manager',
+          instructions: 'Discuss incentive expiration + capture objections.',
+          waitForReply: false
+        },
+        {
+          id: 'vip-step-4',
+          dayOffset: 9,
+          channel: 'Email',
+          title: 'Send curated progress photos',
+          ownerRole: 'Marketing Assist',
+          instructions: 'Attach latest site progress or design boards.',
+          waitForReply: false
+        },
+        {
+          id: 'vip-step-5',
+          dayOffset: 12,
+          channel: 'SMS',
+          title: 'Next-step CTA and closing check',
+          ownerRole: 'Sales Manager',
+          instructions: 'Confirm readiness + schedule final review.',
+          waitForReply: true
+        }
+      ]
+    }
+  ];
+};
+
+const DEFAULT_STAGE_OPTIONS = ['New Lead', 'Warm Nurture', 'Appointment Scheduled', 'Under Contract', 'Post Close'];
+const DEFAULT_OWNER_OPTIONS = ['Online Sales Concierge', 'Community Representative', 'Sales Manager', 'Marketing Assist'];
+const DEFAULT_CHANNEL_OPTIONS = ['SMS', 'Email', 'Call', 'Reminder', 'Meeting'];
+const DEFAULT_BUILDER_STEPS = [
+  {
+    id: 'builder-step-1',
+    dayOffset: 0,
+    channel: 'SMS',
+    title: 'Instant text introduction',
+    ownerRole: DEFAULT_OWNER_OPTIONS[0],
+    instructions: 'Quickly acknowledge the inquiry and ask a qualifying question.',
+    waitForReply: true
+  },
+  {
+    id: 'builder-step-2',
+    dayOffset: 1,
+    channel: 'Email',
+    title: 'Send curated community highlights',
+    ownerRole: DEFAULT_OWNER_OPTIONS[3],
+    instructions: 'Attach gallery or brochure with CTA to schedule time.',
+    waitForReply: false
+  },
+  {
+    id: 'builder-step-3',
+    dayOffset: 3,
+    channel: 'Call',
+    title: 'Live check-in call',
+    ownerRole: DEFAULT_OWNER_OPTIONS[0],
+    instructions: 'Use the call guide to cover financing + timeline.',
+    waitForReply: false
+  }
+];
+
+const buildScheduleBuilderPreset = (overrides = {}) => {
+  const stageOptions =
+    Array.isArray(overrides.stageOptions) && overrides.stageOptions.length
+      ? overrides.stageOptions
+      : DEFAULT_STAGE_OPTIONS;
+  const ownerOptions =
+    Array.isArray(overrides.ownerOptions) && overrides.ownerOptions.length
+      ? overrides.ownerOptions
+      : DEFAULT_OWNER_OPTIONS;
+  const channelOptions =
+    Array.isArray(overrides.channelOptions) && overrides.channelOptions.length
+      ? overrides.channelOptions
+      : DEFAULT_CHANNEL_OPTIONS;
+  const baseSteps =
+    Array.isArray(overrides.steps) && overrides.steps.length ? overrides.steps : DEFAULT_BUILDER_STEPS;
+
+  const normalizedSteps = baseSteps.map((step, index) => {
+    const selectedChannel = channelOptions.includes(step.channel) ? step.channel : channelOptions[0];
+    const selectedOwner = ownerOptions.includes(step.ownerRole) ? step.ownerRole : ownerOptions[0];
+    return {
+      id: step.id || `builder-step-${index + 1}`,
+      dayOffset: Number.isFinite(step.dayOffset) ? step.dayOffset : index * 2,
+      channel: selectedChannel,
+      title: step.title || `Touchpoint ${index + 1}`,
+      ownerRole: selectedOwner,
+      instructions: step.instructions || '',
+      waitForReply: Boolean(step.waitForReply)
+    };
+  });
+
+  return {
+    name: overrides.name || 'New Follow-Up Schedule',
+    description:
+      overrides.description ||
+      'Outline the cadence you want KeepUP to run automatically once the schedule is applied.',
+    stageOptions,
+    ownerOptions,
+    channelOptions,
+    defaultStage: overrides.defaultStage || stageOptions[0],
+    defaultOwner: overrides.defaultOwner || ownerOptions[0],
+    steps: normalizedSteps
+  };
+};
+
+const transformScheduleDocForView = (schedule) => {
+  if (!schedule) return null;
+  const steps = Array.isArray(schedule.steps) ? schedule.steps : [];
+  const touchpoints = steps.length;
+  const durationDays = steps.reduce((max, step) => {
+    const offset = Number(step?.dayOffset ?? 0);
+    if (Number.isNaN(offset)) return max;
+    return Math.max(max, offset);
+  }, 0);
+
+  return {
+    id: String(schedule._id),
+    name: schedule.name,
+    summary: schedule.summary || schedule.description || '',
+    targetStage: schedule.stage || 'General',
+    defaultOwner: schedule.defaultOwnerRole || 'Team',
+    tags: Array.isArray(schedule.tags) ? schedule.tags : [],
+    metrics: {
+      durationDays,
+      touchpoints
+    },
+    lastUpdatedAt: schedule.updatedAt || schedule.createdAt || null,
+    steps: steps.map((step, index) => ({
+      id: step.stepId || (step._id ? String(step._id) : `step-${index}`),
+      dayOffset: step.dayOffset ?? 0,
+      channel: step.channel || 'SMS',
+      title: step.title || `Step ${index + 1}`,
+      ownerRole: step.ownerRole || schedule.defaultOwnerRole || 'Team',
+      instructions: step.instructions || '',
+      waitForReply: Boolean(step.waitForReply)
+    }))
+  };
+};
+
 // ????????????????????????? core pages ?????????????????????????
 router.get(['/', '/index'], ensureAuth, requireRole('READONLY','USER','MANAGER','COMPANY_ADMIN','SUPER_ADMIN'),
   (req, res) => res.render('pages/index', { active: 'home' })
@@ -48,6 +320,121 @@ router.get(
   requireRole('READONLY', 'USER', 'MANAGER', 'COMPANY_ADMIN', 'SUPER_ADMIN'),
   async (req, res, next) => {
     try {
+      const allowedTaskViews = ['task', 'calendar', 'settings'];
+      const requestedTaskView =
+        typeof req.query.view === 'string' ? req.query.view.trim().toLowerCase() : 'task';
+      const taskView = allowedTaskViews.includes(requestedTaskView) ? requestedTaskView : 'task';
+
+      if (taskView === 'settings') {
+        const companyFilter = req.user?.company ? { company: req.user.company } : { ...base(req) };
+        const [scheduleDocs, teamMembers, assignments] = await Promise.all([
+          AutoFollowUpSchedule.find(companyFilter).sort({ updatedAt: -1 }).lean(),
+          User.find(companyFilter)
+            .select('firstName lastName email roles status lastLoginAt')
+            .sort({ firstName: 1, lastName: 1 })
+            .lean(),
+          AutoFollowUpAssignment.find(companyFilter)
+            .populate('schedule', 'name status')
+            .select('schedule user status')
+            .lean()
+        ]);
+
+        const followUpSchedules = scheduleDocs.length
+          ? scheduleDocs.map(transformScheduleDocForView).filter(Boolean)
+          : buildAutoFollowUpSchedules();
+
+        const assignmentByUserId = new Map();
+        assignments.forEach((assignment) => {
+          const key = assignment?.user ? String(assignment.user._id || assignment.user) : null;
+          if (key) assignmentByUserId.set(key, assignment);
+        });
+
+        const teamScheduleAssignments = teamMembers.map((member) => {
+          const nameParts = [member.firstName, member.lastName].filter(Boolean);
+          const displayName = nameParts.length ? nameParts.join(' ') : member.email || 'Team Member';
+          const roles = Array.isArray(member.roles) && member.roles.length ? member.roles : ['USER'];
+          const primaryRole = roles[0];
+          const normalizedStatus = typeof member.status === 'string' ? member.status.toUpperCase() : 'ACTIVE';
+
+          const assignment = assignmentByUserId.get(String(member._id));
+          const scheduleRef = assignment?.schedule || null;
+          const currentScheduleId = scheduleRef ? String(scheduleRef._id || scheduleRef) : null;
+
+          return {
+            id: String(member._id),
+            name: displayName,
+            email: member.email || '',
+            role: formatRoleName(primaryRole),
+            status: normalizedStatus,
+            lastLoginAt: member.lastLoginAt || null,
+            currentScheduleId: currentScheduleId || null,
+            assignmentStatus: assignment?.status || null
+          };
+        });
+
+        const totalSchedules = followUpSchedules.length;
+        const totalSteps = followUpSchedules.reduce(
+          (sum, schedule) => sum + (schedule.metrics?.touchpoints || 0),
+          0
+        );
+        const averageTouches = totalSchedules ? Math.round(totalSteps / totalSchedules) : 0;
+        const longestCadenceDays = followUpSchedules.reduce(
+          (max, schedule) => Math.max(max, schedule.metrics?.durationDays || 0),
+          0
+        );
+        const activeTeammates = teamScheduleAssignments.filter(
+          (member) => member.status && member.status.toUpperCase() === 'ACTIVE'
+        ).length;
+
+        const stageOptionSet = new Set(DEFAULT_STAGE_OPTIONS);
+        followUpSchedules.forEach((schedule) => {
+          if (schedule.targetStage) stageOptionSet.add(schedule.targetStage);
+        });
+
+        const ownerOptionSet = new Set(DEFAULT_OWNER_OPTIONS);
+        followUpSchedules.forEach((schedule) => {
+          if (schedule.defaultOwner) ownerOptionSet.add(schedule.defaultOwner);
+        });
+        teamMembers.forEach((member) => {
+          const primaryRole =
+            Array.isArray(member.roles) && member.roles.length ? member.roles[0] : 'USER';
+          ownerOptionSet.add(formatRoleName(primaryRole));
+        });
+
+        const scheduleBuilderPreset = buildScheduleBuilderPreset({
+          stageOptions: Array.from(stageOptionSet),
+          ownerOptions: Array.from(ownerOptionSet)
+        });
+
+        const autoFollowUpStats = {
+          librarySize: totalSchedules,
+          activeTeammates,
+          averageTouches,
+          longestCadenceDays
+        };
+
+        const taskSettingsData = {
+          schedules: followUpSchedules,
+          builderPreset: scheduleBuilderPreset,
+          stats: autoFollowUpStats,
+          teamAssignments: teamScheduleAssignments,
+          endpoints: {
+            schedules: '/api/task-schedules',
+            assignments: '/api/task-schedules/assignments'
+          }
+        };
+
+        return res.render('pages/task-settings', {
+          active: 'task',
+          taskView,
+          followUpSchedules,
+          scheduleBuilderPreset,
+          autoFollowUpStats,
+          teamScheduleAssignments,
+          taskSettingsData
+        });
+      }
+
       const baseFilter = { ...base(req) };
       const allowedStatuses = Array.isArray(Task.STATUS)
         ? Task.STATUS.filter((status) => status !== 'Completed')
@@ -218,14 +605,66 @@ router.get(
         types: Array.isArray(Task.TYPES) ? Task.TYPES : []
       };
 
-      res.render('pages/task', {
+      const calendarTasks = tasks.map((task) => {
+        if (!task || typeof task !== 'object') {
+          return {
+            id: '',
+            title: 'Task',
+            category: 'Custom',
+            status: 'Pending',
+            priority: 'Medium',
+            dueDate: null,
+            linkedModel: null,
+            linkedLabel: ''
+          };
+        }
+
+        const dueDate = task.dueDate ? new Date(task.dueDate) : null;
+        const dueDateIso =
+          dueDate && !Number.isNaN(dueDate.getTime()) ? dueDate.toISOString() : null;
+
+        let linkedLabel = '';
+        if (typeof task.linkedName === 'string' && task.linkedName.trim()) {
+          linkedLabel = task.linkedName.trim();
+        } else if (task.linkedModel === 'Community' && task.linkedCommunityName) {
+          linkedLabel = task.linkedCommunityName;
+        } else if (task.linkedModel === 'Competition') {
+          linkedLabel = task.linkedName || 'Competition';
+        } else if (task.linkedModel) {
+          linkedLabel = task.linkedModel;
+        }
+
+        return {
+          id: task._id ? String(task._id) : '',
+          title: task.title || 'Task',
+          category: task.category || 'Custom',
+          status: task.status || 'Pending',
+          priority: task.priority || 'Medium',
+          dueDate: dueDateIso,
+          linkedModel: task.linkedModel || null,
+          linkedLabel,
+          description: task.description || ''
+        };
+      });
+
+      const commonViewData = {
         active: 'task',
+        taskView,
         taskGroups,
         taskMeta,
         managedCommunities,
         purchaserContacts,
         contactStatuses
-      });
+      };
+
+      if (taskView === 'calendar') {
+        return res.render('pages/calendar', {
+          ...commonViewData,
+          calendarTasks
+        });
+      }
+
+      res.render('pages/task', commonViewData);
     } catch (err) {
       next(err);
     }

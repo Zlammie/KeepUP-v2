@@ -4,6 +4,17 @@ import { formatPhoneDisplay } from '../shared/phone.js';
 import { updateContact, toggleFlag } from './api.js';
 import { openCommentModal } from './modal.js';
 
+let actionHandlers = {
+  onTask: null
+};
+
+export function setActionHandlers(handlers = {}) {
+  actionHandlers = {
+    ...actionHandlers,
+    ...handlers
+  };
+}
+
 const STATUS_OPTIONS = [
   { value: 'New', label: 'New' },
   { value: 'Target', label: 'Target' },
@@ -93,70 +104,79 @@ export function renderTable(contacts) {
     const row = document.createElement('tr');
     row.dataset.id = contact._id;
 
-    // 📋 Task icon
+        const fullName = `${contact.firstName || ''} ${contact.lastName || ''}`.trim() || 'Contact';
+
     {
       const cell = document.createElement('td');
-      cell.classList.add('text-center');
-      const btn = document.createElement('button');
-      btn.type = 'button';
-      btn.classList.add('icon-btn', 'btn', 'btn-sm', 'btn-link');
-      const img = document.createElement('img');
-      img.src = '/assets/icons/add_task.svg';
-      img.alt = 'Task';
-      btn.appendChild(img);
-      cell.appendChild(btn);
-      row.appendChild(cell);
-    }
+      cell.classList.add('table-icon-col');
+      const wrapper = document.createElement('div');
+      wrapper.className = 'table-action-buttons';
 
-    // 🚩 Flag toggle
-    {
-      const cell = document.createElement('td');
-      cell.classList.add('text-center');
-      const btn = document.createElement('button');
-      btn.type = 'button';
-      btn.classList.add('icon-btn', 'btn', 'btn-sm', 'btn-link');
-      const img = document.createElement('img');
-      img.src = '/assets/icons/exclamation.svg';
-      img.alt = 'Flag';
-      btn.appendChild(img);
+      const createIconButton = ({ src, label }) => {
+        const btn = document.createElement('button');
+        btn.type = 'button';
+        btn.classList.add('table-icon-btn');
+        btn.setAttribute('aria-label', label);
+        const img = document.createElement('img');
+        img.src = src;
+        img.alt = '';
+        btn.appendChild(img);
+        return { btn, img };
+      };
 
+      const { btn: taskBtn } = createIconButton({
+        src: '/assets/icons/add_task.svg',
+        label: `Manage tasks for ${fullName}`
+      });
+      taskBtn.addEventListener('click', (event) => {
+        event.preventDefault();
+        event.stopPropagation();
+        actionHandlers.onTask?.({
+          id: contact._id,
+          name: fullName,
+          status: contact.status || 'New'
+        });
+      });
+      wrapper.appendChild(taskBtn);
+
+      const { btn: flagBtn, img: flagImg } = createIconButton({
+        src: '/assets/icons/exclamation.svg',
+        label: `Toggle flag for ${fullName}`
+      });
       let flagged = Boolean(contact.flagged);
-      setFlagIconColor(img, flagged);
-
-      btn.addEventListener('click', async () => {
+      setFlagIconColor(flagImg, flagged);
+      flagBtn.addEventListener('click', async (event) => {
+        event.preventDefault();
+        event.stopPropagation();
         flagged = !flagged;
-        setFlagIconColor(img, flagged);
+        setFlagIconColor(flagImg, flagged);
         try {
           await toggleFlag(contact._id, flagged);
-        } catch (e) {
-          // revert UI if API fails
+        } catch (err) {
+          console.error(err);
           flagged = !flagged;
-          setFlagIconColor(img, flagged);
-          console.error(e);
+          setFlagIconColor(flagImg, flagged);
+          alert('Could not update flag. Please try again.');
         }
       });
+      wrapper.appendChild(flagBtn);
 
-      cell.appendChild(btn);
+      const { btn: commentBtn } = createIconButton({
+        src: '/assets/icons/comment.svg',
+        label: `Add comment for ${fullName}`
+      });
+      commentBtn.addEventListener('click', (event) => {
+        event.preventDefault();
+        event.stopPropagation();
+        openCommentModal(contact._id);
+      });
+      wrapper.appendChild(commentBtn);
+
+      cell.appendChild(wrapper);
       row.appendChild(cell);
     }
 
-    // 💬 Comment button
-    {
-      const cell = document.createElement('td');
-      cell.classList.add('text-center');
-      const btn = document.createElement('button');
-      btn.type = 'button';
-      btn.classList.add('icon-btn', 'btn', 'btn-sm', 'btn-link');
-      const img = document.createElement('img');
-      img.src = '/assets/icons/comment.svg';
-      img.alt = 'Comment';
-      btn.appendChild(img);
-      btn.addEventListener('click', () => openCommentModal(contact._id));
-      cell.appendChild(btn);
-      row.appendChild(cell);
-    }
-
-    // View button
+// View button
     {
       const cell = document.createElement('td');
       cell.classList.add('text-center');

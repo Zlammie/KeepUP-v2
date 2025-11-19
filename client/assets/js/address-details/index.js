@@ -38,7 +38,8 @@ document.addEventListener('DOMContentLoaded', async () => {
       defaultTitleBuilder: () => {
         const address = ctx.lot?.address || ctx.lot?.jobNumber || '';
         return address ? `Follow up on ${address}` : 'Follow up on this lot';
-      }
+      },
+      defaultAssignmentTarget: 'contact'
     });
 
     // purchaser (contact)

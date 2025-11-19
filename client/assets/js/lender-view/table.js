@@ -406,27 +406,37 @@ const buildClosingDateEditor = (contact, lenderInfo) => {
   return container;
 };
 
-const ICON_COLUMNS = [
-  { className: 'icon-task', src: '/assets/icons/add_task.svg', alt: 'Task' },
-  { className: 'icon-flag', src: '/assets/icons/exclamation.svg', alt: 'Flag' },
-  { className: 'icon-comment', src: '/assets/icons/comment.svg', alt: 'Comment' },
+const ACTION_BUTTONS = [
+  { action: 'task', icon: '/assets/icons/add_task.svg', label: 'Manage tasks' },
+  { action: 'flag', icon: '/assets/icons/exclamation.svg', label: 'Flag contact' },
+  { action: 'comment', icon: '/assets/icons/comment.svg', label: 'Comment on contact' },
 ];
 
-const renderIconCells = () =>
-  ICON_COLUMNS.map(({ className, src, alt }) => `
-    <td class="icon-col ${className}">
-      <button type="button" class="icon-btn btn btn-sm btn-link" disabled aria-disabled="true">
-        <img src="${src}" alt="${alt}">
-      </button>
-    </td>
+const renderActionCell = (contactId, contactName, contactStatus) => {
+  const safeId = contactId ? escapeHtml(String(contactId)) : '';
+  const safeName = escapeHtml(contactName || 'Contact');
+  const safeStatus = escapeHtml(contactStatus || 'New');
+  const buttons = ACTION_BUTTONS.map(({ action, icon, label }) => `
+    <button class="table-icon-btn" type="button" data-action="${action}" aria-label="${label} for ${safeName}">
+      <img src="${icon}" alt="">
+    </button>
   `).join('');
+
+  return `
+    <td class="table-icon-col">
+      <div class="table-action-buttons" data-contact="${safeId}" data-contact-name="${safeName}" data-contact-status="${safeStatus}">
+        ${buttons}
+      </div>
+    </td>
+  `;
+};
 
 export function renderTable(rows = []) {
   const tbody = dom.tableBody;
   if (!tbody) return;
 
   if (!rows.length) {
-    tbody.innerHTML = `<tr><td colspan="12">No contacts linked to this lender.</td></tr>`;
+    tbody.innerHTML = `<tr><td colspan="10">No contacts linked to this lender.</td></tr>`;
     return;
   }
 
@@ -449,13 +459,14 @@ export function renderTable(rows = []) {
     const status = displayLabel(lenderInfo?.status);
     const inviteDate = formatDateValue(lenderInfo?.inviteDate);
     const approvedDate = formatDateValue(lenderInfo?.approvedDate);
-    const generalStatus = (contact.status || '').trim() || 'N/A';
+    const contactStatusValue = (contact.status || '').trim();
+    const generalStatus = contactStatusValue || 'N/A';
 
     contact._lenderStatus = normalizeStatus(lenderInfo?.status || '');
 
     const tr = document.createElement('tr');
     tr.innerHTML = `
-      ${renderIconCells()}
+      ${renderActionCell(contact._id, name, contactStatusValue || 'New')}
       <td><a href="/contact-details.html?id=${escapeHtml(contact._id)}">${escapeHtml(name)}</a></td>
       <td>${escapeHtml(phone)}</td>
       <td>${escapeHtml(email)}</td>
@@ -475,7 +486,7 @@ export function renderPurchasedTable(rows = []) {
   if (!tbody) return;
 
   if (!rows.length) {
-    tbody.innerHTML = `<tr><td colspan="10">No purchasers linked to this lender.</td></tr>`;
+    tbody.innerHTML = `<tr><td colspan="8">No purchasers linked to this lender.</td></tr>`;
     return;
   }
 
@@ -494,10 +505,11 @@ export function renderPurchasedTable(rows = []) {
     const lenderInfo = lenderEntries.find(matchesActiveLender) || lenderEntries[0] || {};
 
     const lenderStatus = displayLabel(lenderInfo?.status);
+    const contactStatusValue = (contact.status || '').trim() || 'New';
 
     const tr = document.createElement('tr');
     tr.innerHTML = `
-      ${renderIconCells()}
+      ${renderActionCell(contact._id, name, contactStatusValue)}
       <td><a href="/contact-details.html?id=${escapeHtml(contact._id)}">${escapeHtml(name)}</a></td>
       <td>${escapeHtml(phone)}</td>
       <td>${escapeHtml(email)}</td>

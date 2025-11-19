@@ -8,6 +8,8 @@ const Lender    = require('../models/lenderModel');
 const Community = require('../models/Community');
 const FloorPlan = require('../models/FloorPlan');
 const Realtor   = require('../models/Realtor');
+const Task      = require('../models/Task');
+const AutoFollowUpSchedule = require('../models/AutoFollowUpSchedule');
 
 const ensureAuth  = require('../middleware/ensureAuth');
 const requireRole = require('../middleware/requireRole');
@@ -93,6 +95,8 @@ function parseDateMaybe(v){
   }
   return null;
 }
+
+const escapeRegExp = (value = '') => value.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
 
 function toStatusCase(v){
   const norm = toStr(v);
@@ -271,7 +275,7 @@ router.get('/:id',
       if (!isObjectId(id)) return res.status(400).json({ error: 'Invalid id' });
 
       const contact = await Contact.findOne(contactQuery(req, { _id: new mongoose.Types.ObjectId(id) }))
-        .select('firstName lastName email phone status notes source communityIds floorplans realtorId lenderId lotId ownerId visitDate lotLineUp buyTime buyMonth facing living investor renting ownSelling ownNotSelling lenderStatus lenderInviteDate lenderApprovedDate lenders updatedAt')
+        .select('firstName lastName email phone status notes source communityIds floorplans realtorId lenderId lotId ownerId visitDate lotLineUp buyTime buyMonth facing living investor renting ownSelling ownNotSelling lenderStatus lenderInviteDate lenderApprovedDate lenders updatedAt followUpSchedule')
         .populate('communityIds', 'name')
         .populate('floorplans', 'name planNumber')                                       // ✅ array of communities
         .populate('realtorId', 'firstName lastName brokerage email phone')      // ✅ real field
@@ -293,6 +297,7 @@ router.get('/:id',
         floorplans: contact.floorplans || [],
         // if your UI expects lowercase status values:
         status: typeof contact.status === 'string' ? contact.status.toLowerCase() : contact.status,
+        followUpSchedule: contact.followUpSchedule || null
       });
     } catch (err) {
       res.status(500).json({ error: 'Failed to fetch contact', details: err.message });
@@ -1005,6 +1010,112 @@ router.post('/import',
       if (filePath) {
         await fs.promises.unlink(filePath).catch(() => {});
       }
+    }
+  }
+);
+
+router.post(
+  '/:id/followup-schedule',
+  requireRole('USER','MANAGER','COMPANY_ADMIN','SUPER_ADMIN'),
+  async (req, res) => {
+    try {
+      const { id } = req.params;
+      if (!isObjectId(id)) return res.status(400).json({ error: 'Invalid contact id' });
+      const contactObjectId = new mongoose.Types.ObjectId(id);
+
+      const scheduleObjectId = toObjectId(req.body?.scheduleId);
+      if (!scheduleObjectId) {
+        return res.status(400).json({ error: 'scheduleId is required' });
+      }
+
+      const contact = await Contact.findOne(contactQuery(req, { _id: contactObjectId }));
+      if (!contact) {
+        return res.status(404).json({ error: 'Contact not found' });
+      }
+
+      const schedule = await AutoFollowUpSchedule.findOne({
+        _id: scheduleObjectId,
+        company: contact.company
+      })
+        .select('name')
+        .lean();
+
+      if (!schedule) {
+        return res.status(404).json({ error: 'Schedule not found' });
+      }
+
+      const contactIdString = contactObjectId.toString();
+      const scheduleIdString = scheduleObjectId.toString();
+      const requestedPrefix =
+        typeof req.body?.reasonPrefix === 'string' ? req.body.reasonPrefix.trim() : '';
+      const normalizedPrefix =
+        requestedPrefix.startsWith(`followup:${contactIdString}:${scheduleIdString}:`)
+          ? requestedPrefix
+          : `followup:${contactIdString}:${scheduleIdString}:`;
+
+      contact.followUpSchedule = {
+        scheduleId: scheduleObjectId,
+        scheduleName: schedule.name,
+        appliedAt: new Date(),
+        appliedBy: req.user._id,
+        reasonPrefix: normalizedPrefix
+      };
+
+      await contact.save();
+      return res.json({ followUpSchedule: contact.followUpSchedule });
+    } catch (err) {
+      console.error('[contacts] failed to assign follow-up schedule', err);
+      return res.status(500).json({ error: 'Failed to assign schedule' });
+    }
+  }
+);
+
+router.delete(
+  '/:id/followup-schedule',
+  requireRole('USER','MANAGER','COMPANY_ADMIN','SUPER_ADMIN'),
+  async (req, res) => {
+    try {
+      const { id } = req.params;
+      if (!isObjectId(id)) return res.status(400).json({ error: 'Invalid contact id' });
+      const contactObjectId = new mongoose.Types.ObjectId(id);
+
+      const cleanup =
+        req.query.cleanup === '1' ||
+        req.query.cleanup === 'true' ||
+        req.query.cleanup === 'yes';
+
+      const contact = await Contact.findOne(contactQuery(req, { _id: contactObjectId }));
+      if (!contact) {
+        return res.status(404).json({ error: 'Contact not found' });
+      }
+
+      const previous = contact.followUpSchedule || null;
+      contact.set('followUpSchedule', undefined);
+      await contact.save();
+
+      let removedTasks = 0;
+      if (cleanup && previous?.scheduleId) {
+        const contactIdStr = contactObjectId.toString();
+        const scheduleIdStr = previous.scheduleId.toString();
+        const reasonPrefix =
+          typeof previous.reasonPrefix === 'string' && previous.reasonPrefix.trim().length
+            ? previous.reasonPrefix.trim()
+            : `followup:${contactIdStr}:${scheduleIdStr}:`;
+        const pattern = new RegExp(`^${escapeRegExp(reasonPrefix)}`);
+
+        const deletion = await Task.deleteMany({
+          company: contact.company,
+          linkedModel: 'Contact',
+          linkedId: contactObjectId,
+          reason: { $regex: pattern }
+        });
+        removedTasks = deletion?.deletedCount || 0;
+      }
+
+      return res.json({ followUpSchedule: null, removedTasks });
+    } catch (err) {
+      console.error('[contacts] failed to unassign follow-up schedule', err);
+      return res.status(500).json({ error: 'Failed to unassign schedule' });
     }
   }
 );

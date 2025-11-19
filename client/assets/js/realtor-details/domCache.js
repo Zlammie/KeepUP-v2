@@ -33,6 +33,7 @@ export const dom = {
   communitySel:  $('#communitySelect'),
   resultCount:   $('#resultCount'),
   tableBody:     $('#relatedContactsBody'),
+  table:         document.querySelector('.related-table')
 };
 
 export function allDataInputs() {

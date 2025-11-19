@@ -1,0 +1,98 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>KeepUP Beta Sign-up</title>
+    <link rel="stylesheet" href="/assets/css/beta-signup.css" />
+  </head>
+  <body class="beta">
+    <main class="beta-page">
+      <section class="beta-card" aria-labelledby="beta-title">
+        <header class="beta-header">
+          <p class="eyebrow">KeepUP CRM</p>
+          <h1 id="beta-title">Join the beta list</h1>
+          <p class="lead">
+            Get early access to KeepUP&rsquo;s next release. Tell us a little about your team and
+            we&rsquo;ll reach out with onboarding details.
+          </p>
+        </header>
+
+        <% if (status === 'success' && message) { %>
+          <div class="beta-alert beta-alert--success" role="status">
+            <span><%= message %></span>
+          </div>
+        <% } else if (error) { %>
+          <div class="beta-alert beta-alert--error" role="alert">
+            <span><%= error %></span>
+          </div>
+        <% } %>
+
+        <form class="beta-form" method="POST" action="/beta-signup" novalidate>
+          <div class="field">
+            <label for="fullName">Full name</label>
+            <input
+              type="text"
+              id="fullName"
+              name="fullName"
+              required
+              autocomplete="name"
+              value="<%= values.fullName %>"
+            />
+          </div>
+
+          <div class="field">
+            <label for="company">Company</label>
+            <input
+              type="text"
+              id="company"
+              name="company"
+              autocomplete="organization"
+              value="<%= values.company %>"
+            />
+          </div>
+
+          <div class="field">
+            <label for="email">Work email</label>
+            <input
+              type="email"
+              id="email"
+              name="email"
+              required
+              autocomplete="email"
+              value="<%= values.email %>"
+            />
+          </div>
+
+          <div class="field">
+            <label for="phone">Phone</label>
+            <input
+              type="tel"
+              id="phone"
+              name="phone"
+              autocomplete="tel"
+              value="<%= values.phone %>"
+            />
+          </div>
+
+          <div class="field">
+            <label for="notes">What should we know?</label>
+            <textarea
+              id="notes"
+              name="notes"
+              rows="4"
+              placeholder="Share the team size, current tools, or any goals for KeepUP."
+            ><%= values.notes %></textarea>
+          </div>
+
+          <button type="submit" class="btn-primary">Request access</button>
+
+          <p class="footnote">
+            We&rsquo;ll only use this info to coordinate the beta invite. Looking for product
+            support? <a href="mailto:support@keepupcrm.com">Drop us a note</a>.
+          </p>
+        </form>
+      </section>
+    </main>
+  </body>
+</html>

@@ -1,0 +1,126 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Task Calendar</title>
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet" />
+  <link rel="stylesheet" href="/assets/css/main.css" />
+  <link rel="stylesheet" href="/assets/css/pages/task-calendar.css" />
+</head>
+<body>
+  <%- include('../partials/nav') %>
+  <%- include('../partials/top-nav-task', { activeTab: taskView || 'calendar' }) %>
+  <% const calendarMeta = taskMeta || {};
+     const calendarStatuses = Array.isArray(calendarMeta.statuses) ? calendarMeta.statuses : [];
+     const calendarCategories = Array.isArray(calendarMeta.categories) ? calendarMeta.categories : [];
+     const calendarPriorities = Array.isArray(calendarMeta.priorities) ? calendarMeta.priorities : [];
+  %>
+
+  <main class="container py-4 task-calendar-page">
+    <div class="d-flex flex-wrap align-items-start justify-content-between gap-3 mb-4">
+      <div>
+        <h1 class="h2 mb-1">Task Calendar</h1>
+        <p class="text-muted mb-0">
+          Visualize upcoming tasks, adjust your focus window, and plan the work that matters most.
+        </p>
+      </div>
+      <div class="d-flex flex-wrap align-items-center gap-2 justify-content-end">
+        <div class="btn-group" role="group" aria-label="Calendar View">
+          <button type="button" class="btn btn-outline-primary calendar-view-btn" data-view="day">Day</button>
+          <button type="button" class="btn btn-outline-primary calendar-view-btn" data-view="week">Week</button>
+          <button type="button" class="btn btn-outline-primary calendar-view-btn active" data-view="month">Month</button>
+        </div>
+        <input type="date" id="calendar-focus-date" class="form-control" aria-label="Focus date" />
+        <div class="btn-group" role="group" aria-label="Calendar range controls">
+          <button type="button" class="btn btn-outline-secondary" id="calendar-prev" aria-label="Previous range">&larr;</button>
+          <button type="button" class="btn btn-outline-secondary" id="calendar-today">Today</button>
+          <button type="button" class="btn btn-outline-secondary" id="calendar-next" aria-label="Next range">&rarr;</button>
+        </div>
+      </div>
+    </div>
+
+    <div class="card shadow-sm mb-4">
+      <div class="card-body">
+        <div class="d-flex flex-wrap align-items-center justify-content-between gap-3 mb-3">
+          <div>
+            <h2 class="h4 mb-0" id="calendar-range-label">This Month</h2>
+            <p class="text-muted mb-0" id="calendar-range-subtitle">Use the controls to move across time.</p>
+          </div>
+          <div class="calendar-legend d-flex flex-wrap gap-2">
+            <span class="badge bg-success-subtle text-success-emphasis">Completed</span>
+            <span class="badge bg-warning-subtle text-warning-emphasis">Due Soon</span>
+            <span class="badge bg-danger-subtle text-danger-emphasis">Overdue</span>
+            <span class="badge bg-secondary-subtle text-secondary-emphasis">Scheduled</span>
+          </div>
+        </div>
+        <div id="task-calendar-grid" class="task-calendar-grid" role="grid" aria-live="polite"></div>
+      </div>
+    </div>
+
+    <div class="card shadow-sm">
+      <div class="card-header bg-white">
+        <div class="d-flex flex-wrap justify-content-between align-items-center gap-2">
+          <div>
+            <h2 class="h5 mb-0">Filters & Planning</h2>
+            <p class="text-muted mb-0">Filter tasks in the visible range to shape your day, week, or month.</p>
+          </div>
+          <button class="btn btn-outline-secondary" id="calendar-clear-filters" type="button">Clear Filters</button>
+        </div>
+      </div>
+      <div class="card-body">
+        <div class="row g-3">
+          <div class="col-md-4">
+            <label for="calendar-filter-status" class="form-label">Status</label>
+            <select id="calendar-filter-status" class="form-select">
+              <option value="">All statuses</option>
+              <% calendarStatuses.forEach((status) => { %>
+                <option value="<%= status %>"><%= status %></option>
+              <% }) %>
+            </select>
+          </div>
+          <div class="col-md-4">
+            <label for="calendar-filter-category" class="form-label">Category</label>
+            <select id="calendar-filter-category" class="form-select">
+              <option value="">All categories</option>
+              <% calendarCategories.forEach((category) => { %>
+                <option value="<%= category %>"><%= category %></option>
+              <% }) %>
+            </select>
+          </div>
+          <div class="col-md-4">
+            <label for="calendar-filter-priority" class="form-label">Priority</label>
+            <select id="calendar-filter-priority" class="form-select">
+              <option value="">All priorities</option>
+              <% calendarPriorities.forEach((priority) => { %>
+                <option value="<%= priority %>"><%= priority %></option>
+              <% }) %>
+            </select>
+          </div>
+        </div>
+
+        <div class="mt-4">
+          <div class="d-flex justify-content-between align-items-center mb-2">
+            <h3 class="h6 text-uppercase text-muted mb-0">Tasks in Range</h3>
+            <span class="badge bg-primary-subtle text-primary-emphasis" id="calendar-visible-count">0 tasks</span>
+          </div>
+          <div id="calendar-task-list" class="list-group calendar-task-list"></div>
+          <p class="text-muted mb-0" id="calendar-task-empty">No tasks scheduled for the selected range.</p>
+        </div>
+      </div>
+    </div>
+  </main>
+
+  <script id="__TASK_CALENDAR_DATA__" type="application/json">
+    <%- JSON.stringify({
+      tasks: Array.isArray(calendarTasks) ? calendarTasks : [],
+      meta: {
+        statuses: calendarStatuses,
+        categories: calendarCategories,
+        priorities: calendarPriorities
+      }
+    }).replace(/</g, '\\u003c') %>
+  </script>
+  <script type="module" src="/assets/js/task/calendar.js"></script>
+</body>
+</html>

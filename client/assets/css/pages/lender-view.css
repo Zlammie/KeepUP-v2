@@ -21,29 +21,95 @@
   width: 100%;
 }
 
-.table .icon-col {
-  width: 42px;
-  min-width: 42px;
-  text-align: center;
+.table .table-icon-col {
+  width: 70px;
+  padding: 0.45rem 0.4rem;
+  text-align: left;
 }
 
-.table .icon-col .icon-btn {
+.table-action-buttons {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.3rem;
+}
+
+.table-icon-btn {
+  border: none;
+  background: transparent;
+  padding: 0.15rem;
+  border-radius: 0.35rem;
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  width: 28px;
-  height: 28px;
-  padding: 0;
+  transition: background-color 0.2s ease, transform 0.2s ease;
+  cursor: pointer;
 }
 
-.table .icon-col img {
-  width: 18px;
-  height: 18px;
+.table-icon-btn img {
+  width: 14px;
+  height: 14px;
+  display: block;
 }
 
-.table .icon-col .icon-btn[disabled] {
-  opacity: 0.45;
-  cursor: default;
+.table-icon-btn:hover,
+.table-icon-btn:focus-visible {
+  background: rgba(47, 112, 200, 0.12);
+  transform: translateY(-1px);
+  outline: none;
+}
+
+#todo-panel[data-context="lender"] .todo-automation {
+  display: none;
+}
+
+.task-drawer {
+  position: fixed;
+  top: 64px;
+  right: 0;
+  height: calc(100vh - 64px);
+  width: 340px;
+  max-width: 90vw;
+  background: #fff;
+  box-shadow: -16px 0 30px rgba(15, 26, 58, 0.12);
+  transform: translateX(110%);
+  transition: transform 0.3s ease;
+  z-index: 999;
+}
+
+body.task-panel-open .task-drawer {
+  transform: translateX(0);
+}
+
+.task-drawer-backdrop {
+  position: fixed;
+  top: 64px;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(15, 26, 58, 0.35);
+  z-index: 998;
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 0.3s ease;
+}
+
+body.task-panel-open .task-drawer-backdrop {
+  opacity: 1;
+  pointer-events: auto;
+}
+
+.task-drawer-contact {
+  font-size: 0.85rem;
+  color: #475467;
+}
+
+.todo-close {
+  border: none;
+  background: transparent;
+  font-size: 1.25rem;
+  line-height: 1;
+  cursor: pointer;
+  color: #0f172a;
 }
 
 .closing-date-editor {

@@ -57,7 +57,7 @@ export function renderTable(rows) {
   const tbody = dom.tableBody;
 
   if (!rows || rows.length === 0) {
-    tbody.innerHTML = `<tr><td colspan="6">No contacts linked to this realtor.</td></tr>`;
+    tbody.innerHTML = `<tr><td colspan="7">No contacts linked to this realtor.</td></tr>`;
     return;
   }
 
@@ -76,6 +76,19 @@ export function renderTable(rows) {
 
     const tr = document.createElement('tr');
     tr.innerHTML = `
+      <td class="table-icon-col">
+        <div class="table-action-buttons" data-contact="${c._id}" data-contact-name="${escapeHtml(name)}" data-contact-status="${escapeHtml(statusKey || '')}">
+          <button class="table-icon-btn" data-action="task" aria-label="Manage tasks for ${escapeHtml(name)}">
+            <img src="/assets/icons/add_task.svg" alt="">
+          </button>
+          <button class="table-icon-btn" data-action="flag" aria-label="Flag ${escapeHtml(name)}">
+            <img src="/assets/icons/exclamation.svg" alt="">
+          </button>
+          <button class="table-icon-btn" data-action="comment" aria-label="Comment on ${escapeHtml(name)}">
+            <img src="/assets/icons/comment.svg" alt="">
+          </button>
+        </div>
+      </td>
       <td><a href="/contact-details?id=${c._id}">${escapeHtml(name)}</a></td>
       <td>${escapeHtml(phone)}</td>
       <td>${escapeHtml(email)}</td>

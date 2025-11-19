@@ -96,7 +96,8 @@ document.addEventListener('DOMContentLoaded', () => {
   taskPanelController = initTaskPanel({
     linkedModel: 'Community',
     linkedId: communityId,
-    defaultTitleBuilder: resolveDefaultTitle
+    defaultTitleBuilder: resolveDefaultTitle,
+    defaultAssignmentTarget: 'contact'
   });
 
   ensureRecurringTasksForCommunity(communityId)
@@ -105,7 +106,8 @@ document.addEventListener('DOMContentLoaded', () => {
         taskPanelController?.setContext({
           linkedModel: 'Community',
           linkedId: communityId,
-          defaultTitleBuilder: resolveDefaultTitle
+          defaultTitleBuilder: resolveDefaultTitle,
+          assignmentTarget: 'contact'
         });
       }
     })

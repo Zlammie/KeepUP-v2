@@ -3,6 +3,8 @@ const mongoose = require('mongoose');
 
 const Task = require('../../models/Task');
 const Contact = require('../../models/Contact');
+const Realtor = require('../../models/Realtor');
+const Lender = require('../../models/lenderModel');
 const Community = require('../../models/Community');
 const Competition = require('../../models/Competition');
 const requireRole = require('../../middleware/requireRole');
@@ -17,6 +19,7 @@ const TASK_TYPES = new Set(Task.TYPES || []);
 const TASK_PRIORITIES = new Set(Task.PRIORITIES || []);
 const TASK_CATEGORIES = new Set(Task.CATEGORIES || []);
 const TASK_LINKED_MODELS = new Set(Task.LINKED_MODELS || []);
+const ASSIGNMENT_TARGETS = new Set(['contact', 'realtor', 'lender']);
 
 const DEFAULT_TYPE = TASK_TYPES.has('Follow-Up')
   ? 'Follow-Up'
@@ -30,7 +33,7 @@ const DEFAULT_STATUS = TASK_STATUS.has('Pending')
   ? 'Pending'
   : (Array.isArray(Task.STATUS) && Task.STATUS[0]) || 'Pending';
 
-const COMM_TYPES = new Set(['Follow-Up', 'Call', 'Email', 'Meeting', 'Reminder', 'Note']);
+const COMM_TYPES = new Set(['Follow-Up', 'Call', 'Email', 'Meeting', 'Reminder']);
 const OPERATIONS_TYPES = new Set(['Document', 'Approval', 'Review']);
 const SYSTEM_TYPES = new Set(['Data Fix', 'System Suggestion']);
 const ADMIN_TYPES = new Set(['Admin']);
@@ -42,6 +45,61 @@ function inferCategoryFromType(type) {
   if (SYSTEM_TYPES.has(type)) return 'System';
   if (OPERATIONS_TYPES.has(type)) return 'Operations';
   return 'Custom';
+}
+
+function normalizeAssignmentStatus(value) {
+  if (!value) return 'Pending';
+  const normalized = value.toString().trim().toLowerCase();
+  const match = Task.STATUS.find((status) => status.toLowerCase() === normalized);
+  return match || 'Pending';
+}
+
+function buildContactAssignments(rawAssignments, contactDoc, defaultStatus = 'Pending') {
+  const assignments = [];
+  const seen = new Set();
+  const source = Array.isArray(rawAssignments) ? rawAssignments : [];
+  const contactId = contactDoc?._id ? new Types.ObjectId(contactDoc._id) : null;
+  const lenders = Array.isArray(contactDoc?.lenders) ? contactDoc.lenders : [];
+  const lenderIds = new Set(
+    lenders.map((entry) => {
+      const lenderRef =
+        entry?.lender?._id || entry?.lender || entry?.lenderId || entry?.lenderRef || entry?.id;
+      return lenderRef ? lenderRef.toString() : null;
+    }).filter(Boolean)
+  );
+  source.forEach((entry) => {
+    const target = typeof entry?.target === 'string' ? entry.target.trim().toLowerCase() : '';
+    if (!ASSIGNMENT_TARGETS.has(target)) return;
+    if (seen.has(target) && target !== 'lender') return;
+    let refId = null;
+    if (target === 'contact') {
+      refId = contactId;
+    } else if (target === 'realtor') {
+      if (!contactDoc?.realtorId) return;
+      refId = new Types.ObjectId(contactDoc.realtorId);
+    } else if (target === 'lender') {
+      const rawRef = entry?.refId || entry?.lenderId || entry?.id;
+      const normalized = ensureObjectId(rawRef);
+      if (!normalized || !lenderIds.has(normalized.toString())) return;
+      refId = normalized;
+    }
+    assignments.push({
+      target,
+      refId,
+      status: normalizeAssignmentStatus(entry?.status) || defaultStatus
+    });
+    if (target !== 'lender') seen.add(target);
+  });
+
+  if (!assignments.length) {
+    assignments.push({
+      target: 'contact',
+      refId: contactId,
+      status: defaultStatus
+    });
+  }
+
+  return assignments;
 }
 
 function canViewAllTasks(user) {
@@ -101,6 +159,14 @@ function serializeTask(task) {
     priority: source.priority || 'Medium',
     status: source.status || 'Pending',
     dueDate: toIso(source.dueDate),
+    assignments: Array.isArray(source.assignments)
+      ? source.assignments.map((assignment) => ({
+          target: assignment.target,
+          status: assignment.status,
+          refId: assignment.refId ? String(assignment.refId) : null
+        }))
+      : [],
+    reminderAt: toIso(source.reminderAt),
     completedAt: toIso(source.completedAt),
     autoCreated: Boolean(source.autoCreated),
     reason: source.reason || null,
@@ -174,10 +240,35 @@ router.get(
         if (!competition) {
           return res.status(404).json({ error: 'Competition not found' });
         }
+      } else if (normalizedModel === 'Realtor') {
+        const realtorDoc = await Realtor.findOne({
+          _id: linkedObjectId,
+          company: companyId
+        })
+          .select('_id')
+          .lean();
+
+        if (!realtorDoc) {
+          return res.status(404).json({ error: 'Realtor not found' });
+        }
+      } else if (normalizedModel === 'Lender') {
+        const lenderDoc = await Lender.findOne({
+          _id: linkedObjectId,
+          company: companyId
+        })
+          .select('_id')
+          .lean();
+
+        if (!lenderDoc) {
+          return res.status(404).json({ error: 'Lender not found' });
+        }
       } else if (normalizedModel) {
         return res
           .status(400)
-          .json({ error: 'Only contact-, community-, competition-, or lot-linked tasks are supported right now.' });
+          .json({
+            error:
+              'Only contact-, realtor-, lender-, community-, competition-, or lot-linked tasks are supported right now.'
+          });
       }
 
       const filters = {
@@ -349,6 +440,7 @@ router.post(
         title,
         description,
         dueDate,
+        reminderAt,
         linkedId,
         linkedModel = null,
         type = DEFAULT_TYPE,
@@ -356,7 +448,8 @@ router.post(
         reason,
         category,
         status,
-        assignedTo
+        assignedTo,
+        assignments: assignmentsInput = []
       } = req.body || {};
 
       const trimmedTitle = (title || '').trim();
@@ -373,7 +466,16 @@ router.post(
         return res.status(400).json({ error: 'Unsupported linked model' });
       }
 
+      const sanitizedType = TASK_TYPES.has(type) ? type : DEFAULT_TYPE;
+      const sanitizedPriority = TASK_PRIORITIES.has(priority) ? priority : DEFAULT_PRIORITY;
+      const sanitizedCategory = sanitizeCategory(category, sanitizedType);
+      const sanitizedStatus = (() => {
+        const incoming = typeof status === 'string' ? status.trim() : '';
+        return TASK_STATUS.has(incoming) ? incoming : DEFAULT_STATUS;
+      })();
+
       let linkedObjectId = null;
+      let assignments = [];
 
       if (normalizedModel === 'Contact') {
         const contactId = ensureObjectId(linkedId);
@@ -385,7 +487,7 @@ router.post(
           _id: contactId,
           company: companyId
         })
-          .select('_id')
+          .select('_id realtorId lenders.lender lenders.isPrimary lenders.lenderId')
           .lean();
 
         if (!contact) {
@@ -393,6 +495,7 @@ router.post(
         }
 
         linkedObjectId = contact._id;
+        assignments = buildContactAssignments(assignmentsInput, contact, sanitizedStatus);
       } else if (normalizedModel === 'Lot') {
         const lotObjectId = ensureObjectId(linkedId);
         if (!lotObjectId) {
@@ -447,10 +550,46 @@ router.post(
         }
 
         linkedObjectId = competitionDoc._id;
+      } else if (normalizedModel === 'Realtor') {
+        const realtorObjectId = ensureObjectId(linkedId);
+        if (!realtorObjectId) {
+          return res.status(400).json({ error: 'A valid realtor id is required.' });
+        }
+
+        const realtorDoc = await Realtor.findOne({
+          _id: realtorObjectId,
+          company: companyId
+        })
+          .select('_id')
+          .lean();
+
+        if (!realtorDoc) {
+          return res.status(404).json({ error: 'Realtor not found' });
+        }
+
+        linkedObjectId = realtorDoc._id;
+      } else if (normalizedModel === 'Lender') {
+        const lenderObjectId = ensureObjectId(linkedId);
+        if (!lenderObjectId) {
+          return res.status(400).json({ error: 'A valid lender id is required.' });
+        }
+
+        const lenderDoc = await Lender.findOne({
+          _id: lenderObjectId,
+          company: companyId
+        })
+          .select('_id')
+          .lean();
+
+        if (!lenderDoc) {
+          return res.status(404).json({ error: 'Lender not found' });
+        }
+
+        linkedObjectId = lenderDoc._id;
       } else if (normalizedModel) {
         return res
           .status(400)
-          .json({ error: 'Only contact-, community-, competition-, or lot-linked tasks are supported right now.' });
+          .json({ error: 'Only contact-, realtor-, lender-, community-, competition-, or lot-linked tasks are supported right now.' });
       }
 
       let normalizedDueDate = null;
@@ -462,13 +601,14 @@ router.post(
         normalizedDueDate = parsed;
       }
 
-      const sanitizedType = TASK_TYPES.has(type) ? type : DEFAULT_TYPE;
-      const sanitizedPriority = TASK_PRIORITIES.has(priority) ? priority : DEFAULT_PRIORITY;
-      const sanitizedCategory = sanitizeCategory(category, sanitizedType);
-      const sanitizedStatus = (() => {
-        const incoming = typeof status === 'string' ? status.trim() : '';
-        return TASK_STATUS.has(incoming) ? incoming : DEFAULT_STATUS;
-      })();
+      let normalizedReminderAt = null;
+      if (reminderAt) {
+        const parsedReminder = new Date(reminderAt);
+        if (Number.isNaN(parsedReminder.getTime())) {
+          return res.status(400).json({ error: 'Invalid reminder date' });
+        }
+        normalizedReminderAt = parsedReminder;
+      }
 
       const safeDescription = typeof description === 'string' ? description.trim() : '';
       const safeReason = typeof reason === 'string' ? reason.trim() : '';
@@ -515,6 +655,8 @@ router.post(
         priority: sanitizedPriority,
         status: sanitizedStatus,
         dueDate: normalizedDueDate || undefined,
+        assignments,
+        reminderAt: normalizedReminderAt || undefined,
         autoCreated: autoCreatedFlag,
         reason: safeReason || undefined
       });
@@ -607,6 +749,55 @@ router.patch(
             hasChanges = true;
           }
         }
+      }
+
+      if (hasOwn.call(payload, 'reminderAt')) {
+        const reminderValue = payload.reminderAt;
+        if (!reminderValue) {
+          if (task.reminderAt) {
+            task.set('reminderAt', undefined);
+            hasChanges = true;
+          }
+        } else {
+          const parsedReminder = new Date(reminderValue);
+          if (Number.isNaN(parsedReminder.getTime())) {
+            return res.status(400).json({ error: 'Invalid reminder date' });
+          }
+          if (!task.reminderAt || task.reminderAt.getTime() !== parsedReminder.getTime()) {
+            task.reminderAt = parsedReminder;
+            hasChanges = true;
+          }
+        }
+      }
+
+      if (hasOwn.call(payload, 'assignments')) {
+        if (task.linkedModel === 'Contact') {
+          const contactDoc = await Contact.findOne({
+            _id: task.linkedId,
+            company: companyId
+          })
+            .select('_id realtorId lenders.lender lenders.isPrimary lenders.lenderId')
+            .lean();
+          try {
+            task.assignments = buildContactAssignments(
+              payload.assignments,
+              contactDoc,
+              task.status || 'Pending'
+            );
+          } catch (err) {
+            console.warn('[tasks.api] Failed to rebuild assignments on update', err);
+            task.assignments = [
+              {
+                target: 'contact',
+                refId: task.linkedId,
+                status: task.status || 'Pending'
+              }
+            ];
+          }
+        } else {
+          task.assignments = Array.isArray(payload.assignments) ? payload.assignments : task.assignments;
+        }
+        hasChanges = true;
       }
 
       if (hasOwn.call(payload, 'type')) {

@@ -1,7 +1,18 @@
 // /assets/js/realtors/render.js
 import { updateRealtor } from './api.js';
-import { openRealtorCommentModal } from './modal.js'; // NEW
+import { openRealtorCommentModal } from './modal.js';
 import { formatPhoneDisplay } from '../shared/phone.js';
+
+let actionHandlers = {
+  onTask: null
+};
+
+export function setActionHandlers(handlers = {}) {
+  actionHandlers = {
+    ...actionHandlers,
+    ...handlers
+  };
+}
 
 function setFlagIconColor(imgEl, flagged) {
   imgEl.style.filter = flagged
@@ -17,66 +28,70 @@ export function renderTable(realtors, statsByRealtor = new Map()) {
     const row = document.createElement('tr');
     row.dataset.id = realtor._id;
 
-    // 📋 Task
+    const fullName = `${realtor.firstName || ''} ${realtor.lastName || ''}`.trim() || realtor.brokerage || 'Realtor';
+
     {
       const cell = document.createElement('td');
-      cell.classList.add('text-center');
-      const btn = document.createElement('button');
-      btn.type = 'button';
-      btn.classList.add('icon-btn', 'btn', 'btn-sm', 'btn-link');
-      const img = document.createElement('img');
-      img.src = '/assets/icons/add_task.svg';
-      img.alt = 'Task';
-      btn.appendChild(img);
-      cell.appendChild(btn);
-      row.appendChild(cell);
-    }
+      cell.classList.add('table-icon-col');
+      const wrapper = document.createElement('div');
+      wrapper.className = 'table-action-buttons';
 
-    // 🚩 Flag
-    {
-      const cell = document.createElement('td');
-      cell.classList.add('text-center');
-      const btn = document.createElement('button');
-      btn.type = 'button';
-      btn.classList.add('icon-btn', 'btn', 'btn-sm', 'btn-link');
-      const img = document.createElement('img');
-      img.src = '/assets/icons/exclamation.svg';
-      img.alt = 'Flag';
-      btn.appendChild(img);
+      const createIconButton = ({ src, label }) => {
+        const btn = document.createElement('button');
+        btn.type = 'button';
+        btn.classList.add('table-icon-btn');
+        btn.setAttribute('aria-label', label);
+        const img = document.createElement('img');
+        img.src = src;
+        img.alt = '';
+        btn.appendChild(img);
+        return { btn, img };
+      };
 
+      const { btn: taskBtn } = createIconButton({
+        src: '/assets/icons/add_task.svg',
+        label: `Manage tasks for ${fullName}`
+      });
+      taskBtn.addEventListener('click', (event) => {
+        event.preventDefault();
+        event.stopPropagation();
+        actionHandlers.onTask?.({ id: realtor._id, name: fullName });
+      });
+      wrapper.appendChild(taskBtn);
+
+      const { btn: flagBtn, img: flagImg } = createIconButton({
+        src: '/assets/icons/exclamation.svg',
+        label: `Toggle flag for ${fullName}`
+      });
       let flagged = Boolean(realtor.flagged);
-      setFlagIconColor(img, flagged);
-
-      btn.addEventListener('click', async () => {
+      setFlagIconColor(flagImg, flagged);
+      flagBtn.addEventListener('click', async (event) => {
+        event.preventDefault();
+        event.stopPropagation();
         const next = !flagged;
-        setFlagIconColor(img, next);
+        setFlagIconColor(flagImg, next);
         try {
           await updateRealtor(realtor._id, { flagged: next });
           flagged = next;
         } catch (err) {
-          setFlagIconColor(img, flagged);
           console.error(err);
+          setFlagIconColor(flagImg, flagged);
         }
       });
+      wrapper.appendChild(flagBtn);
 
-      cell.appendChild(btn);
-      row.appendChild(cell);
-    }
+      const { btn: commentBtn } = createIconButton({
+        src: '/assets/icons/comment.svg',
+        label: `Add comment for ${fullName}`
+      });
+      commentBtn.addEventListener('click', (event) => {
+        event.preventDefault();
+        event.stopPropagation();
+        openRealtorCommentModal(realtor._id);
+      });
+      wrapper.appendChild(commentBtn);
 
-    // 💬 Comment
-    {
-      const cell = document.createElement('td');
-      cell.classList.add('text-center');
-      const btn = document.createElement('button');
-      btn.type = 'button';
-      btn.classList.add('icon-btn', 'btn', 'btn-sm', 'btn-link');
-      btn.addEventListener('click', () => openRealtorCommentModal(realtor._id));
-      const img = document.createElement('img');
-      img.src = '/assets/icons/comment.svg';
-      img.alt = 'Comment';
-      btn.appendChild(img);
-      // TODO: open modal later
-      cell.appendChild(btn);
+      cell.appendChild(wrapper);
       row.appendChild(cell);
     }
 

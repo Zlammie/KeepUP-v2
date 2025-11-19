@@ -44,7 +44,7 @@ window.addEventListener('DOMContentLoaded', async () => {
     initLenderSearch();
     initLotSearch();
     setupCommentSection();
-    initTaskPanel({ contactId, currentUserId });
+    initTaskPanel({ contactId, currentUserId, defaultAssignmentTarget: 'contact' });
     initLotSalesPriceAutomation();
     initLenderLinkAutomation();
 

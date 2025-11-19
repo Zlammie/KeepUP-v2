@@ -98,6 +98,13 @@ const ContactSchema = new Schema(
       closingDateTime: { type: Date, set: toDateOrNull, default: null },
       isPrimary: { type: Boolean, default: false }
     }],
+    followUpSchedule: {
+      scheduleId: { type: Schema.Types.ObjectId, ref: 'AutoFollowUpSchedule', default: null },
+      scheduleName: { type: String, trim: true },
+      appliedAt: { type: Date, default: null },
+      appliedBy: { type: Schema.Types.ObjectId, ref: 'User', default: null },
+      reasonPrefix: { type: String, trim: true }
+    }
   },
   { timestamps: true, toJSON: { virtuals: true }, toObject: { virtuals: true } }
 );

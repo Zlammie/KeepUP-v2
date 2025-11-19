@@ -671,12 +671,13 @@ function init() {
   taskPanelController = initTaskPanel({
     linkedModel: 'Community',
     linkedId: currentCommunityId,
-    defaultTitleBuilder: buildCommunityTaskTitle
+    defaultTitleBuilder: buildCommunityTaskTitle,
+    defaultAssignmentTarget: 'contact'
   });
 
   communitySelectEl?.addEventListener('change', () => {
     if (!communitySelectEl.value || communitySelectEl.value === 'undefined') {
-      taskPanelController?.setContext({ linkedId: null });
+      taskPanelController?.setContext({ linkedId: null, assignmentTarget: 'contact' });
     }
   });
 
@@ -737,7 +738,8 @@ window.addEventListener('mcc:profileLoaded', (e) => {
   taskPanelController?.setContext({
     linkedModel: 'Community',
     linkedId: selectedId,
-    defaultTitleBuilder: buildCommunityTaskTitle
+    defaultTitleBuilder: buildCommunityTaskTitle,
+    assignmentTarget: 'contact'
   });
 });
 

@@ -1,6 +1,7 @@
 // /assets/js/lenders/index.js
 import { fetchLenders, deleteLender } from './api.js';
-import { renderTable } from './render.js';
+import { renderTable, setActionHandlers } from './render.js';
+import { initTaskPanel } from '../contact-details/tasks.js';
 
 const state = {
   allLenders: [],
@@ -8,6 +9,86 @@ const state = {
   search: '',
   filter: 'all' // 'all' | 'has-invited' | 'purchased-not-approved' | 'has-purchased'
 };
+
+const taskBackdropEl = document.getElementById('task-drawer-backdrop');
+const todoPanelEl = document.getElementById('todo-panel');
+const taskDrawerNameEl = document.getElementById('task-panel-contact-name');
+
+let taskPanelInstance = null;
+let currentTaskPromise = Promise.resolve();
+
+function ensureTaskPanel() {
+  if (!taskPanelInstance) {
+    const currentUserId = document.body.dataset.currentUserId || '';
+    taskPanelInstance = initTaskPanel({ currentUserId, defaultAssignmentTarget: 'lender' });
+  }
+  return Boolean(taskPanelInstance);
+}
+
+function showTaskDrawer(name) {
+  if (!ensureTaskPanel()) return false;
+  if (taskDrawerNameEl) {
+    taskDrawerNameEl.textContent = name || 'Lender';
+  }
+  if (todoPanelEl) {
+    todoPanelEl.dataset.context = 'lender';
+    todoPanelEl.removeAttribute('hidden');
+  }
+  taskBackdropEl?.removeAttribute('hidden');
+  document.body.classList.add('task-panel-open');
+  return true;
+}
+
+function closeTaskDrawer() {
+  document.body.classList.remove('task-panel-open');
+  if (taskBackdropEl) taskBackdropEl.setAttribute('hidden', 'true');
+  if (todoPanelEl) {
+    todoPanelEl.setAttribute('hidden', 'true');
+    delete todoPanelEl.dataset.context;
+  }
+}
+
+async function openLenderTaskDrawer({ id, name }) {
+  if (!id) return;
+  if (!showTaskDrawer(name || 'Lender')) return;
+
+  const titleBuilder = () => {
+    const display = (name || '').trim() || 'Lender';
+    return `Follow up with ${display}`;
+  };
+
+  currentTaskPromise = currentTaskPromise
+    .catch(() => {})
+    .then(() => {
+      taskPanelInstance.setContext?.({
+        contactId: null,
+        linkedModel: 'Lender',
+        linkedId: id,
+        assignmentTarget: 'lender',
+        defaultTitleBuilder: titleBuilder,
+        lenderOptions: [
+          { id, name: name || 'Lender', isPrimary: true }
+        ]
+      });
+    })
+    .catch((err) => {
+      console.error('[lenders] Failed to open task drawer', err);
+    });
+
+  await currentTaskPromise;
+}
+
+document.addEventListener('click', (event) => {
+  if (event.target.closest('[data-task-drawer-close]')) {
+    closeTaskDrawer();
+  }
+});
+
+taskBackdropEl?.addEventListener('click', () => closeTaskDrawer());
+
+setActionHandlers({
+  onTask: openLenderTaskDrawer
+});
 function matchesSearch(l, q) {
   if (!q) return true;
   const t = q.toLowerCase();

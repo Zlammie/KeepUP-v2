@@ -107,7 +107,8 @@ document.addEventListener('DOMContentLoaded', async () => {
   const taskPanelController = initTaskPanel({
     linkedModel: 'Competition',
     linkedId: competitionId,
-    defaultTitleBuilder: resolveTaskTitle
+    defaultTitleBuilder: resolveTaskTitle,
+    defaultAssignmentTarget: 'contact'
   });
 
   ensureRecurringTasksForCompetition(competitionId)
@@ -116,7 +117,8 @@ document.addEventListener('DOMContentLoaded', async () => {
         taskPanelController?.setContext({
           linkedModel: 'Competition',
           linkedId: competitionId,
-          defaultTitleBuilder: resolveTaskTitle
+          defaultTitleBuilder: resolveTaskTitle,
+          assignmentTarget: 'contact'
         });
       }
     })

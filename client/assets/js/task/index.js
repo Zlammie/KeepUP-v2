@@ -3,15 +3,7 @@
  */
 
 const DATA_NODE_ID = '__TASK_PAGE_DATA__';
-const DEFAULT_TYPES = [
-  'Follow-Up',
-  'Reminder',
-  'Document',
-  'Approval',
-  'Review',
-  'Note',
-  'Custom'
-];
+const DEFAULT_TYPES = ['Follow-Up', 'Document', 'Approval', 'Review', 'Custom'];
 const DEFAULT_PRIORITIES = ['Low', 'Medium', 'High'];
 const DEFAULT_STATUSES = ['Pending', 'In Progress', 'Completed', 'Overdue'];
 const DEFAULT_CATEGORIES = ['Custom'];
@@ -606,6 +598,26 @@ function formatDateInput(value) {
   return date.toISOString().slice(0, 10);
 }
 
+function formatTimeInput(value) {
+  if (!value) return '';
+  const date = value instanceof Date ? value : new Date(value);
+  if (Number.isNaN(date.getTime())) return '';
+  const hours = String(date.getHours()).padStart(2, '0');
+  const minutes = String(date.getMinutes()).padStart(2, '0');
+  return `${hours}:${minutes}`;
+}
+
+function buildReminderIso(dateValue, timeValue) {
+  if (!dateValue) return null;
+  const trimmedDate = dateValue.trim();
+  if (!trimmedDate) return null;
+  const trimmedTime = (timeValue || '').trim();
+  const fallbackTime = trimmedTime || '09:00';
+  const candidate = new Date(`${trimmedDate}T${fallbackTime}`);
+  if (Number.isNaN(candidate.getTime())) return null;
+  return candidate.toISOString();
+}
+
 function getLinkedHref(task) {
   if (!task || !task.linkedModel) return '';
   const id = task.linkedId ? String(task.linkedId) : '';
@@ -998,6 +1010,8 @@ document.addEventListener('DOMContentLoaded', () => {
   const modalTitleInput = modalRoot ? modalRoot.querySelector('#task-modal-title-input') : null;
   const modalNotes = modalRoot ? modalRoot.querySelector('#task-modal-notes') : null;
   const modalDue = modalRoot ? modalRoot.querySelector('#task-modal-due') : null;
+  const modalReminderDate = modalRoot ? modalRoot.querySelector('#task-modal-reminder-date') : null;
+  const modalReminderTime = modalRoot ? modalRoot.querySelector('#task-modal-reminder-time') : null;
   const modalPriority = modalRoot ? modalRoot.querySelector('#task-modal-priority') : null;
   const modalStatus = modalRoot ? modalRoot.querySelector('#task-modal-status') : null;
   const modalCategory = modalRoot ? modalRoot.querySelector('#task-modal-category') : null;
@@ -1211,6 +1225,8 @@ document.addEventListener('DOMContentLoaded', () => {
       modalComplete.hidden = true;
     }
     if (modalDue) modalDue.value = '';
+    if (modalReminderDate) modalReminderDate.value = '';
+    if (modalReminderTime) modalReminderTime.value = '';
     if (modalNotes) modalNotes.value = '';
     if (modalTitleInput) modalTitleInput.value = '';
     state.modal.currentTaskId = null;
@@ -1243,6 +1259,8 @@ document.addEventListener('DOMContentLoaded', () => {
     if (modalTitleInput) modalTitleInput.value = task.title || '';
     if (modalNotes) modalNotes.value = task.description || '';
     if (modalDue) modalDue.value = formatDateInput(task.dueDate);
+    if (modalReminderDate) modalReminderDate.value = formatDateInput(task.reminderAt);
+    if (modalReminderTime) modalReminderTime.value = formatTimeInput(task.reminderAt);
     setSelectValue(modalCategory, task.category || state.defaults.category);
     setSelectValue(modalPriority, task.priority || '');
     setSelectValue(modalStatus, task.status || state.defaults.status);
@@ -1319,6 +1337,23 @@ document.addEventListener('DOMContentLoaded', () => {
     const statusValue = modalStatus && modalStatus.value ? modalStatus.value : state.defaults.status;
     const notesValue = modalNotes && modalNotes.value ? modalNotes.value.trim() : '';
     const dueValue = modalDue && modalDue.value ? modalDue.value : '';
+    const reminderDateValue =
+      modalReminderDate && modalReminderDate.value ? modalReminderDate.value : '';
+    const reminderTimeValue =
+      modalReminderTime && modalReminderTime.value ? modalReminderTime.value : '';
+    if (!reminderDateValue && reminderTimeValue) {
+      setModalError(modalRoot, 'Select a reminder date before choosing a time.');
+      modalReminderDate?.focus();
+      return;
+    }
+    const reminderIso = reminderDateValue ? buildReminderIso(reminderDateValue, reminderTimeValue) : null;
+    if (reminderDateValue && !reminderIso) {
+      setModalError(modalRoot, 'Invalid reminder date or time.');
+      modalReminderDate?.focus();
+      return;
+    }
+    const existingTask = state.modal.currentTaskId ? findTaskById(state.modal.currentTaskId) : null;
+    const shouldClearReminder = Boolean(existingTask?.reminderAt) && !reminderDateValue;
     const actualType = getActualType(state.modal.baseType || state.defaults.type, state.modal.followupType);
 
     const payload = {
@@ -1330,6 +1365,12 @@ document.addEventListener('DOMContentLoaded', () => {
       status: statusValue,
       category: categoryValue
     };
+
+    if (reminderDateValue && reminderIso) {
+      payload.reminderAt = reminderIso;
+    } else if (shouldClearReminder) {
+      payload.reminderAt = '';
+    }
 
     if (state.currentUserId) {
       payload.assignedTo = state.currentUserId;

@@ -392,10 +392,32 @@
         </button>
       </div>
 
-      <div class="todo-helper">
-        <p class="todo-helper-title">Plan the next steps</p>
-        <p class="todo-helper-body">Capture follow-up actions, deadlines, and reminders without leaving this page. Tap "Add Task" to log what comes next.</p>
-      </div>
+      <section class="todo-automation" data-followup-schedule>
+        <div class="todo-automation-text">
+          <p class="todo-automation-title">Apply a follow-up schedule</p>
+          <p class="todo-automation-body">Use your saved cadence to auto-create the next touchpoints for this contact.</p>
+        </div>
+        <div class="todo-automation-controls">
+          <select
+            id="followup-schedule-select"
+            class="todo-automation-select"
+            data-followup-select
+            aria-label="Select a follow-up schedule"
+            disabled>
+            <option value="">Loading schedules...</option>
+          </select>
+          <button type="button" class="todo-automation-button" data-followup-apply disabled>Assign</button>
+        </div>
+        <div class="todo-automation-active" data-followup-active hidden>
+          <div class="todo-automation-active-copy">
+            <p class="todo-automation-active-label">Current schedule</p>
+            <p class="todo-automation-active-name" data-followup-active-name>—</p>
+            <p class="todo-automation-active-meta" data-followup-active-meta></p>
+          </div>
+          <button type="button" class="todo-automation-unassign" data-followup-unassign>Unassign</button>
+        </div>
+        <p class="todo-automation-status" data-followup-status aria-live="polite" hidden></p>
+      </section>
 
       <ul id="todo-list" class="todo-list">
         <li class="todo-empty">
@@ -428,11 +450,9 @@
             <span class="task-modal__row-label">Task Type</span>
             <div id="task-type-buttons" class="task-type-group" role="group" aria-label="Task type">
               <button type="button" class="task-type-button is-selected" data-type="Follow-Up" aria-pressed="true">Follow-Up</button>
-              <button type="button" class="task-type-button" data-type="Reminder" aria-pressed="false">Reminder</button>
               <button type="button" class="task-type-button" data-type="Document" aria-pressed="false">Document</button>
               <button type="button" class="task-type-button" data-type="Approval" aria-pressed="false">Approval</button>
               <button type="button" class="task-type-button" data-type="Review" aria-pressed="false">Review</button>
-              <button type="button" class="task-type-button" data-type="Note" aria-pressed="false">Note</button>
               <button type="button" class="task-type-button" data-type="Custom" aria-pressed="false">Custom</button>
             </div>
             <div id="task-followup-sub" class="task-type-subgroup" hidden aria-hidden="true">
@@ -445,6 +465,25 @@
               </div>
             </div>
           </div>
+          <div class="task-modal__row">
+            <span class="task-modal__row-label">Assign task to</span>
+            <div id="task-assignee-options" class="task-modal__assignees">
+              <label class="task-modal__assignee">
+                <input type="checkbox" id="task-assign-contact" checked>
+                Contact
+              </label>
+              <label class="task-modal__assignee" id="task-assignee-realtor">
+                <input type="checkbox" id="task-assign-realtor">
+                Realtor
+                <span class="task-assignee-note">(if available)</span>
+              </label>
+              <label class="task-modal__assignee" id="task-assignee-lender">
+                <input type="checkbox" id="task-assign-lender">
+                Lender
+                <select id="task-lender-select" aria-label="Select lender" disabled></select>
+              </label>
+            </div>
+          </div>
           <div class="task-modal__grid two-col">
             <div class="task-modal__row">
               <label for="task-modal-due">Due date</label>
@@ -454,6 +493,14 @@
               <label for="task-modal-priority">Priority</label>
               <select id="task-modal-priority" name="priority"></select>
             </div>
+          </div>
+          <div class="task-modal__row">
+            <label for="task-modal-reminder-date">Reminder (optional)</label>
+            <div class="task-modal__reminder-grid">
+              <input id="task-modal-reminder-date" name="reminderDate" type="date" />
+              <input id="task-modal-reminder-time" name="reminderTime" type="time" />
+            </div>
+            <p class="task-modal__hint">Pick a date and time to get nudged about this task.</p>
           </div>
           <div class="task-modal__grid two-col">
             <div class="task-modal__row">

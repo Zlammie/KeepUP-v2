@@ -1,0 +1,40 @@
+<!-- views/partials/top-nav-task.ejs -->
+<% const currentTab = (typeof activeTab === 'string' && activeTab.trim())
+  ? activeTab.trim().toLowerCase()
+  : 'task';
+%>
+<div class="header-wrapper">
+  <header class="header">
+    <div class="header-items">
+      <ul>
+        <li>
+          <a
+            href="/task"
+            class="top-nav-link <%= currentTab === 'task' ? 'active' : '' %>"
+            data-view="task"
+            <%= currentTab === 'task' ? 'aria-current="page"' : '' %>>
+            Task
+          </a>
+        </li>
+        <li>
+          <a
+            href="/task?view=calendar"
+            class="top-nav-link <%= currentTab === 'calendar' ? 'active' : '' %>"
+            data-view="calendar"
+            <%= currentTab === 'calendar' ? 'aria-current="page"' : '' %>>
+            Calendar
+          </a>
+        </li>
+        <li>
+          <a
+            href="/task?view=settings"
+            class="top-nav-link <%= currentTab === 'settings' ? 'active' : '' %>"
+            data-view="settings"
+            <%= currentTab === 'settings' ? 'aria-current="page"' : '' %>>
+            Settings
+          </a>
+        </li>
+      </ul>
+    </div>
+  </header>
+</div>

@@ -18,6 +18,7 @@ const competitionRoutes = require('../competitionRoutes');
 const myCommunityCompetitionRoutes = require('../myCommunityCompetitionRoutes');
 const manageMyCommunityCompetitionRoutes = require('../manageMyCommunityCompetitionRoutes');
 const communityCompetitionProfileRoutes = require('../communityCompetitionProfileRoutes');
+const taskSchedulesApi = require('./task-schedules.api');
 
 const router = express.Router();
 
@@ -34,6 +35,7 @@ router.use('/admin/company', adminCompanyApi);
 router.use('/admin/users', adminUsersApi);
 router.use('/admin/impersonation', adminImpersonationApi);
 router.use('/tasks', tasksApi);
+router.use('/task-schedules', taskSchedulesApi);
 router.use('/', lotViewRoutes); // if this exposes /lots or other root endpoints
 router.use('/competitions', competitionApi);
 router.use('/competitions', competitionRoutes);

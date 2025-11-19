@@ -25,7 +25,20 @@
     .id-name{font-size:1.125rem;line-height:1.25rem;font-weight:700;color:var(--ink);}
     .id-contact{display:flex;align-items:center;gap:1rem;margin-top:.35rem;color:var(--muted);}
     .id-contact a{color:inherit;text-decoration:none;} .id-contact a:hover{text-decoration:underline;}
-    .id-cta{margin-left:auto;}
+    .id-cta{
+      margin-left:auto;
+      display:flex;
+      align-items:center;
+      gap:.6rem;
+      flex-wrap:wrap;
+      justify-content:flex-end;
+    }
+    .id-actions{
+      padding:.2rem .45rem;
+      border-radius:999px;
+      border:1px solid var(--border);
+      background:#f8fafc;
+    }
     .btn-ghost{border:1px solid var(--brand);background:transparent;color:var(--brand);
       border-radius:999px;padding:.3rem .8rem;cursor:pointer;}
     .btn-ghost:hover{background:rgba(47,112,200,.06);}
@@ -65,9 +78,9 @@
     }
     .tab-panel{margin-top:0;padding-top:.75rem;}
 
-  </style>
+</style>
 </head>
-<body>
+<body data-current-user-id="<%= currentUser ? currentUser.id : '' %>">
   <%- include('../partials/nav') %>
   <%- include('../partials/top-nav-contacts') %>
 
@@ -84,6 +97,17 @@
           </div>
         </div>
         <div class="id-cta">
+          <div id="lenderActionButtons" class="table-action-buttons id-actions" aria-label="Lender quick actions">
+            <button class="table-icon-btn" type="button" data-action="task" aria-label="Manage lender tasks">
+              <img src="/assets/icons/add_task.svg" alt="">
+            </button>
+            <button class="table-icon-btn" type="button" data-action="flag" aria-label="Flag this lender">
+              <img src="/assets/icons/exclamation.svg" alt="">
+            </button>
+            <button class="table-icon-btn" type="button" data-action="comment" aria-label="Comment on this lender">
+              <img src="/assets/icons/comment.svg" alt="">
+            </button>
+          </div>
           <button id="toggleEdit" class="btn-ghost">Edit</button>
         </div>
       </section>
@@ -147,9 +171,7 @@
           <table class="table linked-table">
             <thead>
               <tr>
-                <th><span class="visually-hidden">Task</span></th>
-                <th><span class="visually-hidden">Flag</span></th>
-                <th><span class="visually-hidden">Comment</span></th>
+                <th class="table-icon-col"><span class="visually-hidden">Actions</span></th>
                 <th>Name</th><th>Phone</th><th>Email</th>
                 <th>Community</th><th>Owner</th><th>Contact Status</th>
                 <th>Lender Status</th><th>Invite Date</th><th>Approved Date</th>
@@ -165,9 +187,7 @@
           <table class="table linked-table">
             <thead>
               <tr>
-                <th><span class="visually-hidden">Task</span></th>
-                <th><span class="visually-hidden">Flag</span></th>
-                <th><span class="visually-hidden">Comment</span></th>
+                <th class="table-icon-col"><span class="visually-hidden">Actions</span></th>
                 <th>Name</th><th>Phone</th><th>Email</th>
                 <th>Community</th><th>Lender Status</th>
                 <th>Closing Status</th><th>Closing Date</th>
@@ -177,6 +197,158 @@
           </table>
         </div>
       </div>
+    </div>
+  </div>
+  <div id="task-drawer-backdrop" class="task-drawer-backdrop" hidden></div>
+  <aside id="todo-panel" class="todo-panel task-drawer" aria-live="polite" hidden>
+    <header class="todo-header">
+      <div class="task-drawer-header">
+        <button id="todo-toggle" class="todo-toggle" type="button" aria-expanded="true">
+          <span class="todo-toggle-icon" aria-hidden="true">&#9662;</span>
+          <span class="todo-toggle-text">Tasks</span>
+          <span id="todo-count" class="todo-count">0</span>
+        </button>
+        <button type="button" class="todo-close" data-task-drawer-close aria-label="Close task drawer">&times;</button>
+      </div>
+      <div class="task-drawer-contact" id="task-panel-contact-name"></div>
+      <button id="todo-add" class="todo-add-btn" type="button">
+        <img src="/assets/icons/add_task.svg" alt="" aria-hidden="true" />
+        <span>Add Task</span>
+      </button>
+    </header>
+    <section id="todo-panel-body" class="todo-body">
+      <div class="todo-summary">
+        <button type="button" class="todo-pill is-active" data-filter="all">
+          <span class="pill-label">All</span>
+          <span class="pill-count" aria-hidden="true">0</span>
+        </button>
+        <button type="button" class="todo-pill" data-filter="Pending">
+          <span class="pill-label">Pending</span>
+          <span class="pill-count" aria-hidden="true">0</span>
+        </button>
+        <button type="button" class="todo-pill" data-filter="Completed">
+          <span class="pill-label">Completed</span>
+          <span class="pill-count" aria-hidden="true">0</span>
+        </button>
+      </div>
+
+      <section class="todo-automation" data-followup-schedule>
+        <div class="todo-automation-text">
+          <p class="todo-automation-title">Apply a follow-up schedule</p>
+          <p class="todo-automation-body">Use your saved cadence to auto-create the next touchpoints for this contact.</p>
+        </div>
+        <div class="todo-automation-controls">
+          <select
+            id="followup-schedule-select"
+            class="todo-automation-select"
+            data-followup-select
+            aria-label="Select a follow-up schedule"
+            disabled>
+            <option value="">Loading schedules...</option>
+          </select>
+          <button type="button" class="todo-automation-button" data-followup-apply disabled>Assign</button>
+        </div>
+        <div class="todo-automation-active" data-followup-active hidden>
+          <div class="todo-automation-active-copy">
+            <p class="todo-automation-active-label">Current schedule</p>
+            <p class="todo-automation-active-name" data-followup-active-name></p>
+            <p class="todo-automation-active-meta" data-followup-active-meta></p>
+          </div>
+          <button type="button" class="todo-automation-unassign" data-followup-unassign>Unassign</button>
+        </div>
+        <p class="todo-automation-status" data-followup-status aria-live="polite" hidden></p>
+      </section>
+
+      <ul id="todo-list" class="todo-list">
+        <li class="todo-empty">
+          <div class="todo-empty-state">
+            <img src="/assets/icons/add_task.svg" alt="" aria-hidden="true" />
+            <p class="todo-empty-text">No tasks yet. Add one to keep this contact moving forward.</p>
+          </div>
+        </li>
+      </ul>
+      <footer class="todo-footer">
+        <button id="todo-view-all" class="todo-view-all-btn" type="button">View All Tasks</button>
+      </footer>
+    </section>
+  </aside>
+
+  <div id="task-modal" class="task-modal" aria-hidden="true" hidden>
+    <div class="task-modal__backdrop" data-task-modal-close></div>
+    <div class="task-modal__dialog" role="dialog" aria-modal="true" aria-labelledby="task-modal-title">
+      <header class="task-modal__header">
+        <h2 id="task-modal-title">Edit Task</h2>
+        <button type="button" id="task-modal-close" class="task-modal__close" aria-label="Close task editor">&times;</button>
+      </header>
+      <form id="task-modal-form" class="task-modal__form" novalidate>
+        <div class="task-modal__content">
+          <div class="task-modal__row">
+            <label for="task-modal-title-input">Title</label>
+            <input id="task-modal-title-input" name="title" type="text" maxlength="160" required />
+          </div>
+          <div class="task-modal__row">
+            <span class="task-modal__row-label">Task Type</span>
+            <div id="task-type-buttons" class="task-type-group" role="group" aria-label="Task type">
+              <button type="button" class="task-type-button is-selected" data-type="Follow-Up" aria-pressed="true">Follow-Up</button>
+              <button type="button" class="task-type-button" data-type="Document" aria-pressed="false">Document</button>
+              <button type="button" class="task-type-button" data-type="Approval" aria-pressed="false">Approval</button>
+              <button type="button" class="task-type-button" data-type="Review" aria-pressed="false">Review</button>
+              <button type="button" class="task-type-button" data-type="Custom" aria-pressed="false">Custom</button>
+            </div>
+            <div id="task-followup-sub" class="task-type-subgroup" hidden aria-hidden="true">
+              <span class="task-type-subtitle">Follow-Up via</span>
+              <div class="task-type-subbuttons" role="group" aria-label="Follow-up method">
+                <button type="button" class="task-type-subbutton is-selected" data-followup="Follow-Up" aria-pressed="true">General</button>
+                <button type="button" class="task-type-subbutton" data-followup="Call" aria-pressed="false">Call</button>
+                <button type="button" class="task-type-subbutton" data-followup="Email" aria-pressed="false">Email</button>
+                <button type="button" class="task-type-subbutton" data-followup="Meeting" aria-pressed="false">Meeting</button>
+              </div>
+            </div>
+          </div>
+          <div class="task-modal__grid two-col">
+            <div class="task-modal__row">
+              <label for="task-modal-priority">Priority</label>
+              <select id="task-modal-priority" name="priority"></select>
+            </div>
+            <div class="task-modal__row">
+              <label for="task-modal-category">Category</label>
+              <select id="task-modal-category" name="category"></select>
+            </div>
+          </div>
+          <div class="task-modal__grid two-col">
+            <div class="task-modal__row">
+              <label for="task-modal-due">Due date</label>
+              <input id="task-modal-due" name="dueDate" type="date" />
+            </div>
+            <div class="task-modal__row">
+              <label for="task-modal-status">Status</label>
+              <select id="task-modal-status" name="status"></select>
+            </div>
+          </div>
+          <div class="task-modal__row">
+            <label for="task-modal-reminder-date">Reminder (optional)</label>
+            <div class="task-modal__reminder-grid">
+              <input id="task-modal-reminder-date" name="reminderDate" type="date" />
+              <input id="task-modal-reminder-time" name="reminderTime" type="time" />
+            </div>
+            <p class="task-modal__hint">Pick a date and time to get nudged about this task.</p>
+          </div>
+          <div class="task-modal__row">
+            <label for="task-modal-notes">Notes</label>
+            <textarea id="task-modal-notes" name="description" rows="4" maxlength="2000"></textarea>
+          </div>
+        </div>
+        <p id="task-modal-error" class="task-modal__error" role="alert" hidden></p>
+        <div class="task-modal__actions">
+          <div class="task-modal__actions-left">
+            <button type="button" id="task-modal-complete" class="task-modal__secondary">Mark as Completed</button>
+          </div>
+          <div class="task-modal__actions-right">
+            <button type="button" id="task-modal-cancel" class="task-modal__secondary">Cancel</button>
+            <button type="submit" id="task-modal-save" class="task-modal__primary">Save Changes</button>
+          </div>
+        </div>
+      </form>
     </div>
   </div>
 

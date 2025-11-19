@@ -9,7 +9,7 @@
 </head>
 <body>
   <%- include('../partials/nav') %>
-  <%- include('../partials/top-nav-contacts') %>
+  <%- include('../partials/top-nav-task', { activeTab: taskView || 'task' }) %>
 
   <main class="container py-4 task-page">
     <div class="d-flex flex-wrap align-items-start justify-content-between gap-3 mb-4">
@@ -500,11 +500,9 @@
             <span class="task-modal__row-label">Task Type</span>
             <div id="task-type-buttons" class="task-type-group" role="group" aria-label="Task type">
               <button type="button" class="task-type-button is-selected" data-type="Follow-Up" aria-pressed="true">Follow-Up</button>
-              <button type="button" class="task-type-button" data-type="Reminder" aria-pressed="false">Reminder</button>
               <button type="button" class="task-type-button" data-type="Document" aria-pressed="false">Document</button>
               <button type="button" class="task-type-button" data-type="Approval" aria-pressed="false">Approval</button>
               <button type="button" class="task-type-button" data-type="Review" aria-pressed="false">Review</button>
-              <button type="button" class="task-type-button" data-type="Note" aria-pressed="false">Note</button>
               <button type="button" class="task-type-button" data-type="Custom" aria-pressed="false">Custom</button>
             </div>
             <div id="task-followup-sub" class="task-type-subgroup" hidden aria-hidden="true">
@@ -536,6 +534,14 @@
               <label for="task-modal-status">Status</label>
               <select id="task-modal-status" name="status"></select>
             </div>
+          </div>
+          <div class="task-modal__row">
+            <label for="task-modal-reminder-date">Reminder (optional)</label>
+            <div class="task-modal__reminder-grid">
+              <input id="task-modal-reminder-date" name="reminderDate" type="date" />
+              <input id="task-modal-reminder-time" name="reminderTime" type="time" />
+            </div>
+            <p class="task-modal__hint">Choose when you want to be reminded about this task.</p>
           </div>
           <div class="task-modal__row">
             <label for="task-modal-notes">Notes</label>
