@@ -22,18 +22,33 @@ const trim = (value) => (typeof value === 'string' ? value.trim() : '');
 let cachedTransporter = null;
 
 const resolveSmtpConfig = () => {
-  const host = trim(process.env.BETA_SMTP_HOST) || trim(process.env.ZOHO_SMTP_HOST);
-  const user = trim(process.env.BETA_SMTP_USER) || trim(process.env.ZOHO_SMTP_USER);
-  const pass = trim(process.env.BETA_SMTP_PASS) || trim(process.env.ZOHO_SMTP_PASS);
+  const host =
+    trim(process.env.BETA_SMTP_HOST) ||
+    trim(process.env.ZOHO_SMTP_HOST) ||
+    trim(process.env.SMTP_HOST);
+  const user =
+    trim(process.env.BETA_SMTP_USER) ||
+    trim(process.env.ZOHO_SMTP_USER) ||
+    trim(process.env.SMTP_USER);
+  const pass =
+    trim(process.env.BETA_SMTP_PASS) ||
+    trim(process.env.ZOHO_SMTP_PASS) ||
+    trim(process.env.SMTP_PASS);
   const port =
-    toInt(process.env.BETA_SMTP_PORT ?? process.env.ZOHO_SMTP_PORT, 465) || 465;
+    toInt(
+      process.env.BETA_SMTP_PORT ?? process.env.ZOHO_SMTP_PORT ?? process.env.SMTP_PORT,
+      465
+    ) || 465;
 
-  if (!host) throw new Error('BETA_SMTP_HOST (or ZOHO_SMTP_HOST) is not configured');
-  if (!user) throw new Error('BETA_SMTP_USER (or ZOHO_SMTP_USER) is not configured');
-  if (!pass) throw new Error('BETA_SMTP_PASS (or ZOHO_SMTP_PASS) is not configured');
+  if (!host) throw new Error('BETA_SMTP_HOST (or fallback SMTP_HOST) is not configured');
+  if (!user) throw new Error('BETA_SMTP_USER (or fallback SMTP_USER) is not configured');
+  if (!pass) throw new Error('BETA_SMTP_PASS (or fallback SMTP_PASS) is not configured');
 
   const secureEnv =
-    process.env.BETA_SMTP_SECURE ?? process.env.ZOHO_SMTP_SECURE ?? (port === 465 ? 'true' : 'false');
+    process.env.BETA_SMTP_SECURE ??
+    process.env.ZOHO_SMTP_SECURE ??
+    process.env.SMTP_SECURE ??
+    (port === 465 ? 'true' : 'false');
 
   return {
     host,
@@ -101,8 +116,10 @@ const getFromAddress = () => {
   const from =
     trim(process.env.BETA_SIGNUP_FROM) ||
     trim(process.env.BETA_SMTP_USER) ||
-    trim(process.env.ZOHO_SMTP_USER);
-  if (!from) throw new Error('BETA_SIGNUP_FROM (or SMTP user) is not configured');
+    trim(process.env.ZOHO_SMTP_USER) ||
+    trim(process.env.SMTP_FROM) ||
+    trim(process.env.SMTP_USER);
+  if (!from) throw new Error('BETA_SIGNUP_FROM (or SMTP fallback) is not configured');
   return from;
 };
 
