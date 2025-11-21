@@ -44,6 +44,40 @@
       <label>Visit Date</label>
       <input type="text" class="form-control" id="visit-date" />
     </div>
+    <div class="mb-3">
+      <label for="communitySelect">Community</label>
+      <select class="form-select w-100" id="communitySelect">
+        <option value="">Select a community (optional)</option>
+      </select>
+    </div>
+    <div class="row g-3 mb-3">
+      <div class="col-md-6">
+        <label for="leadSource">Source</label>
+        <select class="form-select" id="leadSource">
+          <option value="">Select source (optional)</option>
+          <option value="Phone">Phone</option>
+          <option value="Email">Email</option>
+          <option value="Walk-In">Walk-In</option>
+          <option value="Online">Online</option>
+        </select>
+      </div>
+      <div class="col-md-6">
+        <label for="leadStatus">Status</label>
+        <select class="form-select" id="leadStatus">
+          <option value="New" selected>New</option>
+          <option value="Target">Target</option>
+          <option value="Possible">Possible</option>
+          <option value="Negotiation">Negotiation</option>
+          <option value="Be-Back">Be-Back</option>
+          <option value="Cold">Cold</option>
+          <option value="Purchased">Purchased</option>
+          <option value="Closed">Closed</option>
+          <option value="Not-Interested">Not-Interested</option>
+          <option value="Deal-Lost">Deal-Lost</option>
+          <option value="Bust">Bust</option>
+        </select>
+      </div>
+    </div>
     <div class="realtor-fields d-none">
       <div class="mb-3">
         <label>Brokerage</label>

@@ -1,7 +1,7 @@
 // /assets/js/contacts/render.js
 import { formatDate } from './date.js';
 import { formatPhoneDisplay } from '../shared/phone.js';
-import { updateContact, toggleFlag } from './api.js';
+import { updateContact } from './api.js';
 import { openCommentModal } from './modal.js';
 
 let actionHandlers = {
@@ -83,11 +83,13 @@ const applyBadgeView = (badgeEl, statusValue) => {
   badgeEl.dataset.status = statusValue;
 };
 
-function setFlagIconColor(imgEl, flagged) {
-  // red-ish tint when flagged
-  imgEl.style.filter = flagged
-    ? 'invert(23%) sepia(93%) saturate(6575%) hue-rotate(358deg) brightness(99%) contrast(119%)'
-    : '';
+function applyAttentionIndicator(buttonEl, imgEl, requiresAttention) {
+  if (!buttonEl || !imgEl) return;
+  if (requiresAttention) {
+    buttonEl.classList.add('attention-on');
+  } else {
+    buttonEl.classList.remove('attention-on');
+  }
 }
 
 function makeCell(text = '') {
@@ -108,14 +110,14 @@ export function renderTable(contacts) {
 
     {
       const cell = document.createElement('td');
-      cell.classList.add('table-icon-col');
+      cell.classList.add('contact-table-icons');
       const wrapper = document.createElement('div');
       wrapper.className = 'table-action-buttons';
 
-      const createIconButton = ({ src, label }) => {
+      const createIconButton = ({ src, label, extraClasses = [] }) => {
         const btn = document.createElement('button');
         btn.type = 'button';
-        btn.classList.add('table-icon-btn');
+        btn.classList.add('table-icon-btn', ...extraClasses);
         btn.setAttribute('aria-label', label);
         const img = document.createElement('img');
         img.src = src;
@@ -139,27 +141,19 @@ export function renderTable(contacts) {
       });
       wrapper.appendChild(taskBtn);
 
-      const { btn: flagBtn, img: flagImg } = createIconButton({
+      const requiresAttention = Boolean(contact.requiresAttention);
+      const { btn: attentionBtn, img: attentionImg } = createIconButton({
         src: '/assets/icons/exclamation.svg',
-        label: `Toggle flag for ${fullName}`
+        label: requiresAttention
+          ? `${fullName} has urgent tasks`
+          : `${fullName} has no urgent tasks`,
+        extraClasses: ['attention-indicator']
       });
-      let flagged = Boolean(contact.flagged);
-      setFlagIconColor(flagImg, flagged);
-      flagBtn.addEventListener('click', async (event) => {
-        event.preventDefault();
-        event.stopPropagation();
-        flagged = !flagged;
-        setFlagIconColor(flagImg, flagged);
-        try {
-          await toggleFlag(contact._id, flagged);
-        } catch (err) {
-          console.error(err);
-          flagged = !flagged;
-          setFlagIconColor(flagImg, flagged);
-          alert('Could not update flag. Please try again.');
-        }
-      });
-      wrapper.appendChild(flagBtn);
+      attentionBtn.setAttribute('aria-disabled', 'true');
+      attentionBtn.tabIndex = -1;
+      attentionBtn.setAttribute('title', requiresAttention ? 'Urgent tasks pending' : 'No urgent tasks');
+      applyAttentionIndicator(attentionBtn, attentionImg, requiresAttention);
+      wrapper.appendChild(attentionBtn);
 
       const { btn: commentBtn } = createIconButton({
         src: '/assets/icons/comment.svg',

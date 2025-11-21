@@ -1,0 +1,137 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>KeepUP CRM — Updates</title>
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet"/>
+  <link rel="stylesheet" href="/assets/css/main.css">
+</head>
+<body>
+  <%- include('../partials/nav') %>
+  <%- include('../partials/top-nav-contacts') %>
+
+  <main class="container py-4">
+    <header class="mb-4">
+      <h1 class="h3 mb-1">Release Notes & Updates</h1>
+      <p class="text-muted mb-0">Track what changed in each build of KeepUP CRM.</p>
+    </header>
+
+    <section class="mb-5">
+      <article class="mb-4">
+        <h2 class="h5 mb-2">Version 1.1.0</h2>
+
+        <p class="mb-1 fw-semibold">Task</p>
+        <p class="mb-3">
+          We introduced task and follow-up workflows across Keep Up so you can create tailored tasks for contacts,
+          realtors, lenders, addresses, and competition studies. Tasks now auto-generate when critical data is missing
+          or becomes stale, and category-specific queues keep leads, communities, and competitors organized.
+        </p>
+
+        <p class="mb-1 fw-semibold">Task for Contacts</p>
+        <ul class="mb-3">
+          <li>Purchased contacts now trigger tasks to capture sales price and sales date.</li>
+          <li>Lender reminders highlight missing lender info or when a primary lender is not selected.</li>
+          <li>Invite date gaps raise a task before move-in milestones slip.</li>
+          <li>Status changes to Approved create tasks if an approved date is missing.</li>
+          <li>Contacts missing a community assignment generate a follow-up task.</li>
+        </ul>
+
+        <p class="mb-1 fw-semibold">Task for Address</p>
+        <ul class="mb-3">
+          <li>SPEC addresses without a list price get a task until pricing is filled in.</li>
+          <li>SPEC addresses missing a release date prompt an immediate task.</li>
+          <li>If the release date is in the future but the status is not SPEC, CLOSED, or SOLD, a task recommends updating the status.</li>
+          <li>Linked purchasers with addresses that are not SOLD or CLOSED flag a task to reconcile status.</li>
+          <li>SPEC, SOLD, or CLOSED addresses without a floor plan receive a task to link one.</li>
+          <li>Closing dates in the past that still show an open status generate a reminder to close out the address.</li>
+        </ul>
+
+        <p class="mb-1 fw-semibold">UI</p>
+        <ul class="mb-3">
+          <li>Fixed the linked lender card email so it stays within the card bounds.</li>
+          <li>Adjusted Address Details layout and added the new task bar.</li>
+        </ul>
+
+        <p class="mb-1 fw-semibold">Admin Section</p>
+        <ul class="mb-3">
+          <li>Launched a dedicated admin area for managing users, floor plans, and communities.</li>
+          <li>Top navigation now shows Admin Section, Manage Communities, and Manage Floor Plans as distinct entries.</li>
+        </ul>
+
+        <p class="mb-1 fw-semibold">Community Admin Section</p>
+        <ul>
+          <li>Admins can multi-select floor plans per community to keep offerings in sync.</li>
+        </ul>
+      </article>
+
+      <article class="mb-4">
+        <h2 class="h5 mb-2">Version 1.0.3 - Pending Release</h2>
+
+        <p class="mb-1 fw-semibold">Major Updates</p>
+        <ul class="mb-3">
+          <li>You can now link a company community to yours to treat it as a competitor. Most fields auto-populate, with shared data across both communities. (Sales / QMI data appears only if the other team keeps their specs updated.)</li>
+          <li>Contact status can be updated directly on the table view—no need to open the detail drawer first.</li>
+          <li>Closing date and time inputs were added to Address Details, and the closing status logic now works end-to-end.</li>
+          <li>The lender table pulls every linked contact, with a new Purchasers table that allows editing closing date, time, and status.</li>
+          <li>Contacts table now includes a search bar and supports adding a new contact inline without visiting the Add Lead form.</li>
+          <li>Realtor table displays both contact status and lender status.</li>
+          <li>View Lots closing column renders date + time and has styled status filters; hover helpers describe the walk dots.</li>
+          <li>Sales price and list price in Contact Details and Address Details now render with currency formatting.</li>
+          <li>Added a Purchased tab that lists contacts with a linked lot who haven’t closed yet, along with a progress tracker for managing closings.</li>
+        </ul>
+
+        <p class="mb-1 fw-semibold">UI Polish</p>
+        <ul class="mb-3">
+          <li>Manage My Community Competition layout matches the Update Competition page.</li>
+          <li>Address Details date inputs were refreshed to match the current design system.</li>
+          <li>My Community Competition header now features a styled Manage Communities button and a redesigned community selector.</li>
+        </ul>
+
+        <p class="mb-1 fw-semibold">Bug Fixes</p>
+        <ul class="mb-3">
+          <li>Access controls tightened: you’ll only see leads and community info that are linked to your communities (with unassigned leads still visible to their creator).</li>
+          <li>Building status updates immediately on Address Details.</li>
+          <li>View Lots reliably displays closing date and time pulled from the linked purchaser.</li>
+        </ul>
+
+        <p class="mb-1 fw-semibold">Alerts</p>
+        <ul>
+          <li>Attempting to link a competitor without selecting a community now shows an alert so you don’t lose your place.</li>
+        </ul>
+      </article>
+
+      <article class="mb-4">
+        <h2 class="h5 mb-2">Version 1.0.2 - 10/21/2025</h2>
+        <p class="mb-1 fw-semibold">My Community Details</p>
+        <ul class="mb-3">
+          <li>Linked floor plans now populate the "Model Floor Plan" selector.</li>
+          <li>Competition cards pull the company name directly.</li>
+          <li>Competition graphs expand to fill more horizontal space.</li>
+          <li>Added a new base-price vs sqft comparison chart for your community.</li>
+          <li>QMI/SOLD chart now renders as a pure scatter without connecting lines.</li>
+          <li>Base price chart focuses strictly on your community (competitors removed).</li>
+          <li>PID / MUD inputs render without forcing a page refresh and include a frequency selector.</li>
+          <li>Linked competitor UI clarifies which communities are connected vs available.</li>
+          <li>Added amenity options and refreshed hide/show controls for Promotions, HOA, and Pros & Cons.</li>
+        </ul>
+
+        <p class="mb-1 fw-semibold">Competition Dashboard</p>
+        <ul>
+          <li>Quick Move-In / Sold legend redesigned for clarity.</li>
+          <li>My Community header resized to keep more linked builder pills on a single row.</li>
+        </ul>
+      </article>
+
+      <article>
+        <h2 class="h5 mb-2">Version 1.0.1 - 10/17/2025</h2>
+        <ul>
+          <li>Added a placeholder note for the upcoming Design Center feature (change orders, electrical, low voltage, etc.).</li>
+          <li>Corrected missing lot and block data on the Contact Details card for a linked home.</li>
+          <li>General Status, plan, and elevation now load properly for linked homes.</li>
+        </ul>
+      </article>
+    </section>
+  </main>
+</body>
+</html>

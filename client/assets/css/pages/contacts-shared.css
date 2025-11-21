@@ -1,0 +1,74 @@
+
+/**
+ * Shared styling for contact/realtor/lender tables.
+ * Keeps the action icons consistent.
+ */
+.contact-table-icons {
+  width: 88px;
+  min-width: 88px;
+  padding: 0.45rem 0.35rem;
+  text-align: left;
+}
+
+.table-action-buttons {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.45rem;
+}
+
+.table-icon-btn {
+  border: none;
+  background: transparent;
+  padding: 0.2rem;
+  border-radius: 0.5rem;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  transition: background-color 0.2s ease, transform 0.2s ease, color 0.2s ease;
+  cursor: pointer;
+  color: #0E79B2;
+}
+
+.table-icon-btn img {
+  width: 19px;
+  height: 19px;
+  display: block;
+  filter: brightness(0) saturate(100%) invert(22%) sepia(84%) saturate(2205%) hue-rotate(187deg) brightness(92%) contrast(97%);
+}
+
+.table-icon-btn:hover,
+.table-icon-btn:focus-visible {
+  background: rgba(14, 121, 178, 0.12);
+  transform: translateY(-1px) scale(1.04);
+  outline: none;
+  color: #09557f;
+}
+
+.table-icon-btn:hover img,
+.table-icon-btn:focus-visible img {
+  filter: brightness(0) saturate(100%) invert(15%) sepia(55%) saturate(2039%) hue-rotate(192deg) brightness(92%) contrast(87%);
+}
+
+.table-icon-btn:active {
+  transform: translateY(0) scale(0.99);
+}
+
+.table-icon-btn.attention-indicator {
+  cursor: default;
+  pointer-events: none;
+  opacity: 0.35;
+  color: #6b7280;
+}
+
+.table-icon-btn.attention-indicator img {
+  filter: brightness(0) saturate(100%) invert(35%) sepia(5%) saturate(518%) hue-rotate(170deg) brightness(91%) contrast(86%);
+}
+
+.table-icon-btn.attention-indicator.attention-on {
+  opacity: 1;
+  color: #b91c1c;
+}
+
+.table-icon-btn.attention-indicator.attention-on img {
+  filter: brightness(0) saturate(100%) invert(9%) sepia(88%) saturate(6422%) hue-rotate(359deg) brightness(88%) contrast(113%);
+}

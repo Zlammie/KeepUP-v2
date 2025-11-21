@@ -30,6 +30,7 @@ import { emit } from '../contact-details/events.js';
 
 
 let currentMonth = null;
+const monthlyAutosavers = [];
 const resolveTaskTitle = () =>
   window.UPDATE_COMP_BOOT?.defaultTaskTitle ||
   (builderName && communityName
@@ -82,6 +83,18 @@ const RECURRING_TASKS = [
   }
 ];
 
+const resetFloorPlanForm = (fields) => {
+  if (!fields) return;
+  Object.values(fields).forEach((field) => {
+    if (!field) return;
+    if (field.tagName && field.tagName.toLowerCase() === 'select') {
+      field.selectedIndex = 0;
+    } else {
+      field.value = '';
+    }
+  });
+};
+
 async function hydrateMonthlyUI(month) {
   try {
     const res = await fetch(`/api/competitions/${competitionId}/monthly?month=${encodeURIComponent(month)}`);
@@ -98,6 +111,57 @@ async function hydrateMonthlyUI(month) {
     console.warn('hydrateMonthlyUI fallback', e.status || e);
   }
   updateRemainingLots(totalLots, DOM.soldInput, DOM.remainingEl);
+}
+
+const NO_PENDING_VALUE = Symbol('no-pending');
+function createMonthlyAutosaver(field, getValue, { delay = 800 } = {}) {
+  let pendingValue = NO_PENDING_VALUE;
+  let timer = null;
+
+  const send = value => {
+    if (!currentMonth) return;
+    const payload = { month: currentMonth, [field]: value };
+    saveMonthly(payload).catch(err => {
+      console.error(`[update-competition] failed to save ${field}`, err);
+    });
+  };
+
+  const schedule = value => {
+    if (value === undefined) return;
+    pendingValue = value;
+    clearTimeout(timer);
+    timer = window.setTimeout(() => {
+      const next = pendingValue;
+      pendingValue = NO_PENDING_VALUE;
+      if (next !== NO_PENDING_VALUE) send(next);
+    }, delay);
+  };
+
+  const flush = (force = false) => {
+    clearTimeout(timer);
+    const hasPending = pendingValue !== NO_PENDING_VALUE;
+    if (!hasPending && !force) return;
+    const next = hasPending ? pendingValue : getValue();
+    if (next === undefined) {
+      pendingValue = NO_PENDING_VALUE;
+      return;
+    }
+    pendingValue = NO_PENDING_VALUE;
+    send(next);
+  };
+
+  const cancel = () => {
+    clearTimeout(timer);
+    pendingValue = NO_PENDING_VALUE;
+  };
+
+  const api = { schedule, flush, cancel };
+  monthlyAutosavers.push(api);
+  return api;
+}
+
+function flushMonthlyAutosavers() {
+  monthlyAutosavers.forEach(saver => saver.flush());
 }
 
 /**
@@ -142,6 +206,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     [...DOM.monthNav.querySelectorAll('a.nav-link')].map(a => a.dataset.month)
   );
   bindMonthNav(DOM.monthNav, month => {
+    flushMonthlyAutosavers();
     currentMonth = month;
     loadMonth(month);
     loadQuickHomes(month);
@@ -177,20 +242,32 @@ document.addEventListener('DOMContentLoaded', async () => {
   initMetrics(DOM.metricsForm, latestMetrics, saveMetrics);
 
   // 4) Monthly lots counter (persist as you type)
-  DOM.lotCount.value = totalLots;
+  if (DOM.lotCount) DOM.lotCount.value = totalLots;
 
-  DOM.soldInput.addEventListener('input', () => {
-    updateRemainingLots(totalLots, DOM.soldInput, DOM.remainingEl);
-  });
-  const persistSold = () => currentMonth && saveMonthly({ month: currentMonth, soldLots: DOM.soldInput.value });
-  DOM.soldInput.addEventListener('input',  persistSold);
-  DOM.soldInput.addEventListener('change', persistSold);
-  DOM.soldInput.addEventListener('blur',   persistSold);
+  const soldSaver = DOM.soldInput
+    ? createMonthlyAutosaver('soldLots', () => DOM.soldInput.value)
+    : null;
+  if (DOM.soldInput) {
+    DOM.soldInput.addEventListener('input', () => {
+      updateRemainingLots(totalLots, DOM.soldInput, DOM.remainingEl);
+      soldSaver?.schedule(DOM.soldInput.value);
+    });
+    ['change', 'blur'].forEach(evt => {
+      DOM.soldInput.addEventListener(evt, () => soldSaver?.flush(true));
+    });
+  }
 
-  const persistQMI = () => currentMonth && saveMonthly({ month: currentMonth, quickMoveInLots: DOM.quickInput.value });
-  DOM.quickInput.addEventListener('input',  persistQMI);
-  DOM.quickInput.addEventListener('change', persistQMI);
-  DOM.quickInput.addEventListener('blur',   persistQMI);
+  const qmiSaver = DOM.quickInput
+    ? createMonthlyAutosaver('quickMoveInLots', () => DOM.quickInput.value)
+    : null;
+  if (DOM.quickInput) {
+    DOM.quickInput.addEventListener('input', () => {
+      qmiSaver?.schedule(DOM.quickInput.value);
+    });
+    ['change', 'blur'].forEach(evt => {
+      DOM.quickInput.addEventListener(evt, () => qmiSaver?.flush(true));
+    });
+  }
 
   updateRemainingLots(totalLots, DOM.soldInput, DOM.remainingEl);
 
@@ -225,11 +302,15 @@ document.addEventListener('DOMContentLoaded', async () => {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(data)
       });
-      if (res.ok) loadFloorPlansList(DOM.planListEl, DOM.floorPlanFields);
-      else console.error('Floor plan save failed:', await res.text());
+      if (res.ok) {
+        resetFloorPlanForm(DOM.floorPlanFields);
+        loadFloorPlansList(DOM.planListEl, DOM.floorPlanFields);
+      } else {
+        console.error('Floor plan save failed:', await res.text());
+      }
     }
   );
-  initFloorPlanModal(DOM.openPlanModal, DOM.modalEl, () => {});
+  initFloorPlanModal(DOM.openPlanModal, DOM.modalEl, () => false);
 
   // 8) Ensure Metrics tab is shown initially
   const metricsLink = DOM.sectionNav.querySelector('a.nav-link[data-section="metrics"]');

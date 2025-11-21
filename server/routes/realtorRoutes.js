@@ -5,6 +5,7 @@ const router = express.Router();
 const Realtor = require('../models/Realtor');
 const RealtorAssignment = require('../models/RealtorAssignment');
 const { normalizePhoneForDb } = require('../utils/phone');
+const { applyTaskAttentionFlags } = require('../utils/taskAttention');
 
 const xlsx = require('xlsx');
 
@@ -113,6 +114,15 @@ router.get('/',
         ] } : {})
       };
       const realtors = await Realtor.find(filter).sort({ lastName: 1, firstName: 1 }).lean();
+      await applyTaskAttentionFlags(realtors, {
+        linkedModel: 'Realtor',
+        fallbackCompanyId: req.user?.company || null
+      });
+      realtors.forEach((realtor) => {
+        if (realtor && Object.prototype.hasOwnProperty.call(realtor, 'company')) {
+          delete realtor.company;
+        }
+      });
       res.json(realtors);
     } catch (err) {
       res.status(500).json({ error: 'Failed to fetch realtors', details: err.message });

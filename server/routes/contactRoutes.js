@@ -10,6 +10,7 @@ const FloorPlan = require('../models/FloorPlan');
 const Realtor   = require('../models/Realtor');
 const Task      = require('../models/Task');
 const AutoFollowUpSchedule = require('../models/AutoFollowUpSchedule');
+const { applyTaskAttentionFlags } = require('../utils/taskAttention');
 
 const ensureAuth  = require('../middleware/ensureAuth');
 const requireRole = require('../middleware/requireRole');
@@ -111,6 +112,84 @@ function toStatusCase(v){
 // All routes below require auth
 router.use(ensureAuth);
 
+function extractCommunityIdStrings(body = {}) {
+  let ids = [];
+  if (Array.isArray(body.communityIds)) ids = body.communityIds;
+  else if (typeof body.communityIds === 'string' && body.communityIds) {
+    try {
+      const parsed = JSON.parse(body.communityIds);
+      ids = Array.isArray(parsed) ? parsed : [body.communityIds];
+    } catch {
+      ids = [body.communityIds];
+    }
+  }
+
+  if (!ids.length) {
+    if (Array.isArray(body.communities)) ids = body.communities;
+    else if (typeof body.communities === 'string' && body.communities) {
+      try {
+        const parsed = JSON.parse(body.communities);
+        ids = Array.isArray(parsed) ? parsed : [body.communities];
+      } catch {
+        ids = [body.communities];
+      }
+    }
+  }
+
+  if (!ids.length && body.communityId) ids = [body.communityId];
+  if (!ids.length && body.community) ids = [body.community];
+  return ids.filter(Boolean).map(String);
+}
+
+async function resolveCommunityIdsFromBody(req, body = {}) {
+  const ids = extractCommunityIdStrings(body);
+  if (!ids.length) return [];
+
+  const candidates = await Community.find({
+    _id: { $in: ids },
+    company: req.user.company
+  })
+    .select('_id name')
+    .lean();
+
+  if (candidates.length !== ids.length) {
+    const err = new Error('Selected communities were not found in your company.');
+    err.statusCode = 400;
+    throw err;
+  }
+
+  if (isSuper(req)) {
+    return candidates.map((c) => c._id);
+  }
+
+  const scoped = filterCommunitiesForUser(req.user, candidates);
+  if (scoped.length !== candidates.length) {
+    const err = new Error('You do not have access to one or more selected communities.');
+    err.statusCode = 403;
+    throw err;
+  }
+
+  return scoped.map((c) => c._id);
+}
+
+function mergeCommunityIdLists(existing = [], additions = []) {
+  const seen = new Set();
+  const merged = [];
+  const pushValue = (value) => {
+    if (!value) return;
+    const str = value.toString();
+    if (seen.has(str)) return;
+    seen.add(str);
+    merged.push(value);
+  };
+
+  existing.forEach(pushValue);
+  const beforeAddSize = seen.size;
+  additions.forEach(pushValue);
+  const changed = seen.size !== beforeAddSize;
+  return { merged, changed };
+}
+
 // Health check (optional)
 router.get('/ping', requireRole('READONLY','USER','MANAGER','COMPANY_ADMIN','SUPER_ADMIN'), (req, res) => res.send('pong'));
 
@@ -138,6 +217,16 @@ router.post(
       const visitDate = req.body.visitDate ? new Date(req.body.visitDate) : null;
       const requestedStatus = toStatusCase(req.body.status);
       const statusValue = requestedStatus || 'New';
+      const sourceValue = toStr(req.body.source || req.body.leadSource);
+
+      let communityIdsSelection = [];
+      try {
+        communityIdsSelection = await resolveCommunityIdsFromBody(req, req.body);
+      } catch (communityErr) {
+        return res
+          .status(communityErr.statusCode || 400)
+          .json({ error: communityErr.message || 'Invalid community selection' });
+      }
 
       // 3) Dedupe key is ONLY inside this company
       const filter =
@@ -151,7 +240,9 @@ router.post(
           email: emailRaw, phone: phoneRaw,
           emailNorm, phoneNorm, visitDate,
           status: statusValue,
-          ownerId: req.user._id
+          ownerId: req.user._id,
+          source: sourceValue || undefined,
+          communityIds: communityIdsSelection
         });
         return res.status(201).json({ created: true, contact: created });
       }
@@ -166,7 +257,9 @@ router.post(
           email: emailRaw, phone: phoneRaw,
           emailNorm, phoneNorm, visitDate,
           status: statusValue,
-          ownerId: req.user._id
+          ownerId: req.user._id,
+          source: sourceValue || undefined,
+          communityIds: communityIdsSelection
         });
         return res.status(201).json({ created: true, contact: created });
       }
@@ -181,6 +274,18 @@ router.post(
       if (!existing.ownerId)                $set.ownerId   = req.user._id;
       if (requestedStatus && (!existing.status || String(existing.status).trim().toLowerCase() === 'new')) {
         $set.status = requestedStatus;
+      }
+
+      if (sourceValue && !existing.source) {
+        $set.source = sourceValue;
+      }
+
+      if (communityIdsSelection.length) {
+        const existingCommunities = Array.isArray(existing.communityIds) ? existing.communityIds : [];
+        const { merged, changed } = mergeCommunityIdLists(existingCommunities, communityIdsSelection);
+        if (changed) {
+          $set.communityIds = merged;
+        }
       }
 
       const attached = await Contact.findOneAndUpdate(
@@ -228,7 +333,7 @@ router.get('/',
       }
 
       const contacts = await Contact.find(filter)
-        .select('firstName lastName email phone status communityIds realtorId lenderId lenders updatedAt')
+        .select('firstName lastName email phone status communityIds realtorId lenderId lenders updatedAt flagged company')
         .populate('communityIds', 'name')
         .populate('floorplans', 'name planNumber')
         .populate('realtorId', 'firstName lastName brokerage email phone')
@@ -236,6 +341,16 @@ router.get('/',
         .populate('lenders.lender', 'firstName lastName lenderBrokerage email phone')
         .sort({ updatedAt: -1 })
         .lean();
+
+      await applyTaskAttentionFlags(contacts, {
+        linkedModel: 'Contact',
+        fallbackCompanyId: req.user?.company || null
+      });
+      contacts.forEach((contact) => {
+        if (contact && Object.prototype.hasOwnProperty.call(contact, 'company')) {
+          delete contact.company;
+        }
+      });
 
       res.json(contacts);
     } catch (err) {
@@ -661,10 +776,15 @@ router.get('/by-realtor/:realtorId',
       if (!isObjectId(realtorId)) return res.status(400).json({ error: 'Invalid realtorId' });
 
       const contacts = await Contact.find(contactQuery(req, { realtorId: new mongoose.Types.ObjectId(realtorId) }))
-        .select('firstName lastName email phone status communityIds ownerId lenderStatus lenders lenderId')
+        .select('firstName lastName email phone status communityIds ownerId lenderStatus lenders lenderId company requiresAttention')
         .populate('communityIds', 'name')
         .populate('ownerId', 'firstName lastName email')
         .lean();
+
+      await applyTaskAttentionFlags(contacts, {
+        linkedModel: 'Contact',
+        fallbackCompanyId: req.user?.company || null
+      });
 
       const mapped = contacts.map((contact) => {
         const communities = (contact.communityIds || [])
@@ -690,6 +810,7 @@ router.get('/by-realtor/:realtorId',
           communities,
           owner: ownerName,
           lenderStatus,
+          requiresAttention: Boolean(contact.requiresAttention)
         };
       });
 
@@ -717,12 +838,17 @@ router.get('/by-lender/:lenderId',
       });
 
       const contacts = await Contact.find(filter)
-        .select('firstName lastName email phone communityIds lenderId lenders ownerId lenderStatus lenderInviteDate lenderApprovedDate linkedLot lotId status')
+        .select('firstName lastName email phone communityIds lenderId lenders ownerId lenderStatus lenderInviteDate lenderApprovedDate linkedLot lotId status company requiresAttention')
         .populate('communityIds', 'name')
         .populate('lenderId', 'firstName lastName lenderBrokerage email phone')
         .populate('lenders.lender', 'firstName lastName lenderBrokerage email phone')
         .populate('ownerId', 'firstName lastName email')
         .lean();
+
+      await applyTaskAttentionFlags(contacts, {
+        linkedModel: 'Contact',
+        fallbackCompanyId: req.user?.company || null
+      });
 
       const mapped = contacts.map((contact) => {
         const communities = (contact.communityIds || [])
@@ -795,6 +921,7 @@ router.get('/by-lender/:lenderId',
           linkedLot: linkedLotData,
           hasLinkedLot,
           isPurchaserWithLot,
+          requiresAttention: Boolean(contact.requiresAttention)
         };
       });
 

@@ -13,10 +13,13 @@ export function setActionHandlers(handlers = {}) {
   };
 }
 
-function setFlagIconColor(imgEl, flagged) {
-  imgEl.style.filter = flagged
-    ? 'invert(23%) sepia(93%) saturate(6575%) hue-rotate(358deg) brightness(99%) contrast(119%)'
-    : '';
+function applyAttentionIndicator(buttonEl, imgEl, requiresAttention) {
+  if (!buttonEl || !imgEl) return;
+  if (requiresAttention) {
+    buttonEl.classList.add('attention-on');
+  } else {
+    buttonEl.classList.remove('attention-on');
+  }
 }
 
 export function renderTable(lenders, statsByLender = new Map()) {
@@ -31,7 +34,7 @@ export function renderTable(lenders, statsByLender = new Map()) {
 
     {
       const cell = document.createElement('td');
-      cell.classList.add('table-icon-col');
+      cell.classList.add('contact-table-icons');
       const wrapper = document.createElement('div');
       wrapper.className = 'table-action-buttons';
 
@@ -58,26 +61,19 @@ export function renderTable(lenders, statsByLender = new Map()) {
       });
       wrapper.appendChild(taskBtn);
 
-      const { btn: flagBtn, img: flagImg } = createIconButton({
+      const requiresAttention = Boolean(lender.requiresAttention);
+      const { btn: attentionBtn, img: attentionImg } = createIconButton({
         src: '/assets/icons/exclamation.svg',
-        label: `Toggle flag for ${fullName}`
+        label: requiresAttention
+          ? `${fullName} has urgent tasks`
+          : `${fullName} has no urgent tasks`,
+        extraClasses: ['attention-indicator']
       });
-      let flagged = Boolean(lender.flagged);
-      setFlagIconColor(flagImg, flagged);
-      flagBtn.addEventListener('click', async (event) => {
-        event.preventDefault();
-        event.stopPropagation();
-        const next = !flagged;
-        setFlagIconColor(flagImg, next);
-        try {
-          await updateLender(lender._id, { flagged: next });
-          flagged = next;
-        } catch (err) {
-          console.error(err);
-          setFlagIconColor(flagImg, flagged);
-        }
-      });
-      wrapper.appendChild(flagBtn);
+      attentionBtn.setAttribute('aria-disabled', 'true');
+      attentionBtn.tabIndex = -1;
+      attentionBtn.setAttribute('title', requiresAttention ? 'Urgent tasks pending' : 'No urgent tasks');
+      applyAttentionIndicator(attentionBtn, attentionImg, requiresAttention);
+      wrapper.appendChild(attentionBtn);
 
       const { btn: commentBtn } = createIconButton({
         src: '/assets/icons/comment.svg',

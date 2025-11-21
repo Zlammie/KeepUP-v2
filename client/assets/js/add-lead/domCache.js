@@ -10,6 +10,9 @@ export const els = {
   email: document.getElementById('email'),
   phone: document.getElementById('phone'),
   visitDate: document.getElementById('visit-date'),
+  leadSource: document.getElementById('leadSource'),
+  communitySelect: document.getElementById('communitySelect'),
+  statusSelect: document.getElementById('leadStatus'),
 
   // realtor
   realtorFields: document.querySelector('.realtor-fields'),
@@ -31,4 +34,7 @@ export const groups = {
   emailGroup: els.email.closest('.mb-3'),
   phoneGroup: els.phone.closest('.mb-3'),
   visitDateGroup: els.visitDate.closest('.mb-3'),
+  communityGroup: els.communitySelect ? els.communitySelect.closest('.mb-3') : null,
+  sourceContainer: els.leadSource ? els.leadSource.closest('.col-md-6') : null,
+  statusContainer: els.statusSelect ? els.statusSelect.closest('.col-md-6') : null,
 };

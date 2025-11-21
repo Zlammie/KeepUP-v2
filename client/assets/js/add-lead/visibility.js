@@ -13,6 +13,9 @@ export function updateFieldVisibility() {
   groups.lastNameGroup.classList.remove('d-none');
   groups.emailGroup.classList.remove('d-none');
   groups.phoneGroup.classList.remove('d-none');
+  if (groups.sourceContainer) groups.sourceContainer.classList.remove('d-none');
+  if (groups.communityGroup) groups.communityGroup.classList.remove('d-none');
+  if (groups.statusContainer) groups.statusContainer.classList.remove('d-none');
 
   // base requireds
   els.firstName.required = true;
@@ -20,6 +23,9 @@ export function updateFieldVisibility() {
   els.email.required = false;
   els.phone.required = false;
   if (els.visitDate) els.visitDate.required = false;
+  if (els.leadSource) els.leadSource.required = false;
+  if (els.communitySelect) els.communitySelect.required = false;
+  if (els.statusSelect) els.statusSelect.required = false;
   els.lenderFirstName.required = false;
   els.lenderLastName.required = false;
 
@@ -34,16 +40,28 @@ export function updateFieldVisibility() {
     groups.lastNameGroup.classList.add('d-none');
     groups.emailGroup.classList.add('d-none');
     groups.phoneGroup.classList.add('d-none');
+    if (groups.sourceContainer) groups.sourceContainer.classList.add('d-none');
+    if (groups.communityGroup) groups.communityGroup.classList.add('d-none');
+    if (groups.statusContainer) groups.statusContainer.classList.add('d-none');
 
     // disable required constraints on hidden lead fields
     els.firstName.required = false;
     els.lastName.required = false;
     els.email.required = false;
     els.phone.required = false;
+    if (els.leadSource) els.leadSource.required = false;
+    if (els.communitySelect) els.communitySelect.required = false;
+    if (els.statusSelect) els.statusSelect.required = false;
 
     // lender requireds
     els.lenderFirstName.required = true;
     els.lenderLastName.required = true;
+  }
+
+  if (type === 'realtor') {
+    if (groups.sourceContainer) groups.sourceContainer.classList.add('d-none');
+    if (groups.communityGroup) groups.communityGroup.classList.add('d-none');
+    if (groups.statusContainer) groups.statusContainer.classList.add('d-none');
   }
 }
 

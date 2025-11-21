@@ -64,6 +64,7 @@ export function renderTable(rows) {
   tbody.innerHTML = '';
   rows.forEach((c) => {
     const name = (c.firstName || c.lastName) ? `${c.firstName || ''} ${c.lastName || ''}`.trim() : '(Unnamed Contact)';
+    const safeName = escapeHtml(name);
     const phone = formatPhoneDisplay(c.phone || '') || 'N/A';
     const email = c.email || 'N/A';
 
@@ -74,22 +75,28 @@ export function renderTable(rows) {
     const communities = Array.isArray(c.communities) ? c.communities.join(', ') : (c.communities || 'N/A');
     const owner = c.owner || 'N/A';
 
+    const requiresAttention = Boolean(c.requiresAttention);
+    const attentionClass = requiresAttention ? ' attention-on' : '';
+    const attentionLabel = requiresAttention
+      ? `Urgent tasks pending`
+      : `No urgent tasks`;
+
     const tr = document.createElement('tr');
     tr.innerHTML = `
-      <td class="table-icon-col">
-        <div class="table-action-buttons" data-contact="${c._id}" data-contact-name="${escapeHtml(name)}" data-contact-status="${escapeHtml(statusKey || '')}">
-          <button class="table-icon-btn" data-action="task" aria-label="Manage tasks for ${escapeHtml(name)}">
+      <td class="contact-table-icons">
+        <div class="table-action-buttons" data-contact="${c._id}" data-contact-name="${safeName}" data-contact-status="${escapeHtml(statusKey || '')}">
+          <button class="table-icon-btn" data-action="task" aria-label="Manage tasks for ${safeName}">
             <img src="/assets/icons/add_task.svg" alt="">
           </button>
-          <button class="table-icon-btn" data-action="flag" aria-label="Flag ${escapeHtml(name)}">
-            <img src="/assets/icons/exclamation.svg" alt="">
+          <button class="table-icon-btn attention-indicator${attentionClass}" aria-disabled="true" tabindex="-1" title="${attentionLabel}">
+            <img src="/assets/icons/exclamation.svg" alt="" />
           </button>
-          <button class="table-icon-btn" data-action="comment" aria-label="Comment on ${escapeHtml(name)}">
+          <button class="table-icon-btn" data-action="comment" aria-label="Comment on ${safeName}">
             <img src="/assets/icons/comment.svg" alt="">
           </button>
         </div>
       </td>
-      <td><a href="/contact-details?id=${c._id}">${escapeHtml(name)}</a></td>
+      <td><a href="/contact-details?id=${c._id}">${safeName}</a></td>
       <td>${escapeHtml(phone)}</td>
       <td>${escapeHtml(email)}</td>
       <td>

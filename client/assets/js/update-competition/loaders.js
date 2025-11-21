@@ -16,6 +16,46 @@ const canCreateQMI = p =>
   isNum(p.listPrice) &&
   isNum(p.sqft);
 
+const STATUS_LABELS = [
+  'Ready Now',
+  'SOLD',
+  'January',
+  'February',
+  'March',
+  'April',
+  'May',
+  'June',
+  'July',
+  'August',
+  'September',
+  'October',
+  'November',
+  'December'
+];
+
+const renderStatusOptions = (selectedValue, fallback = 'Ready Now') => {
+  const existing = STATUS_LABELS.includes(selectedValue) ? STATUS_LABELS : (selectedValue ? [selectedValue, ...STATUS_LABELS] : STATUS_LABELS);
+  const deduped = [...new Set(existing)];
+  const effective = selectedValue || fallback;
+  return deduped
+    .map((label) => `<option value="${label}"${label === effective ? ' selected' : ''}>${label}</option>`)
+    .join('');
+};
+
+const renderFloorPlanOptions = (selectedValue) => {
+  const selected = selectedValue ? String(selectedValue) : '';
+  const options = [
+    `<option value=""${selected ? '' : ' selected'}>Select floor plan</option>`
+  ];
+  options.push(
+    ...allFloorPlans.map(
+      (fp) =>
+        `<option value="${fp._id}"${String(fp._id) === selected ? ' selected' : ''}>${fp.name}</option>`
+    )
+  );
+  return options.join('');
+};
+
 import { competitionId } from './data.js';
 import * as DOM from './dom.js';
 
@@ -64,6 +104,7 @@ export async function loadMonth(monthKey) {
           type="number"
           class="form-control price-input"
           data-fp="${fp._id}"
+          data-price-id="${existing ? existing._id : ''}"
           value="${existing ? existing.price : ''}"
           step="0.01"
         />
@@ -71,29 +112,60 @@ export async function loadMonth(monthKey) {
     DOM.priceBody.appendChild(tr);
   });
 
-  document.querySelectorAll('.price-input').forEach(input => {
+  const inputs = DOM.priceBody.querySelectorAll('.price-input');
+
+  function reapplyPriceHighlight() {
+    applyPriceHighlight(DOM.priceBody, monthKey === TARGET_MONTH_KEY);
+  }
+
+  inputs.forEach(input => {
     input.addEventListener('blur', async e => {
-      const fpId     = e.target.dataset.fp;
-      const price    = parseFloat(e.target.value) || 0;
-      const existing = prMap[fpId];
-      const url      = existing
-        ? `/api/competitions/${competitionId}/price-records/${existing._id}`
+      const fpId = e.target.dataset.fp;
+      const existingId = e.target.dataset.priceId;
+      const raw = e.target.value;
+      const hasValue = raw !== '' && raw != null;
+      const price = hasValue ? Number(raw) : null;
+
+      if (!hasValue) {
+        reapplyPriceHighlight();
+        return; // ignore empty fields; do not coerce to zero
+      }
+      if (!Number.isFinite(price)) {
+        console.warn('Ignoring invalid price input', raw);
+        reapplyPriceHighlight();
+        return;
+      }
+
+      const url      = existingId
+        ? `/api/competitions/${competitionId}/price-records/${existingId}`
         : `/api/competitions/${competitionId}/price-records`;
-      const method   = existing ? 'PUT' : 'POST';
-      const body     = existing
+      const method   = existingId ? 'PUT' : 'POST';
+      const body     = existingId
         ? { price }
         : { floorPlanId: fpId, month: monthKey, price };
 
-      await fetch(url, {
+      const res = await fetch(url, {
         method,
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(body)
       });
-      loadMonth(monthKey);
+      if (!res.ok) {
+        console.error('Price save failed', res.status, await res.text().catch(() => ''));
+        reapplyPriceHighlight();
+        return;
+      }
+
+      if (!existingId) {
+        const saved = await res.json().catch(() => null);
+        if (saved && saved._id) {
+          e.target.dataset.priceId = saved._id;
+        }
+      }
+      reapplyPriceHighlight();
     });
   });
 
-  applyPriceHighlight(DOM.priceBody, monthKey === TARGET_MONTH_KEY);
+  reapplyPriceHighlight();
 }
 
 /**
@@ -126,9 +198,7 @@ export function loadQuickHomes(monthKey) {
       <td><input type="date" class="form-control qmi-input"  data-field="listDate" value="${(rec.listDate || '').slice(0,10)}" /></td>
       <td>
         <select class="form-select qmi-input" data-field="floorPlan">
-          ${allFloorPlans.map(fp =>
-            `<option value="${fp._id}"${fp._id===rec.floorPlan?' selected':''}>${fp.name}</option>`
-          ).join('')}
+          ${renderFloorPlanOptions(rec.floorPlan)}
         </select>
       </td>
       <td><input type="number" class="form-control qmi-input" data-field="listPrice" step="0.01" value="${rec.listPrice}" /></td>
@@ -136,8 +206,7 @@ export function loadQuickHomes(monthKey) {
                    value="${rec.sqft ?? (findPlan(rec.floorPlan)?.sqft ?? '')}" /></td>
       <td>
         <select class="form-select qmi-input" data-field="status">
-          <option value="Ready Now"${rec.status==='Ready Now'?' selected':''}>Ready Now</option>
-          <option value="SOLD"${rec.status==='SOLD'?' selected':''}>SOLD</option>
+          ${renderStatusOptions(rec.status, 'Ready Now')}
         </select>
       </td>`;
     DOM.quickBody.appendChild(tr);
@@ -153,17 +222,14 @@ addTr.innerHTML = `
   <td><input type="date" class="form-control qmi-input"  data-field="listDate" value="" /></td>
   <td>
     <select class="form-select qmi-input" data-field="floorPlan">
-      ${allFloorPlans.map(fp =>
-        `<option value="${fp._id}">${fp.name}</option>`
-      ).join('')}
+      ${renderFloorPlanOptions(null)}
     </select>
   </td>
   <td><input type="number" class="form-control qmi-input" data-field="listPrice" step="0.01" value="" /></td>
   <td><input type="number" class="form-control qmi-input" data-field="sqft" value="" /></td>
   <td>
     <select class="form-select qmi-input" data-field="status">
-      <option value="Ready Now" selected>Ready Now</option>
-      <option value="SOLD">SOLD</option>
+      ${renderStatusOptions(null, 'Ready Now')}
     </select>
   </td>
 `;
@@ -210,9 +276,7 @@ DOM.quickBody.querySelectorAll('.qmi-clear').forEach(btn => {
       <td><input type="date" class="form-control sold-input" data-field="listDate" value="${(rec.listDate || '').slice(0,10)}" /></td>
       <td>
         <select class="form-select sold-input" data-field="floorPlan">
-          ${allFloorPlans.map(fp =>
-            `<option value="${fp._id}"${fp._id===rec.floorPlan?' selected':''}>${fp.name}</option>`
-          ).join('')}
+          ${renderFloorPlanOptions(rec.floorPlan)}
         </select>
       </td>
       <td><input type="number" class="form-control sold-input" data-field="listPrice" step="0.01" value="${rec.listPrice}" /></td>
@@ -220,8 +284,7 @@ DOM.quickBody.querySelectorAll('.qmi-clear').forEach(btn => {
                    value="${rec.sqft ?? (findPlan(rec.floorPlan)?.sqft ?? '')}" /></td>
       <td>
         <select class="form-select sold-input" data-field="status">
-          <option value="Ready Now">Ready Now</option>
-          <option value="SOLD" selected>SOLD</option>
+          ${renderStatusOptions(rec.status, 'SOLD')}
         </select>
       </td>
       <td><input type="date" class="form-control sold-input" data-field="soldDate" value="${(rec.soldDate || '').slice(0,10)}" /></td>

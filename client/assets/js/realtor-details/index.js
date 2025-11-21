@@ -5,6 +5,7 @@ import { updateHeaderFromInputs, disableEditor, wireEditorToggle } from './ident
 import { initTopBar } from './topbar.js';
 import { initTaskPanel } from '../contact-details/tasks.js';
 import { initState } from '../contact-details/state.js';
+import { initRealtorModal, openRealtorCommentModal } from '../realtors/modal.js';
 
 let taskPanelInstance = null;
 let taskDrawerNameEl = null;
@@ -118,6 +119,11 @@ function wireTaskButtons() {
 
       if (action === 'task' && contactId) {
         openContactTaskDrawer(contactId, contactName, contactStatus);
+        return;
+      }
+      if (action === 'comment' && contactId) {
+        // TODO: hook up contact-specific comments if needed
+        return;
       }
     });
   }
@@ -128,6 +134,8 @@ function wireTaskButtons() {
     if (!button) return;
     if (button.dataset.action === 'task') {
       openRealtorTaskDrawer();
+    } else if (button.dataset.action === 'comment' && state.realtorId) {
+      openRealtorCommentModal(state.realtorId);
     }
   });
 
@@ -151,6 +159,7 @@ async function init() {
   }
 
   try {
+    initRealtorModal();
     const r = await fetchRealtor(state.realtorId);
     populateForm(r);
     updateHeaderFromInputs();

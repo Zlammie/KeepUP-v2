@@ -4,10 +4,10 @@ import { postRealtorComment } from './api.js';
 let currentRealtorId = null;
 
 export function initRealtorModal() {
-  const modal = document.getElementById('realtorCommentModal');
-  const saveBtn = document.getElementById('saveRealtorModalComment');
-  const cancelBtn = document.getElementById('cancelRealtorModalComment');
-  const typeBtns = document.querySelectorAll('#realtor-modal-comment-type-buttons button');
+const modal = document.getElementById('commentModal');
+const saveBtn = document.getElementById('saveModalComment');
+const cancelBtn = document.getElementById('cancelModalComment');
+const typeBtns = document.querySelectorAll('#modal-comment-type-buttons button');
 
   // type toggle
   typeBtns.forEach((btn) => {
@@ -19,8 +19,8 @@ export function initRealtorModal() {
 
   // save → POST
   saveBtn.addEventListener('click', async () => {
-    const content = document.getElementById('realtor-modal-comment-text').value.trim();
-    const typeBtn = document.querySelector('#realtor-modal-comment-type-buttons button.active');
+    const content = document.getElementById('modal-comment-text').value.trim();
+    const typeBtn = document.querySelector('#modal-comment-type-buttons button.active');
     const type = typeBtn ? typeBtn.getAttribute('data-type') : 'Note';
     if (!content || !currentRealtorId) return;
 
@@ -38,16 +38,16 @@ export function initRealtorModal() {
 
 export function openRealtorCommentModal(realtorId) {
   currentRealtorId = realtorId;
-  document.getElementById('realtor-modal-comment-text').value = '';
-  document.getElementById('realtorCommentModal').style.display = 'flex';
+  document.getElementById('modal-comment-text').value = '';
+  document.getElementById('commentModal').style.display = 'flex';
 
   // reset type to Note
-  document.querySelectorAll('#realtor-modal-comment-type-buttons button').forEach((b) => b.classList.remove('active'));
-  document.querySelector('#realtor-modal-comment-type-buttons button[data-type="Note"]')?.classList.add('active');
+  document.querySelectorAll('#modal-comment-type-buttons button').forEach((b) => b.classList.remove('active'));
+  document.querySelector('#modal-comment-type-buttons button[data-type="Note"]')?.classList.add('active');
 }
 
 export function closeRealtorCommentModal() {
-  document.getElementById('realtorCommentModal').style.display = 'none';
+  document.getElementById('commentModal').style.display = 'none';
   currentRealtorId = null;
 }
 

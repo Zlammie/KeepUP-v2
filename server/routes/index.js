@@ -4,8 +4,6 @@ const router = express.Router();
 
 // --- auth/admin ---
 const authRoutes = require('./authRoutes');
-const adminRoutes = require('./adminRoutes');
-const adminUserRoutes = require('./adminUserRoutes');
 const marketingRoutes = require('./marketingRoutes');
 
 // --- API hub (everything under /api) ---
@@ -17,8 +15,6 @@ const pages = require('./pages');
 // mount routers
 router.use('/', authRoutes);
 router.use('/', marketingRoutes);
-router.use('/admin', adminRoutes);
-router.use('/admin', adminUserRoutes); 
 
 // API hub (protects its own routes with ensureAuth)
 router.use('/api', api);

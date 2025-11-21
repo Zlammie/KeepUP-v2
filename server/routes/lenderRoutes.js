@@ -7,6 +7,7 @@ const Lender = require("../models/lenderModel");
 const ensureAuth  = require("../middleware/ensureAuth");
 const requireRole = require("../middleware/requireRole");
 const { normalizePhoneForDb } = require("../utils/phone");
+const { applyTaskAttentionFlags } = require("../utils/taskAttention");
 
 // ───────── helpers ─────────
 const isObjectId = v => mongoose.Types.ObjectId.isValid(String(v));
@@ -50,6 +51,15 @@ router.get("/",
         ] } : {})
       };
       const lenders = await Lender.find(filter).sort({ lastName: 1, firstName: 1 }).lean();
+      await applyTaskAttentionFlags(lenders, {
+        linkedModel: 'Lender',
+        fallbackCompanyId: req.user?.company || null
+      });
+      lenders.forEach((lender) => {
+        if (lender && Object.prototype.hasOwnProperty.call(lender, 'company')) {
+          delete lender.company;
+        }
+      });
       res.json(lenders);
     } catch (err) {
       res.status(500).json({ error: "Failed to fetch lenders", details: err.message });

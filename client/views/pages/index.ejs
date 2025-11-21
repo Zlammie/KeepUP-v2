@@ -11,160 +11,194 @@
 <body>
   <!-- include navbar HTML at the top of every page -->
   <%- include('../partials/nav') %>
-  <%- include('../partials/top-nav-contacts') %>
+  <%- include('../partials/top-nav-blank') %>
 
-  <div class="container mt-3">
-    <div class="alert alert-light d-flex align-items-center gap-3">
-      <div>
-        <div class="fw-semibold">
-          Welcome, <%= (currentUser && currentUser.name) || 'Guest' %>
+  <main class="container py-4" id="dashboard-home">
+    <div class="row g-4 mb-4 align-items-stretch">
+      <div class="col-lg-8">
+        <div class="card shadow-sm h-100">
+          <div class="card-body d-flex flex-column gap-4">
+            <div class="d-flex flex-column flex-lg-row justify-content-between align-items-start gap-4">
+              <div>
+                <p class="text-uppercase text-muted small mb-1">Welcome back</p>
+                <h1 class="h3 mb-1" id="dashboard-user-name">
+                  <%= (currentUser && currentUser.name) || 'Guest' %>
+                </h1>
+                <p class="text-muted mb-0" id="dashboard-user-company">
+                  Company: <%= (currentUser && currentUser.company) || 'N/A' %>
+                </p>
+              </div>
+              <div class="w-100 w-lg-auto" style="max-width: 280px;">
+                <label for="dashboard-community-select" class="form-label text-muted text-uppercase small mb-1">
+                  Community View
+                </label>
+                <select class="form-select form-select-sm" id="dashboard-community-select"
+                  data-user-id="<%= currentUser ? currentUser.id : '' %>"
+                  data-active-community="<%= currentUser && currentUser.defaultCommunityId ? currentUser.defaultCommunityId : 'all' %>">
+                  <option value="all">All Communities</option>
+                </select>
+                <small class="text-muted d-block mt-1">Switching filters the stats below.</small>
+              </div>
+            </div>
+
+            <div>
+              <p class="text-uppercase text-muted small mb-2">Quick Actions</p>
+              <div class="d-flex flex-wrap gap-2" id="dashboard-quick-actions">
+                <a class="btn btn-primary" href="/add-lead">Add Contact</a>
+                <a class="btn btn-outline-secondary" href="/task">Open Tasks</a>
+                <a class="btn btn-outline-secondary" href="/community-management">Manage Communities</a>
+              </div>
+            </div>
+          </div>
         </div>
-        <div class="text-muted">
-          Company: <%= (currentUser && currentUser.company) || 'N/A' %>
+      </div>
+
+      <div class="col-lg-4">
+        <div class="card shadow-sm h-100" id="weather-card">
+          <div class="card-body d-flex flex-column justify-content-between">
+            <div class="d-flex justify-content-between align-items-start">
+              <div>
+                <p class="text-uppercase text-muted small mb-1">Weather</p>
+                <h2 class="display-6 mb-0" id="weather-temp">--°</h2>
+                <p class="mb-0 text-muted" id="weather-summary">Fetching conditions…</p>
+              </div>
+              <div class="text-end">
+                <span class="fs-1" id="weather-icon">☀️</span>
+              </div>
+            </div>
+            <div class="mt-3">
+              <p class="mb-0 text-muted small" id="weather-location">Location unavailable</p>
+              <p class="mb-0 text-muted small" id="weather-updated">Updated --:--</p>
+            </div>
+          </div>
         </div>
       </div>
     </div>
-  </div>
 
-  <main class="container py-4">
-    <section class="mb-5">
-      <h1 class="text-danger h3">Quick Notice</h1>
-      <p>
-        Thank you for participating in this test run of Keep Up CRM. The goal is to keep the experience
-        user friendly while still providing the tools a Community Sales Manager and their team need. Additional
-        features - especially around task creation and activity tracking - are already on the roadmap.
-      </p>
-      <p>
-        Because this is still an early build, you may encounter bugs. Please avoid relying on it as your sole
-        source of record for leads until we harden the data workflows. If something breaks, grab the console log
-        (F12 in most browsers) and send the details to <a href="mailto:zlammie@gmail.com">zlammie@gmail.com</a>.
-        I can review the issue directly - either from the console output or by inspecting your account data.
-      </p>
-      <p>
-        Most importantly, have fun. Try the features, push the limits, and let me know what ideas you have.
-        If hosting costs start to creep up, I may ask you to ease off, but otherwise go wild. Thanks again for
-        helping shape Keep Up CRM!
-      </p>
-      <p class="mb-0">- Zach</p>
-    </section>
+    <div class="row g-4 mb-4">
+      <div class="col-xl-5">
+        <div class="card shadow-sm h-100" id="weekly-traffic-card">
+          <div class="card-body">
+            <div class="d-flex justify-content-between align-items-center mb-2">
+              <div>
+                <h2 class="h5 mb-0">Weekly Traffic</h2>
+                <small class="text-muted">Mon – Sun</small>
+              </div>
+              <div class="text-end">
+                <span class="text-muted small d-block">Current week</span>
+                <span class="fw-semibold" id="weekly-traffic-range">-- / --</span>
+              </div>
+            </div>
+            <p class="text-muted small">Includes leads, realtors, and be-backs with visit dates.</p>
+            <div class="d-flex flex-wrap gap-3">
+              <div class="flex-fill text-center border rounded p-3">
+                <p class="text-muted text-uppercase small mb-1">Contacts</p>
+                <p class="display-6 mb-0" id="weekly-traffic-contacts">0</p>
+              </div>
+              <div class="flex-fill text-center border rounded p-3">
+                <p class="text-muted text-uppercase small mb-1">Realtors</p>
+                <p class="display-6 mb-0" id="weekly-traffic-realtors">0</p>
+              </div>
+              <div class="flex-fill text-center border rounded p-3">
+                <p class="text-muted text-uppercase small mb-1">Be-Backs</p>
+                <p class="display-6 mb-0" id="weekly-traffic-bebacks">0</p>
+              </div>
+            </div>
+            <div class="mt-3">
+              <canvas id="weekly-traffic-sparkline" height="90" role="img" aria-label="Weekly traffic sparkline"></canvas>
+            </div>
+          </div>
+        </div>
+      </div>
 
-    <section>
-      <h1 class="h3">Update Notes</h1>
+      <div class="col-xl-4">
+        <div class="card shadow-sm h-100" id="recent-sales-card">
+          <div class="card-body d-flex flex-column">
+            <div class="d-flex justify-content-between align-items-center mb-3">
+              <h2 class="h5 mb-0">Recent Sales</h2>
+              <span class="badge bg-light text-dark" id="recent-sales-count">0</span>
+            </div>
+            <ul class="list-group list-group-flush flex-grow-1" id="recent-sales-list">
+              <li class="list-group-item d-flex justify-content-between align-items-start text-muted">
+                <div>
+                  <p class="fw-semibold mb-1">No sales logged</p>
+                  <small>Once sales are recorded they’ll appear here.</small>
+                </div>
+              </li>
+            </ul>
+            <template id="recent-sale-template">
+              <li class="list-group-item d-flex justify-content-between align-items-center gap-3">
+                <div>
+                  <p class="fw-semibold mb-0" data-sale-contact>Contact Name</p>
+                  <small class="text-muted d-block" data-sale-lot>Lot / Community</small>
+                </div>
+                <div class="btn-group btn-group-sm">
+                  <a class="btn btn-outline-primary" data-sale-contact-link href="#">Contact</a>
+                  <a class="btn btn-outline-secondary" data-sale-lot-link href="#">Lot</a>
+                </div>
+              </li>
+            </template>
+          </div>
+        </div>
+      </div>
 
-      <article class="mb-4">
-        <h2 class="h5 mb-2">Version 1.1.0</h2>
+      <div class="col-xl-3">
+        <div class="card shadow-sm h-100 text-center" id="lot-count-card">
+          <div class="card-body d-flex flex-column justify-content-center">
+            <p class="text-uppercase text-muted small mb-1">Total Lots</p>
+            <p class="display-4 mb-2" id="total-lot-count">0</p>
+            <p class="text-muted mb-0">Across active communities</p>
+          </div>
+        </div>
+      </div>
+    </div>
 
-        <p class="mb-1 fw-semibold">Task</p>
-        <p class="mb-3">
-          We introduced task and follow-up workflows across Keep Up so you can create tailored tasks for contacts,
-          realtors, lenders, addresses, and competition studies. Tasks now auto-generate when critical data is missing
-          or becomes stale, and category-specific queues keep leads, communities, and competitors organized.
-        </p>
+    <div class="row g-4">
+      <div class="col-xxl-8">
+        <div class="card shadow-sm h-100" id="monthly-traffic-card">
+          <div class="card-body">
+            <div class="d-flex justify-content-between align-items-center mb-3">
+              <div>
+                <h2 class="h5 mb-0">Traffic This Month</h2>
+                <small class="text-muted">Daily breakdown</small>
+              </div>
+              <div class="btn-group btn-group-sm" role="group" aria-label="Traffic range">
+                <button type="button" class="btn btn-outline-secondary active" data-traffic-range="month">Month</button>
+                <button type="button" class="btn btn-outline-secondary" data-traffic-range="quarter">Quarter</button>
+              </div>
+            </div>
+            <canvas id="monthly-traffic-chart" height="260" role="img" aria-label="Monthly traffic chart"></canvas>
+          </div>
+        </div>
+      </div>
 
-        <p class="mb-1 fw-semibold">Task for Contacts</p>
-        <ul class="mb-3">
-          <li>Purchased contacts now trigger tasks to capture sales price and sales date.</li>
-          <li>Lender reminders highlight missing lender info or when a primary lender is not selected.</li>
-          <li>Invite date gaps raise a task before move-in milestones slip.</li>
-          <li>Status changes to Approved create tasks if an approved date is missing.</li>
-          <li>Contacts missing a community assignment generate a follow-up task.</li>
-        </ul>
-
-        <p class="mb-1 fw-semibold">Task for Address</p>
-        <ul class="mb-3">
-          <li>SPEC addresses without a list price get a task until pricing is filled in.</li>
-          <li>SPEC addresses missing a release date prompt an immediate task.</li>
-          <li>If the release date is in the future but the status is not SPEC, CLOSED, or SOLD, a task recommends updating the status.</li>
-          <li>Linked purchasers with addresses that are not SOLD or CLOSED flag a task to reconcile status.</li>
-          <li>SPEC, SOLD, or CLOSED addresses without a floor plan receive a task to link one.</li>
-          <li>Closing dates in the past that still show an open status generate a reminder to close out the address.</li>
-        </ul>
-
-        <p class="mb-1 fw-semibold">UI</p>
-        <ul class="mb-3">
-          <li>Fixed the linked lender card email so it stays within the card bounds.</li>
-          <li>Adjusted Address Details layout and added the new task bar.</li>
-        </ul>
-
-        <p class="mb-1 fw-semibold">Admin Section</p>
-        <ul class="mb-3">
-          <li>Launched a dedicated admin area for managing users, floor plans, and communities.</li>
-          <li>Top navigation now shows Admin Section, Manage Communities, and Manage Floor Plans as distinct entries.</li>
-        </ul>
-
-        <p class="mb-1 fw-semibold">Community Admin Section</p>
-        <ul>
-          <li>Admins can multi-select floor plans per community to keep offerings in sync.</li>
-        </ul>
-      </article>
-
-      <article class="mb-4">
-        <h2 class="h5 mb-2">Version 1.0.3 - Pending Release</h2>
-
-        <p class="mb-1 fw-semibold">Major Updates</p>
-        <ul class="mb-3">
-          <li>You can now link a company community to yours to treat it as a competitor. Most fields auto-populate, with shared data across both communities. (Sales / QMI data appears only if the other team keeps their specs updated.)</li>
-          <li>Contact status can be updated directly on the table view—no need to open the detail drawer first.</li>
-          <li>Closing date and time inputs were added to Address Details, and the closing status logic now works end-to-end.</li>
-          <li>The lender table pulls every linked contact, with a new Purchasers table that allows editing closing date, time, and status.</li>
-          <li>Contacts table now includes a search bar and supports adding a new contact inline without visiting the Add Lead form.</li>
-          <li>Realtor table displays both contact status and lender status.</li>
-          <li>View Lots closing column renders date + time and has styled status filters; hover helpers describe the walk dots.</li>
-          <li>Sales price and list price in Contact Details and Address Details now render with currency formatting.</li>
-          <li>Added a Purchased tab that lists contacts with a linked lot who haven’t closed yet, along with a progress tracker for managing closings.</li>
-        </ul>
-
-        <p class="mb-1 fw-semibold">UI Polish</p>
-        <ul class="mb-3">
-          <li>Manage My Community Competition layout matches the Update Competition page.</li>
-          <li>Address Details date inputs were refreshed to match the current design system.</li>
-          <li>My Community Competition header now features a styled Manage Communities button and a redesigned community selector.</li>
-        </ul>
-
-        <p class="mb-1 fw-semibold">Bug Fixes</p>
-        <ul class="mb-3">
-          <li>Access controls tightened: you’ll only see leads and community info that are linked to your communities (with unassigned leads still visible to their creator).</li>
-          <li>Building status updates immediately on Address Details.</li>
-          <li>View Lots reliably displays closing date and time pulled from the linked purchaser.</li>
-        </ul>
-
-        <p class="mb-1 fw-semibold">Alerts</p>
-        <ul>
-          <li>Attempting to link a competitor without selecting a community now shows an alert so you don’t lose your place.</li>
-        </ul>
-      </article>
-
-      <article class="mb-4">
-        <h2 class="h5 mb-2">Version 1.0.2 - 10/21/2025</h2>
-        <p class="mb-1 fw-semibold">My Community Details</p>
-        <ul class="mb-3">
-          <li>Linked floor plans now populate the "Model Floor Plan" selector.</li>
-          <li>Competition cards pull the company name directly.</li>
-          <li>Competition graphs expand to fill more horizontal space.</li>
-          <li>Added a new base-price vs sqft comparison chart for your community.</li>
-          <li>QMI/SOLD chart now renders as a pure scatter without connecting lines.</li>
-          <li>Base price chart focuses strictly on your community (competitors removed).</li>
-          <li>PID / MUD inputs render without forcing a page refresh and include a frequency selector.</li>
-          <li>Linked competitor UI clarifies which communities are connected vs available.</li>
-          <li>Added amenity options and refreshed hide/show controls for Promotions, HOA, and Pros & Cons.</li>
-        </ul>
-
-        <p class="mb-1 fw-semibold">Competition Dashboard</p>
-        <ul>
-          <li>Quick Move-In / Sold legend redesigned for clarity.</li>
-          <li>My Community header resized to keep more linked builder pills on a single row.</li>
-        </ul>
-      </article>
-
-      <article>
-        <h2 class="h5 mb-2">Version 1.0.1 - 10/17/2025</h2>
-        <ul>
-          <li>Added a placeholder note for the upcoming Design Center feature (change orders, electrical, low voltage, etc.).</li>
-          <li>Corrected missing lot and block data on the Contact Details card for a linked home.</li>
-          <li>General Status, plan, and elevation now load properly for linked homes.</li>
-        </ul>
-      </article>
-    </section>
+      <div class="col-xxl-4">
+        <div class="card shadow-sm h-100" id="recent-leads-card">
+          <div class="card-body d-flex flex-column">
+            <div class="d-flex justify-content-between align-items-center mb-3">
+              <h2 class="h5 mb-0">Recent Leads</h2>
+              <a class="btn btn-sm btn-outline-secondary" href="/contacts">View All</a>
+            </div>
+            <div class="table-responsive flex-grow-1">
+              <table class="table table-sm align-middle mb-0">
+                <thead class="text-muted small">
+                  <tr>
+                    <th scope="col">Name</th>
+                    <th scope="col">Status</th>
+                    <th scope="col">Visit</th>
+                  </tr>
+                </thead>
+                <tbody id="recent-leads-tbody">
+                  <tr class="text-muted">
+                    <td colspan="3">No leads loaded yet.</td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
   </main>
 </body>
 </html>

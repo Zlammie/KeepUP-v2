@@ -8,6 +8,7 @@ const morgan = require('morgan');
 const rateLimit = require('express-rate-limit');
 
 const buildSession = require('./config/session');
+const sessionTimeout = require('./middleware/sessionTimeout');
 const routes = require('./routes');
 const { notFound, errorHandler } = require('./middleware/error');
 const currentUserLocals = require('./middleware/currentUserLocals');
@@ -55,6 +56,14 @@ const cspReportUri = (process.env.CSP_REPORT_URI || '').trim() || null;
 const rateLimitWindowMs = Math.max(0, toInt(process.env.RATE_LIMIT_WINDOW_MS, 15 * 60 * 1000));
 const rateLimitMax = Math.max(0, toInt(process.env.RATE_LIMIT_MAX, 200));
 const enableRateLimiting = rateLimitWindowMs > 0 && rateLimitMax > 0;
+const sessionCookieName = process.env.SESSION_COOKIE_NAME || 'sid';
+const sessionCookieDomain = (process.env.SESSION_COOKIE_DOMAIN || '').trim() || null;
+const sessionCookieSecure = parseBoolean(process.env.COOKIE_SECURE, isProd);
+const sessionIdleTimeoutMinutes = Math.max(0, toInt(process.env.SESSION_IDLE_TIMEOUT_MINUTES, 30));
+const sessionAbsoluteTimeoutHours = Math.max(0, toInt(process.env.SESSION_ABSOLUTE_TIMEOUT_HOURS, 24));
+const sessionIdleTimeoutMs = sessionIdleTimeoutMinutes * 60 * 1000;
+const sessionAbsoluteTimeoutMs = sessionAbsoluteTimeoutHours * 60 * 60 * 1000;
+const enforceSessionTimeouts = sessionIdleTimeoutMs > 0 || sessionAbsoluteTimeoutMs > 0;
 
 // Trust the first two proxies (e.g., Cloudflare + ALB) so secure cookies & client IPs work
 if (isProd) app.set('trust proxy', 2);
@@ -200,13 +209,25 @@ app.use(
     mongoUrl: process.env.MONGO_URI,
     secret: process.env.SESSION_SECRET,
     isProd,
-    cookieName: process.env.SESSION_COOKIE_NAME,
-    cookieDomain: process.env.SESSION_COOKIE_DOMAIN,
+    cookieName: sessionCookieName,
+    cookieDomain: sessionCookieDomain,
     sameSite: process.env.COOKIE_SAMESITE,
-    secure: process.env.COOKIE_SECURE,
+    secure: sessionCookieSecure,
     ttlDays: process.env.SESSION_TTL_DAYS
   })
 );
+
+if (enforceSessionTimeouts) {
+  app.use(
+    sessionTimeout({
+      idleTimeoutMs: sessionIdleTimeoutMs,
+      absoluteTimeoutMs: sessionAbsoluteTimeoutMs,
+      cookieName: sessionCookieName,
+      cookieDomain: sessionCookieDomain,
+      cookieSecure: sessionCookieSecure
+    })
+  );
+}
 
 app.use((req, res, next) => {
   // touch the login route so express-session emits Set-Cookie even on GET /login

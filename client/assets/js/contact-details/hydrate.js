@@ -92,13 +92,13 @@ export function updateTopBarSummary() {
   // Facing
   const facing = Array.from(document.querySelectorAll('input[name="facing"]:checked'))
     .map(cb => cb.value);
-  setText('summary-facing', facing.length ? facing.join(', ') : 'â€”');
+  setText('summary-facing', facing.length ? facing.join(', ') : '');
 
   // Floorplans (labels of checked boxes)
   const plans = Array.from(document.querySelectorAll('#floorplans-container input:checked'))
     .map(cb => cb.closest('label')?.innerText.trim())
     .filter(Boolean);
-  setText('summary-floorplans', plans.length ? plans.join(', ') : 'â€”');
+  setText('summary-floorplans', plans.length ? plans.join(', ') : '');
 
   // Living
   const living = [];
@@ -106,7 +106,7 @@ export function updateTopBarSummary() {
   if (document.getElementById('renting')?.checked)         living.push('Renting');
   if (document.getElementById('own-selling')?.checked)     living.push('Own & Selling');
   if (document.getElementById('own-not-selling')?.checked) living.push('Own & Not Selling');
-  setText('summary-living', living.length ? living.join(', ') : 'â€”');
+  setText('summary-living', living.length ? living.join(', ') : '');
 }
 
 async function populateRealtor(contact) {
@@ -152,7 +152,8 @@ async function populateRealtor(contact) {
 function setText(id, value) {
   const el = document.getElementById(id);
   if (!el) return;
-  el.textContent = (value && String(value).trim()) ? value : 'â€”';
+  const text = value == null ? '' : String(value).trim();
+  el.textContent = text.length ? text : '';
 }
 
 function setInputValue(id, value) {

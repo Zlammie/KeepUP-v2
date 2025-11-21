@@ -21,7 +21,17 @@ function buildPayload(type) {
     email: els.email.value,
     phone: els.phone.value,
     visitDate: els.visitDate.value,
+    source: els.leadSource ? els.leadSource.value : ''
   };
+
+  if (type === 'contact') {
+    if (els.communitySelect && els.communitySelect.value) {
+      base.communityId = els.communitySelect.value;
+    }
+    if (els.statusSelect && els.statusSelect.value) {
+      base.status = els.statusSelect.value;
+    }
+  }
 
   if (type === 'realtor') {
     base.brokerage = els.brokerage.value;

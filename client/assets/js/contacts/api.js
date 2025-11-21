@@ -37,10 +37,6 @@ export async function updateContact(id, patch) {
   return res.json().catch(() => ({})); // some endpoints may return no body
 }
 
-export async function toggleFlag(id, flagged) {
-  return updateContact(id, { flagged });
-}
-
 export async function postComment({ type, content, contactId }) {
   const res = await fetch('/api/comments', {
     method: 'POST',
