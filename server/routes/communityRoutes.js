@@ -13,7 +13,7 @@ const ensureAuth  = require('../middleware/ensureAuth');
 const requireRole = require('../middleware/requireRole');
 
 const upload = require('../middleware/upload');
-const { hasCommunityAccess } = require('../utils/communityScope');
+const { hasCommunityAccess, filterCommunitiesForUser } = require('../utils/communityScope');
 const { syncInternalCompetitions } = require('../services/competitionSync');
 
 // ??????????????????????????????????????????????????????????????????????????? helpers ???????????????????????????????????????????????????????????????????????????
@@ -213,6 +213,8 @@ router.get('/',
     try {
       const roles = req.user?.roles || [];
       const isSuperAdmin = roles.includes('SUPER_ADMIN');
+      const scope = String(req.query.scope || '').toLowerCase();
+      const wantCompanyScope = ['company', 'all'].includes(scope);
 
       const q = String(req.query.q || '').trim();
       const base = { company: req.user.company };
@@ -234,7 +236,11 @@ router.get('/',
         .sort({ name: 1 })
         .lean();
 
-      res.json(communities);
+      const scoped = (isSuperAdmin || wantCompanyScope)
+        ? communities
+        : filterCommunitiesForUser(req.user, communities);
+
+      res.json(scoped);
     } catch (err) {
       console.error('Fetch communities error:', err);
       res.status(500).json({ error: 'Failed to fetch communities' });
@@ -551,12 +557,19 @@ router.get('/select-options',
   requireRole('READONLY','USER','MANAGER','COMPANY_ADMIN','SUPER_ADMIN'),
   async (req, res, next) => {
     try {
+      const scope = String(req.query.scope || '').toLowerCase();
+      const wantCompanyScope = ['company', 'all'].includes(scope);
+
       const rows = await Community.find({ ...companyFilter(req) })
         .select('name communityName builder builderName')
         .sort({ name: 1, communityName: 1 })
         .lean();
 
-      const data = rows.map(c => {
+      const filtered = (isSuper(req) || wantCompanyScope)
+        ? rows
+        : filterCommunitiesForUser(req.user, rows);
+
+      const data = filtered.map(c => {
         const name = c.name || c.communityName || '(unnamed)';
         const builder = c.builder || c.builderName || '';
         return { id: c._id, label: builder ? `${builder} ??? ${name}` : name };

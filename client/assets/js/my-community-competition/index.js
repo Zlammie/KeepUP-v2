@@ -342,7 +342,7 @@ async function fetchAllCompetitions() {
 }
 
 async function fetchInternalCommunities() {
-  const res = await fetch('/api/communities');
+  const res = await fetch('/api/communities?scope=company');
   if (!res.ok) return [];
   return res.json();
 }

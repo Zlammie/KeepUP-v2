@@ -1,6 +1,7 @@
 // client/assets/js/my-community-competition/api.js
 export async function fetchCommunityOptions() {
-  const r = await fetch('/api/communities/select-options', { credentials: 'same-origin' });
+  // For competition linking we allow any company community (minus current is handled client-side).
+  const r = await fetch('/api/communities/select-options?scope=company', { credentials: 'same-origin' });
   if (!r.ok) throw new Error(`select-options failed: ${r.status}`);
   return r.json(); // expect [{ id, label }] or [{ _id, name, ... }]
 }

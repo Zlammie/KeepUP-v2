@@ -908,7 +908,7 @@ async function getJSON(url) {
 // ---------- init ----------
 (async function init() {
   try {
-    const list = await getJSON('/api/communities/select-options');
+    const list = await getJSON('/api/communities/select-options?scope=company');
     list.forEach(c => {
       const id = c._id || c.id;
       if (!id) return;

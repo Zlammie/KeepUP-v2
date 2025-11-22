@@ -53,16 +53,19 @@
           </a>
         </li>
         <% if (canAccessAdmin) { %>
-          <li>
+          <li class="admin-item">
             <a href="/admin-section" class="nav-link">
-              <img src="/assets/icons/account-icon.svg" alt="Admin Section">
-              <span>Admin Section</span>
+              <img src="/assets/icons/account-icon.svg" alt="Admin">
+              <span>Admin</span>
             </a>
           </li>
         <% } %>
         <li class="logout-item">
           <form action="/logout" method="post">
-            <button class="nav-link nav-button" type="submit">Logout</button>
+            <button class="nav-link nav-button" type="submit">
+              <img src="/assets/icons/logout.svg" alt="Logout">
+              <span>Logout</span>
+            </button>
           </form>
         </li>
       </ul>
