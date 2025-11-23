@@ -22,6 +22,7 @@ export function cacheDOM() {
 
   // Community + floorplans
   DOM.communitySelect     = document.getElementById('community-select');
+  DOM.communityChipList   = document.getElementById('community-chip-list');
   DOM.floorplansContainer = document.getElementById('floorplans-container');
 
   // Sales details INSIDE lot link container (may be empty on load)
@@ -48,6 +49,7 @@ export function cacheDOM() {
   // Helpful warnings if a critical element is missing
   warnIfMissing('statusSelect', DOM.statusSelect);
   warnIfMissing('communitySelect', DOM.communitySelect);
+  warnIfMissing('communityChipList', DOM.communityChipList);
   warnIfMissing('communitySection', DOM.communitySection);
 }
 

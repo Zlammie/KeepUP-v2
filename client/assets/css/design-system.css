@@ -1,0 +1,79 @@
+/* DESIGN SPEC – Pills & Surfaces
+/* Brand 
+  --ku-navy: #001B2E;   /* main nav 
+  --ku-blue: #0E79B2;   /* top nav, primary accents 
+
+  /* Surfaces (backgrounds) 
+  --surface-app: #F4F6FA;      /* overall page background 
+  --surface-band: #E1E6F0;     /* those grey “strips” behind columns 
+  --surface-card: #FFFFFF;     /* main cards 
+  --surface-subcard: #F7F9FC;  /* nested sections inside cards 
+
+  /* Borders 
+  --border-soft: #D1D7E3;
+  --border-strong: #9AA3B8;
+
+  /* Text 
+  --text-main: #12212F;
+  --text-muted: #6B7280;
+
+  /* Radii & shadow 
+  --radius-card: 12px;
+  --radius-subcard: 8px;
+  --shadow-card: 0 2px 8px rgba(0, 0, 0, 0.08);
+  --shadow-soft: 0 1px 3px rgba(0, 0, 0, 0.04);
+*/
+
+:root {
+  /* Brand */
+  --ku-navy: #001b2e;
+  --ku-blue: #0e79b2;
+
+  /* Surfaces */
+  --surface-app: #f4f6fa;
+  --surface-band: #e1e6f0;
+  --surface-card: #ffffff;
+  --surface-subcard: #f7f9fc;
+
+  /* Borders */
+  --border-soft: #d1d7e3;
+  --border-strong: #9aa3b8;
+
+  /* Typography */
+  --text-main: #12212f;
+  --text-muted: #6b7280;
+
+  /* Radii & shadow */
+  --radius-card: 12px;
+  --radius-subcard: 8px;
+  --shadow-card: 0 2px 8px rgba(0, 0, 0, 0.08);
+  --shadow-soft: 0 1px 3px rgba(0, 0, 0, 0.04);
+}
+
+.ku-app {
+  background: var(--surface-app);
+  color: var(--text-main);
+}
+
+.ku-content-band {
+  background: var(--surface-band);
+  padding: 16px;
+}
+
+.ku-card {
+  background: var(--surface-card);
+  border-radius: var(--radius-card);
+  border: 1px solid var(--border-soft);
+  box-shadow: var(--shadow-card);
+  padding: 16px;
+  margin-bottom: 16px;
+}
+
+.ku-subcard {
+  background: var(--surface-subcard);
+  border-radius: var(--radius-subcard);
+  border: 1px solid var(--border-soft);
+  box-shadow: var(--shadow-soft);
+  padding: 12px 14px;
+  margin-bottom: 8px;
+}

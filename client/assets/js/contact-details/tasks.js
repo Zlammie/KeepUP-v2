@@ -51,6 +51,22 @@ const taskState = {
 };
 
 let taskPanelInstance = null;
+const PENDING_STATUS = 'pending';
+const isPendingTask = (task) => (task?.status || '').toLowerCase() === PENDING_STATUS;
+const getTodayRange = () => {
+  const start = new Date();
+  start.setHours(0, 0, 0, 0);
+  const end = new Date(start);
+  end.setHours(23, 59, 59, 999);
+  return { start, end };
+};
+const isDueTodayOrPastDue = (task) => {
+  if (!task?.dueDate) return false;
+  const due = new Date(task.dueDate);
+  if (Number.isNaN(due.getTime())) return false;
+  const { end } = getTodayRange();
+  return due <= end;
+};
 
 const normalizeObjectId = (value) => {
   if (!value) return null;
@@ -196,8 +212,11 @@ function buildReminderIso(dateValue, timeValue) {
 }
 
 function updateCounts(panel, countEl, filterButtons) {
-  const total = taskState.items.length;
-  if (countEl) countEl.textContent = String(total);
+  const pendingTotal = taskState.items.filter(isPendingTask).length;
+  const todayPending = taskState.items.filter(
+    (task) => isPendingTask(task) && isDueTodayOrPastDue(task)
+  ).length;
+  if (countEl) countEl.textContent = String(pendingTotal);
 
   const counts = taskState.items.reduce((acc, task) => {
     const key = task.status || 'Pending';
@@ -210,15 +229,18 @@ function updateCounts(panel, countEl, filterButtons) {
     const pillCount = btn.querySelector('.pill-count');
     if (!pillCount) return;
 
-    let value = total;
-    if (filter && filter !== 'all') {
+    let value = pendingTotal;
+    const normalizedFilter = (filter || '').toLowerCase();
+    if (normalizedFilter === 'today') {
+      value = todayPending;
+    } else if (normalizedFilter && normalizedFilter !== 'all') {
       value = counts[filter] || 0;
     }
     pillCount.textContent = String(value);
   });
 
   if (panel) {
-    panel.dataset.taskCount = String(total);
+    panel.dataset.taskCount = String(pendingTotal);
   }
 }
 
@@ -228,10 +250,19 @@ function renderTasks(listEl, emptyState, currentUserId, handlers = {}) {
 
   listEl.querySelectorAll('.todo-item').forEach((node) => node.remove());
 
-  const filtered =
-    taskState.filter === 'all'
-      ? taskState.items
-      : taskState.items.filter((task) => task.status === taskState.filter);
+  const pendingOnly = taskState.items.filter(isPendingTask);
+
+  let filtered = pendingOnly;
+  if (taskState.filter && taskState.filter !== 'all') {
+    const target = (taskState.filter || '').toLowerCase();
+    if (target === 'today') {
+      filtered = pendingOnly.filter(isDueTodayOrPastDue);
+    } else {
+      filtered = taskState.items.filter(
+        (task) => (task.status || '').toLowerCase() === target
+      );
+    }
+  }
 
   if (!filtered.length) {
     emptyState.classList.remove('hidden');
@@ -444,10 +475,160 @@ function createTaskPanel({
 
   const toggle = panel.querySelector('#todo-toggle');
   const addBtn = panel.querySelector('#todo-add');
+  const bodySection = panel.querySelector('#todo-panel-body');
+  const summaryBar = panel.querySelector('.todo-summary');
+  let tabList = panel.querySelector('.task-tablist');
+
+  if (!tabList && bodySection) {
+    tabList = document.createElement('div');
+    tabList.className = 'task-tablist';
+    tabList.setAttribute('role', 'tablist');
+    tabList.setAttribute('aria-label', 'Task drawer navigation');
+
+    [
+      { key: 'tasks', label: 'Tasks', isDefault: true },
+      { key: 'comments', label: 'Comments' },
+      { key: 'history', label: 'History' }
+    ].forEach(({ key, label, isDefault }) => {
+      const tabButton = document.createElement('button');
+      tabButton.type = 'button';
+      tabButton.className = `task-tab${isDefault ? ' is-active' : ''}`;
+      tabButton.dataset.taskTab = key;
+      tabButton.setAttribute('role', 'tab');
+      tabButton.setAttribute('aria-selected', isDefault ? 'true' : 'false');
+      tabButton.tabIndex = isDefault ? 0 : -1;
+      tabButton.textContent = label;
+      tabList.append(tabButton);
+    });
+
+    panel.insertBefore(tabList, bodySection);
+  }
+
+  let taskPane = null;
+  let commentsPane = null;
+  let historyPane = null;
+  if (bodySection) {
+    taskPane = document.createElement('div');
+    taskPane.className = 'task-pane task-pane--tasks';
+    while (bodySection.firstChild) {
+      taskPane.append(bodySection.firstChild);
+    }
+    bodySection.append(taskPane);
+
+    const commentsWrapper = document.createElement('div');
+    commentsWrapper.className = 'task-pane task-pane--comments';
+    commentsWrapper.hidden = true;
+    commentsWrapper.innerHTML = `
+      <div class="task-comments" data-comments-pane>
+        <div class="task-comments__header">
+          <div class="task-comments__title">Comments</div>
+          <div class="task-comments__hint">Showing all comments for this record.</div>
+        </div>
+        <div class="task-comments__status" data-comment-loading hidden>Loading comments...</div>
+        <div class="task-comments__status is-error" data-comment-error hidden></div>
+        <div class="task-comments__empty" data-comment-empty hidden>No comments yet.</div>
+        <div class="task-comments__list" data-comment-list></div>
+      </div>
+    `;
+    bodySection.append(commentsWrapper);
+    commentsPane = commentsWrapper;
+
+    const historyWrapper = document.createElement('div');
+    historyWrapper.className = 'task-pane task-pane--history';
+    historyWrapper.hidden = true;
+    historyWrapper.innerHTML = `
+      <div class="task-comments task-comments--history">
+        <div class="task-comments__header">
+          <div class="task-comments__title">History</div>
+          <div class="task-comments__hint">Activity history will show here.</div>
+        </div>
+        <div class="task-comments__empty">No history yet.</div>
+      </div>
+    `;
+    bodySection.append(historyWrapper);
+    historyPane = historyWrapper;
+  }
+
+  const commentsUI = {
+    pane: commentsPane?.querySelector('[data-comments-pane]') || null,
+    list: commentsPane?.querySelector('[data-comment-list]') || null,
+    empty: commentsPane?.querySelector('[data-comment-empty]') || null,
+    error: commentsPane?.querySelector('[data-comment-error]') || null,
+    loading: commentsPane?.querySelector('[data-comment-loading]') || null
+  };
+  const followupState = {
+    schedules: [],
+    loading: false
+  };
+  const commentsState = {
+    items: [],
+    loading: false,
+    error: null,
+    lastLinkedId: null
+  };
+
+  const tabButtons = Array.from(panel.querySelectorAll('.task-tab'));
+  let activeTabKey = 'tasks';
+  const syncPaneVisibility = () => {
+    if (taskPane) taskPane.hidden = activeTabKey !== 'tasks';
+    if (commentsPane) commentsPane.hidden = activeTabKey !== 'comments';
+    if (historyPane) historyPane.hidden = activeTabKey !== 'history';
+  };
+  const setActiveTab = (targetKey) => {
+    const normalizedKey = targetKey || 'tasks';
+    panel.dataset.activeTab = normalizedKey;
+    activeTabKey = normalizedKey;
+    tabButtons.forEach((btn) => {
+      const isActive = (btn.dataset.taskTab || '') === normalizedKey;
+      btn.classList.toggle('is-active', isActive);
+      btn.setAttribute('aria-selected', isActive ? 'true' : 'false');
+      btn.tabIndex = isActive ? 0 : -1;
+    });
+    syncPaneVisibility();
+    if (activeTabKey === 'comments') {
+      loadCommentsForContext();
+    }
+  };
+
+  if (tabList && tabButtons.length) {
+    setActiveTab(panel.dataset.activeTab || 'tasks');
+    tabList.addEventListener('click', (event) => {
+      const clicked = event.target.closest('.task-tab');
+      if (!clicked) return;
+      setActiveTab(clicked.dataset.taskTab || 'tasks');
+    });
+  }
+
   const listEl = panel.querySelector('#todo-list');
   const emptyState = listEl?.querySelector('.todo-empty') || null;
   const countEl = panel.querySelector('#todo-count');
-  const filterButtons = Array.from(panel.querySelectorAll('.todo-pill'));
+  let filterButtons = Array.from(panel.querySelectorAll('.todo-pill'));
+  const keepFilters = new Set(['all', 'today']);
+  filterButtons.forEach((btn) => {
+    const key = (btn.dataset.filter || '').toLowerCase();
+    if (!keepFilters.has(key)) btn.remove();
+  });
+
+  const hasToday = filterButtons.some((btn) => (btn.dataset.filter || '').toLowerCase() === 'today');
+  if (!hasToday && summaryBar) {
+    const todayBtn = document.createElement('button');
+    todayBtn.type = 'button';
+    todayBtn.className = 'todo-pill';
+    todayBtn.dataset.filter = 'today';
+    todayBtn.innerHTML = `
+      <span class="pill-label">Today</span>
+      <span class="pill-count" aria-hidden="true">0</span>
+    `;
+    const allBtn = summaryBar.querySelector('.todo-pill');
+    if (allBtn) {
+      allBtn.after(todayBtn);
+    } else {
+      summaryBar.prepend(todayBtn);
+    }
+  }
+  filterButtons = Array.from(panel.querySelectorAll('.todo-pill')).filter((btn) =>
+    keepFilters.has((btn.dataset.filter || '').toLowerCase())
+  );
   const followupAutomation = {
     section: panel.querySelector('[data-followup-schedule]') || null,
     select: panel.querySelector('[data-followup-select]') || null,
@@ -458,6 +639,38 @@ function createTaskPanel({
     activeMeta: panel.querySelector('[data-followup-active-meta]') || null,
     unassign: panel.querySelector('[data-followup-unassign]') || null
   };
+
+  if (followupAutomation.section) {
+    const section = followupAutomation.section;
+    const content = document.createElement('div');
+    content.className = 'todo-automation__content';
+    while (section.firstChild) {
+      content.append(section.firstChild);
+    }
+    const toggle = document.createElement('button');
+    toggle.type = 'button';
+    toggle.className = 'todo-automation__toggle';
+    toggle.setAttribute('aria-expanded', 'true');
+    toggle.innerHTML = `
+      <span class="todo-automation__caret" aria-hidden="true"></span>
+      <span class="todo-automation__label">Apply a follow-up schedule</span>
+    `;
+    section.append(toggle);
+    section.append(content);
+
+    const setCollapsed = (collapsed) => {
+      section.classList.toggle('is-collapsed', collapsed);
+      content.hidden = Boolean(collapsed);
+      toggle.setAttribute('aria-expanded', collapsed ? 'false' : 'true');
+    };
+
+    toggle.addEventListener('click', () => {
+      const next = !section.classList.contains('is-collapsed');
+      setCollapsed(next);
+    });
+
+    setCollapsed(false);
+  }
 
   if (listEl) {
     listEl.addEventListener('click', (event) => {
@@ -474,11 +687,6 @@ function createTaskPanel({
       toggleAssignmentStatusById(taskId, target, refId);
     });
   }
-
-  const followupState = {
-    schedules: [],
-    loading: false
-  };
 
   const viewerUserId = currentUserId ? String(currentUserId) : null;
 
@@ -504,6 +712,105 @@ function createTaskPanel({
     if (addBtn) {
       addBtn.disabled = !enabled;
       addBtn.setAttribute('aria-disabled', String(!enabled));
+    }
+  };
+
+  const setCommentsLoading = (loading) => {
+    commentsState.loading = loading;
+    if (commentsUI.loading) commentsUI.loading.hidden = !loading;
+  };
+
+  const showCommentError = (message) => {
+    if (!commentsUI.error) return;
+    commentsUI.error.textContent = message || '';
+    commentsUI.error.hidden = !message;
+  };
+
+  const setCommentsEmpty = (message) => {
+    if (!commentsUI.empty) return;
+    commentsUI.empty.textContent = message || 'No comments yet.';
+    commentsUI.empty.hidden = false;
+  };
+
+  const renderCommentsList = (items) => {
+    if (!commentsUI.list) return;
+    commentsUI.list.innerHTML = '';
+    const records = Array.isArray(items) ? items : [];
+    if (!records.length) {
+      if (commentsUI.empty) commentsUI.empty.hidden = false;
+      return;
+    }
+    if (commentsUI.empty) commentsUI.empty.hidden = true;
+    records.forEach((comment) => {
+      const row = document.createElement('div');
+      row.className = 'task-comment';
+      const when = comment?.timestamp ? new Date(comment.timestamp) : null;
+      const whenLabel =
+        when && !Number.isNaN(when.getTime())
+          ? when.toLocaleString(undefined, { dateStyle: 'medium', timeStyle: 'short' })
+          : '';
+      const author = comment?.author || comment?.createdBy || '';
+      const type = comment?.type || 'Note';
+      row.innerHTML = `
+        <div class="task-comment__meta">
+          <span class="task-comment__type">${type}</span>
+          ${whenLabel ? `<span class="task-comment__time">${whenLabel}</span>` : ''}
+          ${author ? `<span class="task-comment__author">${author}</span>` : ''}
+        </div>
+        <div class="task-comment__body">${comment?.content || ''}</div>
+      `;
+      commentsUI.list.append(row);
+    });
+  };
+
+  const resetComments = (message = null) => {
+    commentsState.items = [];
+    commentsState.lastLinkedId = null;
+    commentsState.error = null;
+    setCommentsLoading(false);
+    showCommentError('');
+    renderCommentsList([]);
+    if (message) {
+      setCommentsEmpty(message);
+    } else if (commentsUI.empty) {
+      commentsUI.empty.hidden = true;
+    }
+  };
+
+  const loadCommentsForContext = async (force = false) => {
+    if (!commentsUI.list) return;
+    const targetModel = (resolveTargetModel() || '').toLowerCase();
+    const linkedId = resolveLinkedId();
+    if (!linkedId) {
+      resetComments('Save this record to see comments.');
+      return;
+    }
+    if (targetModel !== 'contact') {
+      resetComments('Comments are available for contacts.');
+      return;
+    }
+    if (!force && commentsState.lastLinkedId === linkedId && commentsState.items.length) return;
+
+    setCommentsLoading(true);
+    showCommentError('');
+    if (commentsUI.empty) commentsUI.empty.hidden = true;
+    try {
+      const res = await fetch(`/api/comments/${linkedId}`);
+      if (!res.ok) throw new Error(await res.text());
+      const comments = await res.json();
+      commentsState.items = Array.isArray(comments) ? comments : [];
+      commentsState.lastLinkedId = linkedId;
+      renderCommentsList(commentsState.items);
+      if (!commentsState.items.length) {
+        setCommentsEmpty('No comments yet.');
+      }
+    } catch (err) {
+      console.error('[tasks] failed to load comments', err);
+      commentsState.error = err?.message || 'Unable to load comments right now.';
+      showCommentError(commentsState.error);
+      renderCommentsList([]);
+    } finally {
+      setCommentsLoading(false);
     }
   };
 
@@ -1635,6 +1942,7 @@ function createTaskPanel({
   }
 
   const setContext = async (contextUpdates = {}) => {
+    const previousLinkedId = resolveLinkedId();
     if (Object.prototype.hasOwnProperty.call(contextUpdates, 'contactId')) {
       contextContactId = contextUpdates.contactId ?? null;
     }
@@ -1668,14 +1976,25 @@ function createTaskPanel({
       refreshLenderSelectState();
     }
 
-    const hasContext = Boolean(resolveLinkedId());
+    const nextLinkedId = resolveLinkedId();
+    const hasContext = Boolean(nextLinkedId);
     updatePanelAvailability(hasContext);
     if (!hasContext) {
       taskState.items = [];
       refresh();
+      resetComments('Save this record to see comments.');
       return;
     }
+
+    if (nextLinkedId !== previousLinkedId) {
+      resetComments();
+    }
+
     await loadTasksForContext();
+
+    if (activeTabKey === 'comments') {
+      loadCommentsForContext(true);
+    }
   };
 
   const handleUnassignSchedule = async () => {

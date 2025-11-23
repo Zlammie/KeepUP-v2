@@ -1,4 +1,4 @@
-// assets/js/contact-details/lotLink.js
+﻿// assets/js/contact-details/lotLink.js
 import { DOM, refreshDOM } from './domCache.js';
 import { getState, setLinkedLot } from './state.js';
 import {
@@ -42,7 +42,7 @@ function extractIds(snapshot, mount) {
 function setText(id, value) {
   const el = document.getElementById(id);
   if (!el) return;
-  el.textContent = (value ?? '—').toString();
+  el.textContent = (value ?? 'GÇö').toString();
 }
 
 function planLabelFrom(lot) {
@@ -53,6 +53,44 @@ function planLabelFrom(lot) {
   if (typeof fp === 'string') return fp; // legacy import stored string
   if (lot.floorPlanName) return lot.floorPlanName;
   return '';
+}
+
+function extractDateTimeParts(value) {
+  if (!value) return { dateLabel: 'N/A', timeLabel: '' };
+  const dt = new Date(value);
+  if (Number.isNaN(dt.getTime())) return { dateLabel: 'N/A', timeLabel: '' };
+  return {
+    dateLabel: dt.toLocaleDateString(),
+    timeLabel: dt.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
+  };
+}
+
+const resolveLenderCloseStatus = (lot) =>
+  lot?.lenderCloseStatus || lot?.lenderClose || lot?.lender || 'N/A';
+
+const resolveCloseDateValue = (lot) =>
+  lot?.closeDateTime || lot?.closeDate || lot?.closingDate || null;
+
+function deriveCloseMonth(lot) {
+  if (!lot) return 'N/A';
+  const raw = typeof lot.closeMonth === 'string' ? lot.closeMonth.trim() : '';
+  if (raw) {
+    if (/^\\d{4}-\\d{2}$/.test(raw)) {
+      const dt = new Date(`${raw}-01`);
+      if (!Number.isNaN(dt.getTime())) {
+        return dt.toLocaleString(undefined, { month: 'short', year: 'numeric' });
+      }
+    }
+    return raw;
+  }
+  const closeVal = resolveCloseDateValue(lot);
+  if (closeVal) {
+    const dt = new Date(closeVal);
+    if (!Number.isNaN(dt.getTime())) {
+      return dt.toLocaleString(undefined, { month: 'short', year: 'numeric' });
+    }
+  }
+  return 'N/A';
 }
 
 
@@ -315,21 +353,14 @@ async function hydrateCommunityLotAndBind(lotSnapshot) {
     setText('linked-projected-completion', fmtDate(srvLot.expectedCompletionDate));
 
     // --- close / lender / walks ---
-    setText('linked-close-month', srvLot.closeMonth || '—');
-    setText('linked-lender-close-status', srvLot.lender || '—');
-    // closeDateTime may include date+time; split if possible
-    if (srvLot.closeDateTime) {
-      const s = String(srvLot.closeDateTime);
-      const [d, t] = s.includes('T') ? s.split('T') : s.split(/\s+/);
-      setText('linked-close-date', fmtDate(d || srvLot.closeDateTime));
-      setText('linked-close-time', (t || '').trim());
-    } else {
-      setText('linked-close-date', fmtDate(null));
-      setText('linked-close-time', '');
-    }
-    setText('linked-third-party-date', fmtDate(srvLot.thirdParty));
-    setText('linked-first-walk-date',  fmtDate(srvLot.firstWalk));
-    setText('linked-final-signoff-date', fmtDate(srvLot.finalSignOff));
+        setText('linked-close-month', deriveCloseMonth(srvLot));
+        setText('linked-lender-close-status', resolveLenderCloseStatus(srvLot));
+    const closeParts = extractDateTimeParts(resolveCloseDateValue(srvLot));
+    setText('linked-close-date', closeParts.dateLabel);
+    setText('linked-close-time', closeParts.timeLabel);
+    setText('linked-third-party-date', fmtDate(srvLot.thirdParty || srvLot.thirdPartyDate));
+    setText('linked-first-walk-date', fmtDate(srvLot.firstWalk || srvLot.firstWalkDate));
+    setText('linked-final-signoff-date', fmtDate(srvLot.finalSignOff || srvLot.finalSignOffDate));
 
     // --- plan & elevation ---
     const plan = planLabelFrom(srvLot) || planLabelFrom(lotSnapshot);
@@ -351,20 +382,14 @@ async function hydrateCommunityLotAndBind(lotSnapshot) {
       setText('linked-release-date', fmtDate(lotSnapshot.releaseDate));
       setText('linked-projected-completion', fmtDate(lotSnapshot.expectedCompletionDate));
 
-      setText('linked-close-month', lotSnapshot.closeMonth ?? '—');
-      setText('linked-lender-close-status', lotSnapshot.lender ?? '—');
-      if (lotSnapshot.closeDateTime) {
-        const s = String(lotSnapshot.closeDateTime);
-        const [d, t] = s.includes('T') ? s.split('T') : s.split(/\s+/);
-        setText('linked-close-date', fmtDate(d || lotSnapshot.closeDateTime));
-        setText('linked-close-time', (t || '').trim());
-      } else {
-        setText('linked-close-date', fmtDate(null));
-        setText('linked-close-time', '');
-      }
-      setText('linked-third-party-date', fmtDate(lotSnapshot.thirdParty));
-      setText('linked-first-walk-date',  fmtDate(lotSnapshot.firstWalk));
-      setText('linked-final-signoff-date', fmtDate(lotSnapshot.finalSignOff));
+      setText('linked-close-month', deriveCloseMonth(lotSnapshot));
+      setText('linked-lender-close-status', resolveLenderCloseStatus(lotSnapshot));
+      const snapCloseParts = extractDateTimeParts(resolveCloseDateValue(lotSnapshot));
+      setText('linked-close-date', snapCloseParts.dateLabel);
+      setText('linked-close-time', snapCloseParts.timeLabel);
+      setText('linked-third-party-date', fmtDate(lotSnapshot.thirdParty || lotSnapshot.thirdPartyDate));
+      setText('linked-first-walk-date',  fmtDate(lotSnapshot.firstWalk || lotSnapshot.firstWalkDate));
+      setText('linked-final-signoff-date', fmtDate(lotSnapshot.finalSignOff || lotSnapshot.finalSignOffDate));
 
       const plan = planLabelFrom(lotSnapshot);
       const elev = lotSnapshot.elevation || '';
@@ -446,7 +471,7 @@ function attachUnlinkHandler() {
         method: 'DELETE'
       });
       if (!res.ok) throw new Error(await res.text());
-      setLinkedLot(null);  // local state → no linked lot
+      setLinkedLot(null);  // local state GåÆ no linked lot
 
       if (DOM.linkedLotDisplay) {
         DOM.linkedLotDisplay.innerHTML = '';
@@ -461,3 +486,6 @@ function attachUnlinkHandler() {
     }
   });
 }
+
+
+

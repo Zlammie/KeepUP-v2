@@ -4,6 +4,7 @@
   <meta charset="UTF-8" />
   <title>Contact Details</title>
   <link rel="stylesheet" href="/assets/css/main.css">
+  <link rel="stylesheet" href="/assets/css/design-system.css">
 </head>
 <body>
 
@@ -15,14 +16,14 @@
 
   <%- include('../partials/nav') %>
   <%- include('../partials/top-nav-contacts') %>
-<div class="page-wrapper">
+<div class="page-wrapper ku-app">
   <main class="contact-content">
   <form id="contactForm">
     <div class="horizontal-cont">
-      <div class="card .card--grey main-cont">
+      <div class="card card--grey main-cont ku-content-band">
 
         <!-- Deal Info -->
-        <div class="card card--white deal-info">
+        <div class="card card--white deal-info ku-card">
           <div class="form-group">
             <label for="owner">Owner</label>
             <input type="text" id="owner" />
@@ -33,12 +34,12 @@
               id="community-select"
               name="communityIds"
               data-autosave="communityIds"
-              class="select-standard"
+              class="select-standard visually-hidden"
               multiple
               size="6"
-              aria-label="Select one or more communities">
+              aria-label="Select one or more communities (use chips below)">
             </select>
-            <div class="form-text">Hold Ctrl/Cmd to select more than one.</div>
+            <div id="community-chip-list" class="community-chip-list" role="listbox" aria-label="Select communities"></div>
             <!-- keep this if your existing save code expects it; our JS will fill it -->
             <input type="hidden" id="communities" />
           </div>
@@ -49,7 +50,7 @@
         </div>
 
         <!-- Customer Info -->
-        <div class="card card--white cus-info-container">
+        <div class="card card--white cus-info-container ku-card">
             <div class="form-group">
               <div class="status-cont">
                 <label for="status">Status</label>
@@ -155,7 +156,7 @@
           </div>
 
         <!-- Realtor Info -->
-        <div class="card card--white realtor-container">
+        <div class="card card--white realtor-container ku-card">
           <input type="hidden" id="realtorId" name="realtorId" data-autosave="realtorId" />
 
           <div class="form-group">
@@ -185,13 +186,13 @@
           </div>
         </div>
 
-      <div class="lender-cont">
+      <div class="card card--white lender-cont ku-card">
           <!-- Lender Info -->
         <form class="lender-form">
           <div class="lender-search-container">
 
 <!-- ===== LENDER SEARCH BLOCK ===== -->
-      <section id="lender-link-section" class="lender-link-card">
+      <section id="lender-link-section" class="lender-link-card ku-subcard">
         <h3 class="lender-link-title">Link a Lender</h3>
 
         <!-- Search input -->
@@ -237,7 +238,7 @@
       <!-- ===== END SEARCH BLOCK ===== -->
 
     <!-- ===== LINKED LENDERS DISPLAY ===== -->
-            <section id="linked-lenders-section">
+            <section id="linked-lenders-section" class="ku-subcard">
               <h3>Linked Lenders</h3>
               <div id="lender-list-container"></div>
             </section>
@@ -253,7 +254,7 @@
 
     <!-- Top Container -->
         <div class="top-comment-cont">
-      <div class="card card--grey top-container">
+      <div class="card card--grey top-container ku-card">
           <div class="disc-cont">
             <div id="contact-full-name" class="contact-name">Full Name</div>
             <div id="contact-status-badge" class="status-badge">Status</div>
@@ -267,25 +268,25 @@
             <div id="community-summary" class="community-grid">
 
               <!-- Top: Lot Line Up (full width) -->
-              <section class="card-block lot-line">
+              <section class="card-block lot-line ku-subcard">
                 <div class="block-label">Lot Line Up</div>
                 <div class="block-value" id="summary-lotLineUp"></div>
               </section>
 
               <!-- Middle left: Floor Plans -->
-              <section class="card-block floorplans-block">
+              <section class="card-block floorplans-block ku-subcard">
                 <div class="block-label">Floor Plans</div>
                 <div class="block-value" id="summary-floorplans"></div>
               </section>
 
               <!-- Middle right: Facing -->
-              <section class="card-block facing-block">
+              <section class="card-block facing-block ku-subcard">
                 <div class="block-label">Facing</div>
                 <div class="block-value" id="summary-facing"></div>
               </section>
 
               <!-- Bottom left: Buy Time + Buy Month (stacked) -->
-              <section class="card-block buy-block">
+              <section class="card-block buy-block ku-subcard">
                 <div class="sub-block">
                   <div class="block-label">Buy Time</div>
                   <div class="block-value" id="summary-buyTime"></div>
@@ -297,7 +298,7 @@
               </section>
 
               <!-- Bottom right: Living Condition -->
-              <section class="card-block living-block">
+              <section class="card-block living-block ku-subcard">
                 <div class="block-label">Living Condition</div>
                 <div class="block-value" id="summary-living"></div>
               </section>
@@ -334,7 +335,7 @@
       </div>
     </div>
 
-    <div class="comment-section">
+    <div class="comment-section ku-card">
       <h3>Comments</h3>
   
       <div class="comment-form">
@@ -384,7 +385,7 @@
 
       <section class="todo-automation" data-followup-schedule>
         <div class="todo-automation-text">
-          <p class="todo-automation-title">Apply a follow-up schedule</p>
+          <p class="todo-automation-title">Follow-up schedule</p>
           <p class="todo-automation-body">Use your saved cadence to auto-create the next touchpoints for this contact.</p>
         </div>
         <div class="todo-automation-controls">
