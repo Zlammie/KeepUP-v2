@@ -1,7 +1,6 @@
 // /assets/js/realtors/index.js
 import { fetchRealtors, deleteRealtor } from './api.js';
 import { renderTable, setActionHandlers } from './render.js';
-import { initRealtorModal } from './modal.js';
 import { initTaskPanel } from '../contact-details/tasks.js';
 
 // --- contacts fetch (for stats) ---
@@ -85,7 +84,7 @@ function closeTaskDrawer() {
   }
 }
 
-async function openRealtorTaskDrawer({ id, name }) {
+async function openRealtorTaskDrawer({ id, name }, tabKey = 'tasks') {
   if (!id) return;
   if (!showTaskDrawer(name || 'Realtor')) return;
 
@@ -105,6 +104,7 @@ async function openRealtorTaskDrawer({ id, name }) {
         defaultTitleBuilder: titleBuilder,
         lenderOptions: null
       });
+      taskPanelInstance.setActiveTab?.(tabKey || 'tasks');
     })
     .catch((err) => {
       console.error('[realtors] Failed to open task drawer', err);
@@ -122,7 +122,8 @@ document.addEventListener('click', (event) => {
 taskBackdropEl?.addEventListener('click', () => closeTaskDrawer());
 
 setActionHandlers({
-  onTask: openRealtorTaskDrawer
+  onTask: openRealtorTaskDrawer,
+  onComment: (payload) => openRealtorTaskDrawer(payload, 'comments')
 });
 
 // --- Top bar state/logic ---
@@ -131,6 +132,7 @@ const state = {
   statsByRealtor: new Map(),
   search: '',
   filter: 'all', // 'all' | 'has-purchased' | 'has-negotiation' | 'has-closed'
+  attentionOnly: false
 };
 
 function matchesSearch(r, q) {
@@ -152,9 +154,13 @@ function realtorPassesFilter(r) {
 }
 
 function applyFilters() {
-  const list = state.allRealtors
+  let list = state.allRealtors
     .filter(r => matchesSearch(r, state.search))
     .filter(r => realtorPassesFilter(r));
+
+  if (state.attentionOnly) {
+    list = list.filter(r => !!r.requiresAttention);
+  }
 
   renderTable(list, state.statsByRealtor);
 
@@ -178,6 +184,7 @@ function initTopBar() {
   const filterBox  = document.getElementById('realtorFilters');
   const resetBtn   = document.getElementById('resetRealtorFilters');
   const delToggle  = document.getElementById('toggleDeleteMode');
+  const attentionToggle = document.getElementById('attentionFilterToggle');
 
   // Delete mode toggle (show/hide last column)
   delToggle?.addEventListener('click', () => {
@@ -194,6 +201,14 @@ function initTopBar() {
     }, 200);
   });
 
+  // Attention filter
+  attentionToggle?.addEventListener('click', () => {
+    state.attentionOnly = !state.attentionOnly;
+    attentionToggle.classList.toggle('active', state.attentionOnly);
+    attentionToggle.setAttribute('aria-pressed', state.attentionOnly ? 'true' : 'false');
+    applyFilters();
+  });
+
   // Filter pills
   filterBox?.addEventListener('click', (e) => {
     const btn = e.target.closest('.status-pill');
@@ -208,9 +223,14 @@ function initTopBar() {
   resetBtn?.addEventListener('click', () => {
     state.search = '';
     state.filter = 'all';
+    state.attentionOnly = false;
     if (searchEl) searchEl.value = '';
     filterBox?.querySelectorAll('.status-pill').forEach(b => b.classList.remove('active'));
     filterBox?.querySelector('.status-pill[data-filter="all"]')?.classList.add('active');
+    if (attentionToggle) {
+      attentionToggle.classList.remove('active');
+      attentionToggle.setAttribute('aria-pressed', 'false');
+    }
     applyFilters();
   });
 }
@@ -237,7 +257,6 @@ document.addEventListener('click', async (e) => {
 // Single init (no duplicates)
 document.addEventListener('DOMContentLoaded', async () => {
   try {
-    initRealtorModal(); // sets up comment modal hooks
     const [realtors, contacts] = await Promise.all([fetchRealtors(), fetchContacts()]);
     state.allRealtors    = realtors;
     state.statsByRealtor = buildRealtorStats(contacts);

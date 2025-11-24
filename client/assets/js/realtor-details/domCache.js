@@ -5,6 +5,7 @@ import { $, $$ } from './utils.js';
 export const dom = {
   // Identity header
   hdrName:  $('#hdrName'),
+  hdrBrokerage: $('#hdrBrokerage'),
   hdrPhone: $('#hdrPhone'),
   hdrEmail: $('#hdrEmail'),
   toggleEditBtn: $('#toggleEdit'),

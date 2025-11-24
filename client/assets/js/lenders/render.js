@@ -3,7 +3,8 @@ import { updateLender } from './api.js';
 import { formatPhoneDisplay } from '../shared/phone.js';
 
 let actionHandlers = {
-  onTask: null
+  onTask: null,
+  onComment: null
 };
 
 export function setActionHandlers(handlers = {}) {
@@ -82,7 +83,7 @@ export function renderTable(lenders, statsByLender = new Map()) {
       commentBtn.addEventListener('click', (event) => {
         event.preventDefault();
         event.stopPropagation();
-        console.log('open comment modal for', lender._id);
+        actionHandlers.onComment?.({ id: lender._id, name: fullName });
       });
       wrapper.appendChild(commentBtn);
 

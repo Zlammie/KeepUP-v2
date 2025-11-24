@@ -1,6 +1,5 @@
 // /assets/js/contacts/index.js
 import { fetchContacts } from './api.js';
-import { initModal } from './modal.js';
 import { renderTable, setActionHandlers } from './render.js';
 import { initTopBar } from './topbar.js';
 import { initTaskPanel } from '../contact-details/tasks.js';
@@ -46,7 +45,7 @@ function closeTaskDrawer() {
   }
 }
 
-async function openTaskDrawerForContact({ id, name, status }) {
+async function openTaskDrawerForContact({ id, name, status }, tabKey = 'tasks') {
   if (!id) return;
   if (!showTaskDrawer(name || 'Contact')) return;
 
@@ -65,6 +64,7 @@ async function openTaskDrawerForContact({ id, name, status }) {
         defaultTitleBuilder: null,
         lenderOptions: null
       });
+      taskPanelInstance.setActiveTab?.(tabKey || 'tasks');
     });
 
   await currentTaskPromise;
@@ -81,6 +81,9 @@ taskBackdropEl?.addEventListener('click', () => closeTaskDrawer());
 setActionHandlers({
   onTask: (payload) => {
     openTaskDrawerForContact(payload);
+  },
+  onComment: (payload) => {
+    openTaskDrawerForContact(payload, 'comments');
   }
 });
 
@@ -123,8 +126,6 @@ contactsTable.addEventListener('click', async (e) => {
 });
 
 document.addEventListener('DOMContentLoaded', async () => {
-  initModal();
-
   try {
     const contacts = await fetchContacts();
     await initTopBar(contacts);

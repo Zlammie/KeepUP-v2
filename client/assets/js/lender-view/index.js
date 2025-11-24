@@ -101,7 +101,7 @@ function showTaskDrawer(name, context = 'contact') {
   return true;
 }
 
-async function openContactTaskDrawer(contactId, contactName, contactStatus = 'New') {
+async function openContactTaskDrawer(contactId, contactName, contactStatus = 'New', tabKey = 'tasks') {
   if (!contactId) return;
   if (!showTaskDrawer(contactName || 'Contact', 'contact')) return;
 
@@ -120,12 +120,13 @@ async function openContactTaskDrawer(contactId, contactName, contactStatus = 'Ne
         defaultTitleBuilder: null,
         lenderOptions: null
       });
+      taskPanelInstance.setActiveTab?.(tabKey || 'tasks');
     });
 
   await currentTaskPromise;
 }
 
-async function openLenderTaskDrawer() {
+async function openLenderTaskDrawer(tabKey = 'tasks') {
   if (!state.lenderId) return;
   const lenderName = getLenderDisplayName();
   if (!showTaskDrawer(lenderName, 'lender')) return;
@@ -147,11 +148,12 @@ async function openLenderTaskDrawer() {
         lenderOptions: [
           {
             id: state.lenderId,
-            name: lenderName,
-            isPrimary: true
-          }
-        ]
-      });
+          name: lenderName,
+          isPrimary: true
+        }
+      ]
+    });
+      taskPanelInstance.setActiveTab?.(tabKey || 'tasks');
     })
     .catch((err) => {
       console.error('[lender-view] Failed to open lender tasks', err);
@@ -179,10 +181,11 @@ function wireTaskButtons() {
       if (!context) return;
       const action = button.dataset.action;
       const contactId = context.dataset.contact;
-      if (action === 'task' && contactId) {
+      if ((action === 'task' || action === 'comment') && contactId) {
         const contactName = context.dataset.contactName || 'Contact';
         const contactStatus = context.dataset.contactStatus || 'New';
-        openContactTaskDrawer(contactId, contactName, contactStatus);
+        const tabKey = action === 'comment' ? 'comments' : 'tasks';
+        openContactTaskDrawer(contactId, contactName, contactStatus, tabKey);
       }
     });
   });
@@ -192,7 +195,9 @@ function wireTaskButtons() {
     const button = event.target.closest('.table-icon-btn');
     if (!button) return;
     if (button.dataset.action === 'task') {
-      openLenderTaskDrawer();
+      openLenderTaskDrawer('tasks');
+    } else if (button.dataset.action === 'comment') {
+      openLenderTaskDrawer('comments');
     }
   });
 

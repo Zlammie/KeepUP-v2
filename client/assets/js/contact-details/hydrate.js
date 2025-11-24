@@ -37,7 +37,8 @@ export async function hydrateAll() {
   // ðŸ‘‰ NEW: base inputs
   populateBaseFields(contact);
   setInputValue('owner', contact?.owner);
-  setDateInputValue('visit-date', contact?.visitDate);
+  const visitDate = contact?.visitDate || contact?.VisitDate || contact?.visit_date;
+  setDateInputValue('visit-date', visitDate);
   await populateRealtor(contact);
 
   // 2) Name in header (already there)

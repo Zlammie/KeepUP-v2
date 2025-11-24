@@ -7,7 +7,8 @@ const state = {
   allLenders: [],
   statsByLender: new Map(),
   search: '',
-  filter: 'all' // 'all' | 'has-invited' | 'purchased-not-approved' | 'has-purchased'
+  filter: 'all', // 'all' | 'has-invited' | 'purchased-not-approved' | 'has-purchased'
+  attentionOnly: false
 };
 
 const taskBackdropEl = document.getElementById('task-drawer-backdrop');
@@ -48,7 +49,7 @@ function closeTaskDrawer() {
   }
 }
 
-async function openLenderTaskDrawer({ id, name }) {
+async function openLenderTaskDrawer({ id, name }, tabKey = 'tasks') {
   if (!id) return;
   if (!showTaskDrawer(name || 'Lender')) return;
 
@@ -70,6 +71,7 @@ async function openLenderTaskDrawer({ id, name }) {
           { id, name: name || 'Lender', isPrimary: true }
         ]
       });
+      taskPanelInstance.setActiveTab?.(tabKey || 'tasks');
     })
     .catch((err) => {
       console.error('[lenders] Failed to open task drawer', err);
@@ -87,7 +89,8 @@ document.addEventListener('click', (event) => {
 taskBackdropEl?.addEventListener('click', () => closeTaskDrawer());
 
 setActionHandlers({
-  onTask: openLenderTaskDrawer
+  onTask: (payload) => openLenderTaskDrawer(payload, 'tasks'),
+  onComment: (payload) => openLenderTaskDrawer(payload, 'comments')
 });
 function matchesSearch(l, q) {
   if (!q) return true;
@@ -116,9 +119,13 @@ function lenderPassesFilter(l) {
 
 function applyFilters() {
   // scope list by search + filter
-  const list = state.allLenders
+  let list = state.allLenders
     .filter(l => matchesSearch(l, state.search))
     .filter(l => lenderPassesFilter(l));
+
+  if (state.attentionOnly) {
+    list = list.filter(l => !!l.requiresAttention);
+  }
 
   // render the scoped list with the same stats map
   renderTable(list, state.statsByLender);
@@ -143,7 +150,8 @@ function applyFilters() {
 function initTopBar() {
   const searchEl = document.getElementById('lenderSearch');
   const filterBox = document.getElementById('lenderFilters');
-  const resetBtn  = document.getElementById('resetLenderFilters'); // add if you want a Reset button
+  const resetBtn  = document.getElementById('resetLenderFilters') || document.getElementById('resetFilters');
+  const attentionToggle = document.getElementById('attentionFilterToggle');
 
   // search (debounced)
   let t = null;
@@ -160,6 +168,13 @@ function initTopBar() {
     document.querySelectorAll('.col-delete').forEach(el => el.classList.toggle('d-none'));
   });
 
+  attentionToggle?.addEventListener('click', () => {
+    state.attentionOnly = !state.attentionOnly;
+    attentionToggle.classList.toggle('active', state.attentionOnly);
+    attentionToggle.setAttribute('aria-pressed', state.attentionOnly ? 'true' : 'false');
+    applyFilters();
+  });
+
   // pill filters
   filterBox?.addEventListener('click', (e) => {
     const btn = e.target.closest('.status-pill');
@@ -174,9 +189,14 @@ function initTopBar() {
   resetBtn?.addEventListener('click', () => {
     state.search = '';
     state.filter = 'all';
+    state.attentionOnly = false;
     if (searchEl) searchEl.value = '';
     filterBox?.querySelectorAll('.status-pill').forEach(b => b.classList.remove('active'));
     filterBox?.querySelector('.status-pill[data-filter="all"]')?.classList.add('active');
+    if (attentionToggle) {
+      attentionToggle.classList.remove('active');
+      attentionToggle.setAttribute('aria-pressed', 'false');
+    }
     applyFilters();
   });
 }

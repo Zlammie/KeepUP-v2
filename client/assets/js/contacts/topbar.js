@@ -13,6 +13,7 @@ const state = {
   currentCommunity: COMMUNITY_ALL,
   currentStatus: 'all',
   filterMode: 'core',
+  attentionOnly: false,
   sort: { field: null, dir: 1 }, // dir = 1 (asc), -1 (desc)
   searchTerm: '',
   isCreating: false,
@@ -333,6 +334,10 @@ function applyFilters() {
     list = list.filter((c) => normalizeStatus(c.status) === currentStatus);
   }
 
+  if (state.attentionOnly) {
+    list = list.filter((c) => !!c.requiresAttention);
+  }
+
   const rawSearch = (state.searchTerm || '').trim();
   if (rawSearch) {
     const lowerTerm = rawSearch.toLowerCase();
@@ -453,11 +458,11 @@ function initToggle() {
 }
 
 const visitHeader = document.getElementById('visitDateHeader');
-const arrow = document.getElementById('visitDateArrow');
-if (arrow) arrow.textContent = '--';
+  const arrow = document.getElementById('visitDateArrow');
+  if (arrow) arrow.textContent = '--';
 
-visitHeader?.addEventListener('click', () => {
-  if (state.sort.field === 'visitDate') {
+  visitHeader?.addEventListener('click', () => {
+    if (state.sort.field === 'visitDate') {
     state.sort.dir = -state.sort.dir;
   } else {
     state.sort.field = 'visitDate';
@@ -476,11 +481,17 @@ function bindReset() {
     state.filterMode = 'core';
     state.sort = { field: null, dir: 1 };
     state.searchTerm = '';
+    state.attentionOnly = false;
 
     const select = document.getElementById('communitySelect');
     if (select) select.value = COMMUNITY_ALL;
     const searchInput = document.getElementById('contactsSearchInput');
     if (searchInput) searchInput.value = '';
+    const attentionToggle = document.getElementById('attentionFilterToggle');
+    if (attentionToggle) {
+      attentionToggle.classList.remove('active');
+      attentionToggle.setAttribute('aria-pressed', 'false');
+    }
 
     hideInlineLeadForm();
 
@@ -491,6 +502,17 @@ function bindReset() {
     const arrowEl = document.getElementById('visitDateArrow');
     if (arrowEl) arrowEl.textContent = '--';
 
+    applyFilters();
+  });
+}
+
+function bindAttentionFilter() {
+  const toggle = document.getElementById('attentionFilterToggle');
+  if (!toggle) return;
+  toggle.addEventListener('click', () => {
+    state.attentionOnly = !state.attentionOnly;
+    toggle.classList.toggle('active', state.attentionOnly);
+    toggle.setAttribute('aria-pressed', state.attentionOnly ? 'true' : 'false');
     applyFilters();
   });
 }
@@ -516,6 +538,7 @@ export async function initTopBar(contacts) {
   buildStatusPills();
   initStatusButtons();
   initToggle();
+  bindAttentionFilter();
   bindReset();
   applyFilters();
 }

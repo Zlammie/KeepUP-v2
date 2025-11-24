@@ -103,17 +103,45 @@ function getPurchaserMeta(lot) {
 }
 
 // ---------- cell helpers ----------
-function iconCell(src, alt) {
-  const td = el('td', 'icon-cell text-center');
-  const btn = el('button', 'icon-btn btn btn-sm btn-link');
-  btn.type = 'button';
-  const img = el('img');
-  img.src = src;
-  img.alt = alt;
-  img.width = 16;
-  img.height = 16;
-  btn.appendChild(img);
-  td.appendChild(btn);
+function actionsCell(lot) {
+  const td = el('td', 'contact-table-icons');
+  const wrap = el('div', 'table-action-buttons');
+  const labelTarget =
+    trimToString(lot.addressLine1 || lot.address || lot.jobNumber || lot.lot || 'this lot') ||
+    'this lot';
+  const lotId =
+    lot._id ||
+    lot.id ||
+    (typeof lot.lot === 'object' ? lot.lot._id || lot.lot.id : '') ||
+    '';
+  const communityId =
+    lot.communityId ||
+    (lot.community && (lot.community._id || lot.community.id)) ||
+    window.__communityId ||
+    '';
+  const jobNumber = trimToString(lot.jobNumber);
+
+  const makeBtn = (src, label, action) => {
+    const btn = el('button', 'table-icon-btn');
+    btn.type = 'button';
+    btn.setAttribute('aria-label', label);
+    if (action) btn.dataset.action = action;
+    if (lotId) btn.dataset.lotId = lotId;
+    if (communityId) btn.dataset.communityId = communityId;
+    if (labelTarget) btn.dataset.address = labelTarget;
+    if (jobNumber) btn.dataset.jobNumber = jobNumber;
+    const img = el('img');
+    img.src = src;
+    img.alt = '';
+    btn.appendChild(img);
+    return btn;
+  };
+
+  wrap.appendChild(makeBtn('/assets/icons/add_task.svg', `Add or view tasks for ${labelTarget}`, 'task'));
+  wrap.appendChild(makeBtn('/assets/icons/exclamation.svg', `Flag ${labelTarget}`, 'flag'));
+  wrap.appendChild(makeBtn('/assets/icons/comment.svg', `Add a comment for ${labelTarget}`, 'comment'));
+
+  td.appendChild(wrap);
   return td;
 }
 function twoLineCell(top, sub, strong = false) {
@@ -125,18 +153,54 @@ function twoLineCell(top, sub, strong = false) {
   return td;
 }
 function statusBadge(statusRaw) {
-  const status = String(statusRaw || '').toLowerCase();
-  const span = el('span', 'status-badge ' + (
-    status.includes('available') ? 'badge-available'
-      : status.includes('spec') ? 'badge-spec'
-      : status.includes('coming') ? 'badge-coming'
-      : status.includes('sold') ? 'badge-sold'
-      : 'badge-muted'
-  ));
-  span.textContent = status
-    ? status.replace(/-/g, ' ').replace(/\b\w/g, c => c.toUpperCase())
-    : '—';
+  const raw = String(statusRaw || '').trim();
+  const status = raw.toLowerCase();
+
+  let cls = 'badge-muted';
+  let label = raw || '—';
+
+  if (status.includes('available')) {
+    cls = 'badge-available'; label = 'Available';
+  } else if (status.includes('spec')) {
+    cls = 'badge-spec'; label = 'SPEC';
+  } else if (status.includes('coming')) {
+    cls = 'badge-coming'; label = 'Coming Soon';
+  } else if (status.includes('sold')) {
+    cls = 'badge-sold'; label = 'Sold';
+  } else if (status.includes('model')) {
+    cls = 'badge-model'; label = 'Model';
+  } else if (status.includes('closed')) {
+    cls = 'badge-closed'; label = 'Closed';
+  } else if (status.includes('hold')) {
+    cls = 'badge-hold'; label = 'Hold';
+  }
+
+  const span = el('span', `status-badge ${cls}`);
+  span.textContent = label || '—';
   return span;
+}
+
+function statusSplitCell(lot) {
+  const td = el('td', 'status-split-cell');
+  const wrap = el('div', 'status-split');
+
+  const gen = lot.generalStatus || lot.general || lot.statusGeneral || lot.status || '';
+  const build = lot.buildingStatus || lot.constructionStatus || lot.homeStatus || lot.status || '';
+
+  const top = el('div', 'status-split-row');
+  top.appendChild(el('div', 'status-split-label', 'General'));
+  top.appendChild(statusBadge(gen));
+  wrap.appendChild(top);
+
+  wrap.appendChild(el('div', 'status-split-divider'));
+
+  const bot = el('div', 'status-split-row');
+  bot.appendChild(el('div', 'status-split-label', 'Building'));
+  bot.appendChild(statusBadge(build));
+  wrap.appendChild(bot);
+
+  td.appendChild(wrap);
+  return td;
 }
 function walksDots(firstDone, finalDone) {
   const td = el('td');
@@ -206,7 +270,7 @@ function addressCell(lot) {
 
   const purchaserMeta = getPurchaserMeta(lot);
   if (purchaserMeta.name) {
-    const sub = el('div', 'cell-sub');
+    const sub = el('div', 'cell-sub purchaser-sub');
     const text = `Purchaser: ${purchaserMeta.name}`;
     if (purchaserMeta.href) {
       const link = el('a', 'link cell-sub-link');
@@ -372,10 +436,8 @@ export function renderRows(lots = []) {
     const row = el('tr');
     row.dataset.id = lot._id || '';
 
-    // 1) Icons FIRST: Task, Flag, Comment
-    row.appendChild(iconCell('/assets/icons/add_task.svg', 'Task'));
-    row.appendChild(iconCell('/assets/icons/exclamation.svg', 'Flag'));
-    row.appendChild(iconCell('/assets/icons/comment.svg', 'Comment'));
+    // 1) Actions column: task / flag / comment
+    row.appendChild(actionsCell(lot));
 
     // 2) Job # (sticky #1)
     {
@@ -404,12 +466,8 @@ export function renderRows(lots = []) {
       row.appendChild(twoLineCell(top, ''));
     }
 
-    // 6) Home Status (badge)
-    {
-      const td = el('td');
-      td.appendChild(statusBadge(lot.homeStatus || lot.status));
-      row.appendChild(td);
-    }
+    // 6) Status split: General + Building
+    row.appendChild(statusSplitCell(lot));
 
 
 

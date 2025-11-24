@@ -1,10 +1,10 @@
 // /assets/js/realtors/render.js
 import { updateRealtor } from './api.js';
-import { openRealtorCommentModal } from './modal.js';
 import { formatPhoneDisplay } from '../shared/phone.js';
 
 let actionHandlers = {
-  onTask: null
+  onTask: null,
+  onComment: null
 };
 
 export function setActionHandlers(handlers = {}) {
@@ -83,7 +83,7 @@ export function renderTable(realtors, statsByRealtor = new Map()) {
       commentBtn.addEventListener('click', (event) => {
         event.preventDefault();
         event.stopPropagation();
-        openRealtorCommentModal(realtor._id);
+        actionHandlers.onComment?.({ id: realtor._id, name: fullName });
       });
       wrapper.appendChild(commentBtn);
 
@@ -153,6 +153,7 @@ export function renderTable(realtors, statsByRealtor = new Map()) {
       const s = statsByRealtor.get(realtor._id) || { total: 0, purchased: 0, negotiating: 0, closed: 0 };
 
       const totalTd = document.createElement('td');
+      totalTd.classList.add('text-center');
       totalTd.textContent = s.total;
 
       const purchasedTd = document.createElement('td');

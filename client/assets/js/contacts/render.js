@@ -2,10 +2,10 @@
 import { formatDate } from './date.js';
 import { formatPhoneDisplay } from '../shared/phone.js';
 import { updateContact } from './api.js';
-import { openCommentModal } from './modal.js';
 
 let actionHandlers = {
-  onTask: null
+  onTask: null,
+  onComment: null
 };
 
 export function setActionHandlers(handlers = {}) {
@@ -162,7 +162,11 @@ export function renderTable(contacts) {
       commentBtn.addEventListener('click', (event) => {
         event.preventDefault();
         event.stopPropagation();
-        openCommentModal(contact._id);
+        actionHandlers.onComment?.({
+          id: contact._id,
+          name: fullName,
+          status: contact.status || 'New'
+        });
       });
       wrapper.appendChild(commentBtn);
 

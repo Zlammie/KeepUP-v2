@@ -5,7 +5,7 @@ import { updateHeaderFromInputs, disableEditor, wireEditorToggle } from './ident
 import { initTopBar } from './topbar.js';
 import { initTaskPanel } from '../contact-details/tasks.js';
 import { initState } from '../contact-details/state.js';
-import { initRealtorModal, openRealtorCommentModal } from '../realtors/modal.js';
+// Comments now use the task drawer; legacy modal removed.
 
 let taskPanelInstance = null;
 let taskDrawerNameEl = null;
@@ -43,7 +43,7 @@ function showTaskDrawer(name, context = 'contact') {
   return true;
 }
 
-async function openContactTaskDrawer(contactId, contactName, contactStatus = 'New') {
+async function openContactTaskDrawer(contactId, contactName, contactStatus = 'New', tabKey = 'tasks') {
   if (!contactId) return;
   if (!showTaskDrawer(contactName || 'Contact', 'contact')) return;
 
@@ -62,12 +62,13 @@ async function openContactTaskDrawer(contactId, contactName, contactStatus = 'Ne
         defaultTitleBuilder: null,
         lenderOptions: null
       });
+      taskPanelInstance.setActiveTab?.(tabKey || 'tasks');
     });
 
   await currentTaskPromise;
 }
 
-async function openRealtorTaskDrawer() {
+async function openRealtorTaskDrawer(tabKey = 'tasks') {
   if (!state.realtorId) return;
   const realtorName = getRealtorDisplayName();
   if (!showTaskDrawer(realtorName, 'realtor')) return;
@@ -88,6 +89,7 @@ async function openRealtorTaskDrawer() {
         defaultTitleBuilder: realtorTitleBuilder,
         lenderOptions: null
       });
+      taskPanelInstance.setActiveTab?.(tabKey || 'tasks');
     })
     .catch((err) => {
       console.error('[realtor-details] Failed to open realtor tasks', err);
@@ -118,11 +120,11 @@ function wireTaskButtons() {
       const contactStatus = context?.dataset?.contactStatus || 'New';
 
       if (action === 'task' && contactId) {
-        openContactTaskDrawer(contactId, contactName, contactStatus);
+        openContactTaskDrawer(contactId, contactName, contactStatus, 'tasks');
         return;
       }
       if (action === 'comment' && contactId) {
-        // TODO: hook up contact-specific comments if needed
+        openContactTaskDrawer(contactId, contactName, contactStatus, 'comments');
         return;
       }
     });
@@ -133,9 +135,9 @@ function wireTaskButtons() {
     const button = event.target.closest('.table-icon-btn');
     if (!button) return;
     if (button.dataset.action === 'task') {
-      openRealtorTaskDrawer();
+      openRealtorTaskDrawer('tasks');
     } else if (button.dataset.action === 'comment' && state.realtorId) {
-      openRealtorCommentModal(state.realtorId);
+      openRealtorTaskDrawer('comments');
     }
   });
 
@@ -159,7 +161,6 @@ async function init() {
   }
 
   try {
-    initRealtorModal();
     const r = await fetchRealtor(state.realtorId);
     populateForm(r);
     updateHeaderFromInputs();

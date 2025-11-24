@@ -12,9 +12,13 @@ export function updateHeader(){
   const phoneRaw = dom.inputs.phone?.value?.trim() || '';
   const phone = phoneRaw ? formatPhoneDisplay(phoneRaw) : 'Phone Number';
   const email = dom.inputs.email?.value?.trim() || 'Email';
+  const brokerage = dom.inputs.company?.value?.trim() || dom.inputs.brokerage?.value?.trim() || dom.inputs.company?.placeholder || "";
 
   dom.hdrName.textContent = name;
   dom.titleName.textContent = name;
+  if (dom.hdrBrokerage) {
+    dom.hdrBrokerage.textContent = brokerage ? `• ${brokerage}` : '';
+  }
   dom.hdrPhone.textContent = phone;
   dom.hdrEmail.textContent = email;
   dom.hdrPhone.href = phoneRaw ? `tel:${phoneRaw}` : '#';
@@ -25,7 +29,7 @@ export function disableEditor(disabled){
   const inputs = Object.values(dom.inputs);
   inputs.forEach(i => { if(!i) return; i.disabled = disabled; i.tabIndex = disabled ? -1 : 0; });
   dom.editorCard.classList.toggle('is-hidden', disabled);
-  dom.toggleEditBtn.textContent = disabled ? 'Edit' : 'Done';
+  dom.toggleEditBtn.textContent = disabled ? 'More Details' : 'Done';
 }
 
 export function wireEditorToggle(){

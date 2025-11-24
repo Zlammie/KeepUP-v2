@@ -4,21 +4,89 @@
   <meta charset="UTF-8" />
   <title>View Lots</title>
   <link rel="stylesheet" href="/assets/css/main.css">
+  <link rel="stylesheet" href="/assets/css/pages/contacts-shared.css">
 
   <style>
-    * sticky first three columns */
-lots-table .sticky-col { position: sticky; z-index: 1; }
-.lots-table .sc-1 { left: 108px; z-index: 2; }  /* after 3 icon cols          */
-.lots-table .sc-2 { left: 188px; }              /* 108 + 80 (Job #)           */
-.lots-table .sc-3 { left: 338px; }  
+    /* sticky first three columns */
+    :root {
+      --lots-actions-col: 88px;
+      --lots-job-col: 80px;
+      --lots-lot-col: 120px;
+    }
+    .lots-table .sticky-col { position: sticky; z-index: 1; }
+    .lots-table .sc-1 { left: var(--lots-actions-col); z-index: 2; }
+    .lots-table .sc-2 { left: calc(var(--lots-actions-col) + var(--lots-job-col)); }
+    .lots-table .sc-3 {
+      left: calc(var(--lots-actions-col) + var(--lots-job-col) + var(--lots-lot-col));
+      min-width: 300px;
+    }
 
-/* Give address room, keep it two-line */
-.lots-table .sc-3 { min-width: 300px; } /* widen address */
+    /* Task drawer (shared with contacts/lenders) */
+    .task-drawer {
+      position: fixed;
+      top: 64px;
+      right: 0;
+      height: calc(100vh - 64px);
+      width: 340px;
+      max-width: 90vw;
+      background: #fff;
+      box-shadow: -16px 0 30px rgba(15, 26, 58, 0.12);
+      transform: translateX(110%);
+      transition: transform 0.3s ease;
+      z-index: 999;
+    }
+    body.task-panel-open .task-drawer {
+      transform: translateX(0);
+    }
+    .task-drawer-backdrop {
+      position: fixed;
+      top: 64px;
+      left: 0;
+      right: 0;
+      bottom: 0;
+      background: rgba(15, 26, 58, 0.35);
+      z-index: 998;
+      opacity: 0;
+      pointer-events: none;
+      transition: opacity 0.3s ease;
+    }
+    body.task-panel-open .task-drawer-backdrop {
+      opacity: 1;
+      pointer-events: auto;
+    }
+    .task-drawer-top {
+      display: flex;
+      align-items: center;
+      gap: 0.75rem;
+      padding: 0.75rem 1rem;
+      border-bottom: 1px solid #dfe3ea;
+      background: #f7f9fc;
+    }
+    .task-drawer-contact {
+      font-weight: 700;
+    }
+    .todo-close {
+      border: none;
+      background: transparent;
+      font-size: 1.25rem;
+      line-height: 1;
+      cursor: pointer;
+      color: #0f172a;
+    }
+    .task-drawer-top .todo-close {
+      margin-left: auto;
+    }
 
 .lots-table .sc-3,
 .lots-table .sc-3 .cell-col { white-space: normal; }
 .lots-table .sc-3 a.link { display: block; }
 .lots-table .sc-3 .cell-sub a.cell-sub-link { display: inline; }
+.lots-table .purchaser-sub {
+  font-size: 0.95em;
+  opacity: 0.9;
+  margin-top: 6px;
+  color: #0f172a;
+}
 
 /* table look & feel */
 .lots-table td, .lots-table th { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; height: 44px; }
@@ -116,7 +184,31 @@ lots-table .sticky-col { position: sticky; z-index: 1; }
 .badge-spec      { background: #eef2ff; color: #4338ca; }
 .badge-coming    { background: #fff7ed; color: #b45309; }
 .badge-sold      { background: #fee2e2; color: #b91c1c; }
+.badge-model     { background: #f3e8ff; color: #6b21a8; }
+.badge-closed    { background: #e2e8f0; color: #1f2937; }
+.badge-hold      { background: #fff4e6; color: #b45309; }
 .badge-muted     { background: #f1f5f9; color: #334155; }
+.status-split-cell .status-split {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+.status-split-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.status-split-label {
+  font-size: 0.68rem;
+  letter-spacing: .04em;
+  text-transform: uppercase;
+  color: #64748b;
+}
+.status-split-divider {
+  height: 1px;
+  background: rgba(0, 0, 0, 0.08);
+  width: 100%;
+}
 
 /* timeline */
 .timeline2-cell .timeline2-wrap {
@@ -183,24 +275,14 @@ lots-table .sticky-col { position: sticky; z-index: 1; }
 .lots-table thead tr,
 .lots-table thead th,
 .lots-table thead th.sticky-col {
-  background: #0f172a !important;   /* dark slate */
-  color: #e5e7eb !important;
-  border-bottom: 1px solid #0b1220;
+  background: #f0f0f0 !important;
+  color: #111827 !important;
+  border-bottom: 1px solid #d6d6d6;
 }
 
-/* 2) Keep sticky WHITE only for BODY cells (not headers) */
+/* Keep sticky WHITE only for BODY cells (not headers) */
 .lots-table tbody td.sticky-col {
   background: #fff;                 /* body sticky bg */
-}
-
-/* (optional) hover tweak */
-.lots-table thead th:hover { background: #f1f5f9 !important; }
-
-.lots-table th.icon-head:nth-child(3),
-.lots-table td.icon-cell:nth-child(3) {
-  width: 28px;
-  min-width: 28px;
-  padding: 0;
 }
 
 .lots-table .sc-3 a.link,
@@ -216,38 +298,6 @@ lots-table .sticky-col { position: sticky; z-index: 1; }
   outline: 2px solid #0ea5e9;
   outline-offset: 2px;
   text-decoration: none;
-}
-
-/* Icon cells: tiny & centered */
-.lots-table td.icon-cell,
-.lots-table th.icon-head {
-  width: 36px;
-  min-width: 36px;
-  text-align: center;
-  padding: 0; /* keep tight */
-}
-
-/* Nuke default button chrome so the icon is visible on dark header and light rows */
-.icon-btn.btn.btn-sm.btn-link {
-  background: transparent !important;
-  border: 0 !important;
-  padding: 0 !important;
-  line-height: 1;
-  box-shadow: none !important;
-}
-
-/* Make the actual SVG small and crisp */
-.icon-btn img {
-  width: 16px;
-  height: 16px;
-  display: block;            /* removes extra inline spacing */
-  filter: none;              /* ensure no unwanted tint */
-}
-
-/* Optional: visible keyboard focus ring without adding a background */
-.icon-btn:focus-visible {
-  outline: 2px solid #0ea5e9;
-  outline-offset: 2px;
 }
 
 /* Two-line price cell */
@@ -289,7 +339,7 @@ lots-table .sticky-col { position: sticky; z-index: 1; }
 </head>
 
 
-<body>
+<body data-current-user-id="<%= currentUser ? currentUser.id : '' %>">
   <%- include('../partials/nav') %>
   <%- include('../partials/top-nav-community') %>
 
@@ -333,29 +383,25 @@ lots-table .sticky-col { position: sticky; z-index: 1; }
 <div class="table-container">
   <table id="lotsTable" class="lots-table">
       <colgroup>
-        <col style="width: 32px" />   <!-- Task -->
-        <col style="width: 32px" />   <!-- Flag -->
-        <col style="width: 28px" />   <!-- Comment (narrowest) -->
-        <col style="width: 80px" />   <!-- Job # -->
-        <col style="width: 120px" />  <!-- Lot / Block (slimmer) -->
-        <col />                        <!-- Address (flex / wider) -->
-        <col style="width: 120px" />  <!-- Plan / Elv (slimmer) -->
-        <col style="width: 120px" />  <!-- Home Status -->
-        <col style="width: 230px" />  <!-- Timeline -->
-        <col style="width: 110px" />  <!-- Walks -->
-        <col style="width: 180px" />  <!-- Closing -->
-        <col style="width: 140px" />  <!-- Price -->
+        <col style="width: var(--lots-actions-col)" />   <!-- Actions -->
+        <col style="width: 80px" />                      <!-- Job # -->
+        <col style="width: 120px" />                     <!-- Lot / Block (slimmer) -->
+        <col />                                          <!-- Address (flex / wider) -->
+        <col style="width: 120px" />                     <!-- Plan / Elv (slimmer) -->
+        <col style="width: 130px" />                     <!-- Status -->
+        <col style="width: 230px" />                     <!-- Timeline -->
+        <col style="width: 110px" />                     <!-- Walks -->
+        <col style="width: 180px" />                     <!-- Closing -->
+        <col style="width: 140px" />                     <!-- Price -->
       </colgroup>
     <thead>
   <tr>
-    <th class="icon-head"><span class="visually-hidden">Task</span></th>
-    <th class="icon-head"><span class="visually-hidden">Flag</span></th>
-    <th class="icon-head"><span class="visually-hidden">Comment</span></th>
+    <th class="contact-table-icons actions-head">Actions</th>
     <th class="sticky-col sc-1">Job #</th>
     <th class="sticky-col sc-2">Lot / Block</th>
     <th class="sticky-col sc-3">Address</th>
     <th>Plan / Elv</th>
-    <th>Home Status</th>
+    <th>Status</th>
     <th>Timeline</th>
     <th>Walks</th>
     <th>Closing</th>
@@ -365,6 +411,77 @@ lots-table .sticky-col { position: sticky; z-index: 1; }
     <tbody id="lotsTableBody"></tbody>
   </Table>
 </div>
+
+<div id="task-drawer-backdrop" class="task-drawer-backdrop" hidden></div>
+<aside id="todo-panel" class="todo-panel task-drawer" aria-live="polite" hidden>
+  <div class="task-drawer-top">
+    <button type="button" class="todo-close" data-task-drawer-close aria-label="Close task drawer">&times;</button>
+    <div class="task-drawer-contact" id="task-panel-contact-name"></div>
+    <button id="todo-add" class="todo-add-btn" type="button">
+      <img src="/assets/icons/add_task.svg" alt="" aria-hidden="true" />
+      <span>Add Task</span>
+    </button>
+  </div>
+  <section id="todo-panel-body" class="todo-body">
+    <div class="todo-summary">
+      <button type="button" class="todo-pill is-active" data-filter="all">
+        <span class="pill-label">All</span>
+        <span class="pill-count" aria-hidden="true">0</span>
+      </button>
+      <button type="button" class="todo-pill" data-filter="Pending">
+        <span class="pill-label">Pending</span>
+        <span class="pill-count" aria-hidden="true">0</span>
+      </button>
+      <button type="button" class="todo-pill" data-filter="Completed">
+        <span class="pill-label">Completed</span>
+        <span class="pill-count" aria-hidden="true">0</span>
+      </button>
+      <button type="button" class="todo-pill" data-filter="today">
+        <span class="pill-label">Today</span>
+        <span class="pill-count" aria-hidden="true">0</span>
+      </button>
+    </div>
+
+    <section class="todo-automation" data-followup-schedule>
+      <div class="todo-automation-text">
+        <p class="todo-automation-title">Follow-up schedule</p>
+        <p class="todo-automation-body">Use your saved cadence to auto-create the next touchpoints for this record.</p>
+      </div>
+      <div class="todo-automation-controls">
+        <select
+          id="followup-schedule-select"
+          class="todo-automation-select"
+          data-followup-select
+          aria-label="Select a follow-up schedule"
+          disabled>
+          <option value="">Loading schedules...</option>
+        </select>
+        <button type="button" class="todo-automation-button" data-followup-apply disabled>Assign</button>
+      </div>
+      <div class="todo-automation-active" data-followup-active hidden>
+        <div class="todo-automation-active-copy">
+          <p class="todo-automation-active-label">Current schedule</p>
+          <p class="todo-automation-active-name" data-followup-active-name></p>
+          <p class="todo-automation-active-meta" data-followup-active-meta></p>
+        </div>
+        <button type="button" class="todo-automation-unassign" data-followup-unassign>Unassign</button>
+      </div>
+      <p class="todo-automation-status" data-followup-status aria-live="polite" hidden></p>
+    </section>
+
+    <ul id="todo-list" class="todo-list">
+      <li class="todo-empty">
+        <div class="todo-empty-state">
+          <img src="/assets/icons/add_task.svg" alt="" aria-hidden="true" />
+          <p class="todo-empty-text">No tasks yet. Add one to keep this lot moving forward.</p>
+        </div>
+      </li>
+    </ul>
+    <footer class="todo-footer">
+      <button id="todo-view-all" class="todo-view-all-btn" type="button">View All Tasks</button>
+    </footer>
+  </section>
+</aside>
 
    <script type="module" src="/assets/js/view-lots/index.js"></script>
 </body>

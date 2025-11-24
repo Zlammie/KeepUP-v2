@@ -31,6 +31,36 @@ input:focus {
   border-radius: 12px;      /* ensures width is based on content */
 }
 
+.re-name {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+.re-broker-inline {
+  color: #6b7280;
+  font-weight: 600;
+  font-size: 0.95rem;
+}
+.re-compact {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+.re-cta--left .re-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.re-main {
+  flex: 1;
+  min-width: 220px;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
 
 .details-top {
   display: flex;
@@ -86,4 +116,17 @@ input:focus {
 .status-duo__value--muted {
   color: #cbd5f5;
   font-size: 0.75rem;
+}
+
+
+.re-editor .re-form {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  gap: 12px 16px;
+}
+
+.re-editor .re-form .form-group {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
 }

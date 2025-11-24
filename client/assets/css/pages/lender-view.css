@@ -58,6 +58,50 @@
   outline: none;
 }
 
+.id-card .id-left.re-compact {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  flex-wrap: wrap;
+  width: 100%;
+}
+.id-cta--left {
+  margin: 0;
+}
+.id-cta--left .id-actions {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 0.2rem 0.45rem;
+  border: 1px solid #e5e7eb;
+  border-radius: 999px;
+  background: #f8fafc;
+}
+.id-main {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  flex: 1;
+  min-width: 220px;
+}
+.id-name {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+.id-broker {
+  color: #6b7280;
+  font-weight: 600;
+  font-size: 0.95rem;
+}
+.id-contact {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
 #todo-panel[data-context="lender"] .todo-automation {
   display: none;
 }
@@ -101,6 +145,12 @@ body.task-panel-open .task-drawer-backdrop {
 .task-drawer-contact {
   font-size: 0.85rem;
   color: #475467;
+}
+.task-drawer .task-drawer-header{
+  justify-content: flex-start;
+}
+.task-drawer .task-drawer-header .todo-toggle{
+  display: none;
 }
 
 .todo-close {
@@ -224,4 +274,3 @@ body.task-panel-open .task-drawer-backdrop {
 .closing-date-editor.is-readonly .closing-date-controls {
   opacity: 0.6;
 }
-

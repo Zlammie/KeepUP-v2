@@ -21,7 +21,21 @@
       padding:.75rem 1.25rem;display:flex;align-items:center;gap:1rem;flex-wrap:wrap;
       box-shadow:0 1px 2px rgba(0,0,0,.03);
     }
-    .id-left{display:flex;flex-direction:column;}
+    .id-left{
+      display:flex;
+      align-items:center;
+      flex-direction:row;
+      gap:1rem;
+      flex-wrap:wrap;
+      width:100%;
+    }
+    .id-main{
+      flex:1;
+      min-width:220px;
+      display:flex;
+      flex-direction:column;
+      gap:.25rem;
+    }
     .id-name{font-size:1.125rem;line-height:1.25rem;font-weight:700;color:var(--ink);}
     .id-contact{display:flex;align-items:center;gap:1rem;margin-top:.35rem;color:var(--muted);}
     .id-contact a{color:inherit;text-decoration:none;} .id-contact a:hover{text-decoration:underline;}
@@ -33,6 +47,7 @@
       flex-wrap:wrap;
       justify-content:flex-end;
     }
+    .id-cta--left{margin:0;}
     .id-actions{
       padding:.2rem .45rem;
       border-radius:999px;
@@ -89,26 +104,33 @@
 
       <!-- Collapsed identity card -->
       <section class="id-card">
-        <div class="id-left">
-          <div class="id-name" id="hdrName">LENDER NAME</div>
-          <div class="id-contact">
-            <a id="hdrPhone" href="#">Phone Number</a>
-            <a id="hdrEmail" href="#">Email</a>
+        <div class="id-left re-compact">
+          <div class="id-cta id-cta--left">
+            <div id="lenderActionButtons" class="table-action-buttons id-actions" aria-label="Lender quick actions">
+              <button class="table-icon-btn" type="button" data-action="task" aria-label="Manage lender tasks">
+                <img src="/assets/icons/add_task.svg" alt="">
+              </button>
+              <button class="table-icon-btn" type="button" data-action="flag" aria-label="Flag this lender">
+                <img src="/assets/icons/exclamation.svg" alt="">
+              </button>
+              <button class="table-icon-btn" type="button" data-action="comment" aria-label="Comment on this lender">
+                <img src="/assets/icons/comment.svg" alt="">
+              </button>
+            </div>
           </div>
-        </div>
-        <div class="id-cta">
-          <div id="lenderActionButtons" class="table-action-buttons id-actions" aria-label="Lender quick actions">
-            <button class="table-icon-btn" type="button" data-action="task" aria-label="Manage lender tasks">
-              <img src="/assets/icons/add_task.svg" alt="">
-            </button>
-            <button class="table-icon-btn" type="button" data-action="flag" aria-label="Flag this lender">
-              <img src="/assets/icons/exclamation.svg" alt="">
-            </button>
-            <button class="table-icon-btn" type="button" data-action="comment" aria-label="Comment on this lender">
-              <img src="/assets/icons/comment.svg" alt="">
-            </button>
+          <div class="id-main">
+            <div class="id-name">
+              <span id="hdrName">LENDER NAME</span>
+              <span class="id-broker" id="hdrBrokerage"></span>
+            </div>
+            <div class="id-contact">
+              <a id="hdrPhone" href="#">Phone Number</a>
+              <a id="hdrEmail" href="#">Email</a>
+            </div>
           </div>
-          <button id="toggleEdit" class="btn-ghost">Edit</button>
+          <div class="id-cta">
+            <button id="toggleEdit" class="btn-ghost">More Details</button>
+          </div>
         </div>
       </section>
 
@@ -137,7 +159,7 @@
             </div>
             <div class="full">
               <label>Company</label>
-              <input type="text" id="lenderCompany" data-field="company" />
+              <input type="text" id="lenderCompany" data-field="lenderBrokerage" />
             </div>
           </div>
         </form>

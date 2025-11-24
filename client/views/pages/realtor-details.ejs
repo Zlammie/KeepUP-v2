@@ -14,7 +14,7 @@
     --radius:14px;
     --gutter-x: 2.25rem;   /* space between the two halves (center gutter) */
   --field-gap-x: 1.25rem;/* space between fields within a half (columns)  */
-  --field-gap-y: 1rem;   /* vertical space between rows                   */
+  --field-gap-y: 1.35rem;   /* vertical space between rows                   */
   }
 
   .realtor-shell { display:flex; flex-direction:column; gap:1rem; }
@@ -104,7 +104,7 @@
   row-gap: var(--field-gap-y) !important;
 }
   .re-col .full { grid-column:1 / -1; }
-  .re-form label { display:block; font-size:.85rem; color:var(--muted); margin-bottom:.25rem; }
+  .re-form label { display:block; font-size:.85rem; color:var(--muted); margin-bottom:.4rem; }
   .re-form input {
     width:100%; padding:.45rem .6rem; border-radius:10px;
     border:1px solid var(--border); outline:none; background:#fff; color:#111;
@@ -223,6 +223,12 @@ body.task-panel-open .task-drawer-backdrop {
   font-size: 0.85rem;
   color: #475467;
 }
+.task-drawer .task-drawer-header{
+  justify-content:flex-start;
+}
+.task-drawer .task-drawer-header .todo-toggle{
+  display:none;
+}
 
 .todo-close {
   border: none;
@@ -245,14 +251,7 @@ body.task-panel-open .task-drawer-backdrop {
     <!-- Collapsed Identity Card -->
     <section class="realtor-identity">
       <div class="re-compact">
-        <div>
-          <div class="re-name" id="hdrName">REALTOR NAME</div>
-          <div class="re-contact">
-            <a id="hdrPhone" href="#">Phone Number</a>
-            <a id="hdrEmail" href="#">Email</a>
-          </div>
-        </div>
-        <div class="re-cta">
+        <div class="re-cta re-cta--left">
           <div id="realtorActionButtons" class="table-action-buttons re-actions" aria-label="Realtor quick actions">
             <button class="table-icon-btn" type="button" data-action="task" aria-label="Manage realtor tasks">
               <img src="/assets/icons/add_task.svg" alt="">
@@ -264,7 +263,19 @@ body.task-panel-open .task-drawer-backdrop {
               <img src="/assets/icons/comment.svg" alt="">
             </button>
           </div>
-          <button id="toggleEdit" class="btn-ghost">Edit</button>
+        </div>
+        <div class="re-main">
+          <div class="re-name">
+            <span id="hdrName">REALTOR NAME</span>
+            <span class="re-broker-inline" id="hdrBrokerage"></span>
+          </div>
+          <div class="re-contact">
+            <a id="hdrPhone" href="#">Phone Number</a>
+            <a id="hdrEmail" href="#">Email</a>
+          </div>
+        </div>
+        <div class="re-cta">
+          <button id="toggleEdit" class="btn-ghost">More Details</button>
         </div>
       </div>
     </section>

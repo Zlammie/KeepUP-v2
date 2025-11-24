@@ -17,11 +17,13 @@ export function populateForm(r) {
   dom.inputs.bCity.value   = r.brokerageCity      || '';
   dom.inputs.bState.value  = r.brokerageState     || '';
   dom.inputs.bZip.value    = r.brokerageZip       || '';
+
+  updateHeaderFromInputs();
 }
 
 export function setupAutosave() {
   // Live header updates for identity fields
-  ['realtorFirstName','realtorLastName','realtorPhone','realtorEmail']
+  ['realtorFirstName','realtorLastName','realtorPhone','realtorEmail','realtorBrokerage']
     .forEach(id => document.getElementById(id)?.addEventListener('input', updateHeaderFromInputs));
 
   // Blur autosave

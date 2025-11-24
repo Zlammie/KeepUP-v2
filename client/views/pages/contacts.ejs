@@ -6,6 +6,36 @@
   <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet" />
   <link rel="stylesheet" href="/assets/css/main.css">
   <style>
+    .icons-head {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 6px;
+    }
+    .attention-filter-btn {
+      padding: 2px 8px;
+      line-height: 1;
+      font-weight: 700;
+    }
+    .attention-filter-btn.active {
+      background: #dc2626;
+      color: #fff;
+      border-color: #dc2626;
+    }
+    .task-drawer-top {
+      display: flex;
+      align-items: center;
+      gap: 0.75rem;
+      padding: 0.75rem 1rem;
+      border-bottom: 1px solid #dfe3ea;
+      background: #f7f9fc;
+    }
+    .task-drawer-top .todo-close {
+      margin-right: auto;
+    }
+    .task-drawer-contact {
+      font-weight: 700;
+    }
     .task-drawer {
       position: fixed;
       top: 64px;
@@ -175,7 +205,18 @@
   <table class="table table-bordered contacts-table" id="contactsTable">
    <thead>
       <tr>
-        <th class="contact-table-icons"><span class="visually-hidden">Actions</span></th>
+        <th class="contact-table-icons">
+          <div class="icons-head">
+            <span class="visually-hidden">Actions</span>
+            <button
+              type="button"
+              id="attentionFilterToggle"
+              class="btn btn-sm btn-outline-danger attention-filter-btn"
+              aria-pressed="false"
+              title="Show only contacts with urgent tasks"
+            >!</button>
+          </div>
+        </th>
         <th><span class="visually-hidden">View</span></th>    <!-- View button -->
         <th id="visitDateHeader" style="cursor:pointer;">Visit Date<span id="visitDateArrow">▲▼</span></th>
         <th>First Name</th>
@@ -189,50 +230,18 @@
     <tbody></tbody>
   </table>
 
-<div id="commentModal" class="modal-overlay" style="display: none;">
-  <div class="modal-content">
-    <h5>Add Comment</h5>
-
-    <!-- ✅ ICON NAV BAR (copied from contact-details style) -->
-    <div class="comment-type-nav" id="modal-comment-type-buttons">
-      <button type="button" data-type="Note" class="active" title="Note">
-        <img src="/assets/icons/note.svg" alt="Note" />
-      </button>
-      <button type="button" data-type="Phone" title="Phone">
-        <img src="/assets/icons/phone.svg" alt="Phone" />
-      </button>
-      <button type="button" data-type="Email" title="Email">
-        <img src="/assets/icons/email.svg" alt="Email" />
-      </button>
-      <button type="button" data-type="Text" title="Text">
-        <img src="/assets/icons/sms.svg" alt="Text" />
-      </button>
-    </div>
-
-    <textarea id="modal-comment-text" rows="4" placeholder="Add a comment..."></textarea>
-    <br />
-    <button id="saveModalComment" class="btn btn-primary btn-sm">Save</button>
-    <button id="cancelModalComment" class="btn btn-secondary btn-sm">Cancel</button>
-  </div>
 </div>
 
 <div id="task-drawer-backdrop" class="task-drawer-backdrop" hidden></div>
 <aside id="todo-panel" class="todo-panel task-drawer" aria-live="polite" hidden>
-  <header class="todo-header">
-    <div class="task-drawer-header">
-      <button id="todo-toggle" class="todo-toggle" type="button" aria-expanded="true">
-        <span class="todo-toggle-icon" aria-hidden="true">&#9662;</span>
-        <span class="todo-toggle-text">Tasks</span>
-        <span id="todo-count" class="todo-count">0</span>
-      </button>
-      <button type="button" class="todo-close" data-task-drawer-close aria-label="Close task drawer">&times;</button>
-    </div>
+  <div class="task-drawer-top">
+    <button type="button" class="todo-close" data-task-drawer-close aria-label="Close task drawer">&times;</button>
     <div class="task-drawer-contact" id="task-panel-contact-name"></div>
     <button id="todo-add" class="todo-add-btn" type="button">
       <img src="/assets/icons/add_task.svg" alt="" aria-hidden="true" />
       <span>Add Task</span>
     </button>
-  </header>
+  </div>
   <section id="todo-panel-body" class="todo-body">
     <div class="todo-summary">
       <button type="button" class="todo-pill is-active" data-filter="all">

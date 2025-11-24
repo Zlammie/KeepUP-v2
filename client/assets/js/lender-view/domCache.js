@@ -3,6 +3,7 @@ import { $ } from './utils.js';
 export const dom = {
   // identity
   hdrName:  $('#hdrName'),
+  hdrBrokerage: document.getElementById('hdrBrokerage'),
   hdrPhone: $('#hdrPhone'),
   hdrEmail: $('#hdrEmail'),
   toggleEditBtn: $('#toggleEdit'),

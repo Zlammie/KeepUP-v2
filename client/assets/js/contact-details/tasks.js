@@ -473,10 +473,11 @@ function createTaskPanel({
     };
   }
 
-  const toggle = panel.querySelector('#todo-toggle');
   const addBtn = panel.querySelector('#todo-add');
   const bodySection = panel.querySelector('#todo-panel-body');
   const summaryBar = panel.querySelector('.todo-summary');
+  const contactNameEl = panel.querySelector('#task-panel-contact-name');
+  if (contactNameEl) contactNameEl.style.fontWeight = '700';
   let tabList = panel.querySelector('.task-tablist');
 
   if (!tabList && bodySection) {
@@ -569,6 +570,10 @@ function createTaskPanel({
 
   const tabButtons = Array.from(panel.querySelectorAll('.task-tab'));
   let activeTabKey = 'tasks';
+  const updateAddButtonLabel = () => {
+    if (!addBtn) return;
+    addBtn.textContent = activeTabKey === 'comments' ? 'Add Comment' : 'Add Task';
+  };
   const syncPaneVisibility = () => {
     if (taskPane) taskPane.hidden = activeTabKey !== 'tasks';
     if (commentsPane) commentsPane.hidden = activeTabKey !== 'comments';
@@ -585,6 +590,7 @@ function createTaskPanel({
       btn.tabIndex = isActive ? 0 : -1;
     });
     syncPaneVisibility();
+    updateAddButtonLabel();
     if (activeTabKey === 'comments') {
       loadCommentsForContext();
     }
@@ -601,7 +607,11 @@ function createTaskPanel({
 
   const listEl = panel.querySelector('#todo-list');
   const emptyState = listEl?.querySelector('.todo-empty') || null;
-  const countEl = panel.querySelector('#todo-count');
+  let countEl = panel.querySelector('#todo-count');
+  if (countEl) {
+    countEl.remove();
+    countEl = null;
+  }
   let filterButtons = Array.from(panel.querySelectorAll('.todo-pill'));
   const keepFilters = new Set(['all', 'today']);
   filterButtons.forEach((btn) => {
@@ -2061,7 +2071,10 @@ function createTaskPanel({
   updatePanelAvailability(Boolean(resolveLinkedId()));
   loadTasksForContext();
 
-  return { setContext };
+  return {
+    setContext,
+    setActiveTab: (tabKey = 'tasks') => setActiveTab(tabKey || 'tasks')
+  };
 }
 
 function mapChannelToTaskType(channel) {

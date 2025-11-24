@@ -333,7 +333,7 @@ router.get('/',
       }
 
       const contacts = await Contact.find(filter)
-        .select('firstName lastName email phone status communityIds realtorId lenderId lenders updatedAt flagged company')
+        .select('firstName lastName email phone status visitDate communityIds realtorId lenderId lenders updatedAt flagged company')
         .populate('communityIds', 'name')
         .populate('floorplans', 'name planNumber')
         .populate('realtorId', 'firstName lastName brokerage email phone')
@@ -345,6 +345,9 @@ router.get('/',
       await applyTaskAttentionFlags(contacts, {
         linkedModel: 'Contact',
         fallbackCompanyId: req.user?.company || null
+      });
+      contacts.forEach((contact) => {
+        contact.visitDate = toIsoStringOrNull(contact.visitDate);
       });
       contacts.forEach((contact) => {
         if (contact && Object.prototype.hasOwnProperty.call(contact, 'company')) {

@@ -1324,12 +1324,12 @@ body.task-modal-open {
   white-space: nowrap; /* prevents wrapping */
 }
 
-/* Give lot-link the same visual shell as the community card */
+/* Lot link area uses subcard background since parent is already a white card */
 #lot-link-container,
 #linked-lot-display {
-  background: #f8f9fa;
-  border: 1px solid #dee2e6;
-  border-radius: .5rem;
+  background: var(--surface-subcard);
+  border: 0;
+  border-radius: var(--radius-subcard);
   padding: .75rem;
   width: 100%;
 }

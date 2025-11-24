@@ -814,7 +814,9 @@ router.get('/lender-view', ensureAuth, requireRole('READONLY','USER','MANAGER','
     const id = req.query.id;
     if (!isId(id)) return res.status(400).send('Invalid lender ID');
 
-    const lender = await Lender.findOne({ _id: id, ...base(req) }).lean();
+    const lender = await Lender.findOne({ _id: id, ...base(req) })
+      .populate('company', 'name')
+      .lean();
     if (!lender) return res.status(404).send('Lender not found');
 
     // adjust this filter to your actual schema: either "lenders: { $in: [id] }" (array) or "linkedLender: id" (single)
