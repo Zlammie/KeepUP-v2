@@ -214,3 +214,83 @@
   font-size: 0.85rem;
   color: #1e3a8a;
 }
+
+.overview-nested-card {
+  padding: 1rem;
+}
+
+.overview-nested-card__header {
+  display: flex;
+  justify-content: flex-end;
+  margin-bottom: 0.5rem;
+}
+
+.overview-nested-card__grid {
+  display: grid;
+  gap: 1rem;
+}
+
+.overview-nested-card__item {
+  margin-top: 0;
+  background: #f7f8fb;
+  border-color: #e2e8f0;
+}
+
+.top-container {
+  flex: 1 1 100%;
+  max-width: none;
+  margin-right: 0;
+  min-width: 0;
+}
+
+.task-bar-outside {
+  flex: 0 0 340px;
+  max-width: 360px;
+  min-width: 320px;
+  width: 100%;
+  position: sticky;
+  top: 96px;
+  align-self: flex-start;
+  margin-left: 0;
+}
+
+@media (max-width: 1100px) {
+  .task-bar-outside {
+    position: static;
+    max-width: none;
+    min-width: 0;
+    margin-left: 0;
+  }
+}
+
+/* Layout tweaks for this page */
+.horizontal-cont {
+  align-items: flex-start;
+  gap: 0.75rem;
+  margin: 0;
+  flex: 1 1 auto;
+}
+
+.main-cont {
+  width: 440px;
+  max-width: 480px;
+}
+
+.top-content-cont {
+  max-width: none;
+  margin-right: 0;
+  width: 100%;
+}
+
+.page-with-task {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.5rem;
+  padding: 0 10px 10px;
+}
+
+@media (max-width: 1100px) {
+  .page-with-task {
+    flex-direction: column;
+  }
+}

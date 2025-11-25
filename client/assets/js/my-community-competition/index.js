@@ -53,7 +53,7 @@ function setOverviewCollapsed(collapsed) {
   overviewSections?.classList.toggle('is-hidden', hidden);
 
   if (overviewCollapseToggle) {
-    overviewCollapseToggle.textContent = hidden ? 'Show Promo & Pros' : 'Hide Promo & Pros';
+    overviewCollapseToggle.textContent = hidden ? 'Show' : 'Hide';
     overviewCollapseToggle.setAttribute('aria-expanded', String(!hidden));
     overviewCollapseToggle.setAttribute('aria-controls', 'overviewSections');
     overviewCollapseToggle.classList.toggle('is-hidden', hidden);

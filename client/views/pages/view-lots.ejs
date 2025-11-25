@@ -7,6 +7,23 @@
   <link rel="stylesheet" href="/assets/css/pages/contacts-shared.css">
 
   <style>
+    .icons-head {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 6px;
+    }
+    .attention-filter-btn {
+      padding: 2px 8px;
+      line-height: 1;
+      font-weight: 700;
+    }
+    .attention-filter-btn.active {
+      background: #dc2626;
+      color: #fff;
+      border-color: #dc2626;
+    }
+
     /* sticky first three columns */
     :root {
       --lots-actions-col: 88px;
@@ -392,11 +409,22 @@
         <col style="width: 230px" />                     <!-- Timeline -->
         <col style="width: 110px" />                     <!-- Walks -->
         <col style="width: 180px" />                     <!-- Closing -->
-        <col style="width: 140px" />                     <!-- Price -->
+    <col style="width: 140px" />                     <!-- Price -->
       </colgroup>
     <thead>
   <tr>
-    <th class="contact-table-icons actions-head">Actions</th>
+    <th class="contact-table-icons actions-head">
+      <div class="icons-head">
+        <span class="visually-hidden">Actions</span>
+        <button
+          type="button"
+          id="attentionFilterToggle"
+          class="btn btn-sm btn-outline-danger attention-filter-btn"
+          aria-pressed="false"
+          title="Show only lots requiring attention"
+        >!</button>
+      </div>
+    </th>
     <th class="sticky-col sc-1">Job #</th>
     <th class="sticky-col sc-2">Lot / Block</th>
     <th class="sticky-col sc-3">Address</th>
