@@ -17,6 +17,30 @@ import { initClosingStatusAutomation } from './closingStatusTask.js';
 import { initWalkTasksAutomation } from './walkTasks.js';
 
 document.addEventListener('DOMContentLoaded', async () => {
+  const makeNameLink = (elId, targetUrl) => {
+    if (!targetUrl) return;
+    const el = $(elId);
+    if (!el) return;
+    const go = () => { window.location.href = targetUrl; };
+    el.style.cursor = 'pointer';
+    el.setAttribute('role', 'link');
+    el.tabIndex = 0;
+    el.addEventListener('click', go);
+    el.addEventListener('keydown', (e) => {
+      if (e.key === 'Enter' || e.key === ' ') {
+        e.preventDefault();
+        go();
+      }
+    });
+  };
+
+  const normalizeId = (val) => {
+    if (!val) return '';
+    if (typeof val === 'string') return val;
+    if (typeof val === 'object' && val._id) return val._id;
+    return '';
+  };
+
   const params = new URLSearchParams(window.location.search);
   const communityId = params.get('communityId');
   const lotId = params.get('lotId');
@@ -80,6 +104,21 @@ document.addEventListener('DOMContentLoaded', async () => {
     initClosingTimeAutomation({ lotId, lot, primaryEntry });
     initClosingStatusAutomation({ lotId, lot, primaryEntry });
     initWalkTasksAutomation({ lotId, lot, primaryEntry });
+
+    // clickable contact headers
+    makeNameLink(
+      'purchaserValue',
+      purchaserContact?._id ? `/contact-details?id=${encodeURIComponent(purchaserContact._id)}` : null
+    );
+    makeNameLink(
+      'realtorNameValue',
+      realtor?._id ? `/realtor-details?id=${encodeURIComponent(realtor._id)}` : null
+    );
+    const lenderId = normalizeId(primaryEntry?.lender) || normalizeId(primaryEntry?.lenderId);
+    makeNameLink(
+      'lenderNameFinance',
+      lenderId ? `/lender-view?id=${encodeURIComponent(lenderId)}` : null
+    );
 
   } catch (err) {
     console.error('Failed to load lot details:', err);

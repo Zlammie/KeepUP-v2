@@ -12,6 +12,7 @@
 
   <div class="address-layout">
     <div class="address-layout__main">
+      <div class="address-shell">
       <header class="addr-header">
         <section class="card addr-card">
           <div class="address-row">
@@ -150,7 +151,7 @@
             </div>
 
           </div>
-            <div class="contact-card card card--white lender-card">
+            <div class="contact-card card card--white">
             <!-- Header row: Name (with brokerage) -->
             <div class="lender-header">
               <h3>
@@ -177,7 +178,7 @@
       <main class="grid">
           <!-- LEFT COLUMN: Building Info (stacked cards) -->
           <section class="pane pane--left">
-           <div class="card">
+           <div class="card card--margin-bottom">
               <h2>Building Info</h2>
               <div class="form-grid">
 
@@ -193,7 +194,7 @@
                 <div class="field">
                   <label for="floorPlanSelect">Floor Plan</label>
                   <select id="floorPlanSelect" class="value">
-                    <option value="" disabled selected>— Select Floor Plan —</option>
+                    <option value="" disabled selected>-- Select Floor Plan --</option>
                   </select>
                 </div>
                 <div class="field">
@@ -239,7 +240,7 @@
                   <div class="row inline">
                     <input id="thirdPartyDate" type="date" class="value" />
                     <input id="thirdPartyTime"    type="time" class="value" step="60" min="00:00" max="23:59" autocomplete="off" />
-                    <button id="thirdPartyTimeClear" type="button" class="icon-btn" title="Clear time">×</button>
+                    <button id="thirdPartyTimeClear" type="button" class="icon-btn" title="Clear time">A-</button>
                   </div>
                 </div>
                 <div class="field">
@@ -247,7 +248,7 @@
                   <div class="row inline">
                     <input id="firstWalkDate" type="date" class="value" />
                     <input id="firstWalkTime"     type="time" class="value" step="60" min="00:00" max="23:59" autocomplete="off" />
-                    <button id="firstWalkTimeClear" type="button" class="icon-btn" title="Clear time">×</button>
+                    <button id="firstWalkTimeClear" type="button" class="icon-btn" title="Clear time">A-</button>
                   </div>
                 </div>
                 <div class="field">
@@ -255,7 +256,7 @@
                   <div class="row inline">
                     <input id="finalSignOffDate" type="date" class="value" />
                     <input id="finalSignOffTime"  type="time" class="value" step="60" min="00:00" max="23:59" autocomplete="off" />
-                    <button id="finalSignOffTimeClear" type="button" class="icon-btn" title="Clear time">×</button>
+                    <button id="finalSignOffTimeClear" type="button" class="icon-btn" title="Clear time">A-</button>
                   </div>
                 </div>
               </div>
@@ -275,6 +276,7 @@
 
           </aside>
         </main>
+        </div>
     </div>
     <aside class="address-layout__sidebar">
       <div class="card task-panel-card">

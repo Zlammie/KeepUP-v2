@@ -195,14 +195,14 @@
 .cell-sub { opacity: 0.75; font-size: 0.86em; }
 .cell-col.strong .cell-top, .strong { font-weight: 700; }
 
-/* status badges */
+/* status badges (match filter pill palette) */
 .status-badge { display: inline-block; padding: 2px 8px; border-radius: 999px; font-size: 0.78rem; }
-.badge-available { background: #e6f7f0; color: #107f54; }
-.badge-spec      { background: #eef2ff; color: #4338ca; }
-.badge-coming    { background: #fff7ed; color: #b45309; }
-.badge-sold      { background: #fee2e2; color: #b91c1c; }
+.badge-available { background: #eaf7ef; color: #166534; }
+.badge-spec      { background: #fff7e6; color: #92400e; }
+.badge-coming    { background: #f3e8ff; color: #6b21a8; }
+.badge-sold      { background: #fdecec; color: #991b1b; }
 .badge-model     { background: #f3e8ff; color: #6b21a8; }
-.badge-closed    { background: #e2e8f0; color: #1f2937; }
+.badge-closed    { background: #e5e7eb; color: #1f2937; }
 .badge-hold      { background: #fff4e6; color: #b45309; }
 .badge-muted     { background: #f1f5f9; color: #334155; }
 .status-split-cell .status-split {
@@ -286,7 +286,8 @@
 
 /* link and hover */
 .lots-table a.link { text-decoration: none; }
-.lots-table tr:hover td { background: rgba(0,0,0,0.02); }
+.lots-table tr:hover td { background: #f5f5f5; }
+.lots-table tbody tr:hover .sticky-col { background: #f5f5f5; color: inherit; }
 /* Table header: swap green for a soft gray-on-charcoal look */
 .lots-table thead,
 .lots-table thead tr,
@@ -300,6 +301,9 @@
 /* Keep sticky WHITE only for BODY cells (not headers) */
 .lots-table tbody td.sticky-col {
   background: #fff;                 /* body sticky bg */
+}
+.lots-table tbody tr:nth-child(even) td.sticky-col {
+  background: #f7f7f7;              /* zebra for Job, Lot/Block, Address */
 }
 
 .lots-table .sc-3 a.link,

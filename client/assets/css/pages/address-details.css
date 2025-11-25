@@ -24,14 +24,35 @@
 /* helpers */
 * { box-sizing: border-box; }
 
+/* Apply design-system surface to all cards on this page (exclude task bar) */
+.address-details-page .card:not(.task-panel-card){
+  background: var(--surface-card, var(--card-bg));
+  border-color: var(--border-soft, var(--card-border));
+}
+
+/* Outer shell wrapping the main content (excludes task bar) */
+.address-shell{
+  background: var(--surface-band, #e1e6f0);
+  border: 1px solid var(--border-soft, #d1d7e3);
+  border-radius: 16px;
+  padding: 10px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  box-shadow: var(--shadow-card, 0 2px 8px rgba(0,0,0,0.08));
+}
+.address-shell > *{
+  width: 100%;
+}
+
 /* =========================================
    HEADER: Address | Pricing | Closing
    ========================================= */
 .addr-header{
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
-  gap: 16px;
-  padding: 16px;
+  gap: 12px;
+  padding: 0;
   align-items: stretch;
 }
 .addr-header > .card{
@@ -39,25 +60,25 @@
   border: 1px solid var(--card-border);
   color: var(--text);
   border-radius: 12px;
-  padding: 16px;
+  padding: 12px;
   display: flex;
   flex-direction: column;
-  gap: 16px;
+  gap: 12px;
   min-height: 100%;
   min-width: 0;
 }
 
 .address-layout{
   display:grid;
-  grid-template-columns:minmax(0,1fr) 360px;
-  gap:16px;
-  padding:0 16px 32px;
+  grid-template-columns:minmax(0,1fr) 340px;
+  gap:10px;
+  padding:0 24px 16px;
   align-items:start;
 }
 .address-layout__main{
   display:flex;
   flex-direction:column;
-  gap:16px;
+  gap:12px;
   width:100%;
 }
 .address-layout__main > *{
@@ -175,7 +196,7 @@
 }
 
 .price-card{
-  gap: 16px;
+  gap: 12px;
 }
 .price-card .field{
   display: flex;
@@ -192,7 +213,7 @@
 }
 
 .closing-card{
-  gap: 16px;
+  gap: 12px;
 }
 .closing-card__head{
   display: flex;
@@ -250,8 +271,8 @@
 .contact-strip{
   display: grid;                                      /* ensure a row */
   grid-template-columns: repeat(3, minmax(260px, 1fr));
-  gap: 12px;
-  padding: 0 16px 16px;
+  gap: 10px;
+  padding: 0;
 }
 .contact-card{
   background: var(--card-bg);
@@ -325,6 +346,31 @@
   line-height: 1;
 }
 
+.address-details-page .contact-card.lender-card{
+  display: block !important;
+  background: var(--card-bg) !important;
+  border: 1px solid var(--card-border) !important;
+  border-radius: 12px !important;
+  padding: 10px !important;
+  box-shadow: none !important;
+  transform: none !important;
+  transition: none !important;
+}
+.address-details-page .contact-card.lender-card:hover,
+.address-details-page .contact-card.lender-card:focus,
+.address-details-page .contact-card.lender-card:focus-within{
+  box-shadow: none !important;
+  transform: none !important;
+}
+.address-details-page .contact-card.lender-card .row.two{
+  margin-top: 0;
+  gap: 4px;
+}
+.address-details-page .contact-card.lender-card h3{
+  color: var(--text);
+  opacity: .9;
+}
+
 /* Phone stays one line; Email can wrap nicely */
 .one-line{
   white-space: nowrap;
@@ -344,8 +390,11 @@
 .grid{
   display: grid;
   grid-template-columns: minmax(0,1fr) 340px;
-  gap: 16px;
+  gap: 12px;
   align-items: start;
+}
+.grid.grid--three{
+  grid-template-columns: repeat(3, minmax(0, 1fr));
 }
 .pane .card{
   background: var(--card-bg);
@@ -353,12 +402,13 @@
   color: var(--text);
   border-radius: 14px;
   padding: 14px;
-  margin-bottom: 16px;
+ 
 }
 .card.fill{
-  height: 100%;
+  
   display: flex;
   flex-direction: column;
+  
 }
 .card h2{ font-size:1rem; margin:0 0 10px; }
 
@@ -482,8 +532,8 @@
    ========================================= */
 .addr-header > .price-card,
 .addr-header > .closing-card{
-  padding: 16px;
-  gap: 16px;
+  padding: 12px;
+  gap: 12px;
 }
 .addr-header > .price-card .field{
   align-items: flex-start !important;
@@ -733,10 +783,14 @@
 
 .price-card .price-row{
   display: grid !important;
-  grid-template-columns: 1fr minmax(120px, 180px) !important; /* price grows, date capped */
+  grid-template-columns: repeat(2, max-content) !important; /* price | date side-by-side */
   align-items: end !important;
-  column-gap: 6px !important;
+  justify-content: center !important;
+  justify-items: center !important;
+  column-gap: 18px !important;
   row-gap: 4px !important;
+  max-width: 560px !important;
+  margin: 0 auto !important;
 }
 
 
@@ -749,6 +803,7 @@
   align-items: baseline !important;
   gap: 6px !important;
   min-width: 0 !important;
+  justify-content: center !important;
 }
 
 /* Compact labels specifically in this card */
@@ -776,21 +831,20 @@
 /* Stronger Sales Price styling but still compact */
 #salesPriceValue{
   font-weight: 700 !important;
-  font-size: 1.06rem !important;
+  font-size: 1.2rem !important;
   white-space: nowrap !important;
   overflow: hidden !important;
   text-overflow: ellipsis !important;
   font-variant-numeric: tabular-nums !important;
 }
 
-.price-card .row.two > .field:last-child{
-  justify-content: flex-end !important;  /* push date to the right column edge */
-}
-
 /* Keep Sales Date snug and on one line */
 #salesDateValue{
+  font-weight: 700 !important;
+  font-size: 1.2rem !important;
+  font-variant-numeric: tabular-nums !important;
   white-space: nowrap !important;
-  text-align: right !important;
+  text-align: left !important;
 }
 
 
@@ -1785,7 +1839,7 @@ body.task-modal-open{
 .address-details-page .pane.pane--right{
   display: flex;
   flex-direction: column;
-  gap: 16px;
+  gap: 12px;
 }
 
 .address-details-page .task-panel-card{
@@ -1823,5 +1877,4 @@ body.task-modal-open{
   width: 100%;
   border-left: none;
 }
-
 
