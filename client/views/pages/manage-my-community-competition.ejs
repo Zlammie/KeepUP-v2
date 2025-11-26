@@ -42,7 +42,7 @@ const zip  = (profile && profile.zip)     || (community && community.zip)     ||
         <button id="backToCommunitiesBtn" class="btn btn-outline-secondary btn-sm mb-2">
           Back to Communities
         </button>
-        <div class="card-header">Community Info</div>
+        
         <div class="card-body">
           <h5 class="card-title"><%= commName %></h5>
           <p class="card-text">
@@ -51,6 +51,12 @@ const zip  = (profile && profile.zip)     || (community && community.zip)     ||
           <a class="btn btn-sm btn-outline-secondary mt-2"
             href="/view-lots?communityId=<%= communityId %>">View Lots</a>
         </div>
+        <a
+        class="btn btn-secondary mb-3"
+        href="/add-floorplan"
+      >
+        Add / Update Floor Plans
+      </a>
       </div>
       <script nonce="<%= cspNonce %>">
         document.getElementById('backToCommunitiesBtn')?.addEventListener('click', () => {
@@ -58,12 +64,6 @@ const zip  = (profile && profile.zip)     || (community && community.zip)     ||
         });
       </script>
 
-      <a
-        class="btn btn-secondary mb-3"
-        href="/add-floorplan"
-      >
-        Add / Update Floor Plans
-      </a>
       <div class="card card--white task-panel-card">
         <div
           id="todo-panel"
