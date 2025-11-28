@@ -25,6 +25,8 @@ router.put('/:id/floorplans/:fpId', c.updateFloorPlan);
 router.get('/:id/price-records', c.getPriceRecords);
 router.post('/:id/price-records', c.createPriceRecord);
 router.put('/:id/price-records/:recId', c.updatePriceRecord);
+// price scatter (price vs sqft for floor plans)
+router.get('/:id/price-scatter', c.getPriceScatter);
 
 // quick move-ins
 router.get('/:id/quick-moveins', c.listQMIs);

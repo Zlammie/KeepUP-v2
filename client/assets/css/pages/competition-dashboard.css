@@ -170,3 +170,57 @@ body.expandable-table-expanded {
     min-width: 100%;
   }
 }
+
+/* Builder chips (linked builders) */
+.builder-chip {
+  border-radius: 12px !important;
+  background-color: #eef3f9 !important;
+  border: 1px solid #d8e2f0;
+  color: #0f172a;
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.65);
+}
+
+.builder-chip .builder-color-swatch {
+  border-color: #cbd5e1 !important;
+  box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.8);
+}
+
+.builder-chip .builder-chip-company {
+  color: #0f172a;
+}
+
+.builder-chip .builder-chip-text {
+  color: #1f2937;
+}
+
+/* Quick Move-In / Sold toggles */
+.qmi-toggle-group {
+  gap: 0.4rem;
+}
+
+.qmi-toggle-group .qmi-toggle-btn {
+  border-radius: 10px !important;
+  border: 1px solid #d5deeb;
+  background: #f8fafc;
+  color: #475569;
+  font-weight: 600;
+  padding-inline: 0.9rem;
+  transition: background-color 0.15s ease, border-color 0.15s ease, box-shadow 0.15s ease, color 0.15s ease;
+}
+
+.qmi-toggle-group .qmi-toggle-btn.active {
+  background: #e4ecf7;
+  border-color: #c7d4e5;
+  color: #0f172a;
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.8), 0 1px 2px rgba(15, 23, 42, 0.08);
+}
+
+.qmi-toggle-group .qmi-toggle-btn:not(.active):hover {
+  background: #eef2f7;
+  border-color: #cfd9e8;
+  color: #111827;
+}
+
+.qmi-toggle-group .qmi-toggle-btn:focus-visible {
+  box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.25);
+}

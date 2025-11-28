@@ -13,6 +13,7 @@ const Lender      = require('../models/lenderModel');
 const Community   = require('../models/Community');
 const Competition = require('../models/Competition');
 const FloorPlanComp = require('../models/floorPlanComp');
+const CommunityCompetitionProfile = require('../models/communityCompetitionProfile');
 const Company = require('../models/Company');
 const Task = require('../models/Task');
 const User = require('../models/User');
@@ -901,7 +902,27 @@ router.get('/manage-my-community-competition/:communityId',
       .lean();
     if (!community) return res.status(404).send('Community not found');
 
-    res.render('pages/manage-my-community-competition', { communityId, community, profile: null });
+    // Pull company from community first, then fall back to the competition profile's company if needed
+    const profile = await CommunityCompetitionProfile.findOne({ community: communityId, ...base(req) })
+      .select('company')
+      .lean();
+    const companyRef = community.company || profile?.company;
+
+    // Resolve a friendly company name mirroring my-community-competition behavior
+    let companyName = '';
+    if (companyRef && typeof companyRef === 'object' && (companyRef.name || companyRef.companyName)) {
+      companyName = companyRef.name || companyRef.companyName || companyRef.title || companyRef.label || '';
+    } else if (companyRef) {
+      const companyId = (typeof companyRef === 'object' && companyRef._id) ? companyRef._id : companyRef;
+      const companyDoc = await Company.findById(companyId).select('name companyName title label').lean();
+      if (companyDoc) {
+        companyName = companyDoc.name || companyDoc.companyName || companyDoc.title || companyDoc.label || '';
+      }
+    }
+
+    const communityWithCompany = companyName ? { ...community, companyName } : community;
+
+    res.render('pages/manage-my-community-competition', { communityId, community: communityWithCompany, profile: null });
   }
 );
 

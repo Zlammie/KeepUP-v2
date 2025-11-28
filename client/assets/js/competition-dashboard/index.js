@@ -25,8 +25,12 @@ const lotCountsCard      = document.getElementById('lotCountsCard');
 const lotCountsToggleBtn = document.getElementById('lotCountsToggle');
 
 const salesWindowEl = document.getElementById('dashSalesWindow');
+const qmiToggleBtn  = document.getElementById('toggleQmi');
+const soldToggleBtn = document.getElementById('toggleSold');
 
 const communityMetaMap = new Map();
+const hiddenBuilderKeys = new Set();
+const seriesVisibility = { qmi: true, sold: true };
 
 let currentCharts = [];
 let lotCountsOverlayEl = null;
@@ -39,6 +43,11 @@ const builderColorMap = new Map();
 let builderColorsLoaded = false;
 
 function normalizeId(value) {
+  if (value === null || value === undefined) return '';
+  return String(value).trim();
+}
+
+function normalizeStorageKey(value) {
   if (value === null || value === undefined) return '';
   return String(value).trim();
 }
@@ -217,6 +226,7 @@ function createColorChip({
 
   const chip = document.createElement('span');
   chip.className = 'badge rounded-pill text-bg-secondary text-start lh-sm px-3 py-2 d-flex align-items-center gap-2';
+  chip.classList.add('builder-chip');
   chip.style.flexWrap = 'nowrap';
   chip.style.display = 'flex';
   chip.style.alignItems = 'center';
@@ -315,10 +325,10 @@ function createColorChip({
   });
 
   const textWrap = document.createElement('span');
-  textWrap.className = 'd-flex flex-column text-start lh-sm';
+  textWrap.className = 'd-flex flex-column text-start lh-sm builder-chip-text';
 
   const companyEl = document.createElement('span');
-  companyEl.className = 'fw-semibold';
+  companyEl.className = 'fw-semibold builder-chip-company';
   companyEl.textContent = companyName || communityName || 'Item';
   textWrap.appendChild(companyEl);
 
@@ -377,6 +387,144 @@ function getCommunityColorConfig({ id, label, providedColor, role = 'linked' }) 
     baseColor,
     soldColor
   };
+}
+
+// ---------- builder visibility toggles ----------
+function isBuilderHidden(storageKey) {
+  const key = normalizeStorageKey(storageKey);
+  if (!key) return false;
+  return hiddenBuilderKeys.has(key);
+}
+
+function updateBuilderChipUI(chip, hidden) {
+  if (!chip) return;
+  chip.classList.toggle('opacity-50', hidden);
+  const nameEl = chip.querySelector('.builder-chip-company');
+  if (nameEl) nameEl.classList.toggle('text-decoration-line-through', hidden);
+  const textWrap = chip.querySelector('.builder-chip-text');
+  if (textWrap) textWrap.setAttribute('aria-pressed', hidden ? 'true' : 'false');
+}
+
+function syncLinkedBuilderChips() {
+  if (!linkedWrap) return;
+  linkedWrap.querySelectorAll('[data-storage-key]').forEach(chip => {
+    const key = normalizeStorageKey(chip.dataset.storageKey);
+    updateBuilderChipUI(chip, key && isBuilderHidden(key));
+  });
+}
+
+function shouldDatasetBeHidden(ds) {
+  const dsKey = normalizeStorageKey(ds?.keepupStorageKey);
+  const hiddenByBuilder = dsKey && isBuilderHidden(dsKey);
+  const hiddenBySeries = (ds?.keepupSeries === 'qmi' && !seriesVisibility.qmi)
+    || (ds?.keepupSeries === 'sold' && !seriesVisibility.sold);
+  return hiddenByBuilder || hiddenBySeries;
+}
+
+function applyVisibilityFiltersToCharts() {
+  currentCharts.forEach((chart) => {
+    if (!chart?.data?.datasets) return;
+    let dirty = false;
+
+    chart.data.datasets.forEach((ds, dsIdx) => {
+      const hideDataset = shouldDatasetBeHidden(ds);
+
+      if (ds?.keepupSeries === 'salesPie') {
+        const segments = Array.isArray(ds.keepupSegments) ? ds.keepupSegments : [];
+        const meta = chart.getDatasetMeta ? chart.getDatasetMeta(dsIdx) : null;
+        if (!ds.keepupHiddenSegments) ds.keepupHiddenSegments = {};
+        segments.forEach(seg => {
+          const segKey = normalizeStorageKey(seg?.storageKey);
+          const idx = Number(seg?.index);
+          if (!segKey || !Number.isInteger(idx)) return;
+          const shouldHide = isBuilderHidden(segKey);
+          const existing = ds.keepupHiddenSegments[idx];
+          if (shouldHide && !existing) {
+            ds.keepupHiddenSegments[idx] = { wasHidden: Boolean(meta?.data?.[idx]?.hidden) };
+          } else if (!shouldHide && existing) {
+            if (meta?.data?.[idx] && meta.data[idx].hidden !== existing.wasHidden) {
+              meta.data[idx].hidden = existing.wasHidden;
+              dirty = true;
+            }
+            delete ds.keepupHiddenSegments[idx];
+          }
+
+          if (ds.keepupOriginalData && Array.isArray(ds.data)) {
+            const originalVal = ds.keepupOriginalData[idx] ?? 0;
+            const nextVal = shouldHide ? 0 : originalVal;
+            if (ds.data[idx] !== nextVal) {
+              ds.data[idx] = nextVal;
+              dirty = true;
+            }
+          }
+          if (shouldHide && meta?.data?.[idx] && meta.data[idx].hidden !== true) {
+            meta.data[idx].hidden = true;
+            dirty = true;
+          }
+        });
+        return;
+      }
+
+      if (hideDataset) {
+        if (!ds.keepupHiddenByFilter) {
+          ds.keepupHiddenPrevHidden = Boolean(ds.hidden);
+          ds.hidden = true;
+          ds.keepupHiddenByFilter = true;
+          if (!ds.keepupHiddenPrevHidden) dirty = true;
+        }
+      } else if (ds.keepupHiddenByFilter) {
+        const nextHidden = Boolean(ds.keepupHiddenPrevHidden);
+        if (ds.hidden !== nextHidden) {
+          ds.hidden = nextHidden;
+          dirty = true;
+        } else {
+          ds.hidden = nextHidden;
+        }
+        delete ds.keepupHiddenByFilter;
+        delete ds.keepupHiddenPrevHidden;
+      }
+    });
+
+    if (dirty) {
+      chart.update('none');
+    }
+  });
+}
+
+function toggleBuilderHidden(storageKey) {
+  const key = normalizeStorageKey(storageKey);
+  if (!key) return;
+  if (hiddenBuilderKeys.has(key)) {
+    hiddenBuilderKeys.delete(key);
+  } else {
+    hiddenBuilderKeys.add(key);
+  }
+  syncLinkedBuilderChips();
+  applyVisibilityFiltersToCharts();
+}
+
+function setSeriesVisibility(series, enabled) {
+  if (!series || typeof enabled !== 'boolean') return;
+  if (!Object.prototype.hasOwnProperty.call(seriesVisibility, series)) return;
+  seriesVisibility[series] = enabled;
+  updateSeriesToggleUI();
+  applyVisibilityFiltersToCharts();
+}
+
+function toggleSeriesVisibility(series) {
+  if (!series || !Object.prototype.hasOwnProperty.call(seriesVisibility, series)) return;
+  const next = !seriesVisibility[series];
+  setSeriesVisibility(series, next);
+}
+
+function updateSeriesToggleUI() {
+  const setActive = (btn, active) => {
+    if (!btn) return;
+    btn.classList.toggle('active', active);
+    btn.setAttribute('aria-pressed', active ? 'true' : 'false');
+  };
+  setActive(qmiToggleBtn, seriesVisibility.qmi);
+  setActive(soldToggleBtn, seriesVisibility.sold);
 }
 
 function resolvePrimaryCommunityInfo(communityId, profile) {
@@ -970,6 +1118,15 @@ if (baseMonthEl) {
   });
 }
 
+if (qmiToggleBtn) {
+  qmiToggleBtn.addEventListener('click', () => toggleSeriesVisibility('qmi'));
+}
+
+if (soldToggleBtn) {
+  soldToggleBtn.addEventListener('click', () => toggleSeriesVisibility('sold'));
+}
+updateSeriesToggleUI();
+
 // ---------- charts ----------
 async function drawQmiSoldsMulti(communityIds) {
   if (!qmiSoldsCanvas) {
@@ -1178,6 +1335,7 @@ async function drawQmiSoldsMulti(communityIds) {
     }
   });
   currentCharts.push(chart);
+  applyVisibilityFiltersToCharts();
 }
 
 async function drawSalesPie(communityId, months) {
@@ -1194,6 +1352,7 @@ async function drawSalesPie(communityId, months) {
     options: { responsive: true, maintainAspectRatio: false }
   });
   currentCharts.push(chart);
+  applyVisibilityFiltersToCharts();
 }
 
 async function drawSalesTotalsPie(communityOrCompetitionIds, windowKey) {
@@ -1254,6 +1413,7 @@ async function drawSalesTotalsPie(communityOrCompetitionIds, windowKey) {
       datasets: [{
         label: 'Net Sales',
         data: datasetValues,
+        keepupOriginalData: datasetValues.slice(),
         meta: metaSegments,
         backgroundColor: backgroundColors,
         borderColor: borderColors,
@@ -1294,6 +1454,7 @@ async function drawSalesTotalsPie(communityOrCompetitionIds, windowKey) {
     }
   });
   currentCharts.push(chart);
+  applyVisibilityFiltersToCharts();
 }
 
 function syncBaseMonthOptions(options, selectedValue) {
@@ -1520,6 +1681,7 @@ async function drawBasePrice(communityId) {
     }
   });
   currentCharts.push(chart);
+  applyVisibilityFiltersToCharts();
 }
 
 
@@ -1604,6 +1766,29 @@ function renderLinked(list) {
       swatchLabel: `Change color for ${companyName}`
     });
 
+    const storageKey = chip.dataset.storageKey || '';
+    const textWrap = chip.querySelector('.builder-chip-text');
+    if (textWrap && storageKey) {
+      textWrap.style.cursor = 'pointer';
+      textWrap.setAttribute('role', 'button');
+      textWrap.setAttribute('tabindex', '0');
+      textWrap.title = 'Hide/show this builder on charts';
+      const handleToggle = (evt) => {
+        evt.preventDefault();
+        toggleBuilderHidden(storageKey);
+      };
+      textWrap.addEventListener('click', handleToggle);
+      textWrap.addEventListener('keydown', (evt) => {
+        if (evt.key === 'Enter' || evt.key === ' ') {
+          evt.preventDefault();
+          handleToggle(evt);
+        }
+      });
+    }
+
+    if (storageKey) {
+      updateBuilderChipUI(chip, isBuilderHidden(storageKey));
+    }
     linkedWrap.appendChild(chip);
   });
 }

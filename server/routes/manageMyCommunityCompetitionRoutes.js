@@ -458,6 +458,13 @@ router.get('/community-competition-profiles/:communityId/qmi', async (req, res) 
         toNum(fp?.specs?.squareFeet) ??
         null;
       const listDate = l?.listDate || l?.releaseDate || l?.availableDate || null;
+      const expectedCompletionDate =
+        l?.expectedCompletionDate ||
+        l?.expectedCompletion ||
+        l?.projectedCompletionDate ||
+        l?.estimatedCompletionDate ||
+        l?.completionDate ||
+        null;
 
       return {
         lotId:     l?._id || null,
@@ -469,7 +476,8 @@ router.get('/community-competition-profiles/:communityId/qmi', async (req, res) 
         listPrice: toNum(l?.listPrice),
         listDate,                                   // <-- table expects this name
         releaseDate: listDate,                      // (harmless alias if some code still reads releaseDate)
-        status:    l?.generalStatus || l?.status || null
+        status:    l?.generalStatus || l?.status || null,
+        expectedCompletionDate
       };
     });
 

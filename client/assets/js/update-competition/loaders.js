@@ -191,9 +191,6 @@ export function loadQuickHomes(monthKey) {
     const tr = document.createElement('tr');
     tr.dataset.id = rec._id;
     tr.innerHTML = `
-     <td>
-        <button type="button" class="btn btn-sm btn-outline-danger qmi-delete">Delete</button>
-     </td>
       <td><input class="form-control qmi-input" data-field="address" value="${rec.address}" /></td>
       <td><input type="date" class="form-control qmi-input"  data-field="listDate" value="${(rec.listDate || '').slice(0,10)}" /></td>
       <td>
@@ -215,9 +212,6 @@ export function loadQuickHomes(monthKey) {
 const addTr = document.createElement('tr');
 // no addTr.dataset.id so POST on save
 addTr.innerHTML = `
-  <td>
-    <button type="button" class="btn btn-sm btn-outline-secondary qmi-clear">Clear</button>
-  </td>
   <td><input class="form-control qmi-input" data-field="address" value="" /></td>
   <td><input type="date" class="form-control qmi-input"  data-field="listDate" value="" /></td>
   <td>
@@ -242,36 +236,12 @@ if (newPlanSel && newSqftInp && !newSqftInp.value) {
   if (plan?.sqft != null) newSqftInp.value = plan.sqft;
 }
 
-DOM.quickBody.querySelectorAll('.qmi-delete').forEach(btn => {
-  btn.addEventListener('click', async e => {
-    const row = e.target.closest('tr');
-    const id  = row.dataset.id;
-    if (!id) return; // only saved rows can be deleted
-    if (!confirm('Delete this home?')) return;
-    const resp = await fetch(`/api/competitions/${competitionId}/quick-moveins/${id}`, { method: 'DELETE' });
-    if (!resp.ok) { console.error('Delete failed', await resp.text()); return; }
-    await initQuickHomes();
-    loadQuickHomes(monthKey);
-  });
-});
-
-// Clear button (no API call)
-DOM.quickBody.querySelectorAll('.qmi-clear').forEach(btn => {
-  btn.addEventListener('click', e => {
-    const row = e.target.closest('tr');
-    row.querySelectorAll('.qmi-input').forEach(inp => { inp.value = ''; });
-  });
-});
-
   // Render Sold table
   DOM.soldBody.innerHTML = '';
   sold.forEach(rec => {
     const tr = document.createElement('tr');
     tr.dataset.id = rec._id;
     tr.innerHTML = `
-    <td>
-      <button type="button" class="btn btn-sm btn-outline-danger sold-delete">Delete</button>
-     </td>
       <td><input class="form-control sold-input" data-field="address" value="${rec.address}" /></td>
       <td><input type="date" class="form-control sold-input" data-field="listDate" value="${(rec.listDate || '').slice(0,10)}" /></td>
       <td>
@@ -282,11 +252,6 @@ DOM.quickBody.querySelectorAll('.qmi-clear').forEach(btn => {
       <td><input type="number" class="form-control sold-input" data-field="listPrice" step="0.01" value="${rec.listPrice}" /></td>
        <td><input class="form-control sold-input" type="number" data-field="sqft"
                    value="${rec.sqft ?? (findPlan(rec.floorPlan)?.sqft ?? '')}" /></td>
-      <td>
-        <select class="form-select sold-input" data-field="status">
-          ${renderStatusOptions(rec.status, 'SOLD')}
-        </select>
-      </td>
       <td><input type="date" class="form-control sold-input" data-field="soldDate" value="${(rec.soldDate || '').slice(0,10)}" /></td>
       <td>
         <input class="form-control sold-input" type="number" step="0.01"
@@ -295,20 +260,6 @@ DOM.quickBody.querySelectorAll('.qmi-clear').forEach(btn => {
    `;
     DOM.soldBody.appendChild(tr);
   });
-
-  DOM.soldBody.querySelectorAll('.sold-delete').forEach(btn => {
-  btn.addEventListener('click', async e => {
-    const row = e.target.closest('tr');
-    const id  = row.dataset.id;
-    if (!id) return;
-    if (!confirm('Delete this sold home?')) return;
-    await fetch(`/api/competitions/${competitionId}/quick-moveins/${id}`, { method: 'DELETE' });
-    await initQuickHomes();
-    loadQuickHomes(monthKey);
-  });
-});
-
-
 
   // Auto-save Quick-Move-Ins
   DOM.quickBody.querySelectorAll('.qmi-input').forEach(el => {

@@ -27,6 +27,9 @@
 #monthNav .month-list .nav-link {
   border-radius: 999px;
   padding: .35rem .9rem;
+  background: #ffffff;
+  color: #0d6efd;
+  border: 1px solid #e3e7ec;
   transition: background .15s ease, color .15s ease, box-shadow .15s ease, transform .15s ease;
 }
 
@@ -36,6 +39,9 @@
 }
 #monthNav .month-list .nav-link.active {
   font-weight: 600;
+  background: #0d6efd;
+  color: #ffffff;
+  border-color: #0d6efd;
   transform: translateY(-1px);
   box-shadow: 0 3px 10px rgba(0,0,0,.08);
 }
@@ -48,6 +54,9 @@
   line-height: 1;
   padding: 0 .5rem;
   border-radius: .5rem;
+  background: #ffffff;
+  color: #0d6efd;
+  border: 1px solid #6c757d; /* darker outline for clearer arrows */
 }
 #monthNav .nav-next:disabled {
   opacity: .45;
@@ -56,7 +65,7 @@
 
 /* optional: faint divider under the whole strip */
 #monthNav .month-nav-wrap {
-  border-bottom: 1px solid #e9ecef;
+  border-bottom: 1px solid #6c757d; /* darker divider for clearer separation */
   padding-bottom: .25rem;
 }
 
@@ -73,12 +82,12 @@
 
 /* SECTION NAV */
 :root {
-  --tab-bg:            #f8f9fa;       /* idle tab bg */
-  --tab-border:        #dee2e6;       /* border color for tabs */
+  --tab-bg:            #e7ecf3;       /* idle tab bg (task bar match) */
+  --tab-border:        #d7dde4;       /* border color for tabs */
   --tab-text:          #495057;       /* idle text */
   --tab-active-bg:     #ffffff;       /* active tab bg (matches panel) */
   --tab-active-text:   #0d6efd;       /* active text color */
-  --tab-active-border: #cfd4da;       /* active border (subtle) */
+  --tab-active-border: #c8d0d8;       /* active border (subtle) */
   --panel-bg:          #ffffff;       /* content panel bg */
   --panel-shadow:      0 2px 10px rgba(0,0,0,.06);
 }
@@ -116,6 +125,7 @@
   border-top-right-radius: 12px;
 
   margin-bottom: -1px;              /* overlap panel border */
+  box-shadow: inset 0 -1px 0 rgba(0,0,0,.03);
   transition: background .15s ease, color .15s ease, box-shadow .15s ease, transform .15s ease;
 }
 
@@ -132,6 +142,15 @@
   z-index: 2;                       /* sit above the panel border */
   box-shadow: 0 3px 10px rgba(0,0,0,.06);
   transform: translateY(1px);       /* tiny “pressed” effect */
+}
+
+.folder-tabs .nav-link.active::after {
+  content: "";
+  position: absolute;
+  inset: auto 12px -2px 12px;
+  height: 2px;
+  background: linear-gradient(90deg, #4f8bff, #6ac4ff);
+  border-radius: 999px;
 }
 
 /* Optional: keyboard focus ring */

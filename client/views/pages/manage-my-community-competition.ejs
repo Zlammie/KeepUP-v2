@@ -15,9 +15,6 @@
   <%- include('../partials/nav') %>
   <%- include('../partials/top-nav-competition') %>
 
-  <div class="horizontal-cont">
-    <!-- ============ LEFT SIDEBAR ============ -->
-    <div class="side-bar card card--grey main-cont">
 <%
 // Make sure these locals exist even if the route forgot to pass them:
 var profile   = (typeof profile   !== 'undefined' && profile)   ? profile   : null;
@@ -29,34 +26,46 @@ const commName = community
   : 'Unnamed Community';
 
 const builderName = community
-  ? (community.builderName || community.builder || '—')
-  : '—';
+  ? (
+      community.companyName ||
+      (community.company && (community.company.name || community.company.title || community.company.label)) ||
+      community.builderName ||
+      community.builder ||
+      (profile && (profile.companyName || profile.company)) ||
+      'Unknown Company'
+    )
+  : ((profile && (profile.companyName || profile.company)) || 'Unknown Company');
 
-const addr = (profile && profile.address) || (community && community.address) || '—';
-const city = (profile && profile.city)    || (community && community.city)    || '—';
+const addr = (profile && profile.address) || (community && community.address) || '�?"';
+const city = (profile && profile.city)    || (community && community.city)    || '�?"';
 const zip  = (profile && profile.zip)     || (community && community.zip)     || '';
 %>
 
+  <div class="mt-3 mb-2">
+    <h2 class="mb-0 d-flex flex-wrap align-items-baseline gap-2">
+      <span><%= commName %></span>
+      <span class="text-muted fw-normal">- <%= builderName %></span>
+    </h2>
+  </div>
+
+  <div class="horizontal-cont">
+    <!-- ============ LEFT SIDEBAR ============ -->
+    <div class="side-bar card card--grey main-cont">
+
       <!-- Community Info -->
       <div class="card card--white mb-3">
-        <button id="backToCommunitiesBtn" class="btn btn-outline-secondary btn-sm mb-2">
-          Back to Communities
-        </button>
-        
-        <div class="card-body">
-          <h5 class="card-title"><%= commName %></h5>
-          <p class="card-text">
-            Builder: <strong><%= builderName %></strong><br/>
-          </p>
-          <a class="btn btn-sm btn-outline-secondary mt-2"
-            href="/view-lots?communityId=<%= communityId %>">View Lots</a>
-        </div>
-        <a
-        class="btn btn-secondary mb-3"
-        href="/add-floorplan"
-      >
-        Add / Update Floor Plans
-      </a>
+          <button id="backToCommunitiesBtn" class="btn btn-primary btn-sm mb-2">
+            Back to Communities
+          </button>
+            <a class="btn btn-primary btn-sm mb-2"
+            href="/view-lots?communityId=<%= communityId %>">
+              View Lots</a>
+          <a
+          class="btn btn-primary btn-sm mb-2"
+          href="/add-floorplan"
+        >
+          Add / Update Floor Plans
+        </a>
       </div>
       <script nonce="<%= cspNonce %>">
         document.getElementById('backToCommunitiesBtn')?.addEventListener('click', () => {
@@ -152,7 +161,6 @@ const zip  = (profile && profile.zip)     || (community && community.zip)     ||
               <div class="container mt-3">
                 <form id="metricsForm">
                   <div class="mb-3">
-                    <label for="promotion" class="form-label">Promotion</label>
                     <textarea
                       id="promotion"
                       name="promotion"
@@ -194,7 +202,7 @@ const zip  = (profile && profile.zip)     || (community && community.zip)     ||
                   </div>
 
                   <!-- Lot Counts (placeholders) -->
-                  <div class="row card">
+                  <div class="mb-3 card">
                     <div class="col-md-3 mb-3">
                       <label class="form-label">Lot Count</label>
                       <input type="number" name="totalLots" id="lotCount" class="form-control" readonly>
@@ -239,13 +247,12 @@ const zip  = (profile && profile.zip)     || (community && community.zip)     ||
                 <table id="quickHomesTable" class="table table-bordered">
                   <thead>
                     <tr>
-                      <th></th> <!-- Delete -->
                       <th>Address</th>
-                      <th>List Date</th>
+                      <th>Start Date</th>
                       <th>Floor Plan</th>
                       <th>List Price</th>
                       <th>Sqft</th>
-                      <th>Status</th>
+                      <th>Finish Date</th>
                     </tr>
                   </thead>
                   <tbody></tbody>
@@ -256,13 +263,11 @@ const zip  = (profile && profile.zip)     || (community && community.zip)     ||
                 <table id="soldHomesTable" class="table table-bordered">
                   <thead>
                     <tr>
-                      <th></th> <!-- Delete -->
                       <th>Address</th>
-                      <th>List Date</th>
+                      <th>Start Date</th>
                       <th>Floor Plan</th>
                       <th>List Price</th>
                       <th>Sqft</th>
-                      <th>Status</th>
                       <th>Sold Date</th>
                       <th>Sold Price</th>
                     </tr>

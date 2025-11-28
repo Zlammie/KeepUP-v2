@@ -16,8 +16,10 @@
 .modal .close { float: right; cursor: pointer; font-size: 1.5rem; }
 
 .top-content-cont {
-  max-width: calc(100% - 200px); /* leaves 200px of space on right */
-  margin-right: 150px; /* keeps it flush left */
+  flex: 1 1 0;
+  max-width: none;
+  margin-right: 0;
+  min-width: 0;
 }
 
 .top-card-grid {
@@ -43,6 +45,73 @@
   align-items: center;
   justify-content: space-between;
   margin-bottom: .5rem;
+}
+
+.promo-pros-wrap {
+  padding: 1rem;
+  display: grid;
+  gap: 1rem;
+}
+.promo-pros-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+}
+.promo-pros-header .toggle-btn {
+  margin-left: auto;
+}
+.promo-pros-wrap .section-block {
+  background: #f7f9fc;
+  border: 1px solid #e5e7eb;
+  border-radius: 12px;
+  padding: 1rem;
+}
+.promo-pros-wrap.is-collapsed {
+  background: transparent;
+  border: none;
+  box-shadow: none;
+  padding: 0;
+}
+.promo-pros-wrap.is-collapsed .promo-pros-header {
+  display: none;
+}
+.promo-pros-wrap.is-collapsed .promo-pros-collapsed {
+  margin: 0;
+}
+.competition-details-layout {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.75rem;
+}
+.competition-details-layout .top-content-cont {
+  flex: 1 1 auto;
+  min-width: 0;
+}
+.competition-details-layout .task-bar-outside {
+  flex: 0 0 340px;
+  max-width: 360px;
+  min-width: 300px;
+  position: sticky;
+  top: 96px;
+  align-self: flex-start;
+}
+.promo-pros-body.is-hidden {
+  display: none;
+}
+.promo-pros-collapsed {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  background: #eef2ff;
+  border: 1px solid #c5d0f5;
+  border-radius: 10px;
+  padding: 0.65rem 0.9rem;
+  color: #1e3a8a;
+}
+.promo-pros-collapsed.is-hidden {
+  display: none;
 }
 
 .promo-hoa-row{

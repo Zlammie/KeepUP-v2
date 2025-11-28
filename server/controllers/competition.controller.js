@@ -36,12 +36,38 @@ const parseBoolean = (value, defaultValue = false) => {
 };
 
 const isYYYYMM = (input) => typeof input === 'string' && /^\d{4}-(0[1-9]|1[0-2])$/.test(input.trim());
+
+// Parse a month key flexibly: accepts "YYYY-MM", "YYYY-M", "YYYY/MM", or date-like strings.
 const toYM = (value) => {
   if (!value) return null;
-  if (typeof value === 'string' && isYYYYMM(value)) return value.trim();
+
+  if (typeof value === 'string') {
+    const trimmed = value.trim();
+    const m = trimmed.match(/^(\d{4})[-/](\d{1,2})$/);
+    if (m) {
+      const year = Number(m[1]);
+      const month = Math.min(12, Math.max(1, Number(m[2])));
+      return `${year}-${String(month).padStart(2, '0')}`;
+    }
+    if (isYYYYMM(trimmed)) return trimmed;
+  }
+
   const d = new Date(String(value));
   if (Number.isNaN(d.getTime())) return null;
   return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`;
+};
+const buildLabel = (...parts) => {
+  const filtered = parts
+    .map((p) => (p == null ? '' : String(p).trim()))
+    .filter(Boolean);
+  return filtered.length ? filtered.join(' - ') : 'Unnamed';
+};
+const friendlyMonthLabel = (ym) => {
+  const normalized = toYM(ym);
+  if (!normalized) return String(ym ?? '');
+  const [y, m] = normalized.split('-').map(Number);
+  const d = new Date(y, m - 1, 1);
+  return d.toLocaleString(undefined, { month: 'short', year: 'numeric' });
 };
 const extractNumeric = (value) => {
   if (value == null || value === '') return null;
@@ -221,6 +247,111 @@ exports.updatePriceRecord = async (req, res) => {
   ).lean();
   if (!rec) return res.status(404).json({ error: 'Not found' });
   res.json(rec);
+};
+
+// Price scatter (price vs sqft per plan for a competition, by month)
+exports.getPriceScatter = async (req, res) => {
+  try {
+    const comp = await loadScopedCompetition(req, res); if (!comp || res.headersSent) return;
+    const monthFilter = typeof req.query.month === 'string' ? req.query.month.trim() : '';
+    const monthKey = toYM(monthFilter);
+
+    // Load price records for this competition (optionally filter by month)
+    const companyMatch = companyFilter(req);
+    const baseQuery = {
+      competition: comp._id,
+      ...(monthKey ? { month: monthKey } : {})
+    };
+    const priceQuery = { ...baseQuery, ...companyMatch };
+
+    let priceRecs = await PriceRecord.find(priceQuery)
+      .populate('floorPlan', 'name planNumber sqft specs.squareFeet')
+      .lean();
+
+    // Legacy safeguard: if nothing matched with the company filter, try again scoped only by competition.
+    if (!priceRecs.length && companyMatch && Object.keys(companyMatch).length) {
+      priceRecs = await PriceRecord.find(baseQuery)
+        .populate('floorPlan', 'name planNumber sqft specs.squareFeet')
+        .lean();
+    }
+
+    // If some records failed to populate (e.g., legacy references to FloorPlan instead of FloorPlanComp),
+    // try to hydrate those plans manually so we can still get sqft/name.
+    const missingPlanIds = priceRecs
+      .map((rec) => (!rec.floorPlan || typeof rec.floorPlan !== 'object') ? rec.floorPlan : null)
+      .filter(Boolean)
+      .map((id) => String(id));
+
+    let planLookup = {};
+    if (missingPlanIds.length) {
+      const planDocs = await Promise.all([
+        FloorPlanComp.find({ _id: { $in: missingPlanIds } }).select('name planNumber sqft specs.squareFeet').lean(),
+        FloorPlan.find({ _id: { $in: missingPlanIds } }).select('name planNumber specs.squareFeet').lean()
+      ]);
+
+      planLookup = Object.fromEntries(
+        planDocs.flat().map((p) => [String(p._id), {
+          _id: p._id,
+          name: p.name || '',
+          planNumber: p.planNumber || '',
+          sqft: p.sqft,
+          specs: p.specs || {}
+        }])
+      );
+    }
+
+    // Group usable points by month so we can pick the most recent month with data.
+    const monthPoints = new Map();
+    for (const rec of priceRecs) {
+      const ym = toYM(rec?.month);
+      if (!ym) continue;
+
+      const fp = rec.floorPlan && typeof rec.floorPlan === 'object'
+        ? rec.floorPlan
+        : (planLookup[String(rec.floorPlan)] || null);
+
+      const sqft = extractNumeric(fp?.sqft) ?? extractNumeric(fp?.specs?.squareFeet) ?? extractNumeric(rec?.sqft);
+      const price = extractNumeric(rec?.price);
+      if (!Number.isFinite(sqft) || sqft <= 0 || !Number.isFinite(price)) continue;
+
+      const labelParts = [fp?.name || '', fp?.planNumber || ''].filter(Boolean).join(' ');
+      const point = {
+        x: sqft,
+        y: price,
+        planId: fp?._id ? String(fp._id) : null,
+        planName: fp?.name || '',
+        planNumber: fp?.planNumber || '',
+        label: labelParts || 'Plan',
+        month: ym
+      };
+
+      if (!monthPoints.has(ym)) monthPoints.set(ym, []);
+      monthPoints.get(ym).push(point);
+    }
+
+    if (!monthPoints.size) {
+      return res.json({ months: [], selectedMonth: null, datasets: [] });
+    }
+
+    const monthsDesc = [...monthPoints.keys()].sort((a, b) => (a < b ? 1 : a > b ? -1 : 0));
+    const months = monthsDesc.map((m) => ({ value: m, label: friendlyMonthLabel(m) }));
+    const selectedMonth = monthKey && monthPoints.has(monthKey) ? monthKey : monthsDesc[0];
+    const selectedPoints = [...(monthPoints.get(selectedMonth) || [])].sort((a, b) => a.x - b.x);
+
+    const datasets = [
+      {
+        id: String(comp._id),
+        type: 'competition',
+        label: buildLabel(comp.builderName, comp.communityName),
+        points: selectedPoints
+      }
+    ];
+
+    res.json({ months, selectedMonth, datasets });
+  } catch (err) {
+    console.error('[competition:price-scatter]', err);
+    res.status(err.status || 500).json({ error: err.message || 'Server error' });
+  }
 };
 
 async function deriveQuickMoveInsFromCommunity(req, competition, monthFilter) {

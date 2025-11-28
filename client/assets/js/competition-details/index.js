@@ -5,10 +5,18 @@ import { initAutosave } from './autosave.js';
 import { initAmenities } from './amenities.js';
 import { hydrateLotStats } from './summary.js';
 import { initToggles } from './toggles.js';
+import { initTaskPanel } from '../contact-details/tasks.js';
 
 initToggles();
 const boot = readBoot();
 const competitionId = boot.id || null;
+
+// Task panel (right rail)
+initTaskPanel({
+  linkedModel: 'Competition',
+  linkedId: competitionId,
+  defaultTitle: `Follow up on ${boot.builderName || 'Competition'} \u2013 ${boot.communityName || ''}`
+});
 
 async function loadSalesSeries(year) {
   const y = year || new Date().getFullYear();
@@ -43,7 +51,27 @@ async function loadSoldsAll() {
   return [];
 }
 
+async function loadPlans() {
+  const res = await fetch(`/api/competitions/${competitionId}/floorplans`);
+  if (!res.ok) throw new Error(`Plans fetch failed: ${res.status}`);
+  const data = await res.json();
+  return Array.isArray(data) ? data : [];
+}
+
+async function loadPriceScatter(month) {
+  const url = month
+    ? `/api/competitions/${competitionId}/price-scatter?month=${encodeURIComponent(month)}`
+    : `/api/competitions/${competitionId}/price-scatter`;
+  const res = await fetch(url);
+  if (!res.ok) throw new Error(`Price scatter fetch failed: ${res.status}`);
+  return res.json(); // { months:[{value,label}], selectedMonth, datasets:[{points:[]}] }
+}
+
 let salesChart = null;
+let priceSqftChart = null;
+let cachedQmi = null;
+let cachedSolds = null;
+let cachedPlans = null;
 
 // 1) Autosave & Fees
 const triggerSave = initAutosave(competitionId);
@@ -379,23 +407,269 @@ async function renderQmi() {
 }
 
 
-  function renderSqft() {
-    const data = (BOOT.monthlyMetrics || []);
-    if (!data.length) { mount(`<p class="graph-empty">No data for Sqft Comparison yet.</p>`); return; }
-    const rows = data.map(m => `
-      <tr><td>${asMonthLabel(m)}</td><td>${getAvgSqft(m) ?? '—'}</td></tr>
-    `).join('');
-    mount(`
-      <h5>Average Sqft by Month</h5>
-      <table class="graph-table">
-        <thead><tr><th>Month</th><th>Avg Sqft</th></tr></thead>
-        <tbody>${rows}</tbody>
-      </table>
-    `);
+  const fmtCurrency = (n) =>
+    Number.isFinite(n) ? n.toLocaleString(undefined, { style: 'currency', currency: 'USD', maximumFractionDigits: 0 }) : '—';
+
+  function monthKeyOf(dateLike) {
+    if (!dateLike) return null;
+    const d = new Date(dateLike);
+    if (Number.isNaN(d.getTime())) return null;
+    return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`;
   }
 
+  function monthLabel(ym) {
+    const [y, m] = String(ym).split('-').map(Number);
+    if (!Number.isFinite(y) || !Number.isFinite(m)) return ym;
+    const d = new Date(y, m - 1, 1);
+    return d.toLocaleString(undefined, { month: 'long', year: 'numeric' });
+  }
 
-  return { renderSales, renderSqft, renderBase, renderQmi };
+  function avg(arr) {
+    if (!arr.length) return null;
+    return arr.reduce((a, b) => a + b, 0) / arr.length;
+  }
+
+  async function renderSqft() {
+    try {
+      const scatter = await loadPriceScatter();
+      const months = Array.isArray(scatter?.months) ? scatter.months : [];
+      const datasets = Array.isArray(scatter?.datasets) ? scatter.datasets : [];
+      const selectedMonth = scatter?.selectedMonth || (months[0]?.value ?? null);
+
+      if (!months.length || !datasets.length) {
+        mount('<p class="graph-empty">No price-per-sqft data yet.</p>');
+        return;
+      }
+
+      const monthOptions = months.slice();
+      if (monthOptions.length > 1) {
+        monthOptions.unshift({ value: 'All', label: 'All months' });
+      }
+      const effectiveSelected = selectedMonth || (monthOptions[0]?.value ?? null);
+
+      const optionsHtml = monthOptions
+        .map((m) => `<option value="${m.value}"${m.value === effectiveSelected ? ' selected' : ''}>${m.label || monthLabel(m.value)}</option>`)
+        .join('');
+
+      mount(`
+        <div class="graph-controls">
+          <label class="graph-filter">
+            <span>Month:</span>
+            <select id="priceSqftMonth" class="graph-select">${optionsHtml}</select>
+          </label>
+        </div>
+        <div class="graph-card">
+          <canvas id="priceSqftCanvas" height="360"></canvas>
+        </div>
+      `);
+
+      const select = graphMount.querySelector('#priceSqftMonth');
+      const ctx = graphMount.querySelector('#priceSqftCanvas')?.getContext('2d');
+      if (!ctx) {
+        mount('<p class="graph-empty">Unable to mount price-per-sqft chart.</p>');
+        return;
+      }
+
+      const renderMonth = (ym) => {
+        const pts = datasets
+          .flatMap((ds) => Array.isArray(ds.points) ? ds.points : [])
+          .filter((p) => Number.isFinite(p?.x) && Number.isFinite(p?.y))
+          .filter((p) => !ym || ym === 'All' || p.month === ym)
+          .sort((a, b) => a.x - b.x);
+
+        if (!pts.length) {
+          mount('<p class="graph-empty">No price-per-sqft data for that month.</p>');
+          return;
+        }
+
+        if (priceSqftChart) {
+          try { priceSqftChart.destroy(); } catch {}
+          priceSqftChart = null;
+        }
+
+        priceSqftChart = new Chart(ctx, {
+          type: 'line',
+          data: {
+            datasets: [
+              {
+                label: monthLabel(ym),
+                data: pts,
+                parsing: false,
+                showLine: true,
+                fill: false,
+                pointRadius: 4,
+                pointHoverRadius: 6
+              }
+            ]
+          },
+          options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            plugins: {
+              tooltip: {
+                callbacks: {
+                  label: (ctx) => {
+                    const raw = ctx.raw || {};
+                    const name = raw.label ? `${raw.label}: ` : '';
+                    return `${name}${fmtCurrency(raw.y)} @ ${raw.x?.toLocaleString()} sqft`;
+                  }
+                }
+              },
+              legend: { display: false },
+              title: { display: true, text: 'Price vs Sqft (Floor Plans)' }
+            },
+            scales: {
+              x: { title: { display: true, text: 'Sqft' } },
+              y: {
+                title: { display: true, text: 'Price' },
+                ticks: { callback: (v) => fmtCurrency(v) }
+              }
+            }
+          }
+        });
+      };
+
+      renderMonth(defaultMonth);
+      select?.addEventListener('change', (e) => renderMonth(e.target.value));
+    } catch (err) {
+      console.error('Render price per sqft failed', err);
+      mount('<p class="graph-empty">Unable to load price-per-sqft data.</p>');
+    }
+  }
+
+  // New render using price-scatter endpoint (competition-scoped)
+  async function renderSqftNew() {
+    try {
+      const scatter = await loadPriceScatter();
+      const months = Array.isArray(scatter?.months) ? scatter.months : [];
+      const selectedMonth = scatter?.selectedMonth || (months[0]?.value ?? null);
+
+      if (!months.length) {
+        mount('<p class="graph-empty">No price-per-sqft data yet.</p>');
+        return;
+      }
+
+      const monthOptions = months.slice();
+      if (monthOptions.length > 1) {
+        monthOptions.unshift({ value: 'All', label: 'All months' });
+      }
+      const effectiveSelected = selectedMonth || (monthOptions[0]?.value ?? null);
+
+      const optionsHtml = monthOptions
+        .map((m) => `<option value="${m.value}"${m.value === effectiveSelected ? ' selected' : ''}>${m.label || monthLabel(m.value)}</option>`)
+        .join('');
+
+      mount(`
+        <div class="graph-controls">
+          <label class="graph-filter">
+            <span>Month:</span>
+            <select id="priceSqftMonth" class="graph-select">${optionsHtml}</select>
+          </label>
+        </div>
+        <div class="graph-card">
+          <canvas id="priceSqftCanvas" height="360"></canvas>
+          <p id="priceSqftEmpty" class="graph-empty" style="display:none;">No price-per-sqft data for that month.</p>
+        </div>
+      `);
+
+      const select = graphMount.querySelector('#priceSqftMonth');
+      const canvas = graphMount.querySelector('#priceSqftCanvas');
+      const emptyEl = graphMount.querySelector('#priceSqftEmpty');
+      const ctx = canvas?.getContext('2d');
+      if (!ctx || !canvas) {
+        mount('<p class="graph-empty">Unable to mount price-per-sqft chart.</p>');
+        return;
+      }
+
+      const draw = (scatterData, ym) => {
+        const dsArr = Array.isArray(scatterData?.datasets) ? scatterData.datasets : [];
+        const pts = dsArr
+          .flatMap((ds) => Array.isArray(ds.points) ? ds.points : [])
+          .filter((p) => Number.isFinite(p?.x) && Number.isFinite(p?.y))
+          .filter((p) => !ym || ym === 'All' || p.month === ym)
+          .sort((a, b) => a.x - b.x);
+
+        if (!pts.length) {
+          if (priceSqftChart) {
+            try { priceSqftChart.destroy(); } catch {}
+            priceSqftChart = null;
+          }
+          if (canvas) canvas.style.display = 'none';
+          if (emptyEl) {
+            emptyEl.textContent = 'No price-per-sqft data for that month.';
+            emptyEl.style.display = 'block';
+          }
+          return;
+        }
+
+        if (canvas) canvas.style.display = 'block';
+        if (emptyEl) emptyEl.style.display = 'none';
+
+        if (priceSqftChart) {
+          try { priceSqftChart.destroy(); } catch {}
+          priceSqftChart = null;
+        }
+
+        priceSqftChart = new Chart(ctx, {
+          type: 'line',
+          data: {
+            datasets: [
+              {
+                label: monthLabel(ym),
+                data: pts,
+                parsing: false,
+                showLine: true,
+                fill: false,
+                pointRadius: 4,
+                pointHoverRadius: 6
+              }
+            ]
+          },
+          options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            plugins: {
+              tooltip: {
+                callbacks: {
+                  label: (ctx) => {
+                    const raw = ctx.raw || {};
+                    const name = raw.label ? `${raw.label}: ` : '';
+                    return `${name}${fmtCurrency(raw.y)} @ ${raw.x?.toLocaleString()} sqft`;
+                  }
+                }
+              },
+              legend: { display: false },
+              title: { display: true, text: 'Price vs Sqft (Floor Plans)' }
+            },
+            scales: {
+              x: { title: { display: true, text: 'Sqft' } },
+              y: {
+                title: { display: true, text: 'Price' },
+                ticks: { callback: (v) => fmtCurrency(v) }
+              }
+            }
+          }
+        });
+      };
+
+      draw(scatter, effectiveSelected);
+      select?.addEventListener('change', async (e) => {
+        const ym = e.target.value;
+        try {
+          const next = await loadPriceScatter(ym);
+          draw(next, ym);
+        } catch (err) {
+          console.error('Price scatter reload failed', err);
+          draw(scatter, ym);
+        }
+      });
+    } catch (err) {
+      console.error('Render price per sqft failed', err);
+      mount('<p class="graph-empty">Unable to load price-per-sqft data.</p>');
+    }
+  }
+
+  return { renderSales, renderSqft: renderSqftNew, renderBase, renderQmi };
 })();
 
 // Controller
@@ -403,11 +677,11 @@ async function render(kind) {
   setBusy(true);
   try {
     switch (kind) {
-      case 'sales': await Graphs.renderSales(); break; // async
-      case 'sqft':  Graphs.renderSqft();        break; // sync
-      case 'base':  await Graphs.renderBase();  break; // async
-      case 'qmi':   await Graphs.renderQmi();   break; // sync
-      default:      await Graphs.renderSales(); break; // async
+      case 'sales': await Graphs.renderSales(); break;
+      case 'sqft':  await Graphs.renderSqft();  break;
+      case 'base':  await Graphs.renderBase();  break;
+      case 'qmi':   await Graphs.renderQmi();   break;
+      default:      await Graphs.renderSales(); break;
     }
   } finally { setBusy(false); }
 }

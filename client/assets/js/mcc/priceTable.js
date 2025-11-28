@@ -20,6 +20,16 @@ export function priceTable() {
   let currentMonth = null;
   let priceMap = {}; let t = null;
 
+  const sqftVal = (plan) => {
+    const raw =
+      plan?.specs?.squareFeet ??
+      plan?.squareFeet ??
+      plan?.specs?.sqft ??
+      plan?.sqft;
+    const n = Number(raw);
+    return Number.isFinite(n) ? n : Infinity; // push unknown sqft to the bottom
+  };
+
   const fmt = (n) => (Number.isFinite(n) ? n.toLocaleString() : (n ?? '—'));
   const safe = (s) => (s == null || s === '' ? '—' : s);
 
@@ -78,7 +88,11 @@ export function priceTable() {
     currentMonth = month;
     const [plans, prices] = await Promise.all([ fetchPlans(), fetchPrices(month) ]);
     priceMap = prices || {};
-    tbody.innerHTML = ''; plans.forEach(p => tbody.appendChild(buildRow(p)));
+    tbody.innerHTML = '';
+    plans
+      .slice()
+      .sort((a, b) => sqftVal(a) - sqftVal(b))
+      .forEach((p) => tbody.appendChild(buildRow(p)));
     wireInputs();
     refreshPriceWarnings();
     if (month === TARGET_MONTH_KEY) ensureBasePriceTask(month).catch((err) =>

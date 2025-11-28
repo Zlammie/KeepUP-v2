@@ -3,7 +3,20 @@ export function initToggles() {
     btn.addEventListener('click', () => {
       const sel = btn.getAttribute('data-target');
       const target = document.querySelector(sel);
+      const altSel = btn.getAttribute('data-alt');
+      const alt = altSel ? document.querySelector(altSel) : null;
       if (!target) return;
+
+      // If we have an "alt" container, toggle between them (hide body, show collapsed bar)
+      if (alt) {
+        const hideBody = !target.classList.contains('is-hidden');
+        target.classList.toggle('is-hidden', hideBody);
+        alt.classList.toggle('is-hidden', !hideBody);
+        btn.textContent = hideBody ? 'Show Sections' : 'Hide Sections';
+        const wrap = btn.closest('.promo-pros-wrap');
+        if (wrap) wrap.classList.toggle('is-collapsed', hideBody);
+        return;
+      }
 
       // Collapse height but keep width/slot
       if (sel === '#promoHoaContent' || sel === '#prosConsContent') {
