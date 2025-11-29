@@ -27,10 +27,17 @@ const lotCountsToggleBtn = document.getElementById('lotCountsToggle');
 const salesWindowEl = document.getElementById('dashSalesWindow');
 const qmiToggleBtn  = document.getElementById('toggleQmi');
 const soldToggleBtn = document.getElementById('toggleSold');
+const shorthandTableBody = document.getElementById('shorthandTableBody');
+const shortNameToggle    = document.getElementById('shortNameToggle');
 
 const communityMetaMap = new Map();
 const hiddenBuilderKeys = new Set();
 const seriesVisibility = { qmi: true, sold: true };
+const NAME_PREFS_STORAGE_KEY = 'competitionDashNamePrefs';
+let namePrefs = { shortNames: {}, useShortNamesTables: false };
+let lastLotCountsRender = null;
+let lastBaseTableDatasets = null;
+let lastQmiLegend = null;
 
 let currentCharts = [];
 let lotCountsOverlayEl = null;
@@ -51,6 +58,38 @@ function normalizeStorageKey(value) {
   if (value === null || value === undefined) return '';
   return String(value).trim();
 }
+
+function loadNamePrefs() {
+  if (typeof window === 'undefined' || typeof window.localStorage === 'undefined') return;
+  try {
+    const raw = window.localStorage.getItem(NAME_PREFS_STORAGE_KEY);
+    if (!raw) return;
+    const parsed = JSON.parse(raw);
+    if (parsed && typeof parsed === 'object') {
+      namePrefs = {
+        shortNames: parsed.shortNames && typeof parsed.shortNames === 'object' ? parsed.shortNames : {},
+        useShortNamesTables: Boolean(parsed.useShortNamesTables)
+      };
+    }
+  } catch (err) {
+    console.warn('Failed to load name preferences:', err);
+  }
+}
+
+function saveNamePrefs() {
+  if (typeof window === 'undefined' || typeof window.localStorage === 'undefined') return;
+  try {
+    const payload = {
+      shortNames: namePrefs.shortNames || {},
+      useShortNamesTables: Boolean(namePrefs.useShortNamesTables)
+    };
+    window.localStorage.setItem(NAME_PREFS_STORAGE_KEY, JSON.stringify(payload));
+  } catch (err) {
+    console.warn('Failed to save name preferences:', err);
+  }
+}
+
+loadNamePrefs();
 
 function loadBuilderColors() {
   if (builderColorsLoaded) return;
@@ -413,6 +452,142 @@ function syncLinkedBuilderChips() {
   });
 }
 
+function getShortName(id) {
+  const key = normalizeId(id);
+  if (!key) return '';
+  const value = namePrefs.shortNames?.[key];
+  return typeof value === 'string' ? value : '';
+}
+
+function setShortName(id, value) {
+  const key = normalizeId(id);
+  if (!key) return;
+  const trimmed = (value || '').trim();
+  if (!trimmed) {
+    if (namePrefs.shortNames) {
+      delete namePrefs.shortNames[key];
+    }
+  } else {
+    if (!namePrefs.shortNames || typeof namePrefs.shortNames !== 'object') {
+      namePrefs.shortNames = {};
+    }
+    namePrefs.shortNames[key] = trimmed.slice(0, 120);
+  }
+  saveNamePrefs();
+  refreshTablesWithNamePrefs();
+}
+
+function isUsingShortNames() {
+  return Boolean(namePrefs.useShortNamesTables);
+}
+
+function setUseShortNamesTables(flag) {
+  namePrefs.useShortNamesTables = Boolean(flag);
+  saveNamePrefs();
+  syncShortNameToggleUI();
+  refreshTablesWithNamePrefs();
+}
+
+function syncShortNameToggleUI() {
+  if (!shortNameToggle) return;
+  shortNameToggle.checked = isUsingShortNames();
+}
+
+function getDisplayNameForTables({ id, builderName, communityName, label }) {
+  const key = normalizeId(id);
+  const shortName = key ? getShortName(key) : '';
+  if (isUsingShortNames() && shortName) return shortName;
+  return builderName || communityName || label || 'Community';
+}
+
+function getDisplayNameForCharts(params) {
+  return getDisplayNameForTables(params);
+}
+
+function refreshTablesWithNamePrefs() {
+  if (lastLotCountsRender) {
+    const { ids, results, primaryId } = lastLotCountsRender;
+    renderLotCountsTable(ids || [], results || [], primaryId || '');
+  }
+  if (lastBaseTableDatasets) {
+    renderBaseTable(lastBaseTableDatasets);
+  }
+  applyNamePrefsToCharts();
+}
+
+function applyNamePrefsToCharts() {
+  currentCharts.forEach((chart) => {
+    if (!chart?.data) return;
+    let dirty = false;
+
+    if (Array.isArray(chart.data.datasets)) {
+      chart.data.datasets.forEach((ds) => {
+        const entityId = normalizeId(ds.keepupEntityId || ds.id || ds._id || ds.communityId || ds.competitionId);
+        const meta = entityId ? (getCommunityMeta(entityId) || {}) : {};
+        const baseLabel = ds.keepupBaseLabel || ds.label || meta.label || '';
+        const displayName = entityId
+          ? getDisplayNameForCharts({
+              id: entityId,
+              builderName: meta.builderName || meta.builder || meta.company,
+              communityName: meta.communityName || meta.name,
+              label: baseLabel
+            })
+          : baseLabel;
+
+        if (ds.keepupSeries === 'qmi') {
+          const nextLabel = `${displayName || baseLabel} - Quick Move-Ins`;
+          if (nextLabel && ds.label !== nextLabel) {
+            ds.label = nextLabel;
+            dirty = true;
+          }
+        } else if (ds.keepupSeries === 'sold') {
+          const nextLabel = `${displayName || baseLabel} - SOLD`;
+          if (nextLabel && ds.label !== nextLabel) {
+            ds.label = nextLabel;
+            dirty = true;
+          }
+        } else if (ds.keepupSeries === 'basePrice') {
+          if (displayName && ds.label !== displayName) {
+            ds.label = displayName;
+            dirty = true;
+          }
+        } else if (ds.keepupSeries === 'salesPie') {
+          // handled via labels below
+        } else if (displayName && ds.label !== displayName) {
+          ds.label = displayName;
+          dirty = true;
+        }
+      });
+    }
+
+    if (Array.isArray(chart.data.labels) && chart.data.datasets?.[0]?.keepupSeries === 'salesPie') {
+      const ds = chart.data.datasets[0];
+      const segments = Array.isArray(ds.keepupSegments) ? ds.keepupSegments : [];
+      segments.forEach((seg, idx) => {
+        const segId = normalizeId(seg?.id);
+        if (!segId) return;
+        const meta = getCommunityMeta(segId) || {};
+        const baseLabel = seg?.baseLabel || chart.data.labels[idx] || '';
+        const display = getDisplayNameForCharts({
+          id: segId,
+          builderName: meta.builderName || meta.builder || meta.company,
+          communityName: meta.communityName || meta.name,
+          label: baseLabel
+        });
+        if (display && chart.data.labels[idx] !== display) {
+          chart.data.labels[idx] = display;
+          dirty = true;
+        }
+      });
+    }
+
+    if (dirty) {
+      chart.update('none');
+    }
+  });
+  refreshQmiLegendWithNamePrefs();
+}
+
 function shouldDatasetBeHidden(ds) {
   const dsKey = normalizeStorageKey(ds?.keepupStorageKey);
   const hiddenByBuilder = dsKey && isBuilderHidden(dsKey);
@@ -521,6 +696,8 @@ function updateSeriesToggleUI() {
   const setActive = (btn, active) => {
     if (!btn) return;
     btn.classList.toggle('active', active);
+    btn.classList.toggle('btn-secondary', active);
+    btn.classList.toggle('btn-outline-secondary', !active);
     btn.setAttribute('aria-pressed', active ? 'true' : 'false');
   };
   setActive(qmiToggleBtn, seriesVisibility.qmi);
@@ -758,6 +935,7 @@ function formatLotStat(value, fallback = '--') {
 
 function renderLotCountsTable(orderIds, statsResults, primaryId) {
   if (!lotCountsTableBody) return;
+  lastLotCountsRender = { ids: orderIds, results: statsResults, primaryId };
   lotCountsTableBody.innerHTML = '';
 
   const statsMap = new Map(
@@ -831,7 +1009,12 @@ function renderLotCountsTable(orderIds, statsResults, primaryId) {
 
     const builderLine = document.createElement('span');
     builderLine.className = 'fw-semibold';
-    builderLine.textContent = companyName || label || `Community ${rowCount + 1}`;
+    builderLine.textContent = getDisplayNameForTables({
+      id,
+      builderName: companyName,
+      communityName,
+      label: label || `Community ${rowCount + 1}`
+    });
 
     const badgeWrap = document.createElement('div');
     badgeWrap.className = 'd-flex align-items-center gap-2';
@@ -1127,6 +1310,22 @@ if (soldToggleBtn) {
 }
 updateSeriesToggleUI();
 
+if (shortNameToggle) {
+  syncShortNameToggleUI();
+  shortNameToggle.addEventListener('change', (evt) => {
+    setUseShortNamesTables(Boolean(evt.target.checked));
+  });
+}
+
+if (shorthandTableBody) {
+  shorthandTableBody.addEventListener('input', (evt) => {
+    const target = evt.target;
+    if (!target || !target.classList || !target.classList.contains('shorthand-input')) return;
+    const id = target.dataset.entityId;
+    setShortName(id, target.value);
+  });
+}
+
 // ---------- charts ----------
 async function drawQmiSoldsMulti(communityIds) {
   if (!qmiSoldsCanvas) {
@@ -1196,6 +1395,12 @@ async function drawQmiSoldsMulti(communityIds) {
     const companyName = entry?.builderName || entry?.builder || meta.builderName || meta.builder || meta.company || '';
     const communityName = entry?.communityName || entry?.name || meta.communityName || meta.name || '';
     const baseLabel = entry?.label || (companyName && communityName ? `${companyName} - ${communityName}` : (communityName || companyName || entryId || 'Community'));
+    const displayLabel = getDisplayNameForCharts({
+      id: entryId,
+      builderName: companyName || meta.builderName || meta.builder || meta.company,
+      communityName: communityName || meta.communityName || meta.name,
+      label: baseLabel
+    });
 
     if (entryId) {
       setCommunityMeta(entryId, {
@@ -1225,7 +1430,7 @@ async function drawQmiSoldsMulti(communityIds) {
       .sort((a, b) => a.x - b.x);
     if (qmiPoints.length) {
       datasets.push({
-        label: `${baseLabel} - Quick Move-Ins`,
+        label: `${displayLabel} - Quick Move-Ins`,
         type: 'scatter',
         data: qmiPoints,
         pointRadius: 4,
@@ -1238,6 +1443,8 @@ async function drawQmiSoldsMulti(communityIds) {
         pointBorderWidth: 1.5,
         showLine: false,
         tension: 0.15,
+        keepupEntityId: entryId || '',
+        keepupBaseLabel: baseLabel,
         keepupSeries: 'qmi',
         keepupStorageKey: colorConfig.storageKey
       });
@@ -1249,7 +1456,7 @@ async function drawQmiSoldsMulti(communityIds) {
       .sort((a, b) => a.x - b.x);
     if (soldPoints.length) {
       datasets.push({
-        label: `${baseLabel} - SOLD`,
+        label: `${displayLabel} - SOLD`,
         type: 'scatter',
         data: soldPoints,
         pointRadius: 4,
@@ -1262,6 +1469,8 @@ async function drawQmiSoldsMulti(communityIds) {
         pointBorderWidth: 2,
         showLine: false,
         tension: 0.15,
+        keepupEntityId: entryId || '',
+        keepupBaseLabel: baseLabel,
         keepupSeries: 'sold',
         keepupStorageKey: colorConfig.storageKey
       });
@@ -1283,6 +1492,10 @@ async function drawQmiSoldsMulti(communityIds) {
         }
 
         legendGroups.push({
+          id: entryId || '',
+          baseLabel,
+          builderName: companyName || meta.builderName || meta.builder || meta.company,
+          communityName: communityName || meta.communityName || meta.name,
           title: legendTitle,
           subtitle: legendSubtitle,
           qmiColor,
@@ -1307,10 +1520,11 @@ async function drawQmiSoldsMulti(communityIds) {
     }
   });
 
-  renderQmiLegend(
-    legendGroups,
-    legendGroups.length ? '' : 'No quick move-in or sold activity found for the selected communities.'
-  );
+  lastQmiLegend = {
+    groups: legendGroups,
+    emptyMessage: legendGroups.length ? '' : 'No quick move-in or sold activity found for the selected communities.'
+  };
+  refreshQmiLegendWithNamePrefs();
 
   const ctx = qmiSoldsCanvas.getContext('2d');
   const chart = new Chart(ctx, {
@@ -1368,7 +1582,7 @@ async function drawSalesTotalsPie(communityOrCompetitionIds, windowKey) {
   const segments = Array.from({ length: count }, (_, idx) => {
     const info = breakdown[idx] || {};
     const labelInput = labels[idx] ?? info?.label ?? info?.communityName ?? info?.builderName ?? info?.builder ?? info?.name;
-    const label = typeof labelInput === 'string' && labelInput.trim()
+    const baseLabel = typeof labelInput === 'string' && labelInput.trim()
       ? labelInput.trim()
       : `Community ${idx + 1}`;
     const rawId = info?._id || info?.id || info?.communityId || info?.competitionId || info?.community || communityOrCompetitionIds[idx];
@@ -1376,7 +1590,7 @@ async function drawSalesTotalsPie(communityOrCompetitionIds, windowKey) {
     const role = id && primaryId && id === primaryId ? 'primary' : 'linked';
     if (id) {
       setCommunityMeta(id, {
-        label: label || info?.label || undefined,
+        label: baseLabel || info?.label || undefined,
         communityName: info?.communityName || info?.name || info?.label || undefined,
         builderName: info?.builderName || info?.builder || undefined,
         builder: info?.builder || undefined,
@@ -1384,15 +1598,22 @@ async function drawSalesTotalsPie(communityOrCompetitionIds, windowKey) {
         colorHex: info?.colorHex || info?.color || info?.themeColor || info?.primaryColor || undefined
       });
     }
+    const displayLabel = getDisplayNameForCharts({
+      id,
+      builderName: info?.builderName || info?.builder || info?.company,
+      communityName: info?.communityName || info?.name,
+      label: baseLabel
+    });
     const colorConfig = getCommunityColorConfig({
-      id: id || label,
-      label,
+      id: id || baseLabel,
+      label: baseLabel,
       providedColor: info?.colorHex || info?.color || info?.themeColor || info?.primaryColor,
       role
     });
     return {
       id,
-      label,
+      label: displayLabel || baseLabel,
+      baseLabel,
       value: Number(data[idx]) || 0,
       color: colorConfig.baseColor,
       storageKey: colorConfig.storageKey
@@ -1423,7 +1644,9 @@ async function drawSalesTotalsPie(communityOrCompetitionIds, windowKey) {
         keepupSeries: 'salesPie',
         keepupSegments: segments.map((seg, index) => ({
           storageKey: seg.storageKey,
-          index
+          index,
+          id: seg.id || '',
+          baseLabel: seg.baseLabel
         }))
       }]
     },
@@ -1487,6 +1710,7 @@ function syncBaseMonthOptions(options, selectedValue) {
 
 function renderBaseTable(datasets) {
   if (!baseTable) return;
+  lastBaseTableDatasets = datasets;
   baseTable.innerHTML = '';
 
   const thead = document.createElement('thead');
@@ -1504,6 +1728,13 @@ function renderBaseTable(datasets) {
 
   (datasets || []).forEach(ds => {
     const label = ds?.label || 'Community';
+    const meta = ds?.keepupEntityId ? getCommunityMeta(ds.keepupEntityId) : null;
+    const displayLabel = getDisplayNameForTables({
+      id: ds?.keepupEntityId,
+      builderName: meta?.builderName || meta?.builder || meta?.company,
+      communityName: meta?.communityName || meta?.name,
+      label
+    });
     const points = Array.isArray(ds?.points) ? ds.points.slice() : [];
     points
       .filter(pt => Number.isFinite(pt?.sqft ?? pt?.x) && Number.isFinite(pt?.price ?? pt?.y))
@@ -1514,7 +1745,7 @@ function renderBaseTable(datasets) {
         const planName = pt.planName || '';
         const planNumber = pt.planNumber ? ` (#${pt.planNumber})` : '';
         rows.push({
-          label,
+          label: displayLabel,
           plan: planName ? `${planName}${planNumber}` : (pt.planNumber || 'Plan'),
           sqft,
           price
@@ -1616,17 +1847,24 @@ async function drawBasePrice(communityId) {
       if (!points.length) return null;
 
       const dsId = ds?.id || ds?._id || ds?.communityId || ds?.competitionId || ds?.community;
-      const label = ds.label || 'Community';
+      const baseLabel = ds.label || 'Community';
+      const meta = dsId ? (getCommunityMeta(dsId) || {}) : {};
+      const displayLabel = getDisplayNameForCharts({
+        id: dsId,
+        builderName: meta.builderName || meta.builder || meta.company,
+        communityName: meta.communityName || meta.name,
+        label: baseLabel
+      });
       const colorConfig = getCommunityColorConfig({
-        id: dsId || label,
-        label,
+        id: dsId || baseLabel,
+        label: baseLabel,
         providedColor: ds?.colorHex || ds?.color || ds?.themeColor || ds?.primaryColor,
         role: (dsId && normalizeId(dd?.value) === normalizeId(dsId)) ? 'primary' : 'linked'
       });
       const lineColor = colorConfig.baseColor;
 
       return {
-        label,
+        label: displayLabel || baseLabel,
         data: points,
         type: 'line',
         showLine: true,
@@ -1638,6 +1876,8 @@ async function drawBasePrice(communityId) {
         backgroundColor: lineColor,
         pointBackgroundColor: lineColor,
         pointBorderColor: lineColor,
+        keepupBaseLabel: baseLabel,
+        keepupEntityId: dsId || '',
         keepupStorageKey: colorConfig.storageKey,
         keepupSeries: 'basePrice'
       };
@@ -1743,6 +1983,23 @@ function renderQmiLegend(groups, emptyMessage = '') {
   });
 }
 
+function refreshQmiLegendWithNamePrefs() {
+  if (!lastQmiLegend) return;
+  const mapped = (lastQmiLegend.groups || []).map(group => {
+    const displayTitle = getDisplayNameForCharts({
+      id: group.id,
+      builderName: group.builderName,
+      communityName: group.communityName,
+      label: group.baseLabel || group.title
+    });
+    return {
+      ...group,
+      title: displayTitle || group.title
+    };
+  });
+  renderQmiLegend(mapped, lastQmiLegend.emptyMessage || '');
+}
+
 function renderLinked(list) {
   linkedWrap.innerHTML = '';
   if (!list.length) {
@@ -1790,6 +2047,77 @@ function renderLinked(list) {
       updateBuilderChipUI(chip, isBuilderHidden(storageKey));
     }
     linkedWrap.appendChild(chip);
+  });
+}
+
+function renderShorthandTable(primaryId, primaryProfile, linkedList) {
+  if (!shorthandTableBody) return;
+  shorthandTableBody.innerHTML = '';
+
+  const rows = [];
+  const primaryKey = normalizeId(primaryId);
+  if (primaryKey) {
+    const meta = getCommunityMeta(primaryKey) || {};
+    rows.push({
+      id: primaryKey,
+      builderName: primaryProfile?.builderName || primaryProfile?.builder || meta.builderName || meta.builder || meta.company,
+      communityName: primaryProfile?.communityName || meta.communityName || meta.name,
+      label: meta.label || meta.optionLabel,
+      isPrimary: true
+    });
+  }
+
+  (Array.isArray(linkedList) ? linkedList : []).forEach((entry, idx) => {
+    const id = normalizeId(entry?._id || entry?.id || entry?.competitionId || entry?.communityRef || entry?.communityId || `linked-${idx}`);
+    if (!id) return;
+    rows.push({
+      id,
+      builderName: entry?.builderName || entry?.builder || entry?.company || entry?.companyName,
+      communityName: entry?.communityName || entry?.name,
+      label: entry?.label || '',
+      isPrimary: false
+    });
+  });
+
+  if (!rows.length) {
+    const tr = document.createElement('tr');
+    const td = document.createElement('td');
+    td.colSpan = 3;
+    td.className = 'text-muted small text-center';
+    td.textContent = 'No builders linked.';
+    tr.appendChild(td);
+    shorthandTableBody.appendChild(tr);
+    return;
+  }
+
+  rows.forEach((rowData) => {
+    const tr = document.createElement('tr');
+
+    const tdBuilder = document.createElement('td');
+    tdBuilder.textContent = rowData.builderName || rowData.label || 'Builder';
+    if (rowData.isPrimary) {
+      const badge = document.createElement('span');
+      badge.className = 'badge text-bg-light border ms-2 align-middle';
+      badge.textContent = 'My Community';
+      tdBuilder.appendChild(badge);
+    }
+    tr.appendChild(tdBuilder);
+
+    const tdCommunity = document.createElement('td');
+    tdCommunity.textContent = rowData.communityName || '—';
+    tr.appendChild(tdCommunity);
+
+    const tdShort = document.createElement('td');
+    const input = document.createElement('input');
+    input.type = 'text';
+    input.className = 'form-control form-control-sm shorthand-input';
+    input.placeholder = 'Add short name';
+    input.value = getShortName(rowData.id);
+    input.dataset.entityId = rowData.id;
+    tdShort.appendChild(input);
+    tr.appendChild(tdShort);
+
+    shorthandTableBody.appendChild(tr);
   });
 }
 
@@ -1859,6 +2187,7 @@ async function refreshAll() {
   const linkedList = Array.isArray(profile?.linkedCompetitions) ? profile.linkedCompetitions : [];
   renderPrimaryCommunityChip(id, profile);
   renderLinked(linkedList);
+  renderShorthandTable(id, profile, linkedList);
 
   // 2) build id list for multi-scatter
   const linkedIds = linkedList.map(c => c?._id || c?.id).filter(Boolean);
