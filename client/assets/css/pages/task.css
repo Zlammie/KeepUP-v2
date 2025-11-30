@@ -80,42 +80,39 @@
   display: flex;
   gap: 0.5rem;
   flex-wrap: wrap;
+  align-items: center;
 }
 
 .task-priority-chip {
   --priority-color: #94a3b8;
-  border: 1px solid rgba(15, 23, 42, 0.08);
-  border-radius: 999px;
-  padding: 0.3rem 0.55rem;
-  font-weight: 600;
+  --priority-fill: rgba(148, 163, 184, 0.1);
+  border: 3px solid var(--priority-color);
+  border-radius: 50%;
+  width: 48px;
+  height: 48px;
+  padding: 0;
   cursor: pointer;
-  min-width: 64px;
   display: inline-flex;
   align-items: center;
-  justify-content: space-between;
-  gap: 0.35rem;
+  justify-content: center;
   background: #fff;
-  color: #0f172a;
-  transition: transform 0.1s ease, box-shadow 0.1s ease, border-color 0.1s ease;
+  color: var(--priority-color);
+  transition: transform 0.1s ease, box-shadow 0.1s ease, border-color 0.1s ease, background-color 0.1s ease;
 }
 
 .task-priority-chip:hover {
   transform: translateY(-1px);
   box-shadow: 0 2px 6px rgba(15, 23, 42, 0.15);
-  border-color: rgba(15, 23, 42, 0.2);
 }
 
 .task-priority-chip.is-active {
-  box-shadow: inset 0 0 0 2px rgba(15, 23, 42, 0.2);
-}
-
-.task-priority-label {
-  font-size: 0.8rem;
+  background-color: var(--priority-fill);
+  box-shadow: inset 0 0 0 1px rgba(15, 23, 42, 0.1);
 }
 
 .task-priority-icon {
-  width: 12px;
-  height: 14px;
+  width: 16px;
+  height: 18px;
   position: relative;
   display: inline-flex;
   align-items: center;
@@ -131,47 +128,39 @@
 
 .task-priority-icon::before {
   width: 2px;
-  height: 12px;
-  background: rgba(15, 23, 42, 0.7);
-  left: 1px;
+  height: 16px;
+  background: var(--priority-color);
+  left: 2px;
   bottom: 0;
 }
 
 .task-priority-icon::after {
-  left: 3px;
+  left: 5px;
   top: 0;
-  width: 8px;
-  height: 7px;
+  width: 9px;
+  height: 9px;
   background: var(--priority-color);
   clip-path: polygon(0 0, 100% 0, 70% 50%, 100% 100%, 0 100%);
 }
 
-.task-priority-dot {
-  width: 8px;
-  height: 8px;
-  border-radius: 50%;
-  border: 1px solid rgba(15, 23, 42, 0.15);
-  background: var(--priority-color);
-}
-
 .task-priority-chip.priority-none {
-  --priority-color: #ffffff;
-  border: 1px dashed rgba(15, 23, 42, 0.25);
+  --priority-color: #0f172a;
+  --priority-fill: rgba(15, 23, 42, 0.08);
 }
 
 .task-priority-chip.priority-low {
-  --priority-color: #16a34a;
-  color: #0f766e;
+  --priority-color: #52b84d;
+  --priority-fill: rgba(82, 184, 77, 0.12);
 }
 
 .task-priority-chip.priority-medium {
-  --priority-color: #f97316;
-  color: #b45309;
+  --priority-color: #f5a623;
+  --priority-fill: rgba(245, 166, 35, 0.14);
 }
 
 .task-priority-chip.priority-high {
-  --priority-color: #ef4444;
-  color: #b91c1c;
+  --priority-color: #b91c1c;
+  --priority-fill: rgba(185, 28, 28, 0.12);
 }
 
 .task-sidebar__list {

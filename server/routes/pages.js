@@ -935,7 +935,11 @@ router.get('/competition-dashboard',
   ensureAuth, requireRole('READONLY','USER','MANAGER','COMPANY_ADMIN','SUPER_ADMIN'),
   (req, res) => {
     const communityId = isId(req.query.communityId) ? req.query.communityId : '';
-    res.render('pages/competition-dashboard', { active: 'competition', communityId });
+    res.render('pages/competition-dashboard', {
+      active: 'competition',
+      communityId,
+      currentUserId: req.user?._id ? String(req.user._id) : ''
+    });
   }
 );
 

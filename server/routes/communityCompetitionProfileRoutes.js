@@ -180,9 +180,25 @@ function deriveRecentMonths(monthSet, limit = 12) {
   };
 }
 
-const filterRowsByMonths = (rows, allowedSet) => {
-  if (!allowedSet || !allowedSet.size) return rows;
-  return rows.filter(r => !r.month || allowedSet.has(r.month));
+const buildMonthWindow = (monthSet, allowedMonthsSet) => {
+  if (allowedMonthsSet && allowedMonthsSet.size) {
+    const months = [...monthSet].filter(m => allowedMonthsSet.has(m));
+    const monthsAsc = months.sort((a, b) => a.localeCompare(b));
+    return {
+      monthsAsc,
+      allowedSet: new Set(months)
+    };
+  }
+  return deriveRecentMonths(monthSet, 12);
+};
+
+const filterRowsByMonths = (rows, allowedSet, strict = false) => {
+  if (!allowedSet) return rows;
+  if (!allowedSet.size) return strict ? [] : rows;
+  return rows.filter(r => {
+    if (!r.month) return !strict;
+    return allowedSet.has(r.month);
+  });
 };
 
 const mapPlanForResponse = (plan) => {
@@ -196,7 +212,7 @@ const mapPlanForResponse = (plan) => {
   return out;
 };
 
-async function computeCommunityScatterData(req, communityId) {
+async function computeCommunityScatterData(req, communityId, allowedMonthsSet) {
   const community = await assertCommunityInTenant(
     req,
     communityId,
@@ -346,9 +362,9 @@ async function computeCommunityScatterData(req, communityId) {
     };
   });
 
-  const { monthsAsc, allowedSet } = deriveRecentMonths(monthSet, 12);
-  const filteredQmi = filterRowsByMonths(qmiRows, allowedSet);
-  const filteredSold = filterRowsByMonths(soldRows, allowedSet);
+  const { monthsAsc, allowedSet } = buildMonthWindow(monthSet, allowedMonthsSet);
+  const filteredQmi = filterRowsByMonths(qmiRows, allowedSet, Boolean(allowedMonthsSet));
+  const filteredSold = filterRowsByMonths(soldRows, allowedSet, Boolean(allowedMonthsSet));
 
   const label = buildLabel(
     community.builder || community.builderName,
@@ -365,7 +381,7 @@ async function computeCommunityScatterData(req, communityId) {
   };
 }
 
-async function computeCompetitionScatterData(req, competitionId) {
+async function computeCompetitionScatterData(req, competitionId, allowedMonthsSet) {
   const competition = await assertCompetitionInTenant(
     req,
     competitionId,
@@ -379,7 +395,7 @@ async function computeCompetitionScatterData(req, competitionId) {
 
   if (!qmiDocs.length && competition?.isInternal && competition?.communityRef) {
     try {
-      const linkedData = await computeCommunityScatterData(req, competition.communityRef);
+      const linkedData = await computeCommunityScatterData(req, competition.communityRef, allowedMonthsSet);
       if (linkedData) {
         const markDerived = (rows) => (Array.isArray(rows) ? rows.map((row) => ({
           ...row,
@@ -497,9 +513,9 @@ async function computeCompetitionScatterData(req, competitionId) {
     }
   }
 
-  const { monthsAsc, allowedSet } = deriveRecentMonths(monthSet, 12);
-  const filteredQmi = filterRowsByMonths(qmiRows, allowedSet);
-  const filteredSold = filterRowsByMonths(soldRows, allowedSet);
+  const { monthsAsc, allowedSet } = buildMonthWindow(monthSet, allowedMonthsSet);
+  const filteredQmi = filterRowsByMonths(qmiRows, allowedSet, Boolean(allowedMonthsSet));
+  const filteredSold = filterRowsByMonths(soldRows, allowedSet, Boolean(allowedMonthsSet));
 
   return {
     id: String(competitionId),
@@ -638,7 +654,7 @@ async function buildCompetitionBasePricePoints(req, linkedIds, month) {
   return datasets;
 }
 
-const WINDOW_KEYS = new Set(['20d', '60d', '90d', '6m', '1y', 'ytd']);
+const WINDOW_KEYS = new Set(['20d', '30d', '60d', '90d', '3m', '6m', '12m', '1y', 'ytd']);
 
 const normalizeWindowKey = (raw) => {
   const key = String(raw || '').trim().toLowerCase();
@@ -665,9 +681,12 @@ function resolveWindowRange(rawKey) {
 
   switch (key) {
     case '20d': shiftDays(20); break;
+    case '30d': shiftDays(30); break;
     case '60d': shiftDays(60); break;
     case '90d': shiftDays(90); break;
+    case '3m':  shiftMonths(3); break;
     case '6m':  shiftMonths(6); break;
+    case '12m': shiftMonths(12); break;
     case '1y':  shiftMonths(12); break;
     case 'ytd':
       start.setMonth(0, 1);
@@ -1243,7 +1262,13 @@ router.get('/community-profiles/:communityId/qmi-solds',
       if (!isObjectId(communityId)) return res.status(400).json({ error: 'Invalid communityId' });
       if (rawMonth && !isYYYYMM(rawMonth)) return res.status(400).json({ error: 'month must be YYYY-MM' });
 
-      const data = await computeCommunityScatterData(req, communityId);
+      let allowedMonthsSet = null;
+      if (req.query.window) {
+        const info = resolveWindowRange(req.query.window);
+        allowedMonthsSet = new Set(enumerateMonthsBetween(info.start, info.end));
+      }
+
+      const data = await computeCommunityScatterData(req, communityId, allowedMonthsSet);
       res.json({
         months: data.months,
         qmi: data.qmi,
@@ -1361,6 +1386,12 @@ router.get('/communities/multi/qmi-solds-scatter',
 
       if (!rawIds.length) return res.json([]);
 
+      let windowMonthsSet = null;
+      if (req.query.window) {
+        const windowInfo = resolveWindowRange(req.query.window);
+        windowMonthsSet = new Set(enumerateMonthsBetween(windowInfo.start, windowInfo.end));
+      }
+
       const seen = new Set();
       const ordered = [];
       for (const id of rawIds) {
@@ -1375,7 +1406,7 @@ router.get('/communities/multi/qmi-solds-scatter',
       for (const id of ordered) {
         let handled = false;
         try {
-          const communityData = await computeCommunityScatterData(req, id);
+          const communityData = await computeCommunityScatterData(req, id, windowMonthsSet);
           if (communityData) {
             result.push(communityData);
             handled = true;
@@ -1387,7 +1418,7 @@ router.get('/communities/multi/qmi-solds-scatter',
         if (handled) continue;
 
         try {
-          const competitionData = await computeCompetitionScatterData(req, id);
+          const competitionData = await computeCompetitionScatterData(req, id, windowMonthsSet);
           if (competitionData) {
             result.push(competitionData);
             handled = true;

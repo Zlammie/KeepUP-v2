@@ -1,6 +1,7 @@
 // /client/assets/js/competition-dashboard/index.js
 const body = document.body;
 const preId = body.dataset.communityId || '';
+const currentUserId = body.dataset.userId || '';
 
 const dd = document.getElementById('dashCommunity');
 const monthsEl = document.getElementById('dashMonths');
@@ -30,6 +31,14 @@ const soldToggleBtn = document.getElementById('toggleSold');
 const shorthandTableBody = document.getElementById('shorthandTableBody');
 const shortNameToggle    = document.getElementById('shortNameToggle');
 
+const WINDOW_KEY_DEFAULT = '12m';
+const WINDOW_KEY_OPTIONS = new Set(['30d', '3m', '6m', '12m', '20d', '60d', '90d', '1y', 'ytd']);
+
+if (typeof Chart !== 'undefined' && typeof window !== 'undefined' && window.ChartDataLabels) {
+  Chart.register(window.ChartDataLabels);
+  Chart.defaults.set('plugins.datalabels', { display: false });
+}
+
 const communityMetaMap = new Map();
 const hiddenBuilderKeys = new Set();
 const seriesVisibility = { qmi: true, sold: true };
@@ -44,8 +53,27 @@ let lotCountsOverlayEl = null;
 let lotCountsExpanded = false;
 let lotCountsEscListener = null;
 
+const normalizeWindowKey = (raw) => {
+  const key = String(raw || '').trim().toLowerCase();
+  return WINDOW_KEY_OPTIONS.has(key) ? key : WINDOW_KEY_DEFAULT;
+};
+
+const syncWindowControls = (key) => {
+  const normalized = normalizeWindowKey(key);
+  if (monthsEl && monthsEl.value !== normalized) monthsEl.value = normalized;
+  if (salesWindowEl && salesWindowEl.value !== normalized) salesWindowEl.value = normalized;
+  return normalized;
+};
+
+const getSelectedWindowKey = () => {
+  if (monthsEl && monthsEl.value) return normalizeWindowKey(monthsEl.value);
+  if (salesWindowEl && salesWindowEl.value) return normalizeWindowKey(salesWindowEl.value);
+  return WINDOW_KEY_DEFAULT;
+};
+
 // ---------- builder color management ----------
 const BUILDER_COLOR_STORAGE_KEY = 'competitionDashBuilderColors';
+const builderColorNamespace = () => (currentUserId ? `${BUILDER_COLOR_STORAGE_KEY}:${currentUserId}` : BUILDER_COLOR_STORAGE_KEY);
 const builderColorMap = new Map();
 let builderColorsLoaded = false;
 
@@ -96,7 +124,16 @@ function loadBuilderColors() {
   builderColorsLoaded = true;
   if (typeof window === 'undefined' || typeof window.localStorage === 'undefined') return;
   try {
-    const raw = window.localStorage.getItem(BUILDER_COLOR_STORAGE_KEY);
+    const nsKey = builderColorNamespace();
+    let sourceKey = nsKey;
+    let raw = window.localStorage.getItem(nsKey);
+    if (!raw && nsKey !== BUILDER_COLOR_STORAGE_KEY) {
+      const fallbackRaw = window.localStorage.getItem(BUILDER_COLOR_STORAGE_KEY);
+      if (fallbackRaw) {
+        raw = fallbackRaw;
+        sourceKey = BUILDER_COLOR_STORAGE_KEY;
+      }
+    }
     if (!raw) return;
     const data = JSON.parse(raw);
     Object.entries(data || {}).forEach(([key, value]) => {
@@ -104,6 +141,10 @@ function loadBuilderColors() {
         builderColorMap.set(key, value);
       }
     });
+    // migrate legacy global colors into user-scoped namespace if needed
+    if (sourceKey !== nsKey && builderColorMap.size) {
+      window.localStorage.setItem(nsKey, JSON.stringify(Object.fromEntries(builderColorMap)));
+    }
   } catch (err) {
     console.warn('Failed to load builder colors:', err);
   }
@@ -112,11 +153,12 @@ function loadBuilderColors() {
 function saveBuilderColors() {
   if (typeof window === 'undefined' || typeof window.localStorage === 'undefined') return;
   try {
+    const nsKey = builderColorNamespace();
     const payload = {};
     builderColorMap.forEach((value, key) => {
       payload[key] = value;
     });
-    window.localStorage.setItem(BUILDER_COLOR_STORAGE_KEY, JSON.stringify(payload));
+    window.localStorage.setItem(nsKey, JSON.stringify(payload));
   } catch (err) {
     console.warn('Failed to save builder colors:', err);
   }
@@ -1053,7 +1095,7 @@ function renderLotCountsTable(orderIds, statsResults, primaryId) {
 
     cells.forEach(value => {
       const cell = document.createElement('td');
-      cell.className = 'text-end';
+      cell.className = 'text-center';
       cell.textContent = formatLotStat(value, fallback);
       row.appendChild(cell);
     });
@@ -1281,6 +1323,20 @@ dd.addEventListener('change', () => {
 });
 refreshBtn.addEventListener('click', refreshAll);
 
+if (monthsEl) {
+  monthsEl.addEventListener('change', () => {
+    syncWindowControls(monthsEl.value);
+    refreshAll();
+  });
+}
+
+if (salesWindowEl) {
+  salesWindowEl.addEventListener('change', () => {
+    syncWindowControls(salesWindowEl.value);
+    refreshAll();
+  });
+}
+
 toggleBaseMode.addEventListener('click', () => {
   const tableMode = !baseTableWrap.classList.contains('d-none');
   if (tableMode) {
@@ -1327,7 +1383,7 @@ if (shorthandTableBody) {
 }
 
 // ---------- charts ----------
-async function drawQmiSoldsMulti(communityIds) {
+async function drawQmiSoldsMulti(communityIds, windowKey) {
   if (!qmiSoldsCanvas) {
     renderQmiLegend([], 'Quick Move-In chart unavailable.');
     return;
@@ -1341,7 +1397,8 @@ async function drawQmiSoldsMulti(communityIds) {
   renderQmiLegend([], 'Loading legend...');
 
   const idParam = communityIds.map(id => encodeURIComponent(id)).join(',');
-  const url = `/api/communities/multi/qmi-solds-scatter?ids=${idParam}`;
+  const windowParam = normalizeWindowKey(windowKey || getSelectedWindowKey());
+  const url = `/api/communities/multi/qmi-solds-scatter?ids=${idParam}&window=${encodeURIComponent(windowParam)}`;
   let res;
   try {
     res = await getJSON(url);
@@ -1574,8 +1631,9 @@ async function drawSalesTotalsPie(communityOrCompetitionIds, windowKey) {
   if (!Array.isArray(communityOrCompetitionIds)) communityOrCompetitionIds = [communityOrCompetitionIds].filter(Boolean);
   if (!communityOrCompetitionIds.length) return;
 
+  const normalizedWindow = normalizeWindowKey(windowKey || getSelectedWindowKey());
   const idsParam = communityOrCompetitionIds.map(id => encodeURIComponent(id)).join(',');
-  const { labels = [], data = [], breakdown = [] } = await getJSON(`/api/competitions/multi/sales-totals?ids=${idsParam}&window=${encodeURIComponent(windowKey)}`);
+  const { labels = [], data = [], breakdown = [] } = await getJSON(`/api/competitions/multi/sales-totals?ids=${idsParam}&window=${encodeURIComponent(normalizedWindow)}`);
 
   const primaryId = normalizeId(dd?.value);
   const count = Math.max(labels.length, data.length, breakdown.length, communityOrCompetitionIds.length);
@@ -1620,11 +1678,15 @@ async function drawSalesTotalsPie(communityOrCompetitionIds, windowKey) {
     };
   });
 
-  const chartLabels = segments.map(seg => seg.label);
+  const metaSegments = segments.map((_, idx) => breakdown[idx] || null);
+  const chartLabels = segments.map((seg, idx) => {
+    const sales = Number(metaSegments[idx]?.totals?.sales ?? seg.value ?? 0);
+    const suffix = sales === 1 ? 'sale' : 'sales';
+    return `${seg.label} (${sales} ${suffix})`;
+  });
   const datasetValues = segments.map(seg => seg.value);
   const backgroundColors = segments.map(seg => seg.color);
   const borderColors = backgroundColors.slice();
-  const metaSegments = segments.map((_, idx) => breakdown[idx] || null);
 
   const ctx = salesPieCanvas.getContext('2d');
   const chart = new Chart(ctx, {
@@ -1654,6 +1716,25 @@ async function drawSalesTotalsPie(communityOrCompetitionIds, windowKey) {
       responsive: true,
       maintainAspectRatio: false,
       plugins: {
+        datalabels: {
+          display: true,
+          align: 'center',
+          anchor: 'center',
+          color: '#0f172a',
+          backgroundColor: 'rgba(255,255,255,0.85)',
+          borderColor: 'rgba(0,0,0,0.2)',
+          borderWidth: 1,
+          borderRadius: 4,
+          padding: { top: 4, bottom: 4, left: 6, right: 6 },
+          font: { weight: 'bold' },
+          formatter: (_value, ctx) => {
+            const meta = ctx.dataset?.meta?.[ctx.dataIndex] || {};
+            const sales = meta?.totals?.sales;
+            if (sales == null) return `${_value}`;
+            const suffix = sales === 1 ? 'sale' : 'sales';
+            return `${sales} ${suffix}`;
+          }
+        },
         tooltip: {
           callbacks: {
             label: (ctx) => {
@@ -2132,6 +2213,7 @@ async function refreshAll() {
     return;
   }
   renderPrimaryCommunityChip(id);
+  const windowKey = syncWindowControls(getSelectedWindowKey());
 
   destroyCharts();
   if (baseMonthEl) {
@@ -2194,7 +2276,7 @@ async function refreshAll() {
   const allIds = [...new Set([id, ...linkedIds].filter(Boolean))];
 
   // 3) scatter (multi)
-  await drawQmiSoldsMulti(allIds);
+  await drawQmiSoldsMulti(allIds, windowKey);
 
   // 4) lot counts (multi)
   try {
@@ -2212,8 +2294,7 @@ async function refreshAll() {
   }
 
   // 5) pie + base price (single)
-  const salesWindow = (salesWindowEl?.value) || '90d';
-  await drawSalesTotalsPie(allIds, salesWindow);  // multi-community totals pie
+  await drawSalesTotalsPie(allIds, windowKey);  // multi-community totals pie
   try {
     await drawBasePrice(id);
   } catch (err) {
