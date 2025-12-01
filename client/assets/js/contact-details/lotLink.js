@@ -93,6 +93,12 @@ function deriveCloseMonth(lot) {
   return 'N/A';
 }
 
+function shouldAttemptLotRecovery() {
+  const state = getState() || {};
+  const status = (state.contact?.status || state.initialStatus || '').toString().toLowerCase();
+  return status === 'purchased' || status === 'purchaser' || status === 'closed';
+}
+
 
 async function recoverLinkedLotFromServer() {
   try {
@@ -143,15 +149,19 @@ export function renderFromState() {
     delete mount.dataset.communityId;
     delete mount.dataset.lotId;
 
-    recoverLinkedLotFromServer()
-      .then((recovered) => {
-        if (recovered) {
-          renderFromState();    // now state has linkedLot
-        } else {
-          refreshStatusUI();    // show search UI
-        }
-      })
-      .catch(() => refreshStatusUI());
+    if (shouldAttemptLotRecovery()) {
+      recoverLinkedLotFromServer()
+        .then((recovered) => {
+          if (recovered) {
+            renderFromState();    // now state has linkedLot
+          } else {
+            refreshStatusUI();    // show search UI
+          }
+        })
+        .catch(() => refreshStatusUI());
+    } else {
+      refreshStatusUI();
+    }
     return;
   }
 

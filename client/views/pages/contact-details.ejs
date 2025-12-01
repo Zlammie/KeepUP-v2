@@ -3,7 +3,9 @@
 <head>
   <meta charset="UTF-8" />
   <title>Contact Details</title>
-  <link rel="stylesheet" href="/assets/css/main.css">
+  <link rel="stylesheet" href="/assets/css/contact-details-critical.css">
+  <link rel="preload" href="/assets/css/contact-details-deferred.css" as="style" data-defer-css>
+  <noscript><link rel="stylesheet" href="/assets/css/contact-details-deferred.css"></noscript>
   <link rel="stylesheet" href="/assets/css/design-system.css">
 </head>
 <body>
@@ -13,6 +15,10 @@
     data-initial-status="<%= contact.status %>"
     data-current-user-id="<%= currentUser ? currentUser.id : '' %>">
   </div>
+
+  <script id="contact-seed" type="application/json">
+    <%- JSON.stringify(contact || {}) %>
+  </script>
 
   <%- include('../partials/nav') %>
   <%- include('../partials/top-nav-contacts') %>

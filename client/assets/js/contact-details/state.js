@@ -39,12 +39,13 @@ function normalizeLinkedLot(raw) {
   };
 }
 
-export async function initState({ contactId, initialStatus }) {
+export async function initState({ contactId, initialStatus, contactSeed = null }) {
   state.contactId = contactId;
   state.initialStatus = initialStatus;
 
-  const contact = await api.fetchContact(contactId);
-  state.contact = contact;
+  const seeded = contactSeed && typeof contactSeed === 'object' ? contactSeed : null;
+  const contact = seeded || (await api.fetchContact(contactId));
+  state.contact = contact || null;
 
   // Make sure linkedLot is normalized on boot
   state.linkedLot = normalizeLinkedLot(contact?.linkedLot ?? null);
