@@ -53,7 +53,7 @@
 .task-filter-chip {
   border: 1px solid rgba(15, 23, 42, 0.12);
   background: #f8fafc;
-  border-radius: 0.85rem;
+  border-radius: 8px;
   padding: 0.45rem 0.75rem;
   display: flex;
   justify-content: space-between;
@@ -81,6 +81,8 @@
   gap: 0.5rem;
   flex-wrap: wrap;
   align-items: center;
+  justify-content: space-between;
+  width: 100%;
 }
 
 .task-priority-chip {
@@ -88,8 +90,8 @@
   --priority-fill: rgba(148, 163, 184, 0.1);
   border: 3px solid var(--priority-color);
   border-radius: 50%;
-  width: 48px;
-  height: 48px;
+  width: 32px;
+  height: 32px;
   padding: 0;
   cursor: pointer;
   display: inline-flex;
@@ -111,8 +113,8 @@
 }
 
 .task-priority-icon {
-  width: 16px;
-  height: 18px;
+  width: 12px;
+  height: 14px;
   position: relative;
   display: inline-flex;
   align-items: center;
@@ -128,17 +130,17 @@
 
 .task-priority-icon::before {
   width: 2px;
-  height: 16px;
+  height: 12px;
   background: var(--priority-color);
-  left: 2px;
+  left: 1px;
   bottom: 0;
 }
 
 .task-priority-icon::after {
-  left: 5px;
+  left: 4px;
   top: 0;
-  width: 9px;
-  height: 9px;
+  width: 8px;
+  height: 8px;
   background: var(--priority-color);
   clip-path: polygon(0 0, 100% 0, 70% 50%, 100% 100%, 0 100%);
 }
@@ -172,7 +174,7 @@
 .task-filter-chip {
   border: 1px solid rgba(15, 23, 42, 0.12);
   background: #f8fafc;
-  border-radius: 999px;
+  border-radius: 8px;
   padding: 0.45rem 0.75rem;
   display: flex;
   justify-content: space-between;
