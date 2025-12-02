@@ -127,6 +127,9 @@ function setupLazyTaskPanel({ contactId, currentUserId }) {
   toggle.addEventListener('click', onToggleClick, { once: true });
   panel.addEventListener('pointerenter', handleFirstIntent, { once: true });
   panel.addEventListener('focusin', handleFirstIntent, { once: true });
+
+  // Ensure the task panel hydrates on initial load so counts/details are present
+  load();
 }
 
 function activateDeferredStyles() {

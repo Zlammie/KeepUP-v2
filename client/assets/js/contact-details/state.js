@@ -43,12 +43,24 @@ export async function initState({ contactId, initialStatus, contactSeed = null }
   state.contactId = contactId;
   state.initialStatus = initialStatus;
 
+  // Always attempt to fetch the freshest contact; fall back to the seeded payload if needed
   const seeded = contactSeed && typeof contactSeed === 'object' ? contactSeed : null;
-  const contact = seeded || (await api.fetchContact(contactId));
-  state.contact = contact || null;
+  let contact = null;
+  try {
+    contact = contactId ? await api.fetchContact(contactId) : null;
+  } catch (err) {
+    console.warn('[state] fetchContact failed, using seed if available', err);
+    contact = null;
+  }
+  state.contact = contact || seeded || null;
+
+  // If status wasn't provided via dataset, take it from the contact payload
+  if (!state.initialStatus && state.contact?.status) {
+    state.initialStatus = state.contact.status;
+  }
 
   // Make sure linkedLot is normalized on boot
-  state.linkedLot = normalizeLinkedLot(contact?.linkedLot ?? null);
+  state.linkedLot = normalizeLinkedLot(state.contact?.linkedLot ?? null);
 
   // let listeners hydrate UI
   emit('state:init', { ...state });

@@ -32,19 +32,7 @@
 @import "utilities/helpers.css";
 
 /* 5. Pages */
-@import "pages/contact-details.css";
-@import "pages/realtor-details.css";
-@import "pages/task.css";
-
-@import "pages/contact.css";
 @import "pages/myCommunity.css";
-@import "pages/add-lead.css";
-@import "pages/lender-view.css";
-@import "pages/competition-details.css";
+@import "pages/competition-shared.css";
 @import "pages/community-managment.css";
-@import "pages/realtors.css";
-@import "pages/lenders.css";
-@import "pages/update-competition.css";
-@import "pages/competition-dashboard.css";
-@import "pages/admin-section.css";
 @import "pages/contacts-shared.css";

@@ -1,8 +1,8 @@
-.add-lead-wrapper {
+/*.add-lead-wrapper {
   max-width: 600px;
-  margin: 2rem auto;   /* vertical spacing + center */
-  padding: 0 1rem;     /* small side padding */
-}
+  margin: 2rem auto;   
+  padding: 0 1rem;     
+} */
 
 #lead-type-buttons .btn.active {
   /* Bootstrap already styles .active; this is optional extra emphasis */

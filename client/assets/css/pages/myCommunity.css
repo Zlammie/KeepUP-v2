@@ -1,5 +1,134 @@
 /* === Lots Table Styling === */
 
+#actions-row,
+.actions-row {
+  margin: 1rem;
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  flex-wrap: wrap;
+}
+
+.actions-row .community-select,
+.community-select {
+  appearance: none;
+  -webkit-appearance: none;
+  display: inline-block;
+  min-width: 240px;
+  padding: 0.6rem 2.8rem 0.6rem 1rem;
+  border-radius: 14px;
+  border: 1px solid rgba(15, 23, 42, 0.15);
+  background:
+    linear-gradient(135deg, rgba(226, 232, 255, 0.95), rgba(255, 255, 255, 0.92)),
+    linear-gradient(135deg, #1d4ed8 0%, #1e3a8a 100%);
+  background-origin: border-box;
+  color: #0f172a;
+  font-weight: 600;
+  letter-spacing: 0.01em;
+  box-shadow: 0 6px 16px rgba(79, 70, 229, 0.18);
+  cursor: pointer;
+  transition: box-shadow 0.18s ease, transform 0.18s ease;
+  background-image:
+    linear-gradient(135deg, rgba(226, 232, 255, 0.95), rgba(255, 255, 255, 0.92)),
+    url("data:image/svg+xml,%3Csvg width='14' height='10' viewBox='0 0 14 10' xmlns='http://www.w3.org/2000/svg'%3E%3Cpath d='M2 2.5L7 7.5L12 2.5' stroke='%231d4ed8' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E");
+  background-position: left top, calc(100% - 1rem) center;
+  background-repeat: no-repeat;
+  background-size: cover, 14px 10px;
+}
+
+.community-select:hover {
+  box-shadow: 0 10px 24px rgba(79, 70, 229, 0.25);
+  transform: translateY(-1px);
+}
+
+.community-select:focus-visible {
+  outline: 3px solid rgba(59, 130, 246, 0.6);
+  outline-offset: 2px;
+  box-shadow: 0 0 0 4px rgba(59, 130, 246, 0.18);
+}
+
+.community-select option {
+  font-weight: 500;
+  color: #0f172a;
+}
+
+.community-actions-card .community-select {
+  width: 100%;
+}
+
+.manage-community-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.55rem 1.1rem;
+  border-radius: 999px;
+  border: 1px solid rgba(15, 23, 42, 0.12);
+  background: linear-gradient(135deg, #2563eb 0%, #1d4ed8 100%);
+  color: #fff;
+  font-weight: 600;
+  letter-spacing: 0.02em;
+  cursor: pointer;
+  box-shadow: 0 8px 18px rgba(37, 99, 235, 0.25);
+  transition: transform 0.18s ease, box-shadow 0.18s ease, background 0.18s ease;
+}
+
+.manage-community-btn:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 10px 24px rgba(37, 99, 235, 0.35);
+  background: linear-gradient(135deg, #1e40af 0%, #1d4ed8 100%);
+}
+
+.manage-community-btn:focus-visible {
+  outline: 3px solid rgba(59, 130, 246, 0.65);
+  outline-offset: 3px;
+}
+
+.manage-community-btn .mcb-icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 1.4rem;
+  height: 1.4rem;
+  border-radius: 50%;
+  background: rgba(255, 255, 255, 0.2);
+  font-size: 0.95rem;
+}
+
+.manage-community-btn .mcb-icon svg {
+  width: 1rem;
+  height: 1rem;
+  display: block;
+}
+
+.manage-community-btn .mcb-label {
+  text-transform: uppercase;
+  font-size: 0.78rem;
+  letter-spacing: 0.08em;
+}
+
+.community-actions-card .manage-community-btn {
+  width: 100%;
+  justify-content: center;
+  margin-top: 0.75rem;
+}
+
+@media (max-width: 600px) {
+  .manage-community-btn {
+    width: 100%;
+    justify-content: center;
+  }
+
+  .actions-row {
+    width: 100%;
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .community-select {
+    width: 100%;
+  }
+}
+
 #lotsTable {
   width: 90%;
   margin: 2rem auto;

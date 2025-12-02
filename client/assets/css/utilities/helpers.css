@@ -1,0 +1,4 @@
+/* Generic helper utilities */
+.is-hidden {
+  display: none !important;
+}

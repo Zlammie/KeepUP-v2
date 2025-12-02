@@ -1,3 +1,11 @@
+
+/* Used for add new lead, add new floor plan, add new competition */
+.add-lead-wrapper {
+  max-width: 600px;
+  margin: 2rem auto;   /* vertical spacing + center */
+  padding: 0 1rem;     /* small side padding */
+}
+
 /* Realtor-details.ejs*/
 .form-group{
   display: flex;

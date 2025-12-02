@@ -3,17 +3,15 @@
 <head>
   <meta charset="UTF-8" />
   <title>Contact Details</title>
-  <link rel="stylesheet" href="/assets/css/contact-details-critical.css">
-  <link rel="preload" href="/assets/css/contact-details-deferred.css" as="style" data-defer-css>
-  <noscript><link rel="stylesheet" href="/assets/css/contact-details-deferred.css"></noscript>
-  <link rel="stylesheet" href="/assets/css/design-system.css">
+  <link rel="stylesheet" href="\assets\css\main.css">
+  <link rel="stylesheet" href="\assets\css\pages\contact-details.css">
 </head>
 <body>
 
   <div id="contact-details-root"
-    data-contact-id="<%= contact._id %>"
-    data-initial-status="<%= contact.status %>"
-    data-current-user-id="<%= currentUser ? currentUser.id : '' %>">
+    data-contact-id="<%= contact && (contact._id || contact.id || '') %>"
+    data-initial-status="<%= contact && contact.status ? contact.status : '' %>"
+    data-current-user-id="<%= currentUser ? (currentUser.id || currentUser._id || '') : '' %>">
   </div>
 
   <script id="contact-seed" type="application/json">

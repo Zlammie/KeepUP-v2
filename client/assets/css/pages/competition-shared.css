@@ -1,0 +1,147 @@
+/* Shared competition layout pieces used by competition-details and my-community-competition */
+
+.top-card-grid {
+  display: grid;
+  grid-template-columns: 1fr minmax(300px, 400px);
+  grid-template-rows: auto auto auto;
+  gap: 1rem;
+}
+
+.title-and-amenities {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+}
+
+.amenity-chiplist {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  list-style: none;
+  padding: 0;
+  margin: 0;
+}
+
+.amenity-chiplist .chip {
+  padding: 0.25rem 0.6rem;
+  border: 1px solid #ddd;
+  border-radius: 999px;
+  background: #fff;
+  font-size: 0.85rem;
+}
+
+.lot-stats {
+  display: flex;
+  gap: 1rem;
+  list-style: none;
+  padding: 0;
+  margin: 0;
+  flex: 0 0 auto;
+}
+
+.lot-stat {
+  flex: 1 1 100px;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  align-items: center;
+  background: #fff;
+  border: 1px solid #ddd;
+  border-radius: 12px;
+  min-width: 80px;
+  min-height: 70px;
+  text-align: center;
+}
+
+.stat-label {
+  font-size: 0.75rem;
+  color: #666;
+  text-transform: uppercase;
+}
+
+.stat-value {
+  font-size: 1.4rem;
+  font-weight: bold;
+  margin-top: 0.25rem;
+}
+
+.promo-hoa-row {
+  display: grid;
+  grid-template-columns: 1fr minmax(260px, 340px);
+  gap: 1rem;
+  align-items: start;
+}
+
+.promo,
+.hoa-tax {
+  padding: 0.75rem;
+  background: #fff;
+  border-radius: 8px;
+  border: 1px solid #ddd;
+}
+
+.promo p {
+  margin: 0;
+  line-height: 1.4;
+}
+
+.hoa-tax .kv {
+  display: flex;
+  justify-content: space-between;
+  margin-bottom: 0.25rem;
+}
+
+.k {
+  font-size: 0.8rem;
+  color: #666;
+  text-transform: uppercase;
+}
+
+.v {
+  font-weight: 600;
+}
+
+.header-with-stats {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 1rem;
+}
+
+.builder-title {
+  margin: 0;
+  font-size: 1.5rem;
+  flex: 1;
+}
+
+.proscons-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 1rem;
+  background: #fff;
+  border: 1px solid #ddd;
+  border-radius: 8px;
+  padding: 0.75rem;
+}
+
+.proscons-grid h5 {
+  margin: 0 0 0.25rem;
+}
+
+.span-full {
+  grid-column: 1 / -1;
+}
+
+@media (max-width: 900px) {
+  .top-card-grid {
+    grid-template-columns: 1fr;
+  }
+  .lot-stats {
+    justify-content: flex-start;
+  }
+  .proscons-grid,
+  .promo-hoa-row {
+    grid-template-columns: 1fr;
+  }
+}

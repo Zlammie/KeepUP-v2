@@ -67,6 +67,9 @@ export function setupCommentSection() {
     history.addEventListener('mouseenter', ensureLoaded, { once: true });
     history.addEventListener('focusin', ensureLoaded, { once: true });
   }
+
+  // Make sure existing comments show up without extra interaction
+  ensureLoaded();
 }
 
 async function loadComments(force = false) {

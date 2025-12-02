@@ -72,3 +72,73 @@
 .table-icon-btn.attention-indicator.attention-on img {
   filter: brightness(0) saturate(100%) invert(9%) sepia(88%) saturate(6422%) hue-rotate(359deg) brightness(88%) contrast(113%);
 }
+
+/* Shared top bar + filter pills used by contacts/realtors/lenders listings */
+.contact-topbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 10px 12px;
+  border: 1px solid #dcdcdc;
+  border-radius: 10px;
+  background: #f8f9fa;
+  margin-bottom: 12px;
+  flex-wrap: wrap;
+}
+
+.contact-topbar .topbar-left {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.contact-topbar .topbar-total {
+  display: inline-flex;
+  align-items: baseline;
+  gap: 6px;
+  font-weight: 600;
+}
+
+.topbar-total {
+  margin-right: 45px;
+}
+
+.topbar-filters,
+#statusFilters {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+  flex: 1 1 auto;
+}
+
+#toggleFilterMode {
+  flex: 0 0 auto;
+}
+
+.status-pill {
+  border: 2px solid #cfd4da;
+  background: #ffffff;
+  border-radius: 12px;
+  padding: 6px 12px;
+  line-height: 1;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  cursor: pointer;
+  font-weight: 600;
+  transition: all 0.2s ease;
+}
+
+.status-pill .label { font-weight: 600; }
+.status-pill .value {
+  font-variant-numeric: tabular-nums;
+  font-weight: 500;
+}
+
+.status-pill.active {
+  box-shadow: 0 0 0 3px rgba(0,0,0,0.05) inset;
+  background: #f9f9f9;
+}
+
+.status-pill:hover { box-shadow: 0 0 0 3px rgba(0,0,0,.04) inset; }
