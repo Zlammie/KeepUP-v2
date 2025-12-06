@@ -13,6 +13,8 @@ const requireRole = require('../middleware/requireRole');
 const isObjectId = v => mongoose.Types.ObjectId.isValid(String(v));
 const isSuper = req => (req.user?.roles || []).includes('SUPER_ADMIN');
 const companyFilter = req => (isSuper(req) ? {} : { company: req.user.company });
+const READ_ROLES = ['READONLY','USER','MANAGER','COMPANY_ADMIN','SUPER_ADMIN'];
+const WRITE_ROLES = ['USER','MANAGER','COMPANY_ADMIN','SUPER_ADMIN'];
 
 // allow updates only to these nested lot keys (expand as needed)
 const ALLOWED_LOT_FIELDS = new Set([
@@ -88,7 +90,7 @@ router.use(ensureAuth);
  * Read-only: list all lots for a community (tenant-scoped)
  */
 router.get('/communities/:communityId/lots',
-  requireRole('READONLY','USER','MANAGER','COMPANY_ADMIN','SUPER_ADMIN'),
+  requireRole(...READ_ROLES),
   async (req, res) => {
     try {
       const { communityId } = req.params;
@@ -179,7 +181,7 @@ router.get('/communities/:communityId/lots',
  * - only whitelisted fields can be updated
  */
 router.put('/communities/:communityId/lots/:lotId',
-  requireRole('USER','MANAGER','COMPANY_ADMIN','SUPER_ADMIN'),
+  requireRole(...WRITE_ROLES),
   async (req, res) => {
     try {
       const { communityId, lotId } = req.params;

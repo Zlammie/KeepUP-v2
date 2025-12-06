@@ -20,6 +20,8 @@ const PriceRecord = require('../models/PriceRecord');
 const isObjectId = v => mongoose.Types.ObjectId.isValid(String(v));
 const isSuper = req => (req.user?.roles || []).includes('SUPER_ADMIN');
 const baseFilter = req => (isSuper(req) ? {} : { company: req.user.company });
+const READ_ROLES = ['READONLY','USER','MANAGER','COMPANY_ADMIN','SUPER_ADMIN'];
+const WRITE_ROLES = ['USER','MANAGER','COMPANY_ADMIN','SUPER_ADMIN'];
 
 const isYYYYMM = s => typeof s === 'string' && /^\d{4}-(0[1-9]|1[0-2])$/.test(s);
 const toArray = v => (Array.isArray(v) ? v : (typeof v === 'string' ? v.split('\n') : []))
@@ -104,7 +106,7 @@ router.use(ensureAuth);
 
 /** GET my profile for a community (create if missing) */
 router.get('/my-community-competition/:communityId',
-  requireRole('READONLY','USER','MANAGER','COMPANY_ADMIN','SUPER_ADMIN'),
+  requireRole(...READ_ROLES),
   async (req, res) => {
     try {
       const { communityId } = req.params;
@@ -171,7 +173,7 @@ router.get('/my-community-competition/:communityId',
 
 /** PUT profile (promotion, pros/cons, notes, topPlans) */
 router.put('/my-community-competition/:communityId',
-  requireRole('USER','MANAGER','COMPANY_ADMIN','SUPER_ADMIN'),
+  requireRole(...WRITE_ROLES),
   async (req, res) => {
     try {
       const { communityId } = req.params;
@@ -267,7 +269,7 @@ router.put('/my-community-competition/:communityId',
 
 /** GET minimal competitions for tenant (picker) */
 router.get('/my-community-competition/:communityId/competitions/minimal',
-  requireRole('READONLY','USER','MANAGER','COMPANY_ADMIN','SUPER_ADMIN'),
+  requireRole(...READ_ROLES),
   async (req, res) => {
     try {
       const { communityId } = req.params;
@@ -286,7 +288,7 @@ router.get('/my-community-competition/:communityId/competitions/minimal',
 
 /** PUT bulk set linked competitions */
 router.put('/my-community-competition/:communityId/linked-competitions',
-  requireRole('USER','MANAGER','COMPANY_ADMIN','SUPER_ADMIN'),
+  requireRole(...WRITE_ROLES),
   async (req, res) => {
     try {
       const { communityId } = req.params;
@@ -312,7 +314,7 @@ router.put('/my-community-competition/:communityId/linked-competitions',
 
 /** POST link single competition */
 router.post('/my-community-competition/:communityId/linked-competitions/:competitionId',
-  requireRole('USER','MANAGER','COMPANY_ADMIN','SUPER_ADMIN'),
+  requireRole(...WRITE_ROLES),
   async (req, res) => {
     try {
       const { communityId, competitionId } = req.params;
@@ -336,7 +338,7 @@ router.post('/my-community-competition/:communityId/linked-competitions/:competi
 
 /** DELETE unlink single competition */
 router.delete('/my-community-competition/:communityId/linked-competitions/:competitionId',
-  requireRole('USER','MANAGER','COMPANY_ADMIN','SUPER_ADMIN'),
+  requireRole(...WRITE_ROLES),
   async (req, res) => {
     try {
       const { communityId, competitionId } = req.params;
@@ -363,7 +365,7 @@ router.delete('/my-community-competition/:communityId/linked-competitions/:compe
 
 /** GET base prices for all linked competitions for a month */
 router.get('/my-community-competition/:communityId/base-prices',
-  requireRole('READONLY','USER','MANAGER','COMPANY_ADMIN','SUPER_ADMIN'),
+  requireRole(...READ_ROLES),
   async (req, res) => {
     try {
       const { communityId } = req.params;
@@ -423,7 +425,7 @@ router.get('/my-community-competition/:communityId/base-prices',
 
 /** GET QMI (homes) scatter data for linked competitions in a month */
 router.get('/my-community-competition/:communityId/scatter',
-  requireRole('READONLY','USER','MANAGER','COMPANY_ADMIN','SUPER_ADMIN'),
+  requireRole(...READ_ROLES),
   async (req, res) => {
     try {
       const { communityId } = req.params;
@@ -472,7 +474,7 @@ router.get('/my-community-competition/:communityId/scatter',
 
 /** GET rolling sales series for THIS community’s profile (not comps) */
 router.get('/my-community-competition/:communityId/sales-series',
-  requireRole('READONLY','USER','MANAGER','COMPANY_ADMIN','SUPER_ADMIN'),
+  requireRole(...READ_ROLES),
   async (req, res) => {
     try {
       const { communityId } = req.params;
@@ -521,7 +523,7 @@ router.get('/my-community-competition/:communityId/sales-series',
 
 /** GET aggregate sales totals across LINKED competitions (month range) */
 router.get('/my-community-competition/:communityId/multi-sales-totals',
-  requireRole('READONLY','USER','MANAGER','COMPANY_ADMIN','SUPER_ADMIN'),
+  requireRole(...READ_ROLES),
   async (req, res) => {
     try {
       const { communityId } = req.params;
@@ -575,7 +577,7 @@ router.get('/my-community-competition/:communityId/multi-sales-totals',
 
 /** GET monthly sales summary (profile) */
 router.get('/my-community-competition/:communityId/sales-summary',
-  requireRole('READONLY','USER','MANAGER','COMPANY_ADMIN','SUPER_ADMIN'),
+  requireRole(...READ_ROLES),
   async (req, res) => {
     try {
       const { communityId } = req.params;
@@ -600,7 +602,7 @@ router.get('/my-community-competition/:communityId/sales-summary',
 
 /** PUT monthly sales summary (profile) */
 router.put('/my-community-competition/:communityId/sales-summary',
-  requireRole('USER','MANAGER','COMPANY_ADMIN','SUPER_ADMIN'),
+  requireRole(...WRITE_ROLES),
   async (req, res) => {
     try {
       const { communityId } = req.params;
@@ -634,7 +636,7 @@ router.put('/my-community-competition/:communityId/sales-summary',
 );
 
 router.put('/my-community-competition/:communityId/amenities',
-  requireRole('USER','MANAGER','COMPANY_ADMIN','SUPER_ADMIN'),
+  requireRole(...WRITE_ROLES),
   async (req, res) => {
     try {
       const { communityId } = req.params;

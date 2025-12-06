@@ -20,6 +20,9 @@ const isObjectId = v => mongoose.Types.ObjectId.isValid(String(v));
 const isSuper = req => (req.user?.roles || []).includes('SUPER_ADMIN');
 const baseFilter = req => (isSuper(req) ? {} : { company: req.user.company });
 
+const READ_ROLES = ['READONLY','USER','MANAGER','COMPANY_ADMIN','SUPER_ADMIN'];
+const WRITE_ROLES = ['USER','MANAGER','COMPANY_ADMIN','SUPER_ADMIN'];
+
 const toArray = v => {
   if (Array.isArray(v)) return v.filter(Boolean).map(s => s.toString().trim()).filter(Boolean);
   if (typeof v === 'string') return v.split('\n').map(s => s.trim()).filter(Boolean);
@@ -820,7 +823,7 @@ router.use(ensureAuth);
  * Read profile (or default shape) — READONLY+
  */
 router.get('/community-competition-profiles/:communityId',
-  requireRole('READONLY','USER','MANAGER','COMPANY_ADMIN','SUPER_ADMIN'),
+  requireRole(...READ_ROLES),
   async (req, res) => {
     try {
       const { communityId } = req.params;
@@ -848,7 +851,7 @@ router.get('/community-competition-profiles/:communityId',
       }
       res.json(profile);
     } catch (err) {
-      console.error('[community-competition:sales-summary:put]', err);
+      console.error('[community-competition:profile:get]', err);
       const code = err.status || 500;
       res.status(code).json({ error: err.message || 'Server error' });
     }
@@ -860,16 +863,13 @@ router.get('/community-competition-profiles/:communityId',
  * List competitors for link/unlink — READONLY+
  */
 router.get('/competitions/minimal',
-  requireRole('READONLY','USER','MANAGER','COMPANY_ADMIN','SUPER_ADMIN'),
+  requireRole(...READ_ROLES),
   async (req, res) => {
     try {
-      const comps = await Competition.find({ ...baseFilter(req) })
-        .select('communityName builderName city state market communityRef isInternal')
-        .sort({ builderName: 1, communityName: 1 })
-        .lean();
+      const comps = await fetchMinimalCompetitions(req, { q: req.query.q });
       res.json(comps);
     } catch (err) {
-      console.error('[community-competition:sales-summary:get]', err);
+      console.error('[community-competition:competitions-minimal:get]', err);
       res.status(500).json({ error: 'Server error' });
     }
   }
@@ -879,7 +879,7 @@ router.get('/competitions/minimal',
  * POST link one competitor
  */
 router.post('/community-competition-profiles/:communityId/linked-competitions/:competitionId',
-  requireRole('USER','MANAGER','COMPANY_ADMIN','SUPER_ADMIN'),
+  requireRole(...WRITE_ROLES),
   async (req, res) => {
     try {
       const { communityId, competitionId } = req.params;
@@ -905,7 +905,7 @@ router.post('/community-competition-profiles/:communityId/linked-competitions/:c
  * DELETE unlink one competitor
  */
 router.delete('/community-competition-profiles/:communityId/linked-competitions/:competitionId',
-  requireRole('USER','MANAGER','COMPANY_ADMIN','SUPER_ADMIN'),
+  requireRole(...WRITE_ROLES),
   async (req, res) => {
     try {
       const { communityId, competitionId } = req.params;
@@ -932,16 +932,21 @@ router.delete('/community-competition-profiles/:communityId/linked-competitions/
  * Body: { competitionIds: ObjectId[] }
  */
 router.put('/community-competition-profiles/:communityId/linked-competitions',
-  requireRole('USER','MANAGER','COMPANY_ADMIN','SUPER_ADMIN'),
+  requireRole(...WRITE_ROLES),
   async (req, res) => {
     try {
       const { communityId } = req.params;
       if (!isObjectId(communityId)) return res.status(400).json({ error: 'Invalid communityId' });
-      const ids = (req.body?.competitionIds || []).filter(isObjectId).map(id => new mongoose.Types.ObjectId(id));
+
+      const rawIds = Array.isArray(req.body?.competitionIds) ? req.body.competitionIds : [];
+      const validIds = rawIds.filter(isObjectId).map(String);
+      if (rawIds.length !== validIds.length) {
+        return res.status(400).json({ error: 'Invalid competitionIds' });
+      }
+      const ids = [...new Set(validIds)].map(id => new mongoose.Types.ObjectId(id));
 
       await assertCommunityInTenant(req, communityId);
       // verify all competitions are tenant-scoped
-      if (ids.length) await assertPlansInTenant(req, []); // no-op here; left as pattern
       const compsCount = await Competition.countDocuments({ _id: { $in: ids }, ...baseFilter(req) });
       if (compsCount !== ids.length) return res.status(400).json({ error: 'One or more competitions are not in your company' });
 
@@ -962,7 +967,7 @@ router.put('/community-competition-profiles/:communityId/linked-competitions',
  * GET /api/community-competition-profiles/:communityId/prices?month=YYYY-MM
  */
 router.get('/community-competition-profiles/:communityId/prices',
-  requireRole('READONLY','USER','MANAGER','COMPANY_ADMIN','SUPER_ADMIN'),
+  requireRole(...READ_ROLES),
   async (req, res) => {
     try {
       const { communityId } = req.params;
@@ -992,7 +997,7 @@ router.get('/community-competition-profiles/:communityId/prices',
  * Body: { month, plan, price } OR { month, prices: { [planId]: price } }
  */
 router.put('/community-competition-profiles/:communityId/prices',
-  requireRole('USER','MANAGER','COMPANY_ADMIN','SUPER_ADMIN'),
+  requireRole(...WRITE_ROLES),
   async (req, res) => {
     try {
       const { communityId } = req.params;
@@ -1052,7 +1057,7 @@ router.put('/community-competition-profiles/:communityId/prices',
  * Provide plan-level base price vs sqft snapshot for a specific month.
  */
 router.get('/community-profiles/:communityId/base-price-scatter',
-  requireRole('READONLY','USER','MANAGER','COMPANY_ADMIN','SUPER_ADMIN'),
+  requireRole(...READ_ROLES),
   async (req, res) => {
     try {
       const { communityId } = req.params;
@@ -1155,7 +1160,7 @@ router.get('/community-profiles/:communityId/base-price-scatter',
  * Return average base price series for the community and linked competitions.
  */
 router.get('/community-profiles/:communityId/base-prices',
-  requireRole('READONLY','USER','MANAGER','COMPANY_ADMIN','SUPER_ADMIN'),
+  requireRole(...READ_ROLES),
   async (req, res) => {
     try {
       const { communityId } = req.params;
@@ -1254,7 +1259,7 @@ router.get('/community-profiles/:communityId/base-prices',
  * Combined quick-move-in vs sold data for charts/tables.
  */
 router.get('/community-profiles/:communityId/qmi-solds',
-  requireRole('READONLY','USER','MANAGER','COMPANY_ADMIN','SUPER_ADMIN'),
+  requireRole(...READ_ROLES),
   async (req, res) => {
     try {
       const { communityId } = req.params;
@@ -1287,7 +1292,7 @@ router.get('/community-profiles/:communityId/qmi-solds',
  * Aggregate net sales (sales - cancels, fallback to closings) for communities and competitions.
  */
 router.get('/competitions/multi/sales-totals',
-  requireRole('READONLY','USER','MANAGER','COMPANY_ADMIN','SUPER_ADMIN'),
+  requireRole(...READ_ROLES),
   async (req, res) => {
     try {
       const rawIds = String(req.query.ids || '')
@@ -1376,7 +1381,7 @@ router.get('/competitions/multi/sales-totals',
  * Aggregate QMI/SOLD scatter data for communities and linked competitions.
  */
 router.get('/communities/multi/qmi-solds-scatter',
-  requireRole('READONLY','USER','MANAGER','COMPANY_ADMIN','SUPER_ADMIN'),
+  requireRole(...READ_ROLES),
   async (req, res) => {
     try {
       const rawIds = String(req.query.ids || '')
@@ -1442,7 +1447,7 @@ router.get('/communities/multi/qmi-solds-scatter',
  * Compute Quick-Move-In list for the month, honoring exclusions.
  */
 router.get('/community-competition-profiles/:communityId/qmi',
-  requireRole('READONLY','USER','MANAGER','COMPANY_ADMIN','SUPER_ADMIN'),
+  requireRole(...READ_ROLES),
   async (req, res) => {
     try {
       const { communityId } = req.params;
@@ -1526,7 +1531,7 @@ router.get('/community-competition-profiles/:communityId/qmi',
  * Body: { month, excludeLotId } OR { month, includeLotId }
  */
 router.put('/community-competition-profiles/:communityId/qmi',
-  requireRole('USER','MANAGER','COMPANY_ADMIN','SUPER_ADMIN'),
+  requireRole(...WRITE_ROLES),
   async (req, res) => {
     try {
       const { communityId } = req.params;
@@ -1577,7 +1582,7 @@ router.put('/community-competition-profiles/:communityId/qmi',
  */
 // GET /api/community-profiles/:communityId/sales?months=12
 router.get('/community-profiles/:communityId/sales',
-  requireRole('READONLY','USER','MANAGER','COMPANY_ADMIN','SUPER_ADMIN'),
+  requireRole(...READ_ROLES),
   async (req, res) => {
     try {
       const { communityId } = req.params;
@@ -1643,7 +1648,7 @@ router.get('/community-profiles/:communityId/sales',
 );
 
 router.get('/community-competition-profiles/:communityId/sales',
-  requireRole('READONLY','USER','MANAGER','COMPANY_ADMIN','SUPER_ADMIN'),
+  requireRole(...READ_ROLES),
   async (req, res) => {
     try {
       const { communityId } = req.params;
@@ -1714,7 +1719,7 @@ router.get('/community-competition-profiles/:communityId/sales',
  * Plans available to a community (tenant-scoped)
  */
 router.get('/communities/:communityId/floorplans',
-  requireRole('READONLY','USER','MANAGER','COMPANY_ADMIN','SUPER_ADMIN'),
+  requireRole(...READ_ROLES),
   async (req, res) => {
     try {
       const { communityId } = req.params;
@@ -1755,7 +1760,7 @@ router.get('/communities/:communityId/floorplans',
  * GET lot counts / stats — READONLY+
  */
 router.get('/communities/:communityId/lot-count',
-  requireRole('READONLY','USER','MANAGER','COMPANY_ADMIN','SUPER_ADMIN'),
+  requireRole(...READ_ROLES),
   async (req, res) => {
     try {
       const { communityId } = req.params;
@@ -1772,7 +1777,7 @@ router.get('/communities/:communityId/lot-count',
 );
 
 router.get('/communities/:communityId/lot-stats',
-  requireRole('READONLY','USER','MANAGER','COMPANY_ADMIN','SUPER_ADMIN'),
+  requireRole(...READ_ROLES),
   async (req, res) => {
     try {
       const { communityId } = req.params;
@@ -1799,7 +1804,7 @@ router.get('/communities/:communityId/lot-stats',
  * GET/PUT monthly sales summary — READONLY+/USER+
  */
 router.get('/community-competition-profiles/:communityId/sales-summary',
-  requireRole('READONLY','USER','MANAGER','COMPANY_ADMIN','SUPER_ADMIN'),
+  requireRole(...READ_ROLES),
   async (req, res) => {
     try {
       const { communityId } = req.params;
@@ -1825,7 +1830,7 @@ router.get('/community-competition-profiles/:communityId/sales-summary',
 );
 
 router.put('/community-competition-profiles/:communityId/sales-summary',
-  requireRole('USER','MANAGER','COMPANY_ADMIN','SUPER_ADMIN'),
+  requireRole(...WRITE_ROLES),
   async (req, res) => {
     try {
       const { communityId } = req.params;
@@ -1869,7 +1874,7 @@ router.put('/community-competition-profiles/:communityId/sales-summary',
  * Body: { promotion, prosCons: { pros, cons }, topPlans?: { plan1, plan2, plan3 } }
  */
 router.put('/community-competition-profiles/:communityId',
-  requireRole('USER','MANAGER','COMPANY_ADMIN','SUPER_ADMIN'),
+  requireRole(...WRITE_ROLES),
   async (req, res) => {
     try {
       const { communityId } = req.params;

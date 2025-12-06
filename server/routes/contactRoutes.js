@@ -29,6 +29,9 @@ const isObjectId = v => mongoose.Types.ObjectId.isValid(String(v));
 const isSuper = req => (req.user?.roles || []).includes('SUPER_ADMIN');
 const companyFilter = req => (isSuper(req) ? {} : { company: req.user.company });
 const isCompanyAdmin = req => (req.user?.roles || []).includes('COMPANY_ADMIN');
+const READ_ROLES = ['READONLY','USER','MANAGER','COMPANY_ADMIN','SUPER_ADMIN'];
+const WRITE_ROLES = ['USER','MANAGER','COMPANY_ADMIN','SUPER_ADMIN'];
+const ADMIN_ROLES = ['MANAGER','COMPANY_ADMIN','SUPER_ADMIN'];
 
 const toObjectId = (value) => {
   if (value == null) return null;
@@ -191,7 +194,7 @@ function mergeCommunityIdLists(existing = [], additions = []) {
 }
 
 // Health check (optional)
-router.get('/ping', requireRole('READONLY','USER','MANAGER','COMPANY_ADMIN','SUPER_ADMIN'), (req, res) => res.send('pong'));
+router.get('/ping', requireRole(...READ_ROLES), (req, res) => res.send('pong'));
 
 // ───────────────────────── create ─────────────────────────
 // POST /api/contacts
@@ -309,7 +312,7 @@ router.post(
 // ───────────────────────── list/search ─────────────────────────
 // GET /api/contacts?q=smith
 router.get('/',
-  requireRole('READONLY','USER','MANAGER','COMPANY_ADMIN','SUPER_ADMIN'),
+  requireRole(...READ_ROLES),
   async (req, res) => {
     try {
       const q = toStr(req.query.q);
@@ -365,7 +368,7 @@ router.get('/',
 // ───────────────────────── search lenders (helper) ─────────────────────────
 // GET /api/contacts/search?q=...
 router.get('/search',
-  requireRole('READONLY','USER','MANAGER','COMPANY_ADMIN','SUPER_ADMIN'),
+  requireRole(...READ_ROLES),
   async (req, res) => {
     const q = toStr(req.query.q);
     if (!q) return res.json([]);
@@ -386,7 +389,7 @@ router.get('/search',
 // ───────────────────────── get one ─────────────────────────
 // GET /api/contacts/:id
 router.get('/:id',
-  requireRole('READONLY','USER','MANAGER','COMPANY_ADMIN','SUPER_ADMIN'),
+  requireRole(...READ_ROLES),
   async (req, res) => {
     try {
       const { id } = req.params;
@@ -426,7 +429,7 @@ router.get('/:id',
 // ───────────────────────── update ─────────────────────────
 // PUT /api/contacts/:id
 router.put('/:id',
-  requireRole('READONLY','USER','MANAGER','COMPANY_ADMIN','SUPER_ADMIN'),
+  requireRole(...READ_ROLES),
   async (req, res) => {
     try {
       const { id } = req.params;
@@ -667,7 +670,7 @@ router.put('/:id',
 // ───────────────────────── delete ─────────────────────────
 // DELETE /api/contacts/:id
 router.delete('/:id',
-  requireRole('MANAGER','COMPANY_ADMIN','SUPER_ADMIN'),
+  requireRole(...ADMIN_ROLES),
   async (req, res) => {
     try {
       const { id } = req.params;
@@ -684,7 +687,7 @@ router.delete('/:id',
 // GET /api/my/communities  → [{ _id, name }]
 router.get('/my/communities',
   ensureAuth,
-  requireRole('READONLY','USER','MANAGER','COMPANY_ADMIN','SUPER_ADMIN'),
+  requireRole(...READ_ROLES),
   async (req, res) => {
     try {
       const roles = req.user?.roles || [];
@@ -721,7 +724,7 @@ router.get('/my/communities',
 // ───────────────────────── link lot to contact ─────────────────────────
 // POST /api/contacts/:contactId/link-lot  { lotId }
 router.post('/:contactId/link-lot',
-  requireRole('USER','MANAGER','COMPANY_ADMIN','SUPER_ADMIN'),
+  requireRole(...WRITE_ROLES),
   async (req, res) => {
     const { contactId } = req.params;
     const { lotId } = req.body;
@@ -772,7 +775,7 @@ router.post('/:contactId/link-lot',
 // ───────────────────────── relations: by realtor/lender ─────────────────────────
 // GET /api/contacts/by-realtor/:realtorId
 router.get('/by-realtor/:realtorId',
-  requireRole('READONLY','USER','MANAGER','COMPANY_ADMIN','SUPER_ADMIN'),
+  requireRole(...READ_ROLES),
   async (req, res) => {
     try {
       const { realtorId } = req.params;
@@ -826,7 +829,7 @@ router.get('/by-realtor/:realtorId',
 
 // GET /api/contacts/by-lender/:lenderId
 router.get('/by-lender/:lenderId',
-  requireRole('READONLY','USER','MANAGER','COMPANY_ADMIN','SUPER_ADMIN'),
+  requireRole(...READ_ROLES),
   async (req, res) => {
     try {
       const { lenderId } = req.params;
@@ -938,7 +941,7 @@ router.get('/by-lender/:lenderId',
 // ───────────────────────── lender links & updates ─────────────────────────
 // PATCH /api/contacts/:contactId/lenders/:entryId
 router.patch('/:contactId/lenders/:entryId',
-  requireRole('USER','MANAGER','COMPANY_ADMIN','SUPER_ADMIN'),
+  requireRole(...WRITE_ROLES),
   async (req, res) => {
     try {
       const { contactId, entryId } = req.params;
@@ -987,7 +990,7 @@ router.patch('/:contactId/lenders/:entryId',
 
 // PUT /api/contacts/:contactId/lenders/:lenderLinkId/primary
 router.put('/:contactId/lenders/:lenderLinkId/primary',
-  requireRole('USER','MANAGER','COMPANY_ADMIN','SUPER_ADMIN'),
+  requireRole(...WRITE_ROLES),
   async (req, res) => {
     try {
       const { contactId, lenderLinkId } = req.params;
@@ -1010,7 +1013,7 @@ router.put('/:contactId/lenders/:lenderLinkId/primary',
 
 // DELETE /api/contacts/:contactId/lenders/:lenderLinkId
 router.delete('/:contactId/lenders/:lenderLinkId',
-  requireRole('USER','MANAGER','COMPANY_ADMIN','SUPER_ADMIN'),
+  requireRole(...WRITE_ROLES),
   async (req, res) => {
     try {
       const { contactId, lenderLinkId } = req.params;
@@ -1037,7 +1040,7 @@ router.delete('/:contactId/lenders/:lenderLinkId',
 
 // PATCH /api/contacts/:contactId/link-lender
 router.patch('/:contactId/link-lender',
-  requireRole('USER','MANAGER','COMPANY_ADMIN','SUPER_ADMIN'),
+  requireRole(...WRITE_ROLES),
   async (req, res) => {
     try {
       const { contactId } = req.params;
@@ -1064,7 +1067,7 @@ router.patch('/:contactId/link-lender',
 
 // PATCH /api/contacts/:id/unlink-lender
 router.patch('/:id/unlink-lender',
-  requireRole('USER','MANAGER','COMPANY_ADMIN','SUPER_ADMIN'),
+  requireRole(...WRITE_ROLES),
   async (req, res) => {
     try {
       const { id } = req.params;
@@ -1086,7 +1089,7 @@ router.patch('/:id/unlink-lender',
 // ───────────────────────── import ─────────────────────────
 // POST /api/contacts/import
 router.post('/import',
-  requireRole('MANAGER','COMPANY_ADMIN','SUPER_ADMIN'),
+  requireRole(...ADMIN_ROLES),
   upload.single('file'),
   async (req, res) => {
     if (!req.file) return res.status(400).json({ error: 'Missing file' });
@@ -1146,7 +1149,7 @@ router.post('/import',
 
 router.post(
   '/:id/followup-schedule',
-  requireRole('USER','MANAGER','COMPANY_ADMIN','SUPER_ADMIN'),
+  requireRole(...WRITE_ROLES),
   async (req, res) => {
     try {
       const { id } = req.params;
@@ -1202,7 +1205,7 @@ router.post(
 
 router.delete(
   '/:id/followup-schedule',
-  requireRole('USER','MANAGER','COMPANY_ADMIN','SUPER_ADMIN'),
+  requireRole(...WRITE_ROLES),
   async (req, res) => {
     try {
       const { id } = req.params;

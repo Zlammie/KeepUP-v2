@@ -12,6 +12,9 @@ const requireRole = require('../middleware/requireRole');
 const isObjectId = v => mongoose.Types.ObjectId.isValid(String(v));
 const isSuper = req => (req.user?.roles || []).includes('SUPER_ADMIN');
 const companyFilter = req => (isSuper(req) ? {} : { company: req.user.company });
+const READ_ROLES = ['READONLY','USER','MANAGER','COMPANY_ADMIN','SUPER_ADMIN'];
+const WRITE_ROLES = ['USER','MANAGER','COMPANY_ADMIN','SUPER_ADMIN'];
+const ADMIN_ROLES = ['MANAGER','COMPANY_ADMIN','SUPER_ADMIN'];
 
 async function assertCommunitiesInTenant(req, ids = []) {
   if (!ids || !ids.length) return;
@@ -32,7 +35,7 @@ router.use(ensureAuth);
  * Read: READONLY+
  */
 router.get('/',
-  requireRole('READONLY','USER','MANAGER','COMPANY_ADMIN','SUPER_ADMIN'),
+  requireRole(...READ_ROLES),
   async (req, res) => {
     try {
       const q = String(req.query.q || '').trim();
@@ -62,7 +65,7 @@ router.get('/',
  * Read: READONLY+
  */
 router.get('/:id',
-  requireRole('READONLY','USER','MANAGER','COMPANY_ADMIN','SUPER_ADMIN'),
+  requireRole(...READ_ROLES),
   async (req, res) => {
     try {
       const { id } = req.params;
@@ -90,7 +93,7 @@ router.get('/:id',
  * - validates community ids belong to same tenant
  */
 router.post('/',
-  requireRole('USER','MANAGER','COMPANY_ADMIN','SUPER_ADMIN'),
+  requireRole(...WRITE_ROLES),
   async (req, res) => {
     try {
       const { planNumber, name, specs = {}, communities = [] } = req.body;
@@ -126,7 +129,7 @@ router.post('/',
  * - validates communities belong to same tenant when provided
  */
 router.put('/:id',
-  requireRole('USER','MANAGER','COMPANY_ADMIN','SUPER_ADMIN'),
+  requireRole(...WRITE_ROLES),
   async (req, res) => {
     try {
       const { id } = req.params;
@@ -162,7 +165,7 @@ router.put('/:id',
  * Delete: MANAGER+
  */
 router.delete('/:id',
-  requireRole('MANAGER','COMPANY_ADMIN','SUPER_ADMIN'),
+  requireRole(...ADMIN_ROLES),
   async (req, res) => {
     try {
       const { id } = req.params;

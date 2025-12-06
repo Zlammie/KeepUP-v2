@@ -18,6 +18,9 @@ const requireRole = require('../middleware/requireRole');
 const isObjectId = v => mongoose.Types.ObjectId.isValid(String(v));
 const isSuper = req => (req.user?.roles || []).includes('SUPER_ADMIN');
 const companyFilter = req => (isSuper(req) ? {} : { company: req.user.company });
+const READ_ROLES = ['READONLY','USER','MANAGER','COMPANY_ADMIN','SUPER_ADMIN'];
+const WRITE_ROLES = ['USER','MANAGER','COMPANY_ADMIN','SUPER_ADMIN'];
+const ADMIN_ROLES = ['MANAGER','COMPANY_ADMIN','SUPER_ADMIN'];
 
 const toStr = v => (v ?? '').toString().trim();
 const normalizeEmail = v => toStr(v).toLowerCase();
@@ -33,7 +36,7 @@ router.use(ensureAuth);
  * Create realtor (USER+). Stamps company server-side.
  */
 router.post('/',
-  requireRole('USER','MANAGER','COMPANY_ADMIN','SUPER_ADMIN'),
+  requireRole(...WRITE_ROLES),
   async (req, res) => {
     try {
       const body = { ...req.body };
@@ -99,7 +102,7 @@ router.post('/',
  * List (READONLY+), with optional text search.
  */
 router.get('/',
-  requireRole('READONLY','USER','MANAGER','COMPANY_ADMIN','SUPER_ADMIN'),
+  requireRole(...READ_ROLES),
   async (req, res) => {
     try {
       const q = toStr(req.query.q);
@@ -135,7 +138,7 @@ router.get('/',
  * Quick search (READONLY+), limited results.
  */
 router.get('/search',
-  requireRole('READONLY','USER','MANAGER','COMPANY_ADMIN','SUPER_ADMIN'),
+  requireRole(...READ_ROLES),
   async (req, res) => {
     const q = toStr(req.query.q);
     if (!q) return res.json([]);
@@ -158,7 +161,7 @@ router.get('/search',
  * Fetch one (READONLY+).
  */
 router.get('/:id',
-  requireRole('READONLY','USER','MANAGER','COMPANY_ADMIN','SUPER_ADMIN'),
+  requireRole(...READ_ROLES),
   async (req, res) => {
     try {
       if (!isObjectId(req.params.id)) return res.status(400).json({ error: 'Invalid id' });
@@ -176,7 +179,7 @@ router.get('/:id',
  * Update (USER+). Prevent cross-tenant moves.
  */
 router.put('/:id',
-  requireRole('USER','MANAGER','COMPANY_ADMIN','SUPER_ADMIN'),
+  requireRole(...WRITE_ROLES),
   async (req, res) => {
     try {
       const { id } = req.params;
@@ -207,7 +210,7 @@ router.put('/:id',
  * Delete (MANAGER+).
  */
 router.delete('/:id',
-  requireRole('MANAGER','COMPANY_ADMIN','SUPER_ADMIN'),
+  requireRole(...ADMIN_ROLES),
   async (req, res) => {
     try {
       if (!isObjectId(req.params.id)) return res.status(400).json({ error: 'Invalid id' });
@@ -225,7 +228,7 @@ router.delete('/:id',
  * Bulk import (MANAGER+). Upserts by { company, email } or { company, phone }.
  */
 router.post('/import',
-  requireRole('MANAGER','COMPANY_ADMIN','SUPER_ADMIN'),
+  requireRole(...ADMIN_ROLES),
   upload.single('file'),
   async (req, res) => {
     if (!req.file) return res.status(400).json({ error: 'Missing file' });
@@ -287,7 +290,7 @@ router.post('/import',
 // --- NEW: list "my" realtors -----------------------------------------------
 // GET /api/realtors/mine?q=smith
 router.get('/mine',
-  requireRole('READONLY','USER','MANAGER','COMPANY_ADMIN','SUPER_ADMIN'),
+  requireRole(...READ_ROLES),
   async (req, res) => {
     try {
       const q = toStr(req.query.q);
@@ -330,7 +333,7 @@ router.get('/mine',
 // --- NEW: link existing realtor to me --------------------------------------
 // POST /api/realtors/:id/assign
 router.post('/:id/assign',
-  requireRole('USER','MANAGER','COMPANY_ADMIN','SUPER_ADMIN'),
+  requireRole(...WRITE_ROLES),
   async (req, res) => {
     try {
       const { id } = req.params;
@@ -357,7 +360,7 @@ router.post('/:id/assign',
 // --- NEW: unlink from me (keep the realtor record) -------------------------
 // DELETE /api/realtors/:id/unassign
 router.delete('/:id/unassign',
-  requireRole('USER','MANAGER','COMPANY_ADMIN','SUPER_ADMIN'),
+  requireRole(...WRITE_ROLES),
   async (req, res) => {
     try {
       const { id } = req.params;
@@ -374,7 +377,7 @@ router.delete('/:id/unassign',
 // --- NEW: create-or-link in one step (no duplicates) -----------------------
 // POST /api/realtors/assign
 router.post('/assign',
-  requireRole('USER','MANAGER','COMPANY_ADMIN','SUPER_ADMIN'),
+  requireRole(...WRITE_ROLES),
   async (req, res) => {
     try {
       const company = req.user.company;

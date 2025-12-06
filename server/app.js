@@ -21,6 +21,16 @@ const TRUE_SET = new Set(['1', 'true', 'yes', 'on']);
 const FALSE_SET = new Set(['0', 'false', 'no', 'off']);
 const LEVEL_ORDER = { error: 0, warn: 1, info: 2, debug: 3 };
 
+const parseOrigin = (value) => {
+  const trimmed = (value || '').trim();
+  if (!trimmed) return null;
+  try {
+    return new URL(trimmed).origin;
+  } catch (_) {
+    return trimmed;
+  }
+};
+
 const parseBoolean = (value, defaultValue = false) => {
   if (value == null) return defaultValue;
   const normalized = String(value).trim().toLowerCase();
@@ -42,7 +52,9 @@ const parseOrigins = (value) =>
     .filter(Boolean);
 
 const allowedOrigins = parseOrigins(process.env.CORS_ORIGIN);
-const allowedOriginSet = new Set(allowedOrigins);
+const hasCorsAllowList = allowedOrigins.length > 0;
+const baseUrlOrigin = parseOrigin(process.env.BASE_URL);
+const allowedOriginSet = new Set([...allowedOrigins, baseUrlOrigin].filter(Boolean));
 const logLevel = (process.env.LOG_LEVEL || 'info').trim().toLowerCase();
 const currentLogLevel = LEVEL_ORDER[logLevel] ?? LEVEL_ORDER.info;
 const canLog = (level) => currentLogLevel >= (LEVEL_ORDER[level] ?? LEVEL_ORDER.info);
@@ -80,19 +92,10 @@ const corsOptions = {
     if (!origin) return callback(null, true);
 
     // 2) If no allow-list configured, allow all
-    if (!allowedOrigins.length) return callback(null, true);
+    if (!hasCorsAllowList) return callback(null, true);
 
     // 3) Allow exact matches in the env allow-list
     if (allowedOriginSet.has(origin)) return callback(null, true);
-
-    // 4) Also allow when the origin equals BASE_URL's origin (defensive)
-    try {
-      if (process.env.BASE_URL && new URL(process.env.BASE_URL).origin === origin) {
-        return callback(null, true);
-      }
-    } catch (_) {
-      // ignore parse errors
-    }
 
     // 5) IMPORTANT: don't throw an error (which 403s the request).
     // Returning `false` disables CORS for this request, but still lets it proceed.
@@ -158,13 +161,7 @@ const helmetOptions = {
 if (enableCsp) {
   const connectSrc = new Set(["'self'", 'https://cdn.jsdelivr.net']);
   allowedOrigins.forEach((origin) => connectSrc.add(origin));
-  if (process.env.BASE_URL) {
-    try {
-      connectSrc.add(new URL(process.env.BASE_URL).origin);
-    } catch (_) {
-      connectSrc.add(process.env.BASE_URL);
-    }
-  }
+  if (baseUrlOrigin) connectSrc.add(baseUrlOrigin);
 
   const cspDirectives = {
     "default-src": ["'self'"],
@@ -244,10 +241,6 @@ app.use(express.json());
 // 5) Make logged-in user & nonce visible in EJS
 app.use((req, res, next) => {
   res.locals.user = req.session?.user || null;
-  next();
-});
-
-app.use((req, res, next) => {
   res.locals.formatPhone = formatPhoneForDisplay;
   res.locals.formatPhoneDisplay = formatPhoneForDisplay;
   next();

@@ -2,6 +2,7 @@
 const express = require('express');
 const mongoose = require('mongoose');
 const ensureAuth = require('../middleware/ensureAuth');
+const requireRole = require('../middleware/requireRole');
 
 const Competition = require('../models/Competition');
 const Community = require('../models/Community');
@@ -10,6 +11,7 @@ const PriceRecord = require('../models/PriceRecord');
 const { sanitizeSyncFields } = require('../config/competitionSync');
 const { buildSyncUpdate } = require('../services/competitionSync');
 const { hasCommunityAccess } = require('../utils/communityScope');
+const { fetchMinimalCompetitions } = require('./helpers/minimalCompetitions');
 
 let FloorPlanComp;
 try { FloorPlanComp = require('../models/floorPlanComp'); } catch { /* optional */ }
@@ -36,6 +38,9 @@ const tenantFilter = (req) => {
   if (!c) throw new Error('Missing company on user; cannot scope tenant queries');
   return { company: c };
 };
+const READ_ROLES = ['READONLY','USER','MANAGER','COMPANY_ADMIN','SUPER_ADMIN'];
+const WRITE_ROLES = ['USER','MANAGER','COMPANY_ADMIN','SUPER_ADMIN'];
+const ADMIN_ROLES = ['MANAGER','COMPANY_ADMIN','SUPER_ADMIN'];
 
 // Attach a param guard for :id
 router.param('id', (req, res, next, id) => {
@@ -46,7 +51,7 @@ router.param('id', (req, res, next, id) => {
 // ───────────────────── list / minimal / get ───────────────────────
 
 // GET /api/competitions?limit=25&page=1&sort=builderName,-communityName&fields=communityName,builderName,city
-router.get('/', asyncHandler(async (req, res) => {
+router.get('/', requireRole(...READ_ROLES), asyncHandler(async (req, res) => {
   const limit = Math.min(Math.max(Number(req.query.limit) || 25, 1), 200);
   const page  = Math.max(Number(req.query.page) || 1, 1);
   const skip  = (page - 1) * limit;
@@ -94,19 +99,17 @@ router.get('/', asyncHandler(async (req, res) => {
 }));
 
 // GET /api/competitions/minimal
-router.get('/minimal', asyncHandler(async (req, res) => {
-  const comps = await Competition.find(tenantFilter(req))
-    .select('communityName builderName city state market isInternal communityRef')
-    .sort({ builderName: 1, communityName: 1 })
-    .lean();
-
-  res.json(comps.map(c => ({
-    id: c._id,
-    label: [c.builderName, c.communityName].filter(Boolean).join(' - ')
-  })));
+router.get('/minimal', requireRole(...READ_ROLES), asyncHandler(async (req, res) => {
+  const comps = await fetchMinimalCompetitions(req, { q: req.query.q, limit: req.query.limit });
+  res.json(
+    comps.map((c) => ({
+      id: c._id,
+      label: [c.builderName, c.communityName].filter(Boolean).join(' - ')
+    }))
+  );
 }));
 // GET /api/competitions/:id/monthly?month=YYYY-MM
-router.get('/:id/monthly', asyncHandler(async (req, res) => {
+router.get('/:id/monthly', requireRole(...READ_ROLES), asyncHandler(async (req, res) => {
   const { id } = req.params;
   const { month } = req.query || {};
   if (!month || !/^\d{4}-\d{2}$/.test(month)) {
@@ -133,7 +136,7 @@ router.get('/:id/monthly', asyncHandler(async (req, res) => {
   res.json(hit || { month, soldLots: null, quickMoveInLots: null });
 }));
 // GET /api/competitions/:id
-router.get('/:id', asyncHandler(async (req, res) => {
+router.get('/:id', requireRole(...READ_ROLES), asyncHandler(async (req, res) => {
   const filter = { _id: req.params.id, ...tenantFilter(req) };
   const comp = await Competition.findOne(filter).lean();
   if (!comp) return res.status(404).json({ error: 'Not found' });
@@ -217,7 +220,7 @@ function normalizeBody(raw) {
   return body;
 }
 
-router.post('/internal/from-community/:communityId', asyncHandler(async (req, res) => {
+router.post('/internal/from-community/:communityId', requireRole(...WRITE_ROLES), asyncHandler(async (req, res) => {
   const { communityId } = req.params;
   if (!isObjectId(communityId)) {
     return res.status(400).json({ error: 'Invalid communityId' });
@@ -277,7 +280,7 @@ router.post('/internal/from-community/:communityId', asyncHandler(async (req, re
   });
 }));
 // POST /api/competitions
-router.post('/', asyncHandler(async (req, res) => {
+router.post('/', requireRole(...WRITE_ROLES), asyncHandler(async (req, res) => {
   const body = normalizeBody(pick(req.body, ALLOWED_FIELDS));
 
   const filterCompany = tenantFilter(req);
@@ -413,7 +416,7 @@ async function saveCompetitionUpdate(req, filter, updates) {
 }
 
 // PUT /api/competitions/:id (full update)
-router.put('/:id', asyncHandler(async (req, res) => {
+router.put('/:id', requireRole(...WRITE_ROLES), asyncHandler(async (req, res) => {
   const body = normalizeBody(pick(req.body, ALLOWED_FIELDS));
 
   const filter = { _id: req.params.id, ...tenantFilter(req) };
@@ -426,7 +429,7 @@ router.put('/:id', asyncHandler(async (req, res) => {
 }));
 
 // PATCH /api/competitions/:id (partial update)
-router.patch('/:id', asyncHandler(async (req, res) => {
+router.patch('/:id', requireRole(...WRITE_ROLES), asyncHandler(async (req, res) => {
   const body = normalizeBody(pick(req.body, ALLOWED_FIELDS));
 
   const filter = { _id: req.params.id, ...tenantFilter(req) };
@@ -439,7 +442,7 @@ router.patch('/:id', asyncHandler(async (req, res) => {
 }));
 
 // keep your dedicated helpers as targeted endpoints (clear intent)
-router.put('/:id/amenities', asyncHandler(async (req, res) => {
+router.put('/:id/amenities', requireRole(...WRITE_ROLES), asyncHandler(async (req, res) => {
   const raw = req.body?.communityAmenities;
 
   // normalize into the expected shape: [{ category, items:[] }]
@@ -456,7 +459,7 @@ router.put('/:id/amenities', asyncHandler(async (req, res) => {
   return res.json({ ok:true, count: safeGroups.length });
 }));
 
-router.put('/:id/metrics', asyncHandler(async (req, res) => {
+router.put('/:id/metrics', requireRole(...WRITE_ROLES), asyncHandler(async (req, res) => {
   const {
     promotion, topPlan1, topPlan2, topPlan3, pros, cons,
     totalLots, hoaFee, hoaFrequency, pidFee, pidFeeFrequency
@@ -489,7 +492,7 @@ router.put('/:id/metrics', asyncHandler(async (req, res) => {
 }));
 
 // DELETE /api/competitions/:id
-router.delete('/:id', asyncHandler(async (req, res) => {
+router.delete('/:id', requireRole(...ADMIN_ROLES), asyncHandler(async (req, res) => {
   const deleted = await Competition.findOneAndDelete({ _id: req.params.id, ...tenantFilter(req) });
   if (!deleted) return res.status(404).json({ error: 'Not found' });
   res.json({ success: true });
@@ -498,7 +501,7 @@ router.delete('/:id', asyncHandler(async (req, res) => {
 // ───────────────────── monthly metrics ────────────────────────────
 
 // PUT /api/competitions/:id/monthly-metrics  (atomic upsert)
-router.put('/:id/monthly-metrics', asyncHandler(async (req, res) => {
+router.put('/:id/monthly-metrics', requireRole(...WRITE_ROLES), asyncHandler(async (req, res) => {
   let { month, soldLots, quickMoveInLots } = req.body;
   if (!month || !/^\d{4}-\d{2}$/.test(month)) {
     return res.status(400).json({ error: 'month is required (YYYY-MM)' });
@@ -541,7 +544,7 @@ router.put('/:id/monthly-metrics', asyncHandler(async (req, res) => {
 // ───────────────────────── analytics ──────────────────────────────
 
 // GET /api/competitions/:id/sales?year=YYYY
-router.get('/:id/sales', asyncHandler(async (req, res) => {
+router.get('/:id/sales', requireRole(...READ_ROLES), asyncHandler(async (req, res) => {
   const filter = { _id: req.params.id, ...tenantFilter(req) };
   const exists = await Competition.exists(filter);
   if (!exists) return res.status(404).json({ error: 'Not found' });
@@ -569,7 +572,7 @@ router.get('/:id/sales', asyncHandler(async (req, res) => {
 }));
 
 // GET /api/competitions/:id/base-prices-by-plan?anchor=YYYY-MM
-router.get('/:id/base-prices-by-plan', asyncHandler(async (req, res) => {
+router.get('/:id/base-prices-by-plan', requireRole(...READ_ROLES), asyncHandler(async (req, res) => {
   const { id } = req.params;
   let { anchor } = req.query; // "YYYY-MM"
 

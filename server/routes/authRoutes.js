@@ -5,106 +5,114 @@ const normalizeRole = require('../utils/normalizeRole');
 
 const VALID_ROLES = new Set(Object.values(User.ROLES || {}));
 const DEFAULT_ROLE = User.ROLES?.USER || 'USER';
+const sessionCookieName = process.env.SESSION_COOKIE_NAME || 'sid';
+const AUTH_DEBUG = /^(1|true|yes|on)$/i.test(process.env.AUTH_DEBUG || '');
+
+const logDebug = (...args) => {
+  if (AUTH_DEBUG || process.env.NODE_ENV !== 'production') console.info(...args);
+};
+
+const normalizeRoles = (rawRoles) => {
+  const roles = (rawRoles || [])
+    .map(normalizeRole)
+    .filter((role) => role && VALID_ROLES.has(role));
+  return roles.length ? roles : [DEFAULT_ROLE];
+};
 
 router.get('/login', (req, res) => {
-  if (req.session?.user) return res.redirect('/'); // already logged in
-  res.render('auth/login', { error: null });
+  if (req.session?.userId || req.session?.user) return res.redirect('/'); // already logged in
+  return res.render('auth/login', { error: null });
 });
 
 router.post('/login', async (req, res) => {
   try {
-    const identifier = (req.body?.email || req.body?.username || req.body?.identifier || '').trim().toLowerCase();
+    const identifier = (req.body?.email || req.body?.username || req.body?.identifier || '')
+      .trim()
+      .toLowerCase();
     const password = (req.body?.password || req.body?.pass || '').trim();
 
-    console.warn('[login] body keys:', Object.keys(req.body || {}), 'identifier present:', !!identifier, 'session?', !!req.session);
-
     if (!identifier || !password) {
-      console.warn('[login] 403 reason: missing identifier or password');
+      logDebug('[login] missing identifier or password', { hasIdentifier: !!identifier });
       return res.status(401).render('auth/login', { error: 'Invalid credentials' });
     }
 
     const user = await User.findOne({ email: identifier, isActive: true }).lean();
     if (!user) {
-      console.warn('[login] 403 reason: user not found', { identifier });
+      logDebug('[login] user not found', { identifier });
       return res.status(401).render('auth/login', { error: 'Invalid credentials' });
     }
 
     const ok = await bcrypt.compare(password, user.passwordHash);
     if (!ok) {
-      console.warn('[login] 403 reason: bad password', { identifier });
+      logDebug('[login] bad password', { identifier });
       return res.status(401).render('auth/login', { error: 'Invalid credentials' });
     }
 
+    const roles = normalizeRoles(
+      Array.isArray(user.roles) && user.roles.length ? user.roles : [user.role].filter(Boolean)
+    );
+
     // Regenerate session to avoid fixation and ensure persistence before redirect
-    req.session.regenerate(async (err) => {
+    req.session.regenerate((err) => {
       if (err) {
         console.error('session regenerate error', err);
         return res.status(500).render('auth/login', { error: 'Something went wrong' });
       }
 
-      const rawRoles = Array.isArray(user.roles) && user.roles.length
-        ? user.roles
-        : [user.role].filter(Boolean);
-
-      const roles = rawRoles
-        .map(normalizeRole)
-        .filter(role => role && VALID_ROLES.has(role));
-
-      if (!roles.length) roles.push(DEFAULT_ROLE);
-
-      req.session.user = {
+      const sessionUser = {
         _id: user._id.toString(),
         email: user.email,
-        companyId: String(user.company),             // works whether or not virtuals are present
+        companyId: String(user.company),
         roles,
-        role: roles[0],
+        role: roles[0]
       };
 
-      // (optional) track last login
-      // await User.updateOne({ _id: user._id }, { $set: { lastLoginAt: new Date() } });
+      req.session.userId = sessionUser._id; // shape expected by ensureAuth
+      req.session.user = sessionUser;       // legacy shape; kept for compatibility
+
+      // Optional: track last login
+      // void User.updateOne({ _id: user._id }, { $set: { lastLoginAt: new Date() } }).catch(() => {});
 
       req.session.save((err2) => {
         if (err2) {
           console.error('session save error', err2);
           return res.status(500).render('auth/login', { error: 'Something went wrong' });
         }
-        return res.redirect('/'); // ✅ go to index after login
+        return res.redirect('/');
       });
     });
   } catch (e) {
     console.error(e);
-    res.status(500).render('auth/login', { error: 'Something went wrong' });
+    return res.status(500).render('auth/login', { error: 'Something went wrong' });
   }
 });
 
-// GET is fine for now; switch to POST if you want stricter CSRF posture
-router.get('/logout', (req, res, next) => {
-  // Passport ≥0.6: req.logout takes a callback
-  req.logout(err => {
-    if (err) return next(err);
+const destroySession = (req, res, next) => {
+  const finish = () => res.redirect('/login');
 
-    // destroy the session to clear everything
+  const clearSession = () => {
     if (req.session) {
       req.session.destroy(() => {
-        // optional: also clear the cookie by name if you set a custom name
-        // res.clearCookie('connect.sid'); // default cookie name for express-session
-        res.redirect('/login'); // or '/'
+        res.clearCookie(sessionCookieName);
+        finish();
       });
     } else {
-      res.redirect('/login');
+      finish();
     }
-  });
-});
+  };
 
-router.post('/logout', (req, res) => {
-  const cookieName = 'connect.sid'; // change if you customized it in express-session
-  if (req.session) {
-    req.session.destroy(() => {
-      res.clearCookie(cookieName);
-      res.redirect('/login');
+  if (typeof req.logout === 'function') {
+    req.logout((err) => {
+      if (err) return next(err);
+      clearSession();
     });
   } else {
-    res.redirect('/login');
+    clearSession();
   }
-});;
+};
+
+// GET is fine for now; switch to POST if you want stricter CSRF posture
+router.get('/logout', destroySession);
+router.post('/logout', destroySession);
+
 module.exports = router;
