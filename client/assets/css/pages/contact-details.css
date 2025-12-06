@@ -1,3 +1,11 @@
+Ôªø/* Page tokens */
+:root{
+  --contact-accent: var(--ku-blue, #0e79b2);
+  --contact-accent-strong: #0b5ed7;
+  --contact-text: var(--text-main, #0f172a);
+  --contact-muted: var(--text-muted, #475467);
+}
+
 /*General CSS */
 
 
@@ -19,7 +27,7 @@
 }
 
 .contact-name {
-  color: #333;
+  color: var(--contact-text);
   font-size: xx-large;
   margin-right: 100px;
 }
@@ -79,7 +87,7 @@
   display: block;
   height: 4px;
   width: 100%;
-  background: #0E79B2;
+  background: var(--contact-accent);
   border-top-left-radius: 12px;
   border-top-right-radius: 12px;
   margin-bottom: 0.5rem;
@@ -90,9 +98,9 @@
 
 /* Optional: style only the body (below the toggle bar) */
 #more-info-body {
-  border-top: 2px solid #0d6efd;
-  border-right: 2px solid #0d6efd;
-  border-bottom: 2px solid #0d6efd;
+  border-top: 2px solid var(--contact-accent);
+  border-right: 2px solid var(--contact-accent);
+  border-bottom: 2px solid var(--contact-accent);
   
   background-color: #fff;
 }
@@ -123,7 +131,7 @@
   font-size: 0.9rem;
 }
 
-/* span ìAnyî across both columns and center it */
+/* span ‚ÄúAny‚Äù across both columns and center it */
 .option-group .any-option {
   grid-column: 1 / -1;      /* span all 2 columns */
   justify-self: center;     /* center the label in that space */
@@ -131,127 +139,28 @@
 
 /* 1) Page layout */
 .page-wrapper {
+  display: flex;
   align-items: flex-start;
+  margin: 10px;
 }
 /* main content flexes to fill remaining space */
 .contact-content {
-  flex: 1;
-  padding-right: 1rem;  /* space before sidebar */
-}
-
-/* 2) Sidebar basic styling */
-
-
-/* task sidebar shell */
-.todo-header {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 0.5rem;
-  padding: 0.75rem 1rem;
-  background: #f1f3f5;
-  border-bottom: 1px solid #dfe3ea;
-}
-.todo-toggle {
-  display: inline-flex;
-  align-items: center;
-  gap: 0.45rem;
-  background: transparent;
-  border: none;
-  font-size: 0.95rem;
-  font-weight: 600;
-  color: #1f2937;
-  cursor: pointer;
-  padding: 0.4rem 0.75rem;
-  border-radius: 999px;
-  transition: background-color 0.2s ease, color 0.2s ease;
-}
-.todo-toggle:hover,
-.todo-toggle:focus-visible {
-  background: rgba(13, 110, 253, 0.12);
-  color: #0d6efd;
-  outline: none;
-}
-.todo-toggle-icon {
-  transition: transform 0.2s ease;
-}
-.todo-toggle[aria-expanded="false"] .todo-toggle-icon {
-  transform: rotate(-90deg);
-}
-.todo-count {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  min-width: 1.75rem;
-  padding: 0 0.55rem;
-  border-radius: 999px;
-  font-size: 0.8rem;
-  font-weight: 600;
-  background: #0d6efd;
-  color: #fff;
-}
-.todo-add-btn {
-  display: inline-flex;
-  align-items: center;
-  gap: 0.4rem;
-  border: none;
-  border-radius: 999px;
-  padding: 0.45rem 0.9rem;
-  font-size: 0.85rem;
-  font-weight: 600;
-  cursor: pointer;
-  background: #0d6efd;
-  color: #fff;
-  transition: background-color 0.2s ease, box-shadow 0.2s ease;
-}
-.todo-add-btn img {
-  width: 18px;
-  height: 18px;
-}
-.todo-add-btn:hover,
-.todo-add-btn:focus-visible {
-  background: #0b5ed7;
-  box-shadow: 0 0 0 3px rgba(13, 110, 253, 0.18);
-  outline: none;
-}
-
-/* body area */
-.todo-body {
   display: flex;
   flex-direction: column;
-  gap: 1.1rem;
-  padding: 1rem;
-  overflow-y: auto;
   flex: 1;
-  background: #ffffff;
+  padding-right: 1rem;  /* space before sidebar */
+  margin: 10px;
 }
 
-
-/* 3) Collapsed state */
-.todo-panel.collapsed {
-  width: auto;               /* shrink to fit header */
-  min-width: fit-content;    /* ensure the button text isnít clipped */
-  padding: 0;                
-  overflow: visible;         /* allow the header to show outside */
-}
-.todo-panel.collapsed .todo-body {
-  display: none;    /* only collapse the body */
-}
-/* make sure header always shows as flex so its button is clickable */
-.todo-panel .todo-header {
+.disc-cont {
   display: flex;
   align-items: center;
-}
-
-.todo-panel.collapsed {
-  z-index: 10;
-}
-.todo-panel.collapsed .todo-add-btn {
-  display: none;
+  margin: 10px;
+  gap: 0.5rem;
 }
 
 
-/* (optional) ensure their inner padding/width doesnít overflow */
+/* (optional) ensure their inner padding/width doesn‚Äôt overflow */
 .bottom-cont > #community-section > .com-left-cont,
 .bottom-cont > #lot-link-container > #purchased-community-selector,
 .bottom-cont > #linked-lot-display {
@@ -307,7 +216,7 @@
 #more-info-panel.open ~ .comment-section {
   display: none;
 }
-/* open stateópane body slides into view */
+/* open state‚Äîpane body slides into view */
 #more-info-panel.open #more-info-body {
   width: 700px;
   
@@ -363,7 +272,7 @@
   position: absolute;
   top: 0.5rem;
   right: 0.5rem;
-  /* Öicon color, hover statesÖ */
+  /* ‚Ä¶icon color, hover states‚Ä¶ */
 }
 
 /* (optional) remove the focus outline if you prefer a custom style */
@@ -501,7 +410,7 @@
   padding: 0.35rem 0.5rem;
   border: 1px solid #ccc;
   border-radius: 4px;
- font-family: inherit;       /* use your appís font, not the browser default */
+ font-family: inherit;       /* use your app‚Äôs font, not the browser default */
   font-size: 0.9rem;          /* bump just slightly for readability */
   color: #222;                /* darker, more modern text */
   line-height: 1.4;           /* space out the digits a bit */
@@ -1130,7 +1039,7 @@ body.task-modal-open {
 /* Community Summary */
 
 
-/* Scoped time layout so it wonít affect other areas */
+/* Scoped time layout so it won‚Äôt affect other areas */
 #community-section .time-summary {
   display: flex;
   justify-content: space-between;
@@ -1150,7 +1059,7 @@ body.task-modal-open {
   display: inline-flex;
   align-items: baseline;
   gap: 0.25rem;
-  flex: 0 0 auto;               /* donít let them stretch weirdly */
+  flex: 0 0 auto;               /* don‚Äôt let them stretch weirdly */
 }
 
 #community-summary .lot-line-up-summary .time-summary .time-item strong,
@@ -1195,7 +1104,7 @@ body.task-modal-open {
 }
 .card-block .block-value {
   color: #212529;
-  overflow-wrap: anywhere;  /* long lists wonít push layout */
+  overflow-wrap: anywhere;  /* long lists won‚Äôt push layout */
   line-height: 1.3;
 }
 
@@ -1213,6 +1122,7 @@ body.task-modal-open {
   flex-wrap: wrap;
   gap: 1rem;
   align-items: flex-start;
+  margin: 10px;
 }
 
 /* Left column: lenders stack (fixed-ish width) */
@@ -1363,7 +1273,7 @@ body.task-modal-open {
   padding: .5rem;
 }
 
-/* Optional: individual result rows (tweak to your appís markup) */
+/* Optional: individual result rows (tweak to your app‚Äôs markup) */
 #lot-search-results .result-item {
   padding: .4rem .5rem;
   border-radius: .35rem;
@@ -1536,7 +1446,7 @@ body.task-modal-open {
   flex: 1 1 auto;      /* take remaining space */
   min-width: 0;        /* allow shrinking instead of wrapping */
   overflow: hidden;
-  text-overflow: ellipsis;  /* show Ö if text too long */
+  text-overflow: ellipsis;  /* show ‚Ä¶ if text too long */
   white-space: nowrap;      /* keep on the same line */
 }
 
@@ -1692,7 +1602,7 @@ body.task-modal-open {
 /* Textarea: smaller, cleaner */
 .comment-form textarea#comment-text {
   width: 100%;
-  min-height: 90px;                   /* ? from ìtoo tallî */
+  min-height: 90px;                   /* ? from ‚Äútoo tall‚Äù */
   max-height: 180px;
   resize: vertical;                   /* let them drag taller if needed */
   box-sizing: border-box;

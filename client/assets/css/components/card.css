@@ -8,13 +8,13 @@
   margin-bottom: 1rem;
 }
 .card--white {
-  background-color: #fff;
+  background-color: var(--surface-card, #fff);
 }
 .card--grey {
-  background-color: #e2e6ea;
+  background-color: var(--surface-band, #e2e6ea);
   
 }
 .card--light {
-  background-color: #fafafa;
+  background-color: var(--surface-subcard, #fafafa);
 }
 

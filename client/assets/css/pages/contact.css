@@ -1,3 +1,9 @@
+/* Page tokens */
+.contacts-page {
+  --contact-primary: var(--ku-blue, #0e79b2);
+  --contact-danger: #dc3545;
+}
+
 
 #contactsTable td .icon-btn {
   padding: 0;
@@ -39,7 +45,7 @@
 }
 
 /* Status-specific borders only (text stays default) */
-.status-pill.new            { border-color: #0E79B2; }
+.status-pill.new            { border-color: var(--contact-primary); }
 .status-pill.be-back        { border-color: #FFB347; }
 .status-pill.cold           { border-color: #4682B4; }
 .status-pill.target         { border-color: #6A0DAD; }
@@ -52,7 +58,7 @@
 .status-pill.bust           { border-color: #8B0000; }
 
 /* When active → text also takes on the border color */
-.status-pill.new.active            { color: #0E79B2; }
+.status-pill.new.active            { color: var(--contact-primary); }
 .status-pill.be-back.active        { color: #FFB347; }
 .status-pill.cold.active           { color: #4682B4; }
 .status-pill.target.active         { color: #6A0DAD; }
@@ -72,7 +78,7 @@
   font-weight: 700;
   line-height: 1;
   font-size: 1rem;
-  color: #dc3545; /* Bootstrap danger */
+  color: var(--contact-danger); /* Bootstrap danger */
   cursor: pointer;
 }
 .delete-x:hover { opacity: 0.8; }
@@ -81,7 +87,7 @@
 #contactsTable.show-delete th.col-delete,
 #contactsTable.show-delete td.cell-delete { display: table-cell !important; }
 
-.delete-x { font-weight:700; line-height:1; font-size:1rem; color:#dc3545; cursor:pointer; }
+.delete-x { font-weight:700; line-height:1; font-size:1rem; color:var(--contact-danger); cursor:pointer; }
 .delete-x:hover { opacity:.85; }
 
 .contacts-utility-bar {

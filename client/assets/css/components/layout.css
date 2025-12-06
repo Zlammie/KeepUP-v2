@@ -1,49 +1,10 @@
-.horizontal-cont,
-.disc-cont,
-.bottom-cont,
-.page-wrapper,
-.contact-content {
+.horizontal-cont {
+  --layout-gap: 10px;
+  --layout-margin: 10px;
+
   display: flex;
-  margin: 10px;
-}
-.horizontal-cont { flex-direction: row; align-items: flex-start; }
-.disc-cont      { flex-direction: row; align-items: center; }
-.bottom-cont    { flex-direction: row; }
-
-/* container styling */
-.month-nav-container {
-  background: #f1f3f5;
-  padding: 0.5rem 1rem;
-}
-
-/* ensure the UL is flex and nowrap */
-.month-nav-container .nav {
-  display: flex !important;
-  flex-wrap: nowrap !important;
-  list-style: none; 
-  margin: 0;
-  padding-left: 0;
-}
-
-/* style each pill */
-.month-nav-container .nav-link {
-  flex: 0 0 auto;        /* don’t stretch */
-  margin-right: 0.5rem;
-  background: #e9ecef;
-  color: #495057;
-  white-space: nowrap;    /* prevent text wrap */
-  border-radius: .25rem;
-  font-weight: 500;
-}
-
-/* active state */
-.month-nav-container .nav-link.active {
-  background: #343a40;
-  color: #fff;
-}
-
-/* hover state */
-.month-nav-container .nav-link:hover {
-  background: #ced4da;
-  color: #212529;
+  flex-direction: row;
+  align-items: flex-start;
+  gap: var(--layout-gap);
+  margin: var(--layout-margin);
 }

@@ -249,6 +249,9 @@ app.use((req, res, next) => {
 app.use(currentUserLocals);
 
 // 6) Static & views
+app.get('/favicon.ico', (req, res) =>
+  res.sendFile(path.join(__dirname, '../client/assets/icons/home-icon.svg'))
+);
 app.use('/assets', express.static(path.join(__dirname, '../client/assets')));
 app.set('views', path.join(__dirname, '../client/views'));
 app.set('view engine', 'ejs');

@@ -14,42 +14,16 @@
   gap: 0.75rem;
 }
 .comment-type-nav {
+  --comment-nav-bg: #f7f8fa;
+  --comment-nav-border: #d7dbe2;
+  --comment-nav-hover-bg: #e2e6ea;
+  --comment-nav-active-bg: var(--ku-blue, #0e79b2);
+  --comment-nav-active-border: var(--comment-nav-active-bg);
+
   display: flex;
   gap: 0.5rem;
+  justify-content: flex-start;
   margin-bottom: 0.75rem;
-}
-.comment-type-nav button {
-  background-color: #f1f1f1;
-  border: 1px solid #ccc;
-  border-radius: 8px;
-  padding: 0.5rem;
-  cursor: pointer;
-  transition: background-color 0.2s ease;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  width: 48px;
-  height: 48px;
-}
-
-.comment-type-nav button:hover {
-  background-color: #e2e6ea;
-}
-
-.comment-type-nav button.active {
-  background-color: #0E79B2;
-  border-color: #0E79B2;
-}
-
-.comment-type-nav button img {
-  width: 24px;
-  height: 24px;
-  pointer-events: none;
-  filter: brightness(0) saturate(100%); /* Force icon to black */
-  transition: filter 0.2s ease;
-}
-.comment-type-nav button.active img {
-  filter: grayscale(0%) brightness(0) invert(1); /* makes icon white */
 }
 #comment-text {
   min-height: 80px;

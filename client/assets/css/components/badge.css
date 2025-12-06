@@ -1,3 +1,47 @@
+:root {
+  /* Contact / opportunity status colors */
+  --badge-new: #0e79b2;
+  --badge-purchased: #2e8b57;
+  --badge-closed: #495057;
+  --badge-not-interested: #ff6f61;
+  --badge-deal-lost: #b22222;
+  --badge-be-back: #ffb347;
+  --badge-cold: #4682b4;
+  --badge-target: #6a0dad;
+  --badge-possible: #b57edc;
+  --badge-negotiating: #3cb371;
+  --badge-bust: #8b0000;
+
+  /* Contact details statuses */
+  --badge-invite: #6c757d;
+  --badge-submitted: #17a2b8;
+  --badge-missing: #ffc107;
+  --badge-approved: #28a745;
+  --badge-cannot-qualify: #dc3545;
+
+  /* Loan process statuses */
+  --badge-not-locked-bg: #f3f4f6;
+  --badge-not-locked-border: #e5e7eb;
+  --badge-not-locked-text: #374151;
+  --badge-locked-bg: #e5f0ff;
+  --badge-locked-border: #cfe0ff;
+  --badge-locked-text: #1d4ed8;
+  --badge-underwriting-bg: #fff7e6;
+  --badge-underwriting-border: #ffe4b5;
+  --badge-underwriting-text: #92400e;
+  --badge-clear-to-close-bg: #eaf7ef;
+  --badge-clear-to-close-border: #ccebd7;
+  --badge-clear-to-close-text: #166534;
+
+  /* Lender snippet statuses */
+  --lender-invite: #6c757d;
+  --lender-submitted-application: #17a2b8;
+  --lender-submitted-docs: #20c997;
+  --lender-missing-docs: #ffc107;
+  --lender-approved: #28a745;
+  --lender-cannot-qualify: #dc3545;
+}
+
 .status-badge {
   display: inline-block;
   padding: 0.4rem 0.75rem;
@@ -10,45 +54,45 @@
   text-align: center;
 }
 
-.status-badge.new { background-color: #0E79B2; }
-.status-badge.purchased { background-color: #2E8B57 }
-.status-badge.closed { background-color: #495057; }
-.status-badge.not-interested { background-color: #FF6F61; }
-.status-badge.deal-lost { background-color: #B22222; }
-.status-badge.be-back          {background-color: #FFB347;}
-.status-badge.cold         {background-color: #4682B4}
-.status-badge.target          {background-color: #6A0DAD;}
-.status-badge.possible          {background-color: #B57EDC;}
-.status-badge.negotiating          {background-color: #3CB371;}
-.status-badge.bust          {background-color: #8B0000;}
-/* Add others as needed */
+.status-badge.new              { background-color: var(--badge-new); }
+.status-badge.purchased        { background-color: var(--badge-purchased); }
+.status-badge.closed           { background-color: var(--badge-closed); }
+.status-badge.not-interested   { background-color: var(--badge-not-interested); }
+.status-badge.deal-lost        { background-color: var(--badge-deal-lost); }
+.status-badge.be-back          { background-color: var(--badge-be-back); }
+.status-badge.cold             { background-color: var(--badge-cold); }
+.status-badge.target           { background-color: var(--badge-target); }
+.status-badge.possible         { background-color: var(--badge-possible); }
+.status-badge.negotiating      { background-color: var(--badge-negotiating); }
+.status-badge.bust             { background-color: var(--badge-bust); }
+
 
 /*contact details */
-.status-badge.invite           { background-color: #6c757d; } /* Gray */
-.status-badge.submitted        { background-color: #17a2b8; } /* Teal */
-.status-badge.missing          { background-color: #ffc107; } /* Yellow */
-.status-badge.approved         { background-color: #28a745; } /* Green */
-.status-badge.cannot-qualify   { background-color: #dc3545; } /* Red */
+.status-badge.invite           { background-color: var(--badge-invite); } /* Gray */
+.status-badge.submitted        { background-color: var(--badge-submitted); } /* Teal */
+.status-badge.missing          { background-color: var(--badge-missing); } /* Yellow */
+.status-badge.approved         { background-color: var(--badge-approved); } /* Green */
+.status-badge.cannot-qualify   { background-color: var(--badge-cannot-qualify); } /* Red */
 
 .status-badge.not-locked{
-  background: #f3f4f6;
-  border: 1px solid #e5e7eb;
-  color: #374151;
+  background: var(--badge-not-locked-bg);
+  border: 1px solid var(--badge-not-locked-border);
+  color: var(--badge-not-locked-text);
 }
 .status-badge.locked{
-  background: #e5f0ff;
-  border: 1px solid #cfe0ff;
-  color: #1d4ed8;
+  background: var(--badge-locked-bg);
+  border: 1px solid var(--badge-locked-border);
+  color: var(--badge-locked-text);
 }
 .status-badge.underwriting{
-  background: #fff7e6;
-  border: 1px solid #ffe4b5;
-  color: #92400e;
+  background: var(--badge-underwriting-bg);
+  border: 1px solid var(--badge-underwriting-border);
+  color: var(--badge-underwriting-text);
 }
 .status-badge.clear-to-close{
-  background: #eaf7ef;
-  border: 1px solid #ccebd7;
-  color: #166534;
+  background: var(--badge-clear-to-close-bg);
+  border: 1px solid var(--badge-clear-to-close-border);
+  color: var(--badge-clear-to-close-text);
 }
 
 
@@ -64,12 +108,12 @@
   margin-top: 0.25rem;
 }
 /* Status-specific colors */
-.lender-status-badge.invite           { background-color: #6c757d; }
-.lender-status-badge.submittedapplication       { background-color: #17a2b8; }
-.lender-status-badge.submitteddocs   { background-color: #20c997; }
-.lender-status-badge.missingdocs     { background-color: #ffc107; color: #212529; }
-.lender-status-badge.approved         { background-color: #28a745; }
-.lender-status-badge.cannotqualify   { background-color: #dc3545; }
+.lender-status-badge.invite                 { background-color: var(--lender-invite); }
+.lender-status-badge.submittedapplication   { background-color: var(--lender-submitted-application); }
+.lender-status-badge.submitteddocs          { background-color: var(--lender-submitted-docs); }
+.lender-status-badge.missingdocs            { background-color: var(--lender-missing-docs); color: #212529; }
+.lender-status-badge.approved               { background-color: var(--lender-approved); }
+.lender-status-badge.cannotqualify          { background-color: var(--lender-cannot-qualify); }
 
 .all-status-cont{
   display: flex;

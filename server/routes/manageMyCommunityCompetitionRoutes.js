@@ -2,6 +2,7 @@
 const express = require('express');
 const mongoose = require('mongoose');
 const ensureAuth = require('../middleware/ensureAuth');
+const requireRole = require('../middleware/requireRole');
 
 const Community = require('../models/Community');
 const Competition = require('../models/Competition');

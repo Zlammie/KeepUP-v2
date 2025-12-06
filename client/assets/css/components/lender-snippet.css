@@ -85,3 +85,90 @@
   font-size: 0.85rem;
   color: #666;
 }
+#lender-list-container {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+  gap: 1rem;
+  margin-top: 0.5rem;
+}
+
+.lender-card {
+  background: #fafafa;
+  border: 1px solid #ddd;
+  border-radius: 6px;
+  padding: 0.75rem;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  transition: transform 0.2s, box-shadow 0.2s;
+}
+.lender-card:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+}
+.lender-card.primary {
+  border: 2px solid gold;    /* thick gold border */
+  position: relative;        /* for positioning the label */
+}
+
+.remove-lender-btn {
+  background: none;         /* remove default button background */
+  border: none;             /* remove default border */
+  padding: 0.25rem;         /* give a little click target */
+  cursor: pointer;          /* pointer on hover */
+  color: #888;              /* default icon color */
+  transition: color 0.2s ease;
+  display: flex;            /* center the SVG */
+  align-items: center;
+  justify-content: center;
+}
+/* hover state: icon turns red */
+.remove-lender-btn:hover {
+  color: #e00;              /* bright red on hover */
+}
+/* ensure the SVG uses the button’s color and is properly sized */
+.remove-lender-btn svg {
+  width: 1.25rem;           /* 20px */
+  height: 1.25rem;          /* 20px */
+  stroke: currentColor;     /* stroke inherits button color */
+  stroke-width: 2;
+  fill: none;               /* no fill, just outline */
+}
+
+/* Generic row inside a lender snippet */
+.lender-snippet .lender-line {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  margin-bottom: 0.25rem;
+}
+
+/* First line: name + brokerage side by side */
+.lender-snippet .lender-header .lender-name {
+  font-weight: 600;
+  font-size: 0.95rem;
+}
+.lender-snippet .lender-header .lender-brokerage {
+  color: #555;
+  font-size: 0.9rem;
+  font-weight: 500;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* Second line: status badge */
+.lender-snippet .lender-status .lender-status-badge {
+  margin-top: 0.25rem;
+  width: 250px;     /* let the badge size to content */
+  text-align: center;
+ 
+}
+
+/* Third line: invite/approved date */
+.lender-snippet .lender-dates {
+  font-size: 0.85rem;
+  color: #666;
+}

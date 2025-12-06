@@ -1,8 +1,8 @@
 /* 1. Base */
+@import "base/tokens.css";
 @import "base/base.css";
 @import "base/reset.css";
 @import "base/typography.css";
-@import "base/variables.css";
 
 /* 2. Layout */
 @import "layout/grid.css";
@@ -26,13 +26,11 @@
 @import "components/lender-snippet.css";
 @import "components/section.css";
 @import "components/todo-panel.css";
+@import "design-system.css";
 
 /* 4. Utilities */
 @import "utilities/spacing.css";
 @import "utilities/helpers.css";
 
-/* 5. Pages */
-@import "pages/myCommunity.css";
-@import "pages/competition-shared.css";
-@import "pages/community-managment.css";
+/* 5. Shared page modules */
 @import "pages/contacts-shared.css";

@@ -1,0 +1,28 @@
+/* Global design tokens; keep shared CSS variables in one place */
+:root {
+  /* Brand */
+  --ku-navy: #001b2e;
+  --ku-blue: #0e79b2;
+  --primary: #2b6cb0;
+  --primaryTint: #eef5ff;
+
+  /* Surfaces */
+  --surface-app: #f4f6fa;
+  --surface-band: #e1e6f0;
+  --surface-card: #ffffff;
+  --surface-subcard: #f7f9fc;
+
+  /* Borders */
+  --border-soft: #d1d7e3;
+  --border-strong: #9aa3b8;
+
+  /* Typography */
+  --text-main: #12212f;
+  --text-muted: #6b7280;
+
+  /* Radii & shadow */
+  --radius-card: 12px;
+  --radius-subcard: 8px;
+  --shadow-card: 0 2px 8px rgba(0, 0, 0, 0.08);
+  --shadow-soft: 0 1px 3px rgba(0, 0, 0, 0.04);
+}

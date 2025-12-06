@@ -1,6 +1,11 @@
+/* Page tokens */
+.lenders-page {
+  --lenders-primary: var(--ku-blue, #0e79b2);
+}
+
 /* Lenders top-bar pill colors (outline only; color on .active) */
-.status-pill.has-invited            { border-color: #0E79B2; }            /* reuse a calm blue */
-.status-pill.has-invited.active     { color: #0E79B2; }
+.status-pill.has-invited            { border-color: var(--lenders-primary); }            /* reuse a calm blue */
+.status-pill.has-invited.active     { color: var(--lenders-primary); }
 
 .status-pill.purchased-not-approved { border-color: #B22222; }            /* deep red */
 .status-pill.purchased-not-approved.active { color: #B22222; }

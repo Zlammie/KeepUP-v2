@@ -1,16 +1,21 @@
 .table {
+  --table-border: #ccc;
+  --table-header-bg: #f0f0f0;
+  --table-cell-padding: 8px;
+
   width: 100%;
   border-collapse: collapse;
   margin-top: 1em;
 }
+
 .table th,
 .table td {
-  border: 1px solid #ccc;
-  padding: 8px;
+  border: 1px solid var(--table-border);
+  padding: var(--table-cell-padding);
   text-align: left;
 }
 .table th {
-  background: #f0f0f0;
+  background: var(--table-header-bg);
 }
 .table a {
   color: inherit;

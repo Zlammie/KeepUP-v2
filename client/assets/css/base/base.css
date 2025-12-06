@@ -1,7 +1,37 @@
+:root {
+  --nav-top-height: 60px;
+  --nav-subnav-height: 45px; /* top-nav strip just under the main bar */
+  --nav-side-width: 150px;
+  --nav-content-gutter: 30px; /* space between side nav and page content */
+}
+
 body {
   margin: 0;
   font-family: Arial, sans-serif;
-  padding-top: calc(60px + 50px); /* horizontalBar + section top-nav */
-  padding-left: 180px;
+}
+
+/* Apply nav offsets only on pages that include the app nav */
+body.has-nav {
+  padding-top: calc(var(--nav-top-height) + var(--nav-subnav-height));
+  padding-left: calc(var(--nav-side-width) + var(--nav-content-gutter));
+  background-color: inherit; /* do not dim page by default */
+}
+
+/* Safety: ensure nothing globally dims or blocks the page */
+html,
+body {
+  opacity: 1 !important;
+  filter: none !important;
+  background-color: #fff !important;
+  pointer-events: auto !important;
+}
+
+.task-drawer-backdrop,
+.task-modal__backdrop,
+.modal-overlay,
+.modal-backdrop {
+  display: none !important;
+  opacity: 0 !important;
+  pointer-events: none !important;
 }
 

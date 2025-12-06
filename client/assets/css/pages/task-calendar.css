@@ -33,7 +33,7 @@
   text-align: center;
   font-size: 0.85rem;
   font-weight: 600;
-  color: #4a5568;
+  color: var(--tc-muted-strong, #4a5568);
   padding: 0.35rem;
   background: #f6f8fb;
 }
@@ -64,7 +64,7 @@
 
 .calendar-day__count {
   font-size: 0.75rem;
-  color: #6b7280;
+  color: var(--tc-muted);
 }
 
 .calendar-day__tasks {
@@ -100,12 +100,12 @@
 
 .calendar-pill--default {
   background: #eff4ff;
-  color: #1d4ed8;
+  color: var(--tc-primary);
 }
 
 .calendar-day__more {
   font-size: 0.75rem;
-  color: #64748b;
+  color: var(--tc-muted-strong, #64748b);
 }
 
 .calendar-task-list {
@@ -133,7 +133,7 @@
 
 .calendar-task-list .task-list-meta {
   font-size: 0.8rem;
-  color: #6b7280;
+  color: var(--tc-muted);
 }
 
 .calendar-task-list .task-list-tags {
@@ -165,7 +165,7 @@
 
 .calendar-day-focus__task {
   background: #f8fafc;
-  border-left: 4px solid #0e79b2;
+  border-left: 4px solid var(--tc-primary);
   border-radius: 0.65rem;
   padding: 0.6rem 0.85rem;
   display: flex;
@@ -203,4 +203,10 @@
   .calendar-day {
     min-height: 120px;
   }
+}
+.task-calendar-page {
+  --tc-primary: var(--ku-blue, #0e79b2);
+  --tc-muted: #6b7280;
+  --tc-muted-strong: #475569;
+  --tc-bg: #f8fafc;
 }

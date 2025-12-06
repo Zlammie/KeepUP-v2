@@ -1,3 +1,11 @@
+.lender-view-page {
+  --lender-accent: var(--ku-blue, #0e79b2);
+  --lender-accent-strong: #2563eb;
+  --lender-text: var(--text-main, #0f172a);
+  --lender-muted: #475467;
+  --lender-soft-bg: #f8fafc;
+}
+
 .details-top {
   display: flex;
   flex-wrap: wrap;      /* stacks on narrow screens */
@@ -27,36 +35,6 @@
   text-align: left;
 }
 
-.table-action-buttons {
-  display: inline-flex;
-  align-items: center;
-  gap: 0.3rem;
-}
-
-.table-icon-btn {
-  border: none;
-  background: transparent;
-  padding: 0.15rem;
-  border-radius: 0.35rem;
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  transition: background-color 0.2s ease, transform 0.2s ease;
-  cursor: pointer;
-}
-
-.table-icon-btn img {
-  width: 14px;
-  height: 14px;
-  display: block;
-}
-
-.table-icon-btn:hover,
-.table-icon-btn:focus-visible {
-  background: rgba(47, 112, 200, 0.12);
-  transform: translateY(-1px);
-  outline: none;
-}
 
 .id-card .id-left.re-compact {
   display: flex;
@@ -75,7 +53,7 @@
   padding: 0.2rem 0.45rem;
   border: 1px solid #e5e7eb;
   border-radius: 999px;
-  background: #f8fafc;
+  background: var(--lender-soft-bg);
 }
 .id-main {
   display: flex;
@@ -144,7 +122,7 @@ body.task-panel-open .task-drawer-backdrop {
 
 .task-drawer-contact {
   font-size: 0.85rem;
-  color: #475467;
+  color: var(--lender-muted);
 }
 .task-drawer .task-drawer-header{
   justify-content: flex-start;
@@ -159,7 +137,7 @@ body.task-panel-open .task-drawer-backdrop {
   font-size: 1.25rem;
   line-height: 1;
   cursor: pointer;
-  color: #0f172a;
+  color: var(--lender-text);
 }
 
 .closing-date-editor {
@@ -186,7 +164,7 @@ body.task-panel-open .task-drawer-backdrop {
 }
 
 .closing-status-cell .status-badge:focus-visible {
-  outline: 2px solid #2563eb;
+  outline: 2px solid var(--lender-accent-strong);
   outline-offset: 2px;
 }
 
@@ -234,7 +212,7 @@ body.task-panel-open .task-drawer-backdrop {
   padding: 0.5rem 0.75rem;
   border: 1px solid #dbeafe;
   border-radius: 999px;
-  background: #f8fafc;
+  background: var(--lender-soft-bg);
 }
 
 .closing-date-input,
@@ -267,7 +245,7 @@ body.task-panel-open .task-drawer-backdrop {
 
 .closing-date-controls .closing-date-clear {
   padding: 0;
-  color: #2563eb;
+  color: var(--lender-accent-strong);
   font-weight: 600;
 }
 

@@ -1,21 +1,3 @@
-/* Container sections - addressdetails*/
-.section {
-  background-color: #f9f9f9;      /* light gray background */
-  border: 1px solid #ddd;         /* subtle border */
-  border-radius: 0.5rem;          /* rounded corners */
-  padding: 1rem;                  /* internal spacing */
-  margin-bottom: 1.5rem;          /* space between sections */
-}
-
-/* Section headings */
-.section h2 {
-  font-size: 1.25rem;
-  margin-bottom: 0.75rem;
-  color: #333;
-  border-bottom: 2px solid #ccc;
-  padding-bottom: 0.25rem;
-}
-
 /* Shared flexible section blocks */
 .section-box {
   margin-top: 1rem;

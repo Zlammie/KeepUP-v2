@@ -1,4 +1,9 @@
 #more-info-panel {
+  --toggle-bg: var(--ku-blue, #0e79b2);
+  --toggle-border: #ccc;
+  --panel-bg: #fff;
+  --panel-border: #ccc;
+
   position: absolute;
   top: 0;
   left: 100%;             /* anchor to the right edge */
@@ -21,11 +26,11 @@
   position: relative;
   width: 1.25rem;
   height: 98%;
-  background: #0E79B2;
+  background: var(--toggle-bg);
   color: white;
-  border-top:    1px solid #ccc;
-  border-right:  1px solid #ccc;
-  border-bottom: 1px solid #ccc;
+  border-top:    1px solid var(--toggle-border);
+  border-right:  1px solid var(--toggle-border);
+  border-bottom: 1px solid var(--toggle-border);
   border-bottom-right-radius: 12px;
   border-top-right-radius: 12px;
   cursor: pointer;
@@ -69,8 +74,8 @@
   width: 0;
   overflow: hidden;
   transition: width 0.3s ease;
-  background: #fff;
-  border-left: 1px solid #ccc;
+  background: var(--panel-bg);
+  border-left: 1px solid var(--panel-border);
   box-shadow: -2px 0 6px rgba(0,0,0,0.1);
   position: relative;
   z-index: 5; 

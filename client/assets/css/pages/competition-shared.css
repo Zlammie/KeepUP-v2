@@ -29,6 +29,11 @@
   background: #fff;
   font-size: 0.85rem;
 }
+.amenity-chiplist .chip--empty {
+  background: #f8fafc;
+  border: 1px dashed #cbd5f5;
+  color: #64748b;
+}
 
 .lot-stats {
   display: flex;

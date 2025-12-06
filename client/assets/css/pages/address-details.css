@@ -7,10 +7,10 @@
 
 /* ---------- Theme tokens (tweak to taste) ---------- */
 :root{
-  --card-bg: #fff;
-  --card-border: #ddd;
-  --text: #222;
-  --muted: #666;
+  --card-bg: var(--surface-card, #fff);
+  --card-border: var(--border-soft, #ddd);
+  --text: var(--text-main, #222);
+  --muted: var(--text-muted, #666);
 
   /* contact icon pills */
   --icon-pill: 28px;        /* pill size */

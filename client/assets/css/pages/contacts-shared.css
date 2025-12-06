@@ -1,4 +1,14 @@
 
+/* Shared contacts/realtors/lenders styling */
+.contacts-shared {
+  --contact-primary: var(--ku-blue, #0e79b2);
+  --contact-primary-strong: #09557f;
+  --contact-muted: #6b7280;
+  --contact-danger: #b91c1c;
+  --contact-border: #dcdcdc;
+  --contact-bg: #f8f9fa;
+}
+
 /**
  * Shared styling for contact/realtor/lender tables.
  * Keeps the action icons consistent.
@@ -26,7 +36,7 @@
   justify-content: center;
   transition: background-color 0.2s ease, transform 0.2s ease, color 0.2s ease;
   cursor: pointer;
-  color: #0E79B2;
+  color: var(--contact-primary);
 }
 
 .table-icon-btn img {
@@ -38,10 +48,10 @@
 
 .table-icon-btn:hover,
 .table-icon-btn:focus-visible {
-  background: rgba(14, 121, 178, 0.12);
+  background: color-mix(in srgb, var(--contact-primary) 18%, transparent);
   transform: translateY(-1px) scale(1.04);
   outline: none;
-  color: #09557f;
+  color: var(--contact-primary-strong);
 }
 
 .table-icon-btn:hover img,
@@ -57,7 +67,7 @@
   cursor: default;
   pointer-events: none;
   opacity: 0.35;
-  color: #6b7280;
+  color: var(--contact-muted);
 }
 
 .table-icon-btn.attention-indicator img {
@@ -66,7 +76,7 @@
 
 .table-icon-btn.attention-indicator.attention-on {
   opacity: 1;
-  color: #b91c1c;
+  color: var(--contact-danger);
 }
 
 .table-icon-btn.attention-indicator.attention-on img {
@@ -80,11 +90,12 @@
   justify-content: space-between;
   gap: 12px;
   padding: 10px 12px;
-  border: 1px solid #dcdcdc;
+  border: 1px solid #e1e5ea;
   border-radius: 10px;
   background: #f8f9fa;
   margin-bottom: 12px;
   flex-wrap: wrap;
+  box-shadow: 0 1px 2px rgba(15, 23, 42, 0.06);
 }
 
 .contact-topbar .topbar-left {

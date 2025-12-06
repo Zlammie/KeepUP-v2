@@ -391,9 +391,22 @@
         </div>
       </div>
     </form>
-  </div>
+</div>
 </div>
 
+<!-- Minimal hidden modal stub to satisfy contacts/modal.js and prevent overlay issues -->
+<div id="commentModal" class="modal-overlay" style="display:none;pointer-events:none;opacity:0;"></div>
+
+<script nonce="<%= cspNonce %>">
+  // Safety: ensure no stuck task overlay blocks interaction on load.
+  document.body.classList.remove('task-panel-open');
+  const taskBackdrop = document.getElementById('task-drawer-backdrop');
+  if (taskBackdrop) {
+    taskBackdrop.setAttribute('hidden', 'true');
+    taskBackdrop.style.opacity = '0';
+    taskBackdrop.style.pointerEvents = 'none';
+  }
+</script>
 <script type="module" src="/assets/js/pages/contacts/index.js"></script>
 
 

@@ -1,3 +1,11 @@
+.competition-dashboard {
+  --cd-primary: var(--ku-blue, #0e79b2);
+  --cd-muted: #475569;
+  --cd-text: #0f172a;
+  --cd-card: var(--surface-card, #fff);
+  --cd-border: var(--border-soft, #d1d7e3);
+}
+
 .expandable-table-card {
   display: flex;
   flex-direction: column;
@@ -69,12 +77,14 @@
   inset: 0;
   background: rgba(15, 23, 42, 0.45);
   opacity: 0;
+  pointer-events: none;
   transition: opacity 0.2s ease;
   z-index: 1050;
 }
 
 .expandable-table-overlay.is-visible {
   opacity: 1;
+  pointer-events: auto;
 }
 
 body.expandable-table-expanded {
@@ -121,13 +131,13 @@ body.expandable-table-expanded {
 .qmi-legend__title {
   font-size: 0.85rem;
   font-weight: 600;
-  color: #0f172a;
+  color: var(--cd-text);
   line-height: 1.2;
 }
 
 .qmi-legend__subtitle {
   font-size: 0.75rem;
-  color: #475569;
+  color: var(--cd-muted);
   line-height: 1.2;
 }
 
@@ -176,7 +186,7 @@ body.expandable-table-expanded {
   border-radius: 12px !important;
   background-color: #eef3f9 !important;
   border: 1px solid #d8e2f0;
-  color: #0f172a;
+  color: var(--cd-text);
   box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.65);
 }
 
@@ -186,7 +196,7 @@ body.expandable-table-expanded {
 }
 
 .builder-chip .builder-chip-company {
-  color: #0f172a;
+  color: var(--cd-text);
 }
 
 .builder-chip .builder-chip-text {
@@ -202,7 +212,7 @@ body.expandable-table-expanded {
   border-radius: 10px !important;
   border: 1px solid #d5deeb;
   background: #f8fafc;
-  color: #475569;
+  color: var(--cd-muted);
   font-weight: 600;
   padding-inline: 0.9rem;
   transition: background-color 0.15s ease, border-color 0.15s ease, box-shadow 0.15s ease, color 0.15s ease;
@@ -211,7 +221,7 @@ body.expandable-table-expanded {
 .qmi-toggle-group .qmi-toggle-btn.active {
   background: #e4ecf7;
   border-color: #c7d4e5;
-  color: #0f172a;
+  color: var(--cd-text);
   box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.8), 0 1px 2px rgba(15, 23, 42, 0.08);
 }
 

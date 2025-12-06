@@ -1,3 +1,13 @@
+.my-community-page {
+  --mc-primary: var(--ku-blue, #1d4ed8);
+  --mc-primary-strong: #1e3a8a;
+  --mc-text: #0f172a;
+  --mc-muted: #475569;
+  --mc-card: var(--surface-card, #fff);
+  --mc-border: #d1d5db;
+  --mc-bg: #f8fafc;
+}
+
 /* === Lots Table Styling === */
 
 #actions-row,
@@ -20,7 +30,7 @@
   border: 1px solid rgba(15, 23, 42, 0.15);
   background:
     linear-gradient(135deg, rgba(226, 232, 255, 0.95), rgba(255, 255, 255, 0.92)),
-    linear-gradient(135deg, #1d4ed8 0%, #1e3a8a 100%);
+    linear-gradient(135deg, var(--mc-primary, #1d4ed8) 0%, var(--mc-primary-strong, #1e3a8a) 100%);
   background-origin: border-box;
   color: #0f172a;
   font-weight: 600;
@@ -63,7 +73,7 @@
   padding: 0.55rem 1.1rem;
   border-radius: 999px;
   border: 1px solid rgba(15, 23, 42, 0.12);
-  background: linear-gradient(135deg, #2563eb 0%, #1d4ed8 100%);
+  background: linear-gradient(135deg, var(--mc-primary) 0%, #1d4ed8 100%);
   color: #fff;
   font-weight: 600;
   letter-spacing: 0.02em;
@@ -75,7 +85,7 @@
 .manage-community-btn:hover {
   transform: translateY(-1px);
   box-shadow: 0 10px 24px rgba(37, 99, 235, 0.35);
-  background: linear-gradient(135deg, #1e40af 0%, #1d4ed8 100%);
+  background: linear-gradient(135deg, var(--mc-primary-strong, #1e40af) 0%, var(--mc-primary, #1d4ed8) 100%);
 }
 
 .manage-community-btn:focus-visible {
@@ -305,12 +315,6 @@
   .competitor-search input[type="search"] {
     width: 100%;
   }
-}
-
-.amenity-chiplist .chip--empty {
-  background: #f8fafc;
-  border: 1px dashed #cbd5f5;
-  color: #64748b;
 }
 
 .modal-actions {

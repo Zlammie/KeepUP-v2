@@ -1,34 +1,47 @@
 .comment-type-nav {
-  display: flex;
-  gap: 0.5rem;
-  margin-bottom: 1rem;
-  justify-content: center;
-}
+  --comment-nav-bg: #f1f1f1;
+  --comment-nav-border: #ccc;
+  --comment-nav-hover-bg: #e2e6ea;
+  --comment-nav-active-bg: var(--ku-blue, #0e79b2);
+  --comment-nav-active-border: var(--comment-nav-active-bg);
+  --comment-nav-size: 48px;
+  --comment-nav-icon: 24px;
 
-.comment-type-nav button {
-  background-color: #f1f1f1;
-  border: 1px solid #ccc;
-  border-radius: 8px;
-  padding: 0.5rem;
-  cursor: pointer;
-  transition: background-color 0.2s ease;
   display: flex;
   align-items: center;
   justify-content: center;
-  width: 48px;
-  height: 48px;
+  gap: 0.5rem;
+  margin-bottom: 1rem;
+}
+
+.comment-type-nav button {
+  background: var(--comment-nav-bg);
+  border: 1px solid var(--comment-nav-border);
+  border-radius: 8px;
+  padding: 0.5rem;
+  cursor: pointer;
+  transition: background-color 0.2s ease, border-color 0.2s ease;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: var(--comment-nav-size);
+  height: var(--comment-nav-size);
+}
+
+.comment-type-nav button:hover {
+  background: var(--comment-nav-hover-bg);
 }
 
 .comment-type-nav button img {
-  width: 24px;
-  height: 24px;
+  width: var(--comment-nav-icon);
+  height: var(--comment-nav-icon);
   filter: brightness(0); /* makes SVG icons black */
   pointer-events: none;
 }
 
 .comment-type-nav button.active {
-  background-color: #0E79B2;
-  border-color: #0E79B2;
+  background: var(--comment-nav-active-bg);
+  border-color: var(--comment-nav-active-border);
 }
 
 .comment-type-nav button.active img {

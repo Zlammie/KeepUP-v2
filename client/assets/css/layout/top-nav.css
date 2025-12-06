@@ -1,25 +1,25 @@
 .header-wrapper {
-  background-color: #001B2E;
+  background-color: var(--ku-navy, #001b2e);
   position: fixed;
-  top: 60px;
+  top: var(--nav-top-height, 60px);
   left: 0;
   right: 0;
-  height: 45px;
+  height: var(--nav-subnav-height, 45px);
   z-index: 998; /* slightly behind .header */
 }
 
 .header {
   position: fixed;
-  top: 60px; /* directly below the global top bar */
+  top: var(--nav-top-height, 60px); /* directly below the global top bar */
   left: 0;
   right: 0;
-  height: 45px;
-  background-color: #0E79B2;
+  height: var(--nav-subnav-height, 45px);
+  background-color: var(--ku-blue, #0e79b2);
   display: flex;
   align-items: center;
-  margin-left: 150px; /* if you're using a 220px side nav */
+  margin-left: var(--nav-side-width, 150px); /* align with side nav */
   z-index: 999;
-  border-bottom: 1px solid #0E79B2;
+  border-bottom: 1px solid var(--ku-blue, #0e79b2);
   border-top-left-radius: 2rem;
 }
 

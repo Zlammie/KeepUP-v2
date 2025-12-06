@@ -1,3 +1,12 @@
+/* Shared form control defaults */
+:root {
+  --form-label-color: #555;
+  --form-label-border: silver;
+  --form-control-border: #ccc;
+  --form-control-bg: #fff;
+  --form-control-radius: 4px;
+  --form-control-focus: var(--ku-blue, #0e79b2);
+}
 
 /* Used for add new lead, add new floor plan, add new competition */
 .add-lead-wrapper {
@@ -19,22 +28,23 @@
   margin: .5rem 0 .25rem .5rem;
   font-weight: 600;
   font-size: .85rem;
-  color: #555;
-  border-bottom: 1px solid silver;
+  color: var(--form-label-color);
+  border-bottom: 1px solid var(--form-label-border);
 }
 .form-group input,
 .form-group select,
 .form-group textarea {
   padding: 0.5rem;
-  border: 1px solid #ccc;
-  border-radius: 4px;
+  border: 1px solid var(--form-control-border);
+  border-radius: var(--form-control-radius);
+  background: var(--form-control-bg);
   font-size: 1rem;
   transition: border-color 0.2s;
 }
 .form-group input:focus,
 .form-group select:focus,
 .form-group textarea:focus {
-  border-color: #007bff;
+  border-color: var(--form-control-focus);
   outline: none;
 }
 
@@ -51,8 +61,8 @@
   padding: 0.5rem;
   box-sizing: border-box;
   height: 2.5rem;
-  border: 1px solid #ccc;
-  border-radius: 4px;
+  border: 1px solid var(--form-control-border);
+  border-radius: var(--form-control-radius);
   transition: border-color 0.2s;
 }
 
@@ -79,7 +89,7 @@
 .field .value {
   flex: 1;
   padding: 0.5rem;
-  border: 1px solid #ccc;
+  border: 1px solid var(--form-control-border);
   border-radius: 0.25rem;
   background-color: #fff;
   min-height: 1.5em;

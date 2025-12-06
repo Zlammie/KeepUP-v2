@@ -1,4 +1,21 @@
 <!-- views/partials/navbar.html -->
+<script nonce="<%= cspNonce %>">
+  // Apply nav offsets and clear any stuck overlays once DOM is ready
+  const __ku_clearOverlays = () => {
+    document.body.classList.add('has-nav');
+    document.body.classList.remove('task-panel-open', 'task-modal-open');
+    document.querySelectorAll('.task-drawer-backdrop, .task-modal__backdrop').forEach((el) => {
+      el.setAttribute('hidden', 'true');
+      el.style.pointerEvents = 'none';
+      el.style.opacity = '0';
+    });
+  };
+  if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', __ku_clearOverlays, { once: true });
+  } else {
+    __ku_clearOverlays();
+  }
+</script>
 <nav class="horizontalBar">
   <div class="top-left">
     <h1 class="nav-logo">Keep Up</h1>

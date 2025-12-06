@@ -1,15 +1,22 @@
+/* Page tokens */
+.realtors-page {
+  --realtor-negotiation: #3cb371;
+  --realtor-purchased: #2e8b57;
+  --realtor-closed: #495057;
+}
+
 #realtorsTopBar { width: 100%; }
 #realtorFilters { min-height: 40px; }
 #realtorSearch { min-width: 340px; }
 
-.status-pill.has-negotiation     { border-color: #3CB371; }
-.status-pill.has-negotiation.active { color: #3CB371; }
+.status-pill.has-negotiation     { border-color: var(--realtor-negotiation); }
+.status-pill.has-negotiation.active { color: var(--realtor-negotiation); }
 
-.status-pill.has-purchased       { border-color: #2E8B57; }
-.status-pill.has-purchased.active { color: #2E8B57; }
+.status-pill.has-purchased       { border-color: var(--realtor-purchased); }
+.status-pill.has-purchased.active { color: var(--realtor-purchased); }
 
-.status-pill.has-closed          { border-color: #495057; }
-.status-pill.has-closed.active { color: #495057; }
+.status-pill.has-closed          { border-color: var(--realtor-closed); }
+.status-pill.has-closed.active { color: var(--realtor-closed); }
 
 /* Keep realtor table columns stable */
 #realtorsTable.table-fixed {

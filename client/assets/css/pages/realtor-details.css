@@ -24,7 +24,7 @@ input:focus {
 .main-cont{
   display: inline-flex;         /* inline keeps it only as wide as content */
   flex-direction: column;
-   background-color: #e2e6ea;
+   background-color: var(--re-soft);
   align-self: flex-start;       /* optional: prevent child flex alignment from stretching */
   width: fit-content;  
   width: 350px;  
@@ -38,7 +38,7 @@ input:focus {
   flex-wrap: wrap;
 }
 .re-broker-inline {
-  color: #6b7280;
+  color: var(--re-muted);
   font-weight: 600;
   font-size: 0.95rem;
 }
@@ -105,7 +105,7 @@ input:focus {
   font-size: 0.7rem;
   text-transform: uppercase;
   letter-spacing: 0.05em;
-  color: #94a3b8;
+  color: var(--re-label-muted);
 }
 
 .status-duo__value {
@@ -114,7 +114,7 @@ input:focus {
 }
 
 .status-duo__value--muted {
-  color: #cbd5f5;
+  color: var(--re-status-muted);
   font-size: 0.75rem;
 }
 
@@ -129,4 +129,12 @@ input:focus {
   display: flex;
   flex-direction: column;
   gap: 6px;
+}
+.realtor-page {
+  --re-primary: var(--ku-blue, #0e79b2);
+  --re-text: var(--text-main, #0f172a);
+  --re-muted: var(--text-muted, #6b7280);
+  --re-soft: #e2e6ea;
+  --re-label-muted: #94a3b8;
+  --re-status-muted: #cbd5f5;
 }
