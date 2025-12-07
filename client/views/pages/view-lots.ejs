@@ -110,7 +110,8 @@
 .lots-table .text-right { text-align: right; }
 
 #lotsTopBar.contact-topbar {
-  margin: 0 20px 12px;
+  margin: 0 0 12px;
+  padding: 10px 0;       /* align left edge with table */
   justify-content: flex-start;
   gap: 16px;
 }
@@ -185,8 +186,39 @@
   outline-offset: 2px;
 }
 
+.view-lots-shell { padding: 0 20px; }
 .table-container {
-  padding: 0 20px;
+  padding: 0;
+  border: 1px solid #e5e7eb;
+  border-radius: 10px;
+  overflow: hidden;
+  background: #fff;
+}
+
+/* Make sure the lots table spans the available width; use collapsed borders for a true grid */
+.lots-table {
+  width: 100%;
+  border-collapse: collapse;
+}
+
+/* Keep clear column borders */
+.lots-table th,
+.lots-table td {
+  border: 1px solid #d9dde3;
+}
+
+/* Center specific columns */
+.lots-table th:nth-child(2),
+.lots-table td:nth-child(2), /* Job # */
+.lots-table th:nth-child(3),
+.lots-table td:nth-child(3), /* Lot / Block */
+.lots-table th:nth-child(5),
+.lots-table td:nth-child(5), /* Plan / Elv */
+.lots-table th:nth-child(8),
+.lots-table td:nth-child(8), /* Walks */
+.lots-table th:nth-child(9),
+.lots-table td:nth-child(9)  /* Closing */ {
+  text-align: center;
 }
 
 /* compact two-line cells */
@@ -356,6 +388,14 @@
   margin: 2px 0;
 }
 
+/* Nudge the price column off the edge */
+#lotsTable th:last-child,
+#lotsTable td:last-child {
+  text-align: center;
+  padding-right: 16px;
+  padding-left: 10px;
+}
+
   </style>
 </head>
 
@@ -364,45 +404,46 @@
   <%- include('../partials/nav') %>
   <%- include('../partials/top-nav-community') %>
 
-<!-- TOP BAR (re-using Contacts topbar classes) -->
-<div id="lotsTopBar" class="contact-topbar">
-  <div class="topbar-left">
-    <label for="vl-community" class="visually-hidden">Community</label>
-    <select id="vl-community" class="form-select form-select-sm" style="min-width: 260px;">
-      <!-- populated by JS -->
-    </select>
+<div class="view-lots-shell">
+  <!-- TOP BAR (re-using Contacts topbar classes) -->
+  <div id="lotsTopBar" class="contact-topbar">
+    <div class="topbar-left">
+      <label for="vl-community" class="visually-hidden">Community</label>
+      <select id="vl-community" class="form-select form-select-sm" style="min-width: 260px;">
+        <!-- populated by JS -->
+      </select>
 
-    <!-- Search -->
-    <div style="min-width: 260px; max-width: 420px;">
-      <input id="vl-search" class="form-control form-control-sm" placeholder="Search address..." />
+      <!-- Search -->
+      <div style="min-width: 260px; max-width: 420px;">
+        <input id="vl-search" class="form-control form-control-sm" placeholder="Search address..." />
+      </div>
+
+      <!-- Total -->
+      <div class="topbar-total">
+        <span class="total-label">Total:</span>
+        <span id="vl-count" class="total-value">0</span>
+      </div>
     </div>
 
-    <!-- Total -->
-    <div class="topbar-total">
-      <span class="total-label">Total:</span>
-      <span id="vl-count" class="total-value">0</span>
+    <!-- Filter pills (visual now; wire later) -->
+    <div class="topbar-filters" id="vl-statusFilters">
+      <button class="status-pill status-pill--available" id="vl-filter-available" data-filter="available">
+        <span class="label">Available</span>
+      </button>
+      <button class="status-pill status-pill--spec" id="vl-filter-spec" data-filter="spec">
+        <span class="label">SPEC</span>
+      </button>
+      <button class="status-pill status-pill--coming" id="vl-filter-coming" data-filter="comingSoon">
+        <span class="label">Coming Soon</span>
+      </button>
+      <button class="status-pill status-pill--sold" id="vl-filter-sold" data-filter="sold">
+        <span class="label">Sold</span>
+      </button>
     </div>
   </div>
 
-  <!-- Filter pills (visual now; wire later) -->
-  <div class="topbar-filters" id="vl-statusFilters">
-    <button class="status-pill status-pill--available" id="vl-filter-available" data-filter="available">
-      <span class="label">Available</span>
-    </button>
-    <button class="status-pill status-pill--spec" id="vl-filter-spec" data-filter="spec">
-      <span class="label">SPEC</span>
-    </button>
-    <button class="status-pill status-pill--coming" id="vl-filter-coming" data-filter="comingSoon">
-      <span class="label">Coming Soon</span>
-    </button>
-    <button class="status-pill status-pill--sold" id="vl-filter-sold" data-filter="sold">
-      <span class="label">Sold</span>
-    </button>
-  </div>
-</div>
-
-<div class="table-container">
-  <table id="lotsTable" class="lots-table">
+  <div class="table-container">
+    <table id="lotsTable" class="lots-table">
       <colgroup>
         <col style="width: var(--lots-actions-col)" />   <!-- Actions -->
         <col style="width: 80px" />                      <!-- Job # -->
@@ -441,7 +482,8 @@
   </tr>
 </thead>
     <tbody id="lotsTableBody"></tbody>
-  </Table>
+    </Table>
+  </div>
 </div>
 
 <div id="task-drawer-backdrop" class="task-drawer-backdrop" hidden></div>

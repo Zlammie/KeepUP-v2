@@ -9,6 +9,13 @@
   --contact-bg: #f8f9fa;
 }
 
+/* Add a little breathing room on the right side of the listing pages */
+body.contacts-page.has-nav,
+body.realtors-page.has-nav,
+body.lenders-page.has-nav {
+  padding-right: var(--nav-content-gutter, 30px);
+}
+
 /**
  * Shared styling for contact/realtor/lender tables.
  * Keeps the action icons consistent.
