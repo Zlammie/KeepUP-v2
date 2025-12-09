@@ -9,7 +9,7 @@ export function initMetrics(formEl, initialData, saveFn) {
     if (k && initialData[k] != null) input.value = initialData[k];
   });
 
-  formEl.addEventListener('input', () => {
+  const handleChange = () => {
     clearTimeout(timer);
     timer = setTimeout(() => {
       const payload = {};
@@ -18,7 +18,12 @@ export function initMetrics(formEl, initialData, saveFn) {
       });
       saveFn(payload);
     }, 500);
-  });
+  };
+
+  formEl.addEventListener('change', handleChange);
+  formEl.addEventListener('blur', (e) => {
+    if (e.target && e.target.matches('[data-metrics]')) handleChange();
+  }, true);
 }
 
 export async function saveMetrics(data) {

@@ -135,7 +135,6 @@ export const attachAllControls = ({ communityId, lotId, lot, purchaserContact, p
       const payload = numeric == null ? { listPrice: null } : { listPrice: numeric };
       await saveLotField(communityId, lotId, payload);
     };
-    const deb = debounce(persistListPrice, 350);
 
     inputEl.addEventListener('focus', () => {
       const numeric = parseCurrency(inputEl.value);
@@ -144,8 +143,6 @@ export const attachAllControls = ({ communityId, lotId, lot, purchaserContact, p
         inputEl.select();
       }
     });
-
-    inputEl.addEventListener('input', (e) => deb(e.target.value));
 
     inputEl.addEventListener('blur', async (e) => {
       await persistListPrice(e.target.value);

@@ -12,12 +12,25 @@ export function initAutosave(competitionId) {
     catch (e) { console.error('Auto-save error:', e); }
   });
 
-  // inputs + selects
-  $$('input[type="text"], input[type="email"], input[type="number"], select')
-    .forEach(el => el.addEventListener('input', save));
+  const bind = (el) => {
+    if (!el) return;
+    const type = (el.type || '').toLowerCase();
+    const tag = (el.tagName || '').toLowerCase();
+    const isInstant = type === 'checkbox' || type === 'radio' || tag === 'select';
+    const handler = () => save();
+    if (isInstant) {
+      el.addEventListener('change', handler);
+    } else {
+      el.addEventListener('change', handler);
+      el.addEventListener('blur', handler);
+    }
+  };
+
+  // inputs + selects (deferred save on change/blur, not every keystroke)
+  $$('input[type="text"], input[type="email"], input[type="number"], select').forEach(bind);
 
   // radios: garageType
-  $$('input[name="garageType"]').forEach(el => el.addEventListener('change', save));
+  $$('input[name="garageType"]').forEach(el => el.addEventListener('change', () => save()));
 
   // fees trigger save via fees.init calling onChange (we pass save from index)
   return save; // return so fees can call it

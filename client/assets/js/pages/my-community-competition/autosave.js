@@ -19,7 +19,8 @@ export function bindAutosaveOnce() {
     schoolISD, elementarySchool, middleSchool, highSchool,
     hoaFee, hoaFrequency, tax, mudFee, pidFee, pidFeeFrequency, earnestAmount, realtorCommission
   ];
-  inputs.forEach(el => el && el.addEventListener('input', autosave));
+  inputs.forEach(el => el && el.addEventListener('change', autosave));
+  inputs.forEach(el => el && el.addEventListener('blur', autosave));
   [feeMud, feePid, feeNone, garageTypeFront, garageTypeRear, pidFeeFrequency].forEach(el => el && el.addEventListener('change', autosave));
 }
 

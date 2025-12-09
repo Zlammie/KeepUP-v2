@@ -37,8 +37,7 @@ export function bindAutosave() {
   document.querySelectorAll('[data-autosave]').forEach((el) => {
     const field = el.dataset.autosave;
     const handler = debounce(() => saveField(field, readValue(el)), DEBOUNCE_MS);
-    el.addEventListener('input', handler);
-    el.addEventListener('change', handler);
+    bindSaveListeners(el, handler);
   });
 
   // 2) Fallback: bind known ids if they don't already have data-autosave
@@ -46,8 +45,7 @@ export function bindAutosave() {
     const el = document.getElementById(id);
     if (!el || el.hasAttribute('data-autosave')) return;
     const handler = debounce(() => saveField(field, readValue(el)), DEBOUNCE_MS);
-    el.addEventListener('input', handler);
-    el.addEventListener('change', handler);
+    bindSaveListeners(el, handler);
   });
 
   // 3) Groups & checkboxes
@@ -110,6 +108,24 @@ function readValue(el) {
   }
   if (el.type === 'checkbox') return !!el.checked;
   return el.value;
+}
+
+function bindSaveListeners(el, handler) {
+  const tag = (el.tagName || '').toLowerCase();
+  const type = (el.type || '').toLowerCase();
+
+  if (tag === 'select' || type === 'checkbox' || type === 'radio') {
+    el.addEventListener('change', handler);
+    return;
+  }
+
+  // Text-like inputs: save after the user leaves the field (change fires on blur)
+  if (tag === 'input' || tag === 'textarea') {
+    el.addEventListener('change', handler);
+    return;
+  }
+
+  el.addEventListener('change', handler);
 }
 
 async function saveField(field, value) {

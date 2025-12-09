@@ -248,10 +248,11 @@ document.addEventListener('DOMContentLoaded', async () => {
     ? createMonthlyAutosaver('soldLots', () => DOM.soldInput.value)
     : null;
   if (DOM.soldInput) {
-    DOM.soldInput.addEventListener('input', () => {
+    DOM.soldInput.addEventListener('change', () => {
       updateRemainingLots(totalLots, DOM.soldInput, DOM.remainingEl);
-      soldSaver?.schedule(DOM.soldInput.value);
+      soldSaver?.flush(true);
     });
+    DOM.soldInput.addEventListener('blur', () => soldSaver?.flush(true));
     ['change', 'blur'].forEach(evt => {
       DOM.soldInput.addEventListener(evt, () => soldSaver?.flush(true));
     });
@@ -261,9 +262,8 @@ document.addEventListener('DOMContentLoaded', async () => {
     ? createMonthlyAutosaver('quickMoveInLots', () => DOM.quickInput.value)
     : null;
   if (DOM.quickInput) {
-    DOM.quickInput.addEventListener('input', () => {
-      qmiSaver?.schedule(DOM.quickInput.value);
-    });
+    DOM.quickInput.addEventListener('change', () => qmiSaver?.flush(true));
+    DOM.quickInput.addEventListener('blur', () => qmiSaver?.flush(true));
     ['change', 'blur'].forEach(evt => {
       DOM.quickInput.addEventListener(evt, () => qmiSaver?.flush(true));
     });

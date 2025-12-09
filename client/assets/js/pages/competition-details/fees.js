@@ -40,9 +40,15 @@ export function initFees(onChange) {
   feeMud ?.addEventListener('change', () => sync('mud'));
   feePid ?.addEventListener('change', () => sync('pid'));
 
-  // Save when typing fee amounts too
-  mudFee?.addEventListener('input', () => onChange?.(['mudFee']));
-  pidFee?.addEventListener('input', () => onChange?.(['pidFee']));
+  // Save when fee amounts change/blur (avoid per-keystroke)
+  const bindAmount = (el, key) => {
+    if (!el) return;
+    const handler = () => onChange?.([key]);
+    el.addEventListener('change', handler);
+    el.addEventListener('blur', handler);
+  };
+  bindAmount(mudFee, 'mudFee');
+  bindAmount(pidFee, 'pidFee');
 
   // Initial paint from server-rendered state
   sync();

@@ -122,6 +122,25 @@ const rateLimitKeyFn = (req) => {
   return req.ip;
 };
 
+const logRateLimitHit = (req) => {
+  console.warn('[RATE LIMIT HIT]', {
+    ip: rateLimitKeyFn(req),
+    path: req.path,
+    userId: req.user?._id || req.session?.user?._id || null,
+    time: new Date().toISOString()
+  });
+};
+
+const rateLimitHandler = async (req, res, _next, optionsUsed) => {
+  logRateLimitHit(req);
+  res.status(optionsUsed.statusCode);
+  const message =
+    typeof optionsUsed.message === 'function' ? await optionsUsed.message(req, res) : optionsUsed.message;
+  if (!res.writableEnded) {
+    res.send(message);
+  }
+};
+
 if (enableRateLimiting) {
   const apiLimiter = rateLimit({
     windowMs: rateLimitWindowMs,
@@ -129,6 +148,7 @@ if (enableRateLimiting) {
     standardHeaders: true,
     legacyHeaders: false,
     keyGenerator: rateLimitKeyFn,
+    handler: rateLimitHandler,
     skip: (req) =>
       req.method === 'OPTIONS' ||
       req.path === '/healthz' ||
@@ -139,13 +159,14 @@ if (enableRateLimiting) {
 
 // Optional: soften auth endpoints so brute force is curtailed but users don't get 429s on pages
 const authLimiter = rateLimit({
-  windowMs: 60 * 1000,
+  windowMs: 15 * 60 * 1000,
   max: 20,
   standardHeaders: true,
   legacyHeaders: false,
   keyGenerator: rateLimitKeyFn,
+  handler: rateLimitHandler
 });
-app.use(['/login', '/logout'], authLimiter);
+app.use(['/login', '/register', '/forgot-password'], authLimiter);
 
 // 1) Per-request CSP nonce for inline scripts in EJS
 app.use((req, res, next) => {

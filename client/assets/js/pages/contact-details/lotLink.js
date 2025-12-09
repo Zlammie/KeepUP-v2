@@ -451,8 +451,7 @@ async function hydrateCommunityLotAndBind(lotSnapshot) {
   }, 500);
 
   [listInput, salesInput, dateInput].forEach(el => {
-    el.addEventListener('input',  saveLotFields);
-    el.addEventListener('change', saveLotFields);
+    el.addEventListener('change', saveLotFields); // change fires on blur for text inputs
   });
 }
 
