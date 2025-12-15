@@ -166,7 +166,7 @@ const authLimiter = rateLimit({
   keyGenerator: rateLimitKeyFn,
   handler: rateLimitHandler
 });
-app.use(['/login', '/register', '/forgot-password'], authLimiter);
+app.use(['/login', '/register', '/forgot-password', '/reset-password'], authLimiter);
 
 // 1) Per-request CSP nonce for inline scripts in EJS
 app.use((req, res, next) => {

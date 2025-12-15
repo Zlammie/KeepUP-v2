@@ -1,8 +1,7 @@
 <!-- views/partials/navbar.html -->
 <script nonce="<%= cspNonce %>">
-  // Apply nav offsets and clear any stuck overlays once DOM is ready
+  // Clear any stuck overlays once DOM is ready
   const __ku_clearOverlays = () => {
-    document.body.classList.add('has-nav');
     document.body.classList.remove('task-panel-open', 'task-modal-open');
     document.querySelectorAll('.task-drawer-backdrop, .task-modal__backdrop').forEach((el) => {
       el.setAttribute('hidden', 'true');

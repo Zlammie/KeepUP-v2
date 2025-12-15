@@ -107,7 +107,7 @@ async function openContactTaskDrawer(contactId, contactName, contactStatus = 'Ne
 
   currentTaskPromise = currentTaskPromise
     .catch(() => {})
-    .then(() => initState({ contactId, initialStatus: contactStatus || 'New' }))
+    .then(() => initState({ contactId, initialStatus: contactStatus ?? 'New' }))
     .catch((err) => {
       console.error('[lender-view] Failed to load contact for tasks', err);
     })
@@ -183,7 +183,7 @@ function wireTaskButtons() {
       const contactId = context.dataset.contact;
       if ((action === 'task' || action === 'comment') && contactId) {
         const contactName = context.dataset.contactName || 'Contact';
-        const contactStatus = context.dataset.contactStatus || 'New';
+        const contactStatus = context.dataset.contactStatus ?? 'New';
         const tabKey = action === 'comment' ? 'comments' : 'tasks';
         openContactTaskDrawer(contactId, contactName, contactStatus, tabKey);
       }

@@ -290,7 +290,7 @@
                     </div>
                     <div class="col-md-3 mb-3">
                       <label class="form-label">Sold Lots</label>
-                      <input type="number" name="soldLots" id="soldLots" class="form-control">
+                      <input type="number" name="soldLots" id="soldLots" class="form-control" data-metrics>
                     </div>
                     <div class="col-md-3 mb-3">
                       <label class="form-label">Remaining Lots</label>
@@ -298,7 +298,7 @@
                     </div>
                     <div class="col-md-3 mb-3">
                       <label class="form-label">Quick Move-In Lots</label>
-                      <input type="number" name="quickMoveInLots" id="quickMoveInLots" class="form-control">
+                      <input type="number" name="quickMoveInLots" id="quickMoveInLots" class="form-control" data-metrics>
                     </div>
                   </div>
                 </form>
@@ -351,6 +351,7 @@
                       <th>Sqft</th>
                       <th>Sold Date</th>
                       <th>Sold Price</th>
+                      <th>Actions</th>
                     </tr>
                   </thead>
                   <tbody></tbody>
@@ -391,13 +392,22 @@
 
 
 
+<%
+  const lastMonthly = (competition.monthlyMetrics || []).slice(-1)[0] || {};
+  const lotCounts = {
+    soldLots: competition.soldLots ?? lastMonthly.soldLots ?? null,
+    quickMoveInLots: competition.quickMoveInLots ?? lastMonthly.quickMoveInLots ?? null
+  };
+%>
  <script id="competition-data" type="application/json">
     <%- JSON.stringify({
       pros: competition.pros || [],
       cons: competition.cons || [],
       monthNames: ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'],
-      latestMetrics: (competition.monthlyMetrics || []).slice(-1)[0] || {},
+      latestMetrics: { ...lastMonthly, ...lotCounts },
       totalLots: competition.totalLots || 0,
+      soldLots: lotCounts.soldLots,
+      quickMoveInLots: lotCounts.quickMoveInLots,
       topPlan1: competition.topPlan1 || null,
       topPlan2: competition.topPlan2 || null,
       topPlan3: competition.topPlan3 || null,

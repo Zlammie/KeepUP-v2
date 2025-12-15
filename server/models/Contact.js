@@ -66,12 +66,26 @@ const ContactSchema = new Schema(
     ownSelling:    { type: Boolean, default: false },
     ownNotSelling: { type: Boolean, default: false },
 
+    // Status history + Be-Back tracking
+    beBackDate: { type: Date, default: null },
+    statusHistory: [
+      {
+        status: { type: String, trim: true },
+        changedAt: { type: Date, default: Date.now },
+        occurredAt: { type: Date, default: null },
+        detail: { type: String, trim: true },
+        changedBy: { type: Schema.Types.ObjectId, ref: 'User', default: null },
+        changedByName: { type: String, trim: true }
+      }
+    ],
+
     // ── Legacy / transitional fields (per-user/per-community context) ─────────
     // NOTE: Keep these for now so current pages don’t break; migrate them into
     // ContactAssignment (userId + communityId scoped) and remove later.
     status:    {
       type: String,
       enum: [
+        '',
         'New','Target','Possible','Negotiation','Be-Back','Cold',
         'Purchased','Closed','Not-Interested','Deal-Lost','Bust'
       ],

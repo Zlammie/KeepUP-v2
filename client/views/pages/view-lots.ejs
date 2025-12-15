@@ -7,6 +7,11 @@
   <link rel="stylesheet" href="/assets/css/pages/contacts-shared.css">
 
   <style>
+    :root {
+      --lots-nav-offset: calc(var(--nav-top-height, 60px) + var(--nav-subnav-height, 45px));
+      --lots-topbar-height: 64px;
+      --lots-vertical-padding: 32px;
+    }
     .icons-head {
       display: flex;
       align-items: center;
@@ -30,13 +35,16 @@
       --lots-job-col: 80px;
       --lots-lot-col: 120px;
     }
-    .lots-table .sticky-col { position: sticky; z-index: 1; }
-    .lots-table .sc-1 { left: var(--lots-actions-col); z-index: 2; }
-    .lots-table .sc-2 { left: calc(var(--lots-actions-col) + var(--lots-job-col)); }
+    .lots-table .sticky-col { position: sticky; }
+    .lots-table .sc-1 { left: var(--lots-actions-col); z-index: 9; }
+    .lots-table .sc-2 { left: calc(var(--lots-actions-col) + var(--lots-job-col)); z-index: 8; }
     .lots-table .sc-3 {
       left: calc(var(--lots-actions-col) + var(--lots-job-col) + var(--lots-lot-col));
       min-width: 300px;
+      z-index: 7;
     }
+    .lots-table thead th.sticky-col { z-index: 30; }
+    .lots-table tbody td.sticky-col { z-index: 6; background: #fff; }
 
     /* Task drawer (shared with contacts/lenders) */
     .task-drawer {
@@ -111,9 +119,13 @@
 
 #lotsTopBar.contact-topbar {
   margin: 0 0 12px;
-  padding: 10px 0;       /* align left edge with table */
+  padding: 10px 12px;       /* align left edge with table */
   justify-content: flex-start;
   gap: 16px;
+  position: sticky;
+  top: var(--lots-nav-offset);
+  z-index: 12;
+  background: #f8f9fa;
 }
 
 #lotsTopBar .topbar-left {
@@ -126,6 +138,28 @@
   gap: 10px;
   flex-wrap: wrap;
   margin-left: 16px;
+}
+
+#lotsTopBar .topbar-legend {
+  margin-left: auto;
+  display: inline-flex;
+  align-items: center;
+  gap: 12px;
+  font-size: 0.9rem;
+  color: #0f172a;
+  padding-right: 8px;
+}
+#lotsTopBar .topbar-legend .legend-item {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+#lotsTopBar .topbar-legend .legend-dot {
+  width: 14px;
+  height: 14px;
+  border-radius: 50%;
+  box-shadow: 0 0 0 2px #fff, 0 0 0 3px rgba(0,0,0,0.08);
+  display: inline-block;
 }
 
 #vl-statusFilters .status-pill {
@@ -191,8 +225,10 @@
   padding: 0;
   border: 1px solid #e5e7eb;
   border-radius: 10px;
-  overflow: hidden;
+  overflow: auto;
   background: #fff;
+  max-height: calc(100vh - var(--lots-nav-offset) - var(--lots-topbar-height) - var(--lots-vertical-padding));
+  position: relative;
 }
 
 /* Make sure the lots table spans the available width; use collapsed borders for a true grid */
@@ -205,6 +241,13 @@
 .lots-table th,
 .lots-table td {
   border: 1px solid #d9dde3;
+}
+
+.lots-table thead th {
+  position: sticky;
+  top: 0;
+  background: #f0f0f0;
+  z-index: 11;
 }
 
 /* Center specific columns */
@@ -303,13 +346,14 @@
 }
 .walk-dots {
   position: relative;
-  gap: 10px;
+  gap: 14px;
 }
 .dot {
-  width: 10px;
-  height: 10px;
+  width: 14px;
+  height: 14px;
   border-radius: 50%;
   display: inline-block;
+  box-shadow: 0 0 0 2px #fff, 0 0 0 3px rgba(0,0,0,0.08);
 }
 .dot-none   { background: #ef4444; }  /* red */
 .dot-future { background: #3b82f6; }  /* blue */
@@ -320,6 +364,11 @@
 .lots-table a.link { text-decoration: none; }
 .lots-table tr:hover td { background: #f5f5f5; }
 .lots-table tbody tr:hover .sticky-col { background: #f5f5f5; color: inherit; }
+/* Zebra striping */
+.lots-table tbody td { background: #fff; }
+.lots-table tbody tr:nth-child(even) td {
+  background: #f1f5f9;
+}
 /* Table header: swap green for a soft gray-on-charcoal look */
 .lots-table thead,
 .lots-table thead tr,
@@ -335,7 +384,7 @@
   background: #fff;                 /* body sticky bg */
 }
 .lots-table tbody tr:nth-child(even) td.sticky-col {
-  background: #f7f7f7;              /* zebra for Job, Lot/Block, Address */
+  background: #f1f5f9;              /* zebra for sticky cols */
 }
 
 .lots-table .sc-3 a.link,
@@ -439,6 +488,13 @@
       <button class="status-pill status-pill--sold" id="vl-filter-sold" data-filter="sold">
         <span class="label">Sold</span>
       </button>
+    </div>
+
+    <div class="topbar-legend" aria-hidden="true">
+      <span class="legend-item"><span class="legend-dot" style="background:#ef4444;"></span> None</span>
+      <span class="legend-item"><span class="legend-dot" style="background:#3b82f6;"></span> Future</span>
+      <span class="legend-item"><span class="legend-dot" style="background:#eab308;"></span> Today</span>
+      <span class="legend-item"><span class="legend-dot" style="background:#10b981;"></span> Done</span>
     </div>
   </div>
 

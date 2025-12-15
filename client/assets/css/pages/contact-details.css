@@ -1233,6 +1233,9 @@ body.task-modal-open {
   color: #444;
   white-space: nowrap; /* prevents wrapping */
 }
+.lot-build-status .build-status-badge{
+  display:inline-block;
+}
 
 /* Lot link area uses subcard background since parent is already a white card */
 #lot-link-container,
@@ -1537,15 +1540,22 @@ body.task-modal-open {
 }
 
 .lot-actions button {
-  background: #f5f5f5;
-  border: 1px solid #ccc;
-  padding: 0.4rem 0.8rem;
-  border-radius: 6px;
+  background: #0d6efd;
+  border: 1px solid #0d6efd;
+  color: #fff;
+  padding: 0.5rem 0.95rem;
+  border-radius: 8px;
   cursor: pointer;
+  font-weight: 700;
+  font-size: 0.9rem;
+  transition: background-color 0.15s ease, box-shadow 0.15s ease;
 }
 
-.lot-actions button:hover {
-  background: #e2e2e2;
+.lot-actions button:hover,
+.lot-actions button:focus-visible {
+  background: #0b5ed7;
+  box-shadow: 0 0 0 3px rgba(13, 110, 253, 0.2);
+  outline: none;
 }
 
 /* ===== Comment section shell ===== */

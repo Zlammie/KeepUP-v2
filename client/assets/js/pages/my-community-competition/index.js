@@ -214,8 +214,19 @@ if (qmiTableToggle && qmiTableCard) {
   qmiTableToggle.addEventListener('click', toggleQmiTable);
 }
 
+const updateCommunitySelectWarning = () => {
+  if (!communitySelectEl) return;
+  const empty = !communitySelectEl.value;
+  communitySelectEl.classList.toggle('is-empty-warning', empty);
+  communitySelectEl.setAttribute('aria-invalid', empty ? 'true' : 'false');
+};
+
 if (communitySelectEl) {
-  communitySelectEl.addEventListener('change', () => collapseQmiTable({ focusToggle: false }));
+  communitySelectEl.addEventListener('change', () => {
+    updateCommunitySelectWarning();
+    collapseQmiTable({ focusToggle: false });
+  });
+  updateCommunitySelectWarning();
 }
 
 function normalizeCompetition(raw, fallbackList = allCompetitions) {

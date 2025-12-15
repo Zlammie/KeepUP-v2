@@ -1,4 +1,4 @@
-const mongoose = require('mongoose');
+﻿const mongoose = require('mongoose');
 const { Schema } = mongoose;
 const {
   DEFAULT_SYNC_FIELDS,
@@ -45,6 +45,8 @@ const CompetitionSchema = new Schema({
   modelPlan:        { type: String, default: '' },
   garageType:       { type: String, enum: ['Front','Rear', null], default: null },
   totalLots: { type: Number, set: toNumOrNull, default: null },
+  soldLots:        { type: Number, set: toNumOrNull, default: null },
+  quickMoveInLots:{ type: Number, set: toNumOrNull, default: null },
 
   // Fees
   hoaFee:         { type: Number, set: toNumOrNull, default: null },
@@ -124,3 +126,4 @@ CompetitionSchema.pre('validate', async function competitionInternalSync(next) {
 });
 
 module.exports = mongoose.model('Competition', CompetitionSchema);
+

@@ -1,0 +1,4 @@
+FirstName,LastName,Email,Phone,VisitDate,Community,Source
+Alex,Carver,alex.carver@example.com,555-123-4567,2024-02-10,Lakeside,"Walk-In"
+Jamie,Lee,jamie.lee@example.com,555-321-9988,2024-02-12,Oak Ridge,"Online Ad"
+Taylor,Smith,taylor.smith@example.com,555-888-1212,2024-02-15,,Referral

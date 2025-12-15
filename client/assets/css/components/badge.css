@@ -66,6 +66,50 @@
 .status-badge.negotiating      { background-color: var(--badge-negotiating); }
 .status-badge.bust             { background-color: var(--badge-bust); }
 
+/* Build / construction statuses (shared with address-details) */
+.status-badge.status-not-started,
+.status-badge.not-started{
+  background:#f3f4f6;
+  border:1px solid #e5e7eb;
+  color:#374151;
+}
+.status-badge.status-under-construction,
+.status-badge.under-construction{
+  background:#fff7e6;
+  border:1px solid #ffe4b5;
+  color:#92400e;
+}
+.status-badge.status-finished,
+.status-badge.finished{
+  background:#eaf7ef;
+  border:1px solid #ccebd7;
+  color:#166534;
+}
+.status-badge.status-waiting-on-builder,
+.status-badge.waiting-on-builder{
+  background:#f3f4f6;  border:1px solid #e5e7eb; color:#374151;
+}
+.status-badge.status-dates-sent-to-purchaser,
+.status-badge.dates-sent-to-purchaser{
+  background:#e5f0ff;  border:1px solid #cfe0ff; color:#1d4ed8;
+}
+.status-badge.status-dates-confirmed,
+.status-badge.dates-confirmed{
+  background:#efeaff;  border:1px solid #ddd4ff; color:#4f46e5;
+}
+.status-badge.status-third-party-complete,
+.status-badge.third-party-complete{
+  background:#f3e8ff;  border:1px solid #e9d5ff; color:#6b21a8;
+}
+.status-badge.status-first-walk-complete,
+.status-badge.first-walk-complete{
+  background:#fff7e6;  border:1px solid #ffe4b5; color:#92400e;
+}
+.status-badge.status-final-sign-off-complete,
+.status-badge.final-sign-off-complete{
+  background:#eaf7ef;  border:1px solid #ccebd7; color:#166534;
+}
+
 
 /*contact details */
 .status-badge.invite           { background-color: var(--badge-invite); } /* Gray */

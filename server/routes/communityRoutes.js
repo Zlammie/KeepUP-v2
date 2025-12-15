@@ -40,6 +40,26 @@ function trimValue(value) {
   return value == null ? '' : String(value).trim();
 }
 
+function normalizePlanKeys(raw) {
+  const base = trimValue(raw).toLowerCase();
+  if (!base) return [];
+  const withoutPrefix = base.replace(/^plan\s*/i, '').trim();
+  const keys = [base];
+  if (withoutPrefix && withoutPrefix !== base) keys.push(withoutPrefix);
+  return Array.from(new Set(keys));
+}
+
+function buildPlanKeyMap(plans = []) {
+  const map = new Map();
+  const add = (key, id) => { if (key) map.set(key, id); };
+  plans.forEach((p) => {
+    const id = p?._id ? p._id.toString() : null;
+    normalizePlanKeys(p?.name).forEach((k) => add(k, id));
+    normalizePlanKeys(p?.planNumber).forEach((k) => add(k, id));
+  });
+  return map;
+}
+
 function buildContactName(contact) {
   if (!contact || typeof contact !== 'object' || contact._bsontype) return '';
   const first = trimValue(contact.firstName);
@@ -127,10 +147,9 @@ router.post('/import',
       const sheet = workbook.Sheets[workbook.SheetNames[0]];
       const rows = xlsx.utils.sheet_to_json(sheet);
 
-      // Preload plans for lookup by name/number (scoped to company if you tenant FloorPlan; else global)
+      // Preload plans for lookup by name/number (supports "Plan 220" or "220")
       const plans = await FloorPlan.find({}, 'name planNumber').lean();
-      const planByName   = new Map(plans.map(p => [String(p.name || '').toLowerCase(), String(p._id)]));
-      const planByNumber = new Map(plans.map(p => [String(p.planNumber || '').toLowerCase(), String(p._id)]));
+      const planKeyMap = buildPlanKeyMap(plans);
 
       const grouped = new Map(); // key: name|projectNumber
       for (const row of rows) {
@@ -139,8 +158,10 @@ router.post('/import',
 
         if (!name || !projectNumber) continue;
 
-        const fpRaw = String(row['Floor Plan'] || '').trim().toLowerCase();
-        const fpId  = planByName.get(fpRaw) || planByNumber.get(fpRaw) || null;
+        const fpRaw = row['Floor Plan'] || row['Plan'] || row['Plan Number'] || row.plan || '';
+        const fpId = normalizePlanKeys(fpRaw)
+          .map((k) => planKeyMap.get(k))
+          .find(Boolean) || null;
 
         const lot = {
           jobNumber: String(row['Job Number'] || '').padStart(4, '0'),

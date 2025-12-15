@@ -71,6 +71,8 @@ initAmenities(competitionId, Array.isArray(boot.communityAmenities) ? boot.commu
 // 3) Header summary (Sold / Remaining / QMI)
 hydrateLotStats({
   totalLots: boot.totalLots ?? 0,
+  soldLots: boot.soldLots,
+  quickMoveInLots: boot.quickMoveInLots,
   monthlyMetrics: Array.isArray(boot.monthlyMetrics) ? boot.monthlyMetrics : []
 });
 
@@ -84,6 +86,8 @@ if (totalLotsInput && totalLotsStat) {
     // Recompute remaining with the latest number + existing monthly metrics
     hydrateLotStats({
       totalLots: Number.isFinite(n) ? n : 0,
+      soldLots: boot.soldLots,
+      quickMoveInLots: boot.quickMoveInLots,
       monthlyMetrics: Array.isArray(boot.monthlyMetrics) ? boot.monthlyMetrics : []
     });
   });

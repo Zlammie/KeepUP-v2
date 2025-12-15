@@ -172,9 +172,47 @@
               <button type="button" class="btn btn-outline-primary" id="admin-users-edit-toggle">
                 Edit Users
               </button>
-              <button type="button" class="btn btn-secondary" disabled title="Coming soon">
+              <button type="button" class="btn btn-secondary" id="admin-users-invite-toggle">
                 Invite User
               </button>
+            </div>
+          </div>
+
+          <div id="admin-users-invite-card" class="card mb-3 d-none">
+            <div class="card-body">
+              <div class="d-flex justify-content-between align-items-center mb-3 flex-wrap gap-2">
+                <div>
+                  <h3 class="h6 mb-1">Invite a teammate</h3>
+                  <p class="text-muted mb-0">Invites are scoped to your company automatically.</p>
+                </div>
+              </div>
+              <form id="admin-users-invite-form" class="row gy-3 gx-3">
+                <div class="col-md-6">
+                  <label class="form-label" for="adminInviteEmail">Email</label>
+                  <input type="email" class="form-control" id="adminInviteEmail" name="email" required placeholder="teammate@company.com" />
+                </div>
+                <div class="col-md-3">
+                  <label class="form-label" for="adminInviteFirstName">First name</label>
+                  <input type="text" class="form-control" id="adminInviteFirstName" name="firstName" />
+                </div>
+                <div class="col-md-3">
+                  <label class="form-label" for="adminInviteLastName">Last name</label>
+                  <input type="text" class="form-control" id="adminInviteLastName" name="lastName" />
+                </div>
+                <div class="col-md-4">
+                  <label class="form-label" for="adminInvitePhone">Phone</label>
+                  <input type="tel" class="form-control" id="adminInvitePhone" name="phone" placeholder="(555) 555-5555" />
+                </div>
+                <div class="col-md-4">
+                  <label class="form-label" for="adminInviteRole">Role</label>
+                  <select class="form-select" id="adminInviteRole" name="role"></select>
+                </div>
+                <div class="col-12 d-flex justify-content-end gap-2 align-items-center flex-wrap">
+                  <div id="admin-users-invite-status" class="small text-muted me-auto"></div>
+                  <button type="button" class="btn btn-outline-secondary" id="admin-users-invite-cancel">Cancel</button>
+                  <button type="submit" class="btn btn-primary">Send Invite</button>
+                </div>
+              </form>
             </div>
           </div>
 
@@ -511,10 +549,18 @@
       };
 
       const usersControls = {
-        editToggle: document.getElementById('admin-users-edit-toggle')
+        editToggle: document.getElementById('admin-users-edit-toggle'),
+        inviteToggle: document.getElementById('admin-users-invite-toggle'),
+        inviteCard: document.getElementById('admin-users-invite-card'),
+        inviteForm: document.getElementById('admin-users-invite-form'),
+        inviteStatus: document.getElementById('admin-users-invite-status'),
+        inviteCancel: document.getElementById('admin-users-invite-cancel'),
+        inviteRole: document.getElementById('adminInviteRole')
       };
-      if (usersControls.editToggle && !canManageUsers) {
-        usersControls.editToggle.classList.add('d-none');
+      if (!canManageUsers) {
+        if (usersControls.editToggle) usersControls.editToggle.classList.add('d-none');
+        if (usersControls.inviteToggle) usersControls.inviteToggle.classList.add('d-none');
+        if (usersControls.inviteCard) usersControls.inviteCard.classList.add('d-none');
       }
 
       const impersonationEls = {
@@ -635,6 +681,10 @@
         usersEls.loading?.classList.add('d-none');
         usersEls.error?.classList.add('d-none');
         usersEls.tableWrapper?.classList.remove('d-none');
+        if (usersControls.inviteCard) {
+          // Keep invite card hidden by default; only open when toggled
+          usersControls.inviteCard.classList.add('d-none');
+        }
       };
 
       const fetchCompanyPayload = async () => {
@@ -840,6 +890,15 @@
         const editing = state.users.editing;
         const currentUserId = state.users.currentUserId || null;
 
+        // Populate invite role options using the same role options available in the table
+        if (usersControls.inviteRole) {
+          const options = (payload.roleOptions || [])
+            .filter((opt) => opt.value !== 'SUPER_ADMIN')
+            .map((opt) => `<option value="${escapeHtml(opt.value)}">${escapeHtml(opt.label)}</option>`)
+            .join('');
+          usersControls.inviteRole.innerHTML = options;
+        }
+
         if (usersEls.actionsHeader) {
           usersEls.actionsHeader.classList.toggle('d-none', !editing);
         }
@@ -855,7 +914,7 @@
         if (!payload.users || !payload.users.length) {
           usersEls.tableBody.innerHTML = `
             <tr>
-              <td colspan="9" class="text-center text-muted py-4">
+              <td colspan="${editing ? 9 : 8}" class="text-center text-muted py-4">
                 No users found for this company yet.
               </td>
             </tr>
@@ -882,7 +941,7 @@
             ? escapeHtml(user.managerName)
             : '&mdash;';
 
-          return `
+          const baseCells = `
             <tr data-user-id="${escapeHtml(user.id)}">
               <td>${escapeHtml(user.firstName || '')}</td>
               <td>${escapeHtml(user.lastName || '')}</td>
@@ -891,10 +950,11 @@
               <td>${escapeHtml(roleLabel)}</td>
               <td>${escapeHtml(statusLabel)}</td>
               <td>${escapeHtml(communitiesDisplay)}</td>
-              <td>${managerDisplay}</td>
-              <td class="text-end text-muted">&mdash;</td>
-            </tr>
-          `;
+              <td>${managerDisplay}</td>`;
+
+          return editing
+            ? `${baseCells}<td class="text-end text-muted">&mdash;</td></tr>`
+            : `${baseCells}</tr>`;
         };
 
         const renderEditableRow = (user) => {
@@ -1421,6 +1481,29 @@
         showUsersTable();
       };
 
+      const showInviteCard = (show) => {
+        if (!usersControls.inviteCard) return;
+        usersControls.inviteCard.classList.toggle('d-none', !show);
+        if (show && usersControls.inviteStatus) {
+          usersControls.inviteStatus.textContent = '';
+          usersControls.inviteStatus.className = 'small text-muted me-auto';
+        }
+      };
+
+      const setInviteStatus = (message, tone = 'muted') => {
+        if (!usersControls.inviteStatus) return;
+        usersControls.inviteStatus.textContent = message || '';
+        usersControls.inviteStatus.className = 'small me-auto';
+        usersControls.inviteStatus.classList.add(
+          tone === 'success' ? 'text-success' : tone === 'danger' ? 'text-danger' : 'text-muted'
+        );
+      };
+
+      const resetInviteForm = () => {
+        if (!usersControls.inviteForm) return;
+        usersControls.inviteForm.reset();
+      };
+
       const collectMultiSelectValues = (select) =>
         Array.from(select?.selectedOptions || []).map((option) => option.value);
 
@@ -1558,6 +1641,73 @@
 
       if (usersControls.editToggle) {
         usersControls.editToggle.addEventListener('click', handleEditToggle);
+      }
+
+      if (usersControls.inviteToggle) {
+        usersControls.inviteToggle.addEventListener('click', () => {
+          const isOpen = usersControls.inviteCard && !usersControls.inviteCard.classList.contains('d-none');
+          showInviteCard(!isOpen);
+        });
+      }
+
+      if (usersControls.inviteCancel) {
+        usersControls.inviteCancel.addEventListener('click', (event) => {
+          event.preventDefault();
+          resetInviteForm();
+          showInviteCard(false);
+        });
+      }
+
+      if (usersControls.inviteForm) {
+        usersControls.inviteForm.addEventListener('submit', async (event) => {
+          event.preventDefault();
+          if (!canManageUsers) return;
+
+          const form = event.currentTarget;
+          const submitBtn = form.querySelector('button[type="submit"]');
+          const formData = new FormData(form);
+          const email = (formData.get('email') || '').toString().trim();
+          const firstName = (formData.get('firstName') || '').toString().trim();
+          const lastName = (formData.get('lastName') || '').toString().trim();
+          const phone = (formData.get('phone') || '').toString().trim();
+          const role = (formData.get('role') || '').toString().trim();
+
+          if (!email) {
+            setInviteStatus('Email is required.', 'danger');
+            return;
+          }
+
+          const payload = { email };
+          if (firstName) payload.firstName = firstName;
+          if (lastName) payload.lastName = lastName;
+          if (phone) payload.phone = phone;
+          if (role) payload.role = role;
+
+          if (submitBtn) submitBtn.disabled = true;
+          setInviteStatus('Sending invite...', 'muted');
+
+          try {
+            const response = await fetch('/api/admin/users/invite', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
+              credentials: 'same-origin',
+              body: JSON.stringify(payload)
+            });
+            const data = await readJsonResponse(response);
+            if (!response.ok) {
+              const msg = data?.error || `Invite failed (${response.status})`;
+              throw new Error(msg);
+            }
+            setInviteStatus('Invite sent. We emailed their setup link.', 'success');
+            resetInviteForm();
+            await refreshUsersData({ silent: true });
+          } catch (err) {
+            console.error('Invite user failed', err);
+            setInviteStatus(err.message || 'Invite failed.', 'danger');
+          } finally {
+            if (submitBtn) submitBtn.disabled = false;
+          }
+        });
       }
 
       if (companyForm) {

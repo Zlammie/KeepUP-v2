@@ -24,7 +24,10 @@ function getActiveStatuses() {
 }
 
 function normalizeStatus(raw) {
-  const s = String(raw || 'new').trim().toLowerCase();
+  if (raw == null) return '';
+  const trimmed = String(raw).trim();
+  if (!trimmed) return '';
+  const s = trimmed.toLowerCase();
 
   if (s.includes('negoti')) return 'negotiation';
   if (s.replace(/\s+/g, '-') === 'be-back' || (s.includes('be') && s.includes('back'))) return 'be-back';
@@ -213,20 +216,21 @@ function bindSearchInput() {
 function serializeInlineLeadForm(form) {
   const formData = new FormData(form);
   const trimValue = (key) => (formData.get(key) || '').toString().trim();
+  const statusValue = formData.has('status') ? formData.get('status') : 'New';
 
   const payload = {
     firstName: trimValue('firstName'),
     lastName: trimValue('lastName'),
     email: trimValue('email'),
     phone: trimValue('phone'),
-    status: (formData.get('status') || 'New').toString(),
+    status: statusValue == null ? 'New' : statusValue.toString().trim(),
   };
 
   const visitDate = formData.get('visitDate');
   if (visitDate) payload.visitDate = visitDate;
 
   Object.keys(payload).forEach((key) => {
-    if (payload[key] === '') {
+    if (payload[key] === '' && key !== 'status') {
       delete payload[key];
     }
   });
@@ -240,8 +244,8 @@ function upsertContact(contact) {
   if (!id) return;
 
   const normalized = {
-    status: contact.status || 'New',
     ...contact,
+    status: contact.status ?? 'New',
   };
 
   const idx = state.allContacts.findIndex((item) => String(item._id) === String(id));

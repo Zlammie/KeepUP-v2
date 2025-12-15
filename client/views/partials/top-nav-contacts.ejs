@@ -28,8 +28,21 @@
             <div><img src="/assets/icons/lender.svg" alt=""></div>
             <div>Lenders</div>
         </a>
-        </li>    
+       </li>    
        </ul>
       </div>
     </header>
   </div>
+  <script nonce="<%= typeof cspNonce !== 'undefined' ? cspNonce : '' %>">
+    (() => {
+      const { pathname } = window.location;
+      document.querySelectorAll('.top-nav-link').forEach((link) => {
+        const href = link.getAttribute('href');
+        if (!href || href === '#') return;
+        if (pathname === href || (href !== '/' && pathname.startsWith(href))) {
+          link.classList.add('active');
+          link.setAttribute('aria-current', 'page');
+        }
+      });
+    })();
+  </script>

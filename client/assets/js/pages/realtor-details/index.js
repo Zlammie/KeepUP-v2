@@ -49,7 +49,7 @@ async function openContactTaskDrawer(contactId, contactName, contactStatus = 'Ne
 
   currentTaskPromise = currentTaskPromise
     .catch(() => {})
-    .then(() => initState({ contactId, initialStatus: contactStatus || 'New' }))
+    .then(() => initState({ contactId, initialStatus: contactStatus ?? 'New' }))
     .catch((err) => {
       console.error('[realtor-details] Failed to load contact for tasks', err);
     })
@@ -117,7 +117,7 @@ function wireTaskButtons() {
       const context = button.closest('.table-action-buttons');
       const contactId = context?.dataset?.contact;
       const contactName = context?.dataset?.contactName || 'Contact';
-      const contactStatus = context?.dataset?.contactStatus || 'New';
+      const contactStatus = context?.dataset?.contactStatus ?? 'New';
 
       if (action === 'task' && contactId) {
         openContactTaskDrawer(contactId, contactName, contactStatus, 'tasks');

@@ -404,10 +404,19 @@
 
   <!-- Bootstrap data without executing JS -->
 <!-- Bootstrap data without executing JS -->
+<%
+  const lastMonthly = (competition.monthlyMetrics || []).slice(-1)[0] || {};
+  const lotCounts = {
+    soldLots: competition.soldLots ?? lastMonthly.soldLots ?? null,
+    quickMoveInLots: competition.quickMoveInLots ?? lastMonthly.quickMoveInLots ?? null
+  };
+%>
 <script id="__COMPETITION_DATA__" type="application/json">
 <%- JSON.stringify({
   id: competition._id,
   totalLots: competition.totalLots ?? 0,
+  soldLots: lotCounts.soldLots,
+  quickMoveInLots: lotCounts.quickMoveInLots,
   monthlyMetrics: competition.monthlyMetrics || [],
   communityAmenities: competition.communityAmenities || [],
   pros: competition.pros || [],

@@ -10,7 +10,7 @@
             <img src="\assets\icons\add-circle-icon.svg" alt="">
           </div>
           <div>
-            <a href="\add-competition">Add Competition</a>
+            <a href="/add-competition" class="top-nav-link">Add Competition</a>
           </div>
         </li>
          <li>
@@ -18,7 +18,7 @@
             <img src="\assets\icons\community-icon.svg" alt="">
           </div>
           <div>
-            <a href="\my-community-competition">Competition Home</a>
+            <a href="/my-community-competition" class="top-nav-link">Competition Home</a>
           </div>
         </li>
           <li>
@@ -26,7 +26,7 @@
             <img src="\assets\icons\competition.svg" alt="">
           </div>
           <div>
-            <a href="\manage-competition">Manage Competition</a>
+            <a href="/manage-competition" class="top-nav-link">Manage Competition</a>
           </div>
         </li>
         <li>
@@ -34,7 +34,7 @@
             <img src="\assets\icons\graph.svg" alt="">
           </div>
           <div>
-            <a href="\competition-dashboard">Dashboard</a>
+            <a href="/competition-dashboard" class="top-nav-link">Dashboard</a>
           </div>
         </li>
           
@@ -42,4 +42,17 @@
       </div>
     </header>
 </div>
+<script nonce="<%= typeof cspNonce !== 'undefined' ? cspNonce : '' %>">
+  (() => {
+    const { pathname } = window.location;
+    document.querySelectorAll('.top-nav-link').forEach((link) => {
+      const href = link.getAttribute('href');
+      if (!href || href === '#') return;
+      if (pathname === href || (href !== '/' && pathname.startsWith(href))) {
+        link.classList.add('active');
+        link.setAttribute('aria-current', 'page');
+      }
+    });
+  })();
+</script>
   

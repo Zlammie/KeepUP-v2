@@ -5,6 +5,7 @@ import { readDate, fmtDate, safe } from './utils.js';
 import { debounce } from '../../core/async.js';
 import { parseCurrency, formatCurrency } from '../../core/currency.js';
 import { refreshStatusUI } from './status.js';
+import { buildingLabels, buildingClasses } from '../address-details/statusMaps.js';
 
 let hydrateAbort;
 let renderToken = 0;
@@ -38,6 +39,24 @@ function setText(id, value) {
   const el = document.getElementById(id);
   if (!el) return;
   el.textContent = (value ?? 'GÇö').toString();
+}
+
+function setBuildStatus(status) {
+  const el = document.getElementById('linked-build-status');
+  if (!el) return;
+  const key = status || '';
+  const label = buildingLabels[key] || key || 'N/A';
+  const mappedClass = buildingClasses[key] || null;
+  const normalized = String(key || '')
+    .trim()
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, '-')
+    .replace(/(^-|-$)/g, '');
+  const badgeClass = mappedClass || (normalized ? normalized : '');
+  el.textContent = label;
+  el.className = ['status-badge', 'build-status-badge', badgeClass ? `status-${badgeClass}` : '', badgeClass && !badgeClass.startsWith('status-') ? badgeClass : '']
+    .filter(Boolean)
+    .join(' ');
 }
 
 function planLabelFrom(lot) {
@@ -194,7 +213,7 @@ function linkedLotCardHTML(lot) {
       <div class="lot-address lot-address-row">
         <div class="lot-address-main">${safe(lot.address)}</div>
         <div class="lot-build-status">
-          <strong>General Status:</strong> <span id="linked-build-status">${safe(generalStatus)}</span>
+          <strong>General Status:</strong> <span id="linked-build-status" class="status-badge build-status-badge">${safe(generalStatus)}</span>
         </div>
       </div>
       <div class="lot-chip-row">
@@ -268,7 +287,7 @@ function linkedLotCardHTML(lot) {
         </div>
       </section>
 
-      <div class="lot-actions"><button id="unlink-lot-btn" type="button">Unlink Lot</button></div>
+      <div class="lot-actions"><button id="unlink-lot-btn" type="button" class="btn btn-primary btn-sm">Unlink Lot</button></div>
     </div>
   `;
 }
@@ -352,8 +371,13 @@ async function hydrateCommunityLotAndBind(lotSnapshot) {
     dateInput.value  = readDate(srvLot.salesDate);
 
     // --- build / schedule ---
-    const statusLabel = srvLot.generalStatus || srvLot.status || 'N/A';
-    setText('linked-build-status', statusLabel);
+    const statusValue =
+      srvLot.status ||
+      srvLot.buildStatus ||
+      srvLot.buildingStatus ||
+      srvLot.generalStatus ||
+      'Not-Started';
+    setBuildStatus(statusValue);
     setText('linked-release-date', fmtDate(srvLot.releaseDate));
     setText('linked-projected-completion', fmtDate(srvLot.expectedCompletionDate));
 
@@ -382,8 +406,13 @@ async function hydrateCommunityLotAndBind(lotSnapshot) {
       setupCurrencyInput(listInput);
       setupCurrencyInput(salesInput);
       dateInput.value  = readDate(lotSnapshot.salesDate);
-      const fallbackStatus = lotSnapshot.generalStatus || lotSnapshot.status || 'N/A';
-      setText('linked-build-status', fallbackStatus);
+      const fallbackStatus =
+        lotSnapshot.status ||
+        lotSnapshot.buildStatus ||
+        lotSnapshot.buildingStatus ||
+        lotSnapshot.generalStatus ||
+        'Not-Started';
+      setBuildStatus(fallbackStatus);
       setText('linked-release-date', fmtDate(lotSnapshot.releaseDate));
       setText('linked-projected-completion', fmtDate(lotSnapshot.expectedCompletionDate));
 
@@ -464,6 +493,9 @@ function attachUnlinkHandler() {
 
   btn.addEventListener('click', async () => {
     try {
+      const confirmed = window.confirm('Unlink this lot from the contact? This will remove the link but keep the data you have entered.');
+      if (!confirmed) return;
+
       // Use the mounted ids (set when we rendered the card)
      const ds  = DOM.linkedLotDisplay?.dataset || {};
       const cid = ds.communityId;

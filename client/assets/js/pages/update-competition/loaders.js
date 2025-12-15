@@ -257,6 +257,9 @@ if (newPlanSel && newSqftInp && !newSqftInp.value) {
         <input class="form-control sold-input" type="number" step="0.01"
               data-field="soldPrice" value="${rec.soldPrice ?? ''}" />
       </td>  
+      <td>
+        <button type="button" class="btn btn-sm btn-outline-secondary sold-move-btn">Move to QMI</button>
+      </td>
    `;
     DOM.soldBody.appendChild(tr);
   });
@@ -301,7 +304,8 @@ if (newPlanSel && newSqftInp && !newSqftInp.value) {
 
     // keep your “pin to month when SOLD and no soldDate yet” if you added it
     if (payload.status === 'SOLD' && !payload.soldDate) {
-      payload.month = monthKey;
+      // When marking sold without a date, pin it to the prior month we track (current month - 1)
+      payload.month = TARGET_MONTH_KEY;
     }
 
     const url    = id
@@ -384,6 +388,43 @@ DOM.soldBody.querySelectorAll('.sold-input').forEach(el => {
       }
     }
     loadQuickHomes(monthKey);
+  });
+});
+
+// Allow moving a sold home back to inventory
+DOM.soldBody.querySelectorAll('.sold-move-btn').forEach(btn => {
+  btn.addEventListener('click', async (e) => {
+    const row = e.target.closest('tr');
+    const id  = row?.dataset.id;
+    if (!id) return;
+    const originalText = btn.textContent;
+    btn.disabled = true;
+    btn.textContent = 'Moving...';
+
+    try {
+      const resp = await fetch(`/api/competitions/${competitionId}/quick-moveins/${id}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          status: 'Ready Now',
+          soldDate: null,
+          soldPrice: null,
+          month: monthKey
+        })
+      });
+      if (!resp.ok) {
+        console.error('Move to QMI failed', resp.status, await resp.text());
+        btn.disabled = false;
+        btn.textContent = originalText;
+        return;
+      }
+      await initQuickHomes();
+      loadQuickHomes(monthKey);
+    } catch (err) {
+      console.error('Move to QMI error', err);
+      btn.disabled = false;
+      btn.textContent = originalText;
+    }
   });
 });
 }

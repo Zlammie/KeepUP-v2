@@ -1,14 +1,15 @@
-// public/assets/js/update-competition/init.js
+﻿// public/assets/js/update-competition/init.js
 
 import {
   pros,
   cons,
-  monthNames,
   latestMetrics,
   totalLots,
   competitionId,
   builderName,
-  communityName
+  communityName,
+  soldLots,
+  quickMoveInLots
 } from './data.js';
 import * as DOM from './dom.js';
 import {
@@ -18,7 +19,7 @@ import {
 } from './nav.js';
 import { initQuickHomes, loadMonth, loadQuickHomes, loadSales } from './loaders.js';
 import { initMetrics, saveMetrics } from './metrics.js';
-import { updateRemainingLots, saveMonthly } from './monthlyMetrics.js';
+import { updateRemainingLots } from './monthlyMetrics.js';
 import { renderBadges, bindProsCons } from './prosCons.js';
 import { populateTopPlans } from './plans.js';
 import { initFloorPlansModal, loadFloorPlansList } from './floorPlans.js';
@@ -26,15 +27,10 @@ import { initFloorPlanModal } from './modal.js';
 import { initTaskPanel } from '../contact-details/tasks.js';
 import { createTask as createTaskApi, fetchTasks as fetchTasksApi } from '../contact-details/api.js';
 import { emit } from '../contact-details/events.js';
-
-
-
-let currentMonth = null;
-const monthlyAutosavers = [];
 const resolveTaskTitle = () =>
   window.UPDATE_COMP_BOOT?.defaultTaskTitle ||
   (builderName && communityName
-    ? `Follow up on ${builderName} – ${communityName}`
+    ? `Follow up on ${builderName} ΓÇô ${communityName}`
     : 'Follow up on this competition');
 
 const targetMonthDate = new Date(new Date().getFullYear(), new Date().getMonth() - 1, 1);
@@ -44,7 +40,7 @@ const RECURRING_TASKS = [
   {
     reason: 'competition-update-promotion',
     title: 'Update competition promotion',
-    description: 'Review this competitor’s current promotion and update the metrics tab.'
+    description: 'Review this competitorΓÇÖs current promotion and update the metrics tab.'
   },
   {
     reason: 'competition-update-top-plans',
@@ -79,7 +75,7 @@ const RECURRING_TASKS = [
   {
     reason: 'competition-update-floor-plan-prices',
     title: 'Update floor plan base prices',
-    description: 'Fill in the base price grid for the current month’s floor plans.'
+    description: 'Fill in the base price grid for the current monthΓÇÖs floor plans.'
   }
 ];
 
@@ -95,74 +91,9 @@ const resetFloorPlanForm = (fields) => {
   });
 };
 
-async function hydrateMonthlyUI(month) {
-  try {
-    const res = await fetch(`/api/competitions/${competitionId}/monthly?month=${encodeURIComponent(month)}`);
-    if (!res.ok) throw res;
-    const m = await res.json();
-    if (DOM.soldInput)  DOM.soldInput.value  = m?.soldLots ?? '';
-    if (DOM.quickInput) DOM.quickInput.value = m?.quickMoveInLots ?? '';
-  } catch (e) {
-    if (e && e.text) {
-      try { console.warn('monthly error body →', await e.text()); } catch {}
-    }
-    if (DOM.soldInput)  DOM.soldInput.value  = '';
-    if (DOM.quickInput) DOM.quickInput.value = '';
-    console.warn('hydrateMonthlyUI fallback', e.status || e);
-  }
-  updateRemainingLots(totalLots, DOM.soldInput, DOM.remainingEl);
-}
 
-const NO_PENDING_VALUE = Symbol('no-pending');
-function createMonthlyAutosaver(field, getValue, { delay = 800 } = {}) {
-  let pendingValue = NO_PENDING_VALUE;
-  let timer = null;
 
-  const send = value => {
-    if (!currentMonth) return;
-    const payload = { month: currentMonth, [field]: value };
-    saveMonthly(payload).catch(err => {
-      console.error(`[update-competition] failed to save ${field}`, err);
-    });
-  };
 
-  const schedule = value => {
-    if (value === undefined) return;
-    pendingValue = value;
-    clearTimeout(timer);
-    timer = window.setTimeout(() => {
-      const next = pendingValue;
-      pendingValue = NO_PENDING_VALUE;
-      if (next !== NO_PENDING_VALUE) send(next);
-    }, delay);
-  };
-
-  const flush = (force = false) => {
-    clearTimeout(timer);
-    const hasPending = pendingValue !== NO_PENDING_VALUE;
-    if (!hasPending && !force) return;
-    const next = hasPending ? pendingValue : getValue();
-    if (next === undefined) {
-      pendingValue = NO_PENDING_VALUE;
-      return;
-    }
-    pendingValue = NO_PENDING_VALUE;
-    send(next);
-  };
-
-  const cancel = () => {
-    clearTimeout(timer);
-    pendingValue = NO_PENDING_VALUE;
-  };
-
-  const api = { schedule, flush, cancel };
-  monthlyAutosavers.push(api);
-  return api;
-}
-
-function flushMonthlyAutosavers() {
-  monthlyAutosavers.forEach(saver => saver.flush());
-}
 
 /**
  * Application entrypoint
@@ -202,27 +133,22 @@ document.addEventListener('DOMContentLoaded', async () => {
   // 1) Month nav
   renderMonthNav(DOM.monthNav);
   console.log(
-    'Nav months →',
+    'Nav months',
     [...DOM.monthNav.querySelectorAll('a.nav-link')].map(a => a.dataset.month)
   );
   bindMonthNav(DOM.monthNav, month => {
-    flushMonthlyAutosavers();
-    currentMonth = month;
     loadMonth(month);
     loadQuickHomes(month);
     loadSales(month);
-    hydrateMonthlyUI(month);
   });
 
   // initial load for first month pill
   const firstMonthLink = DOM.monthNav.querySelector('a.nav-link');
   if (firstMonthLink) {
     const month = firstMonthLink.dataset.month;
-    currentMonth = month;
     loadMonth(month);
     loadQuickHomes(month);
     loadSales(month);
-    hydrateMonthlyUI(month);
   }
 
   // 2) Section tabs
@@ -241,32 +167,17 @@ document.addEventListener('DOMContentLoaded', async () => {
   // 3) Metrics form
   initMetrics(DOM.metricsForm, latestMetrics, saveMetrics);
 
-  // 4) Monthly lots counter (persist as you type)
+  if (DOM.soldInput)  DOM.soldInput.value  = soldLots ?? '';
+  if (DOM.quickInput) DOM.quickInput.value = quickMoveInLots ?? '';
+
+  // 4) Lot counter (persist as you type)
   if (DOM.lotCount) DOM.lotCount.value = totalLots;
 
-  const soldSaver = DOM.soldInput
-    ? createMonthlyAutosaver('soldLots', () => DOM.soldInput.value)
-    : null;
   if (DOM.soldInput) {
-    DOM.soldInput.addEventListener('change', () => {
-      updateRemainingLots(totalLots, DOM.soldInput, DOM.remainingEl);
-      soldSaver?.flush(true);
-    });
-    DOM.soldInput.addEventListener('blur', () => soldSaver?.flush(true));
-    ['change', 'blur'].forEach(evt => {
-      DOM.soldInput.addEventListener(evt, () => soldSaver?.flush(true));
-    });
-  }
-
-  const qmiSaver = DOM.quickInput
-    ? createMonthlyAutosaver('quickMoveInLots', () => DOM.quickInput.value)
-    : null;
-  if (DOM.quickInput) {
-    DOM.quickInput.addEventListener('change', () => qmiSaver?.flush(true));
-    DOM.quickInput.addEventListener('blur', () => qmiSaver?.flush(true));
-    ['change', 'blur'].forEach(evt => {
-      DOM.quickInput.addEventListener(evt, () => qmiSaver?.flush(true));
-    });
+    const syncRemaining = () => updateRemainingLots(totalLots, DOM.soldInput, DOM.remainingEl);
+    DOM.soldInput.addEventListener('input', syncRemaining);
+    DOM.soldInput.addEventListener('change', syncRemaining);
+    DOM.soldInput.addEventListener('blur', syncRemaining);
   }
 
   updateRemainingLots(totalLots, DOM.soldInput, DOM.remainingEl);

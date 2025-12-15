@@ -17,6 +17,7 @@ export function setActionHandlers(handlers = {}) {
 }
 
 const STATUS_OPTIONS = [
+  { value: '', label: 'No Status' },
   { value: 'New', label: 'New' },
   { value: 'Target', label: 'Target' },
   { value: 'Possible', label: 'Possible' },
@@ -31,6 +32,7 @@ const STATUS_OPTIONS = [
 ];
 
 const STATUS_CLASS_MAP = {
+  '': 'no-status',
   New: 'new',
   Target: 'target',
   Possible: 'possible',
@@ -47,8 +49,10 @@ const STATUS_CLASS_MAP = {
 const DEFAULT_STATUS = 'New';
 
 const matchStatusOption = (raw) => {
-  if (!raw) return null;
+  if (raw === '') return STATUS_OPTIONS.find((opt) => opt.value === '') || null;
+  if (raw == null) return null;
   const normalized = raw.toString().trim().toLowerCase().replace(/\s+/g, '-');
+  if (!normalized) return STATUS_OPTIONS.find((opt) => opt.value === '') || null;
   return STATUS_OPTIONS.find(
     (opt) => opt.value.toLowerCase().replace(/\s+/g, '-') === normalized
   ) || null;
@@ -56,23 +60,24 @@ const matchStatusOption = (raw) => {
 
 const statusClassName = (statusValue) => {
   const option = matchStatusOption(statusValue);
-  if (option && STATUS_CLASS_MAP[option.value]) {
+  if (option && Object.prototype.hasOwnProperty.call(STATUS_CLASS_MAP, option.value)) {
     return STATUS_CLASS_MAP[option.value];
   }
-  const normalized = (statusValue || DEFAULT_STATUS)
+  const normalized = (statusValue ?? DEFAULT_STATUS)
     .toString()
     .trim()
     .toLowerCase()
     .replace(/\s+/g, '-');
-  return normalized || STATUS_CLASS_MAP[DEFAULT_STATUS];
+  if (!normalized) return STATUS_CLASS_MAP[''] || 'no-status';
+  return normalized;
 };
 
 const statusDisplayLabel = (statusValue) => {
   const option = matchStatusOption(statusValue);
   if (option) return option.label;
-  if (!statusValue) return DEFAULT_STATUS;
+  if (statusValue === undefined || statusValue === null) return DEFAULT_STATUS;
   const str = statusValue.toString().trim();
-  if (!str) return DEFAULT_STATUS;
+  if (!str) return 'No Status';
   return str
     .replace(/[-_]/g, ' ')
     .replace(/\b\w/g, (c) => c.toUpperCase());
@@ -137,7 +142,7 @@ export function renderTable(contacts) {
         actionHandlers.onTask?.({
           id: contact._id,
           name: fullName,
-          status: contact.status || 'New'
+          status: contact.status ?? 'New'
         });
       });
       wrapper.appendChild(taskBtn);
@@ -166,7 +171,7 @@ export function renderTable(contacts) {
         actionHandlers.onComment?.({
           id: contact._id,
           name: fullName,
-          status: contact.status || 'New'
+          status: contact.status ?? 'New'
         });
       });
       wrapper.appendChild(commentBtn);
@@ -250,7 +255,7 @@ export function renderTable(contacts) {
       badge.tabIndex = 0;
       badge.style.cursor = 'pointer';
       badge.title = 'Click to change status';
-      applyBadgeView(badge, contact.status || DEFAULT_STATUS);
+      applyBadgeView(badge, contact.status ?? DEFAULT_STATUS);
 
       const select = document.createElement('select');
       select.className = 'form-select form-select-sm contact-status-select';
@@ -293,7 +298,7 @@ export function renderTable(contacts) {
 
       select.addEventListener('change', async (event) => {
         const previousValue =
-          matchStatusOption(contact.status)?.value || String(contact.status || DEFAULT_STATUS);
+          matchStatusOption(contact.status)?.value ?? String(contact.status ?? DEFAULT_STATUS);
         const nextValue = event.target.value;
         if (nextValue === previousValue) {
           hideSelect();
@@ -371,7 +376,7 @@ export function renderTable(contacts) {
         actionHandlers.onDelete?.({
           id: contact._id,
           name: btn.getAttribute('data-name') || 'this contact',
-          status: contact.status || 'New'
+          status: contact.status ?? 'New'
         });
       });
 

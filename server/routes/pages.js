@@ -854,7 +854,7 @@ router.get('/competition-details/:id', ensureAuth, requireRole('READONLY','USER'
           'builderWebsite','modelPlan','lotSize','garageType','totalLots',
           'schoolISD','elementarySchool','middleSchool','highSchool',
           'hoaFee','hoaFrequency','tax','feeTypes','mudFee','pidFee','pidFeeFrequency',
-          'promotion','pros','cons','monthlyMetrics','communityAmenities',
+          'promotion','pros','cons','monthlyMetrics','communityAmenities','soldLots','quickMoveInLots',
           'salesPerson','salesPersonPhone','salesPersonEmail'
         ].join(' '))
       .lean();

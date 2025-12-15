@@ -415,7 +415,7 @@ const ACTION_BUTTONS = [
 const renderActionCell = (contactId, contactName, contactStatus) => {
   const safeId = contactId ? escapeHtml(String(contactId)) : '';
   const safeName = escapeHtml(contactName || 'Contact');
-  const safeStatus = escapeHtml(contactStatus || 'New');
+  const safeStatus = escapeHtml(contactStatus ?? 'New');
   const buttons = ACTION_BUTTONS.map(({ action, icon, label }) => `
     <button class="table-icon-btn" type="button" data-action="${action}" aria-label="${label} for ${safeName}">
       <img src="${icon}" alt="">
@@ -459,14 +459,15 @@ export function renderTable(rows = []) {
     const status = displayLabel(lenderInfo?.status);
     const inviteDate = formatDateValue(lenderInfo?.inviteDate);
     const approvedDate = formatDateValue(lenderInfo?.approvedDate);
-    const contactStatusValue = (contact.status || '').trim();
-    const generalStatus = contactStatusValue || 'N/A';
+    const rawStatus = contact?.status;
+    const contactStatusValue = rawStatus == null ? '' : String(rawStatus).trim();
+    const generalStatus = contactStatusValue || 'No Status';
 
     contact._lenderStatus = normalizeStatus(lenderInfo?.status || '');
 
     const tr = document.createElement('tr');
     tr.innerHTML = `
-      ${renderActionCell(contact._id, name, contactStatusValue || 'New')}
+      ${renderActionCell(contact._id, name, contactStatusValue)}
       <td><a href="/contact-details.html?id=${escapeHtml(contact._id)}">${escapeHtml(name)}</a></td>
       <td>${escapeHtml(phone)}</td>
       <td>${escapeHtml(email)}</td>
@@ -505,7 +506,8 @@ export function renderPurchasedTable(rows = []) {
     const lenderInfo = lenderEntries.find(matchesActiveLender) || lenderEntries[0] || {};
 
     const lenderStatus = displayLabel(lenderInfo?.status);
-    const contactStatusValue = (contact.status || '').trim() || 'New';
+    const rawStatus = contact?.status;
+    const contactStatusValue = rawStatus == null ? 'New' : String(rawStatus).trim();
 
     const tr = document.createElement('tr');
     tr.innerHTML = `

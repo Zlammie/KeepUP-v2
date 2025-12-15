@@ -10,6 +10,8 @@ export const {
   monthNames,
   latestMetrics,
   totalLots,
+  soldLots,
+  quickMoveInLots,
   topPlan1,
   topPlan2,
   topPlan3,

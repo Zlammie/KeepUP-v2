@@ -9,7 +9,7 @@
             <img src="\assets\icons\community-icon.svg" alt="">
           </div>
           <div>
-            <a href="/view-lots">My Community</a>
+            <a href="/view-lots" class="top-nav-link">My Community</a>
           </div>
         </li>
           <li>
@@ -17,11 +17,24 @@
             <img src="\assets\icons\contacts.svg" alt="">
           </div>
           <div>
-            <a href="">My Purchasers </a>
+            <a href="/my-community-competition" class="top-nav-link">My Purchasers </a>
           </div>
         </li>  
        </ul>
       </div>
     </header>
 </div>
+<script nonce="<%= typeof cspNonce !== 'undefined' ? cspNonce : '' %>">
+  (() => {
+    const { pathname } = window.location;
+    document.querySelectorAll('.top-nav-link').forEach((link) => {
+      const href = link.getAttribute('href');
+      if (!href || href === '#') return;
+      if (pathname === href || (href !== '/' && pathname.startsWith(href))) {
+        link.classList.add('active');
+        link.setAttribute('aria-current', 'page');
+      }
+    });
+  })();
+</script>
   

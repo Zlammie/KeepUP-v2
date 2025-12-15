@@ -1,11 +1,14 @@
 const express = require('express');
 const bcrypt = require('bcrypt');
+const crypto = require('crypto');
 const mongoose = require('mongoose');
 const requireRole = require('../../middleware/requireRole');
 const User = require('../../models/User');
+const PasswordToken = require('../../models/PasswordToken');
 const Community = require('../../models/Community');
 const Company = require('../../models/Company');
 const { formatPhoneForDisplay, formatPhoneForStorage } = require('../../utils/phone');
+const { issuePasswordToken, sendInviteEmail } = require('../../services/passwordReset');
 
 const router = express.Router();
 
@@ -196,6 +199,134 @@ router.post(
         lastName: lastName ? String(lastName).trim() : undefined,
         phone: normalizedPhone || undefined
       });
+
+      return res.status(201).json({ userId: String(user._id) });
+    } catch (err) {
+      return next(err);
+    }
+  }
+);
+
+// Company Admin / Manager invite: auto-scoped to the requester's company (Super Admins can override)
+router.post(
+  '/invite',
+  requireRole('MANAGER', 'COMPANY_ADMIN', 'SUPER_ADMIN'),
+  async (req, res, next) => {
+    try {
+      const {
+        email,
+        role,
+        firstName,
+        lastName,
+        phone,
+        companyId: rawCompanyId
+      } = req.body || {};
+
+      const normalizedEmail = (email || '').toString().trim().toLowerCase();
+      if (!normalizedEmail) {
+        return res.status(400).json({ error: 'Email is required.' });
+      }
+
+      const requestedCompanyId = rawCompanyId && isObjectId(rawCompanyId) ? rawCompanyId : null;
+      const scopedCompanyId = isSuper(req) ? (requestedCompanyId || req.user.company) : req.user.company;
+      if (!isObjectId(scopedCompanyId)) {
+        return res.status(400).json({ error: 'Invalid company context.' });
+      }
+
+      const company = await Company.findById(scopedCompanyId).select('_id name');
+      if (!company) {
+        return res.status(404).json({ error: 'Company not found.' });
+      }
+
+      const allowedRoles = new Set(Object.values(User.ROLES || {}));
+      allowedRoles.delete(User.ROLES.SUPER_ADMIN); // invites cannot create super admins
+      const normalizedRole = (role || '').toString().trim().toUpperCase();
+      const roleList = normalizedRole && allowedRoles.has(normalizedRole)
+        ? [normalizedRole]
+        : [User.ROLES.USER];
+
+      const normalizedPhone = phone ? formatPhoneForStorage(phone) : null;
+
+      const existingUser = await User.findOne({ email: normalizedEmail });
+      if (existingUser) {
+        const sameCompany = String(existingUser.company) === String(company._id);
+        if (!sameCompany || existingUser.status !== User.STATUS.INVITED) {
+          return res.status(400).json({ error: 'A user with that email already exists.' });
+        }
+
+        if (normalizedPhone !== null) existingUser.phone = normalizedPhone || undefined;
+        if (firstName !== undefined) existingUser.firstName = firstName ? String(firstName).trim() : undefined;
+        if (lastName !== undefined) existingUser.lastName = lastName ? String(lastName).trim() : undefined;
+        existingUser.roles = roleList;
+        existingUser.mustChangePassword = true;
+        existingUser.isActive = true;
+        existingUser.status = User.STATUS.INVITED;
+        await existingUser.save();
+
+        try {
+          const { token } = await issuePasswordToken({
+            userId: existingUser._id,
+            type: PasswordToken.TOKEN_TYPES.INVITE,
+            metadata: { invitedBy: req.user?._id || null }
+          });
+
+        await sendInviteEmail({
+          user: existingUser,
+          companyName: company.name,
+          token,
+          inviterName: req.user?.email,
+          req
+        });
+      } catch (err) {
+        console.error('[invite] failed to send re-invite email', err);
+        PasswordToken.deleteMany({
+          userId: existingUser._id,
+          type: PasswordToken.TOKEN_TYPES.INVITE
+        }).catch(() => {});
+        return res.status(500).json({ error: 'User was found, but the invite email could not be sent.' });
+      }
+
+        return res.json({ userId: String(existingUser._id), reissued: true });
+      }
+
+      const password = crypto.randomBytes(12).toString('base64url').slice(0, 16);
+      const passwordHash = await bcrypt.hash(password, 11);
+
+      const user = await User.create({
+        email: normalizedEmail,
+        passwordHash,
+        roles: roleList,
+        company: company._id,
+        status: User.STATUS.INVITED,
+        isActive: true,
+        mustChangePassword: true,
+        firstName: firstName ? String(firstName).trim() : undefined,
+        lastName: lastName ? String(lastName).trim() : undefined,
+        phone: normalizedPhone || undefined
+      });
+
+      try {
+        const { token } = await issuePasswordToken({
+          userId: user._id,
+          type: PasswordToken.TOKEN_TYPES.INVITE,
+          metadata: { invitedBy: req.user?._id || null }
+        });
+
+        await sendInviteEmail({
+          user,
+          companyName: company.name,
+          token,
+          inviterName: req.user?.email,
+          req
+        });
+      } catch (err) {
+        console.error('[invite] failed to send invite email', err);
+        PasswordToken.deleteMany({
+          userId: user._id,
+          type: PasswordToken.TOKEN_TYPES.INVITE
+        }).catch(() => {});
+        return res.status(500).json({ error: 'User created, but the invite email could not be sent.' });
+      }
 
       return res.status(201).json({ userId: String(user._id) });
     } catch (err) {

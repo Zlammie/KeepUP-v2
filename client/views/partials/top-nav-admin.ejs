@@ -4,12 +4,12 @@
     <header class="header">
       <div class="header-items">
        <ul>
-           <li>
+        <li>
           <div>
             <img src="\assets\icons\graph.svg" alt="">
           </div>
           <div>
-            <a href="/admin-section">Admin Section</a>
+            <a href="/admin-section" class="top-nav-link">Admin Section</a>
           </div>
         </li>
         <li>
@@ -17,7 +17,7 @@
             <img src="\assets\icons\community-icon.svg" alt="">
           </div>
           <div>
-            <a href="/community-management">Manage Communities</a>
+            <a href="/community-management" class="top-nav-link">Manage Communities</a>
           </div>
         </li>
         <li>
@@ -25,7 +25,7 @@
             <img src="\assets\icons\competition.svg" alt="">
           </div>
           <div>
-            <a href="/add-floorplan">Manage Floor Plans</a>
+            <a href="/add-floorplan" class="top-nav-link">Manage Floor Plans</a>
           </div>
         </li>
      
@@ -33,4 +33,17 @@
       </div>
     </header>
 </div>
+<script nonce="<%= typeof cspNonce !== 'undefined' ? cspNonce : '' %>">
+  (() => {
+    const { pathname } = window.location;
+    document.querySelectorAll('.top-nav-link').forEach((link) => {
+      const href = link.getAttribute('href');
+      if (!href || href === '#') return;
+      if (pathname === href || (href !== '/' && pathname.startsWith(href))) {
+        link.classList.add('active');
+        link.setAttribute('aria-current', 'page');
+      }
+    });
+  })();
+</script>
   

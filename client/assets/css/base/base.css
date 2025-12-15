@@ -5,16 +5,18 @@
   --nav-content-gutter: 30px; /* space between side nav and page content */
 }
 
+/* Apply nav offsets by default; pages without nav opt out via .no-nav */
 body {
   margin: 0;
   font-family: Arial, sans-serif;
-}
-
-/* Apply nav offsets only on pages that include the app nav */
-body.has-nav {
   padding-top: calc(var(--nav-top-height) + var(--nav-subnav-height));
   padding-left: calc(var(--nav-side-width) + var(--nav-content-gutter));
   background-color: inherit; /* do not dim page by default */
+}
+
+body.no-nav {
+  padding-top: 0;
+  padding-left: 0;
 }
 
 /* Safety: ensure nothing globally dims or blocks the page */

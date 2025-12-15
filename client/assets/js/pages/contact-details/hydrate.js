@@ -29,8 +29,8 @@ export async function hydrateAll() {
   refreshDOM?.();
 
   // 1) Status field + purchased show/hide
-  if (DOM.statusSelect && contact?.status) {
-    DOM.statusSelect.value = contact.status;
+  if (DOM.statusSelect && contact && Object.prototype.hasOwnProperty.call(contact, 'status')) {
+    DOM.statusSelect.value = contact.status ?? '';
   }
   refreshStatusUI();
 

@@ -19,3 +19,7 @@ The `/beta-signup` page emails submissions via SMTP. Set the following variables
 - Optional `BETA_SIGNUP_SUBJECT` if you want to override the default subject line.
 
 If you already manage Zoho credentials elsewhere, you can also define the equivalent `ZOHO_SMTP_*` env vars; the beta mailer will fall back to them automatically.
+
+## Password reset & invites
+
+Forgot-password and invite emails reuse the same SMTP credentials (preferring `SMTP_*`, then `BETA_SMTP_*`/`ZOHO_SMTP_*`). Make sure `BASE_URL` matches your public app domain so the reset links open correctly. Set `SMTP_FROM` to the from-address you want (defaults to `noreply@keepupcrm.com` if unset).

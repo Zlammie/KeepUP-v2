@@ -150,7 +150,7 @@ const ALLOWED_FIELDS = [
   'salesPerson','salesPersonPhone','salesPersonEmail',
   'lotSize','modelPlan','garageType',
   'schoolISD','elementarySchool','middleSchool','highSchool',
-  'totalLots','hoaFee','hoaFrequency','tax',
+  'totalLots','soldLots','quickMoveInLots','hoaFee','hoaFrequency','tax',
   'feeTypes','mudFee','pidFee','pidFeeFrequency',
   'promotion','topPlan1','topPlan2','topPlan3','pros','cons',
   'communityAmenities',
@@ -176,6 +176,8 @@ function normalizeBody(raw) {
 
   // numbers
   if ('totalLots' in body) body.totalLots = toNumOrNull(body.totalLots);
+  if ('soldLots' in body) body.soldLots = toNumOrNull(body.soldLots);
+  if ('quickMoveInLots' in body) body.quickMoveInLots = toNumOrNull(body.quickMoveInLots);
   if ('hoaFee'    in body) body.hoaFee    = toNumOrNull(body.hoaFee);
   if ('pidFee'    in body) body.pidFee    = toNumOrNull(body.pidFee);
   if ('tax'       in body) body.tax       = toNumOrNull(body.tax);
@@ -462,7 +464,7 @@ router.put('/:id/amenities', requireRole(...WRITE_ROLES), asyncHandler(async (re
 router.put('/:id/metrics', requireRole(...WRITE_ROLES), asyncHandler(async (req, res) => {
   const {
     promotion, topPlan1, topPlan2, topPlan3, pros, cons,
-    totalLots, hoaFee, hoaFrequency, pidFee, pidFeeFrequency
+    totalLots, soldLots, quickMoveInLots, hoaFee, hoaFrequency, pidFee, pidFeeFrequency
   } = req.body;
 
   const $set = {
@@ -473,6 +475,8 @@ router.put('/:id/metrics', requireRole(...WRITE_ROLES), asyncHandler(async (req,
     ...(pros        !== undefined ? { pros }      : {}),
     ...(cons        !== undefined ? { cons }      : {}),
     ...(totalLots   !== undefined ? { totalLots: toNumOrNull(totalLots) } : {}),
+    ...(soldLots    !== undefined ? { soldLots: toNumOrNull(soldLots) } : {}),
+    ...(quickMoveInLots !== undefined ? { quickMoveInLots: toNumOrNull(quickMoveInLots) } : {}),
     ...(hoaFee      !== undefined ? { hoaFee:    toNumOrNull(hoaFee)    } : {}),
     ...(hoaFrequency     !== undefined ? { hoaFrequency:    clean(hoaFrequency)    } : {}),
     ...(pidFee      !== undefined ? { pidFee:    toNumOrNull(pidFee)    } : {}),

@@ -525,6 +525,21 @@ function createTaskPanel({
           <div class="task-comments__title">Comments</div>
           <div class="task-comments__hint">Showing all comments for this record.</div>
         </div>
+        <form class="task-comment-composer" data-comment-composer hidden>
+          <div class="task-comment-composer__types" role="group" aria-label="Comment type">
+            <button type="button" class="task-comment-composer__type-btn is-active" data-comment-type="Note" aria-pressed="true">Note</button>
+            <button type="button" class="task-comment-composer__type-btn" data-comment-type="Phone" aria-pressed="false">Phone</button>
+            <button type="button" class="task-comment-composer__type-btn" data-comment-type="Email" aria-pressed="false">Email</button>
+            <button type="button" class="task-comment-composer__type-btn" data-comment-type="Text" aria-pressed="false">Text</button>
+          </div>
+          <label class="task-comment-composer__label" for="task-comment-input">Add a quick note</label>
+          <textarea id="task-comment-input" class="task-comment-composer__input" data-comment-input rows="3" placeholder="Share an update for this contact"></textarea>
+          <p class="task-comment-composer__error" data-comment-composer-error hidden></p>
+          <div class="task-comment-composer__actions">
+            <button type="submit" class="task-comment-composer__save" data-comment-save>Save Comment</button>
+            <button type="button" class="task-comment-composer__cancel" data-comment-cancel>Cancel</button>
+          </div>
+        </form>
         <div class="task-comments__status" data-comment-loading hidden>Loading comments...</div>
         <div class="task-comments__status is-error" data-comment-error hidden></div>
         <div class="task-comments__empty" data-comment-empty hidden>No comments yet.</div>
@@ -538,12 +553,13 @@ function createTaskPanel({
     historyWrapper.className = 'task-pane task-pane--history';
     historyWrapper.hidden = true;
     historyWrapper.innerHTML = `
-      <div class="task-comments task-comments--history">
-        <div class="task-comments__header">
-          <div class="task-comments__title">History</div>
-          <div class="task-comments__hint">Activity history will show here.</div>
+      <div class="task-history" data-history-pane>
+        <div class="task-history__header">
+          <div class="task-history__title">History</div>
+          <div class="task-history__hint">Status changes and key updates will appear here.</div>
         </div>
-        <div class="task-comments__empty">No history yet.</div>
+        <div class="task-history__empty" data-history-empty>No history yet.</div>
+        <div class="task-history__list" data-history-list></div>
       </div>
     `;
     bodySection.append(historyWrapper);
@@ -557,6 +573,24 @@ function createTaskPanel({
     error: commentsPane?.querySelector('[data-comment-error]') || null,
     loading: commentsPane?.querySelector('[data-comment-loading]') || null
   };
+  const historyUI = {
+    pane: historyPane?.querySelector('[data-history-pane]') || null,
+    list: historyPane?.querySelector('[data-history-list]') || null,
+    empty: historyPane?.querySelector('[data-history-empty]') || null
+  };
+  const historyState = {
+    items: []
+  };
+  const commentComposer = {
+    form: commentsPane?.querySelector('[data-comment-composer]') || null,
+    input: commentsPane?.querySelector('[data-comment-input]') || null,
+    typeButtons: commentsPane
+      ? Array.from(commentsPane.querySelectorAll('[data-comment-type]'))
+      : [],
+    save: commentsPane?.querySelector('[data-comment-save]') || null,
+    cancel: commentsPane?.querySelector('[data-comment-cancel]') || null,
+    error: commentsPane?.querySelector('[data-comment-composer-error]') || null
+  };
   const followupState = {
     schedules: [],
     loading: false
@@ -567,6 +601,60 @@ function createTaskPanel({
     error: null,
     lastLinkedId: null
   };
+  const DEFAULT_COMMENT_TYPE = 'Note';
+  let commentSubmitLoading = false;
+
+  const setComposerError = (message) => {
+    if (!commentComposer.error) return;
+    commentComposer.error.textContent = message || '';
+    commentComposer.error.hidden = !message;
+  };
+
+  const selectCommentType = (type = DEFAULT_COMMENT_TYPE) => {
+    const normalized = type || DEFAULT_COMMENT_TYPE;
+    let applied = normalized;
+    commentComposer.typeButtons.forEach((btn) => {
+      const isActive = (btn.dataset.commentType || '') === normalized;
+      btn.classList.toggle('is-active', isActive);
+      btn.setAttribute('aria-pressed', isActive ? 'true' : 'false');
+      if (isActive) applied = btn.dataset.commentType || normalized;
+    });
+    return applied;
+  };
+
+  const defaultCommentSaveLabel = commentComposer.save?.textContent || 'Save Comment';
+  const setComposerLoading = (loading) => {
+    commentSubmitLoading = loading;
+    if (commentComposer.form) {
+      commentComposer.form.classList.toggle('is-loading', Boolean(loading));
+    }
+    if (commentComposer.input) commentComposer.input.disabled = Boolean(loading);
+    commentComposer.typeButtons.forEach((btn) => {
+      btn.disabled = Boolean(loading);
+    });
+    if (commentComposer.save) {
+      commentComposer.save.disabled = Boolean(loading);
+      commentComposer.save.textContent = loading ? 'Saving...' : defaultCommentSaveLabel;
+    }
+    if (commentComposer.cancel) {
+      commentComposer.cancel.disabled = Boolean(loading);
+    }
+  };
+
+  const resetCommentComposer = () => {
+    setComposerError('');
+    selectCommentType(DEFAULT_COMMENT_TYPE);
+    if (commentComposer.input) commentComposer.input.value = '';
+  };
+
+  const hideCommentComposer = () => {
+    if (!commentComposer.form) return;
+    resetCommentComposer();
+    setComposerLoading(false);
+    commentComposer.form.hidden = true;
+  };
+
+  resetCommentComposer();
 
   const tabButtons = Array.from(panel.querySelectorAll('.task-tab'));
   let activeTabKey = 'tasks';
@@ -593,6 +681,8 @@ function createTaskPanel({
     updateAddButtonLabel();
     if (activeTabKey === 'comments') {
       loadCommentsForContext();
+    } else {
+      hideCommentComposer();
     }
   };
 
@@ -601,9 +691,18 @@ function createTaskPanel({
     tabList.addEventListener('click', (event) => {
       const clicked = event.target.closest('.task-tab');
       if (!clicked) return;
-      setActiveTab(clicked.dataset.taskTab || 'tasks');
+      const nextTab = clicked.dataset.taskTab || 'tasks';
+      setActiveTab(nextTab);
+      if (nextTab === 'history') {
+        loadHistoryForContext(true);
+      }
     });
   }
+
+  on('history:show', () => {
+    setActiveTab('history');
+    loadHistoryForContext(true);
+  });
 
   const listEl = panel.querySelector('#todo-list');
   const emptyState = listEl?.querySelector('.todo-empty') || null;
@@ -742,6 +841,109 @@ function createTaskPanel({
     commentsUI.empty.hidden = false;
   };
 
+  const isLikelyId = (value) => {
+    if (!value || typeof value !== 'string') return false;
+    const trimmed = value.trim();
+    const hex24 = /^[a-f0-9]{24}$/i;
+    const uuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
+    const longToken = /^[A-Za-z0-9]{16,}$/;
+    return hex24.test(trimmed) || uuid.test(trimmed) || longToken.test(trimmed);
+  };
+
+  const formatPersonName = (value) => {
+    if (!value) return '';
+    if (typeof value === 'string') return value.trim();
+    if (typeof value === 'object') {
+      const name = [value.firstName, value.lastName].filter(Boolean).join(' ').trim();
+      if (name) return name;
+      if (value.name && typeof value.name === 'string') return value.name.trim();
+    }
+    return '';
+  };
+
+  const formatCommentAuthor = (comment) => {
+    const candidates = [
+      comment?.author,
+      comment?.authorName,
+      comment?.createdByName,
+      formatPersonName(comment?.createdBy),
+      comment?.createdBy
+    ];
+    for (const candidate of candidates) {
+      const label = formatPersonName(candidate);
+      if (label && !isLikelyId(label)) return label;
+    }
+    return '';
+  };
+
+  const getSelectedCommentType = () =>
+    commentComposer.typeButtons.find((btn) => btn.classList.contains('is-active'))?.dataset
+      .commentType || DEFAULT_COMMENT_TYPE;
+
+  const ensureCommentContext = () => {
+    const targetModel = (resolveTargetModel() || '').toLowerCase();
+    const linkedId = resolveLinkedId();
+    if (!linkedId) {
+      return { ok: false, message: 'Save this record to add comments.' };
+    }
+    if (targetModel !== 'contact') {
+      return { ok: false, message: 'Comments are available for contacts.' };
+    }
+    return { ok: true, linkedId };
+  };
+
+  const showCommentComposer = () => {
+    if (!commentComposer.form) return;
+    const availability = ensureCommentContext();
+    if (!availability.ok) {
+      showCommentError(availability.message);
+      setCommentsEmpty(availability.message);
+      return;
+    }
+    resetCommentComposer();
+    showCommentError('');
+    if (commentsUI.empty) commentsUI.empty.hidden = true;
+    commentComposer.form.hidden = false;
+    commentComposer.input?.focus();
+  };
+
+  const handleCommentSubmit = async (event) => {
+    event.preventDefault();
+    if (commentSubmitLoading) return;
+    const availability = ensureCommentContext();
+    if (!availability.ok) {
+      showCommentError(availability.message);
+      setCommentsEmpty(availability.message);
+      return;
+    }
+    const content = (commentComposer.input?.value || '').trim();
+    if (!content) {
+      setComposerError('Comment cannot be empty.');
+      commentComposer.input?.focus();
+      return;
+    }
+    const type = getSelectedCommentType();
+
+    setComposerError('');
+    setComposerLoading(true);
+
+    try {
+      const res = await fetch('/api/comments', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ type, content, contactId: availability.linkedId })
+      });
+      if (!res.ok) throw new Error(await res.text());
+      hideCommentComposer();
+      await loadCommentsForContext(true);
+    } catch (err) {
+      console.error('[tasks] failed to save comment', err);
+      setComposerError(err?.message || 'Unable to save comment right now.');
+    } finally {
+      setComposerLoading(false);
+    }
+  };
+
   const renderCommentsList = (items) => {
     if (!commentsUI.list) return;
     commentsUI.list.innerHTML = '';
@@ -759,7 +961,7 @@ function createTaskPanel({
         when && !Number.isNaN(when.getTime())
           ? when.toLocaleString(undefined, { dateStyle: 'medium', timeStyle: 'short' })
           : '';
-      const author = comment?.author || comment?.createdBy || '';
+      const author = formatCommentAuthor(comment);
       const type = comment?.type || 'Note';
       row.innerHTML = `
         <div class="task-comment__meta">
@@ -780,11 +982,66 @@ function createTaskPanel({
     setCommentsLoading(false);
     showCommentError('');
     renderCommentsList([]);
+    hideCommentComposer();
     if (message) {
       setCommentsEmpty(message);
     } else if (commentsUI.empty) {
       commentsUI.empty.hidden = true;
     }
+  };
+
+  const renderHistoryList = (records = []) => {
+    if (!historyUI.list) return;
+    historyUI.list.innerHTML = '';
+    const items = Array.isArray(records)
+      ? records.slice().sort((a, b) => {
+          const tsA = new Date(a?.occurredAt || a?.changedAt || a?.createdAt || 0).getTime();
+          const tsB = new Date(b?.occurredAt || b?.changedAt || b?.createdAt || 0).getTime();
+          return tsB - tsA;
+        })
+      : [];
+    if (!items.length) {
+      if (historyUI.empty) historyUI.empty.hidden = false;
+      return;
+    }
+    if (historyUI.empty) historyUI.empty.hidden = true;
+
+    const formatDateTime = (value, withTime = true) => {
+      const d = value ? new Date(value) : null;
+      if (!d || Number.isNaN(d.getTime())) return '';
+      const opts = withTime
+        ? { dateStyle: 'medium', timeStyle: 'short' }
+        : { dateStyle: 'medium' };
+      return d.toLocaleString(undefined, opts);
+    };
+
+    items.forEach((entry) => {
+      const row = document.createElement('div');
+      row.className = 'task-history__item';
+      const status = entry?.status || 'Updated';
+      const occurredAt = entry?.occurredAt || entry?.changedAt || entry?.createdAt || null;
+      const loggedAt = entry?.changedAt || entry?.createdAt || occurredAt || null;
+      const actor = entry?.changedByName || entry?.changedBy || '';
+      const whenLabel = formatDateTime(occurredAt, false);
+      const loggedLabel =
+        loggedAt && occurredAt && loggedAt !== occurredAt ? formatDateTime(loggedAt) : null;
+      const detail = entry?.detail || '';
+
+      row.innerHTML = `
+        <div class="task-history__meta">
+          <span class="task-history__status">${status}</span>
+          ${whenLabel ? `<span class="task-history__time">on ${whenLabel}</span>` : ''}
+          ${actor ? `<span class="task-history__author">${actor}</span>` : ''}
+        </div>
+        ${detail ? `<div class="task-history__detail">${detail}</div>` : ''}
+        ${
+          loggedLabel && (!whenLabel || loggedLabel !== whenLabel)
+            ? `<div class="task-history__note">Logged ${loggedLabel}</div>`
+            : ''
+        }
+      `;
+      historyUI.list.append(row);
+    });
   };
 
   const loadCommentsForContext = async (force = false) => {
@@ -823,6 +1080,47 @@ function createTaskPanel({
       setCommentsLoading(false);
     }
   };
+
+  const setHistoryLoading = (loading) => {
+    if (historyUI.list) {
+      historyUI.list.classList.toggle('is-loading', Boolean(loading));
+    }
+  };
+
+  const loadHistoryForContext = async (force = false) => {
+    if (!historyUI.list) return;
+    const targetModel = (resolveTargetModel() || '').toLowerCase();
+    const linkedId = resolveLinkedId();
+    if (!linkedId || targetModel !== 'contact') return;
+    if (!force && historyState.items.length) return;
+    setHistoryLoading(true);
+    try {
+      const res = await fetch(`/api/contacts/${linkedId}`);
+      if (!res.ok) throw new Error(await res.text());
+      const contact = await res.json();
+      if (contact && typeof setContact === 'function') {
+        setContact(contact);
+      }
+      historyState.items = Array.isArray(contact?.statusHistory) ? contact.statusHistory : [];
+      renderHistoryList(historyState.items);
+    } catch (err) {
+      console.error('[history] failed to load', err);
+    } finally {
+      setHistoryLoading(false);
+    }
+  };
+
+  commentComposer.form?.addEventListener('submit', handleCommentSubmit);
+  commentComposer.cancel?.addEventListener('click', (event) => {
+    event.preventDefault();
+    hideCommentComposer();
+  });
+  commentComposer.typeButtons.forEach((btn) => {
+    btn.addEventListener('click', (event) => {
+      event.preventDefault();
+      selectCommentType(btn.dataset.commentType || DEFAULT_COMMENT_TYPE);
+    });
+  });
 
   const modalRoot = document.getElementById('task-modal');
   const modal = {
@@ -991,12 +1289,21 @@ function createTaskPanel({
         applyAssignmentSelection(contextAssignmentTarget);
       }
     }
+    if (historyUI.list) {
+      historyState.items = Array.isArray(latestContact?.statusHistory)
+        ? latestContact.statusHistory
+        : [];
+      renderHistoryList(historyState.items);
+    }
   };
 
   updateFollowupAssignmentUI();
   on('state:contact', handleContactUpdate);
   prepareAssigneeControls(latestContact, true, { resetSelections: true });
   refreshLenderSelectState();
+  historyState.items = Array.isArray(latestContact?.statusHistory) ? latestContact.statusHistory : [];
+  renderHistoryList(historyState.items);
+  loadHistoryForContext(true);
 
   const renderScheduleOptions = () => {
     const select = followupAutomation.select;
@@ -1993,6 +2300,8 @@ function createTaskPanel({
       taskState.items = [];
       refresh();
       resetComments('Save this record to see comments.');
+      historyState.items = [];
+      renderHistoryList(historyState.items);
       return;
     }
 
@@ -2004,6 +2313,15 @@ function createTaskPanel({
 
     if (activeTabKey === 'comments') {
       loadCommentsForContext(true);
+    }
+
+    const targetModel = (resolveTargetModel() || '').toLowerCase();
+    if (targetModel !== 'contact') {
+      historyState.items = [];
+      renderHistoryList(historyState.items);
+    } else if (Array.isArray(latestContact?.statusHistory)) {
+      historyState.items = latestContact.statusHistory;
+      renderHistoryList(historyState.items);
     }
   };
 
@@ -2059,6 +2377,10 @@ function createTaskPanel({
     if (panel.classList.contains('collapsed')) {
       panel.classList.remove('collapsed');
       toggle?.setAttribute('aria-expanded', 'true');
+    }
+    if (activeTabKey === 'comments') {
+      showCommentComposer();
+      return;
     }
     openTaskModal(null);
   });

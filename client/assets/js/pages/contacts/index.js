@@ -77,7 +77,7 @@ async function openTaskDrawerForContact(payload = {}, tabKey = 'tasks') {
   const displayName = contact
     ? `${contact.firstName || ''} ${contact.lastName || ''}`.trim() || payload.name || 'Contact'
     : (payload.name || 'Contact');
-  const status = contact?.status || payload.status || 'New';
+  const status = contact?.status ?? payload.status ?? 'New';
 
   if (!showTaskDrawer(displayName)) return;
 

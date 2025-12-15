@@ -112,6 +112,44 @@ function toStatusCase(v){
     .join('-');
 }
 
+function splitMulti(value = '') {
+  return value
+    .split(/[,;]+/)
+    .map((part) => part.trim())
+    .filter(Boolean);
+}
+
+async function loadImportableCommunities(req) {
+  const roles = req.user?.roles || [];
+  const isSuperAdmin = roles.includes('SUPER_ADMIN');
+  const isCompanyAdmin = roles.includes('COMPANY_ADMIN');
+  const enforceScope = !isSuperAdmin && !isCompanyAdmin;
+
+  const baseFilter = { company: req.user.company };
+  let filter = { ...baseFilter };
+
+  if (enforceScope) {
+    const allowed = getAllowedCommunityIds(req.user || [])
+      .map(toObjectId)
+      .filter(Boolean);
+    if (!allowed.length) {
+      return { list: [], nameMap: new Map(), idSet: new Set(), enforceScope };
+    }
+    filter = { ...baseFilter, _id: { $in: allowed } };
+  }
+
+  const list = await Community.find(filter).select('_id name').lean();
+  const nameMap = new Map();
+  const idSet = new Set();
+  list.forEach((c) => {
+    if (!c) return;
+    if (c._id) idSet.add(c._id.toString());
+    if (c.name) nameMap.set(c.name.trim().toLowerCase(), c._id);
+  });
+
+  return { list, nameMap, idSet, enforceScope };
+}
+
 // All routes below require auth
 router.use(ensureAuth);
 
@@ -218,8 +256,9 @@ router.post(
       const emailNorm = emailRaw.toLowerCase();
       const phoneNorm = phoneNormalized.phoneNorm;
       const visitDate = req.body.visitDate ? new Date(req.body.visitDate) : null;
+      const statusProvided = Object.prototype.hasOwnProperty.call(req.body, 'status');
       const requestedStatus = toStatusCase(req.body.status);
-      const statusValue = requestedStatus || 'New';
+      const statusValue = (statusProvided && requestedStatus === '') ? '' : (requestedStatus || 'New');
       const sourceValue = toStr(req.body.source || req.body.leadSource);
 
       let communityIdsSelection = [];
@@ -396,7 +435,7 @@ router.get('/:id',
       if (!isObjectId(id)) return res.status(400).json({ error: 'Invalid id' });
 
       const contact = await Contact.findOne(contactQuery(req, { _id: new mongoose.Types.ObjectId(id) }))
-        .select('firstName lastName email phone status notes source communityIds floorplans realtorId lenderId lotId ownerId visitDate lotLineUp buyTime buyMonth facing living investor renting ownSelling ownNotSelling lenderStatus lenderInviteDate lenderApprovedDate lenders updatedAt followUpSchedule')
+        .select('firstName lastName email phone status notes source communityIds floorplans realtorId lenderId lotId ownerId visitDate lotLineUp buyTime buyMonth facing living investor renting ownSelling ownNotSelling lenderStatus lenderInviteDate lenderApprovedDate lenders updatedAt followUpSchedule beBackDate statusHistory')
         .populate('communityIds', 'name')
         .populate('floorplans', 'name planNumber')                                       // ✅ array of communities
         .populate('realtorId', 'firstName lastName brokerage email phone')      // ✅ real field
@@ -416,6 +455,8 @@ router.get('/:id',
         lender:  contact.lenderId  || null,
         communities: contact.communityIds || [],
         floorplans: contact.floorplans || [],
+        beBackDate: toIsoStringOrNull(contact.beBackDate),
+        statusHistory: contact.statusHistory || [],
         // if your UI expects lowercase status values:
         status: typeof contact.status === 'string' ? contact.status.toLowerCase() : contact.status,
         followUpSchedule: contact.followUpSchedule || null
@@ -435,6 +476,22 @@ router.put('/:id',
       const { id } = req.params;
       if (!isObjectId(id)) return res.status(400).json({ error: 'Invalid id' });
       const contactObjectId = new mongoose.Types.ObjectId(id);
+
+      const existing = await Contact.findOne(contactQuery(req, { _id: contactObjectId }))
+        .select('status statusHistory beBackDate lotLineUp company communityIds floorplans')
+        .lean();
+      if (!existing) return res.status(404).json({ error: 'Contact not found' });
+
+      const historyEntries = [];
+      const previousStatus = existing.status || '';
+      let beBackDateValue = null;
+      const previousCommunityIds = Array.isArray(existing.communityIds)
+        ? existing.communityIds.map((id) => id.toString())
+        : [];
+      const previousFloorplanIds = Array.isArray(existing.floorplans)
+        ? existing.floorplans.map((id) => id.toString())
+        : [];
+      const prevFloorplanIdsSorted = [...previousFloorplanIds].sort();
 
       const b = req.body;
       const $set = {};
@@ -458,6 +515,9 @@ router.put('/:id',
         Object.prototype.hasOwnProperty.call(b, 'communityIds') ||
         Object.prototype.hasOwnProperty.call(b, 'communities')  ||
         Object.prototype.hasOwnProperty.call(b, 'communityId');
+      let communityNamesForHistory = null;
+      let nextFloorplanIds = null;
+      let floorplanNamesForHistory = null;
 
       if (wantsCommunityUpdate) {
         let ids = [];
@@ -488,7 +548,58 @@ router.put('/:id',
         }
 
         const toSave = scoped.map(c => c._id);
+        communityNamesForHistory = scoped.map((c) => c.name).filter(Boolean);
         $set.communityIds = toSave;
+
+        // Only record history when the assigned communities actually change
+        const nextIds = toSave.map((id) => id.toString()).sort();
+        const prevIdsSorted = [...previousCommunityIds].sort();
+        const changedLength = nextIds.length !== prevIdsSorted.length;
+        const changedValues =
+          changedLength || nextIds.some((val, idx) => val !== prevIdsSorted[idx]);
+        if (changedValues) {
+          const actorName = [req.user?.firstName, req.user?.lastName]
+            .filter(Boolean)
+            .join(' ')
+            .trim() || req.user?.email || null;
+          const entry = {
+            status: 'Community Assigned',
+            detail: communityNamesForHistory?.length
+              ? `Assigned to ${communityNamesForHistory.join(', ')}`
+              : 'Communities cleared',
+            changedAt: new Date(),
+            occurredAt: new Date(),
+            changedBy: req.user?._id || null
+          };
+          if (actorName) entry.changedByName = actorName;
+          historyEntries.push(entry);
+        }
+      }
+
+      if (nextFloorplanIds) {
+        const nextSorted = [...nextFloorplanIds].sort();
+        const changedLength = nextSorted.length !== prevFloorplanIdsSorted.length;
+        const changedValues =
+          changedLength || nextSorted.some((val, idx) => val !== prevFloorplanIdsSorted[idx]);
+        if (changedValues) {
+          const actorName = [req.user?.firstName, req.user?.lastName]
+            .filter(Boolean)
+            .join(' ')
+            .trim() || req.user?.email || null;
+          const detail =
+            floorplanNamesForHistory && floorplanNamesForHistory.length
+              ? `Floor plans set to ${floorplanNamesForHistory.join(', ')}`
+              : 'Floor plans cleared';
+          const entry = {
+            status: 'Floor Plans Updated',
+            detail,
+            changedAt: new Date(),
+            occurredAt: new Date(),
+            changedBy: req.user?._id || null
+          };
+          if (actorName) entry.changedByName = actorName;
+          historyEntries.push(entry);
+        }
       }
 
       const floorplanPayload = Object.prototype.hasOwnProperty.call(b, 'floorplans') ? b.floorplans : (Object.prototype.hasOwnProperty.call(b, 'floorPlans') ? b.floorPlans : undefined);
@@ -508,14 +619,36 @@ router.put('/:id',
 
         if (planIds.length) {
           const allowedPlans = await FloorPlan.find({ _id: { $in: planIds }, ...companyFilter(req) })
-            .select('_id')
+            .select('_id name planNumber')
             .lean();
-          if (allowedPlans.length !== planIds.length) {
-            return res.status(400).json({ error: 'Selected floor plans are not in your company.' });
+          if (!allowedPlans.length) {
+            $set.floorplans = [];
+            nextFloorplanIds = [];
+            floorplanNamesForHistory = [];
+          } else {
+            const toSave = allowedPlans.map((p) => p._id);
+            // If some requested plans are missing, proceed with the ones the user can access.
+            const missing = planIds.filter(
+              (id) => !allowedPlans.find((p) => String(p._id) === String(id))
+            );
+            if (missing.length) {
+              console.warn(
+                '[contact:update] dropping unavailable floor plans',
+                missing,
+                'for company',
+                req.user?.company
+              );
+            }
+            $set.floorplans = toSave;
+            nextFloorplanIds = toSave.map((id) => id.toString());
+            floorplanNamesForHistory = allowedPlans
+              .map((p) => p.name || p.planNumber || p._id?.toString())
+              .filter(Boolean);
           }
-          $set.floorplans = allowedPlans.map(p => p._id);
         } else {
           $set.floorplans = [];
+          nextFloorplanIds = [];
+          floorplanNamesForHistory = [];
         }
       }
 
@@ -527,6 +660,21 @@ router.put('/:id',
         } else {
           $set.visitDate = parsedDate;
           if (Object.prototype.hasOwnProperty.call($unset, 'visitDate')) delete $unset.visitDate;
+        }
+      }
+
+      if (
+        Object.prototype.hasOwnProperty.call(b, 'beBackDate') ||
+        Object.prototype.hasOwnProperty.call(b, 'beBackOn')
+      ) {
+        const rawBeBack = b.beBackDate ?? b.beBackOn;
+        const parsedBeBack = parseDateMaybe(rawBeBack);
+        if (parsedBeBack) {
+          beBackDateValue = parsedBeBack;
+          $set.beBackDate = parsedBeBack;
+          if (Object.prototype.hasOwnProperty.call($unset, 'beBackDate')) delete $unset.beBackDate;
+        } else {
+          $unset.beBackDate = '';
         }
       }
 
@@ -603,9 +751,61 @@ router.put('/:id',
       });
 
       if (Object.prototype.hasOwnProperty.call(b, 'status')) {
-        const statusValue = toStatusCase(b.status);
+        const rawStatus = b.status;
+        const statusValue = toStatusCase(rawStatus);
         if (statusValue) {
           $set.status = statusValue;
+          const normalizedNext = String(statusValue || '').trim().toLowerCase();
+          const normalizedPrev = String(previousStatus || '').trim().toLowerCase();
+          const statusChanged = normalizedNext !== normalizedPrev;
+
+          if (normalizedNext === 'be-back' && !beBackDateValue) {
+            beBackDateValue = new Date();
+            $set.beBackDate = beBackDateValue;
+          }
+
+          if (statusChanged || (normalizedNext === 'be-back' && beBackDateValue)) {
+            const actorName = [req.user?.firstName, req.user?.lastName]
+              .filter(Boolean)
+              .join(' ')
+              .trim() || req.user?.email || null;
+            historyEntries.push({
+              status: statusValue,
+              changedAt: new Date(),
+              occurredAt:
+                normalizedNext === 'be-back'
+                  ? (beBackDateValue ? new Date(beBackDateValue) : new Date())
+                  : new Date(),
+              changedBy: req.user?._id || null
+            });
+            if (actorName) historyEntries[historyEntries.length - 1].changedByName = actorName;
+          }
+        } else if (
+          rawStatus === '' ||
+          rawStatus === null ||
+          (typeof rawStatus === 'string' && rawStatus.trim() === '')
+        ) {
+          $set.status = '';
+        }
+      }
+
+      if (Object.prototype.hasOwnProperty.call(b, 'lotLineUp')) {
+        const incomingLotLine = toStr(b.lotLineUp);
+        const currentLotLine = toStr(existing.lotLineUp);
+        if (incomingLotLine && incomingLotLine !== currentLotLine) {
+          const actorName = [req.user?.firstName, req.user?.lastName]
+            .filter(Boolean)
+            .join(' ')
+            .trim() || req.user?.email || null;
+          const entry = {
+            status: 'Lot Lineup Added',
+            detail: incomingLotLine,
+            changedAt: new Date(),
+            occurredAt: new Date(),
+            changedBy: req.user?._id || null
+          };
+          if (actorName) entry.changedByName = actorName;
+          historyEntries.push(entry);
         }
       }
 
@@ -613,6 +813,9 @@ router.put('/:id',
       const updateDoc = {};
       if (Object.keys($set).length)   updateDoc.$set   = $set;
       if (Object.keys($unset).length) updateDoc.$unset = $unset;
+      if (historyEntries.length) {
+        updateDoc.$push = { statusHistory: { $each: historyEntries } };
+      }
 
       // If nothing to update, return current doc
       if (!Object.keys(updateDoc).length) {
@@ -625,7 +828,10 @@ router.put('/:id',
           .populate('lotId',     'jobNumber lot block address')
           .populate('ownerId',   'email firstName lastName')
           .lean();
-        if (current) current.visitDate = toIsoStringOrNull(current.visitDate);
+        if (current) {
+          current.visitDate = toIsoStringOrNull(current.visitDate);
+          current.beBackDate = toIsoStringOrNull(current.beBackDate);
+        }
         return res.json({
           ...current,
           status: typeof current?.status === 'string' ? current.status.toLowerCase() : current?.status,
@@ -649,13 +855,18 @@ router.put('/:id',
         .populate('lotId',     'jobNumber lot block address')
         .populate('ownerId',   'email firstName lastName')
         .lean();
-      if (updated) updated.visitDate = toIsoStringOrNull(updated.visitDate);
+      if (updated) {
+        updated.visitDate = toIsoStringOrNull(updated.visitDate);
+        updated.beBackDate = toIsoStringOrNull(updated.beBackDate);
+      }
 
       if (!updated) return res.status(404).json({ error: 'Contact not found' });
 
       return res.json({
         ...updated,
         status: typeof updated.status === 'string' ? updated.status.toLowerCase() : updated.status,
+        beBackDate: toIsoStringOrNull(updated.beBackDate),
+        statusHistory: updated.statusHistory || [],
         communities: updated.communityIds || [],
         floorplans: updated.floorplans || [],
         realtor: updated.realtorId || null,
@@ -1101,6 +1312,11 @@ router.post('/import',
       const rows = xlsx.utils.sheet_to_json(wb.Sheets[sheet], { defval: '' });
 
       let created = 0, updated = 0, skipped = 0, errors = [];
+      const {
+        nameMap: communityNameMap,
+        idSet: allowedCommunityIdSet,
+        enforceScope: enforceCommunityScope
+      } = await loadImportableCommunities(req);
 
       for (let i = 0; i < rows.length; i++) {
         const r = rows[i];
@@ -1112,6 +1328,39 @@ router.post('/import',
         const emailNorm = emailRaw.toLowerCase();
         const phoneNorm = phoneData.phoneNorm;
         const visitDate = parseDateMaybe(r.VisitDate || r['Visit Date'] || r.visitDate);
+        const sourceValue = toStr(r.Source || r.source || r.LeadSource || r['Lead Source']);
+
+        const communityIdsFromRow = [];
+        const missingCommunities = [];
+        const rawCommunityNames = toStr(r.Community || r['Community Name'] || r.community);
+        const rawCommunityIds = toStr(r.CommunityId || r['Community Id'] || r.CommunityIDs || r.communityId || r.communityIds);
+
+        const addCommunityIdIfAllowed = (val) => {
+          const obj = toObjectId(val);
+          if (!obj) { missingCommunities.push(String(val)); return; }
+          const str = obj.toString();
+          // If we have an allowed set and this id is not in it, record a miss
+          if (enforceCommunityScope && (allowedCommunityIdSet.size === 0 || !allowedCommunityIdSet.has(str))) {
+            missingCommunities.push(String(val));
+            return;
+          }
+          communityIdsFromRow.push(obj);
+        };
+
+        if (rawCommunityIds) {
+          splitMulti(rawCommunityIds).forEach(addCommunityIdIfAllowed);
+        }
+
+        if (rawCommunityNames) {
+          splitMulti(rawCommunityNames).forEach((name) => {
+            const match = communityNameMap.get(name.toLowerCase());
+            if (match) {
+              communityIdsFromRow.push(match);
+            } else {
+              missingCommunities.push(name);
+            }
+          });
+        }
 
         if (!firstName && !lastName && !emailRaw && !phoneNorm) { skipped++; continue; }
 
@@ -1123,16 +1372,32 @@ router.post('/import',
         if (emailNorm) { set.email = emailRaw; set.emailNorm = emailNorm; }
        if (phoneNorm) { set.phone = phoneRaw; set.phoneNorm = phoneNorm; }
         if (visitDate) set.visitDate = visitDate;
+        if (sourceValue) set.source = sourceValue;
+
+        const updateDoc = {
+          $set: set,
+          $setOnInsert: isSuper(req)
+            ? { company: req.body.company || req.user.company }
+            : { company: req.user.company }
+        };
+
+        if (communityIdsFromRow.length) {
+          updateDoc.$addToSet = { communityIds: { $each: communityIdsFromRow } };
+        }
 
         // Stamp company on upsert
         const result = await Contact.updateOne(
           filter,
-          { $set: set, $setOnInsert: isSuper(req) ? { company: req.body.company || req.user.company } : { company: req.user.company } },
+          updateDoc,
           { upsert: true }
         );
         if (result.upsertedCount && result.upsertedId) created++;
         else if (result.matchedCount) updated++;
         else skipped++;
+
+        if (missingCommunities.length) {
+          errors.push({ row: i + 2, message: `Unknown or unauthorized community: ${missingCommunities.join(', ')}` });
+        }
       }
 
       res.json({ success: true, created, updated, skipped, errors });

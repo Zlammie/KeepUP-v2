@@ -10,6 +10,7 @@ function deriveRemainingLots(c) {
 function deriveQMI(c) {
   if (typeof c.qmi === 'number') return c.qmi;
   if (typeof c.quickMoveIns === 'number') return c.quickMoveIns;
+  if (typeof c.quickMoveInLots === 'number') return c.quickMoveInLots;
   if (Array.isArray(c.monthlyMetrics) && c.monthlyMetrics.length) {
     const last = c.monthlyMetrics.at(-1);
     if (typeof last?.qmi === 'number') return last.qmi;

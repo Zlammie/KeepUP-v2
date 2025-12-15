@@ -46,6 +46,11 @@
   background-size: cover, 14px 10px;
 }
 
+.community-select.is-empty-warning {
+  border-color: #dc2626;
+  box-shadow: 0 0 0 3px rgba(220, 38, 38, 0.15);
+}
+
 .community-select:hover {
   box-shadow: 0 10px 24px rgba(79, 70, 229, 0.25);
   transform: translateY(-1px);
@@ -69,51 +74,37 @@
 .manage-community-btn {
   display: inline-flex;
   align-items: center;
-  gap: 0.5rem;
-  padding: 0.55rem 1.1rem;
-  border-radius: 999px;
-  border: 1px solid rgba(15, 23, 42, 0.12);
-  background: linear-gradient(135deg, var(--mc-primary) 0%, #1d4ed8 100%);
+  justify-content: center;
+  width: 100%;
+  padding: 0.65rem 1rem;
+  border-radius: 10px;
+  border: 1px solid #0d6efd;
+  background: #0d6efd;
   color: #fff;
-  font-weight: 600;
+  font-weight: 700;
+  font-size: 0.9rem;
   letter-spacing: 0.02em;
+  text-transform: none;
   cursor: pointer;
-  box-shadow: 0 8px 18px rgba(37, 99, 235, 0.25);
-  transition: transform 0.18s ease, box-shadow 0.18s ease, background 0.18s ease;
+  box-shadow: 0 8px 16px rgba(13, 110, 253, 0.18);
+  transition: transform 0.15s ease, box-shadow 0.15s ease, background-color 0.15s ease;
 }
 
 .manage-community-btn:hover {
   transform: translateY(-1px);
-  box-shadow: 0 10px 24px rgba(37, 99, 235, 0.35);
-  background: linear-gradient(135deg, var(--mc-primary-strong, #1e40af) 0%, var(--mc-primary, #1d4ed8) 100%);
+  background: #0b5ed7;
+  box-shadow: 0 10px 22px rgba(13, 110, 253, 0.25);
 }
 
 .manage-community-btn:focus-visible {
-  outline: 3px solid rgba(59, 130, 246, 0.65);
-  outline-offset: 3px;
-}
-
-.manage-community-btn .mcb-icon {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  width: 1.4rem;
-  height: 1.4rem;
-  border-radius: 50%;
-  background: rgba(255, 255, 255, 0.2);
-  font-size: 0.95rem;
-}
-
-.manage-community-btn .mcb-icon svg {
-  width: 1rem;
-  height: 1rem;
-  display: block;
+  outline: 3px solid rgba(13, 110, 253, 0.4);
+  outline-offset: 2px;
 }
 
 .manage-community-btn .mcb-label {
-  text-transform: uppercase;
-  font-size: 0.78rem;
-  letter-spacing: 0.08em;
+  text-transform: none;
+  font-size: 0.92rem;
+  letter-spacing: 0.01em;
 }
 
 .community-actions-card .manage-community-btn {

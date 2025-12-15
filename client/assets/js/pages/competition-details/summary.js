@@ -8,7 +8,15 @@ function latestMetrics(monthlyMetrics) {
     .sort((a,b) => (a.month < b.month ? 1 : a.month > b.month ? -1 : 0))[0] || null;
 }
 
-export function hydrateLotStats({ totalLots, monthlyMetrics }) {
+const pickNumber = (...values) => {
+  for (const v of values) {
+    const n = Number(v);
+    if (Number.isFinite(n)) return n;
+  }
+  return null;
+};
+
+export function hydrateLotStats({ totalLots, monthlyMetrics, soldLots, quickMoveInLots }) {
   const elTot  = $('#statTotalLots');
   const elSold = $('#statLotsSold');
   const elRem  = $('#statLotsRemaining');
@@ -19,11 +27,8 @@ export function hydrateLotStats({ totalLots, monthlyMetrics }) {
   const total = totalFromDom ?? Number(totalLots ?? 0) ?? 0;
 
   const latest = latestMetrics(monthlyMetrics);
-  const soldLots = Number(latest?.soldLots);
-  const qmiAvail = Number(latest?.quickMoveInLots);
-
-  const sold = Number.isFinite(soldLots) ? soldLots : null;
-  const qmi  = Number.isFinite(qmiAvail) ? qmiAvail : null;
+  const sold = pickNumber(soldLots, latest?.soldLots);
+  const qmi  = pickNumber(quickMoveInLots, latest?.quickMoveInLots);
   const remaining = sold != null ? Math.max(total - sold, 0) : null;
 
   if (elSold) elSold.textContent = (sold ?? 'N/A');

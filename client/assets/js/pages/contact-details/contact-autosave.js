@@ -1,6 +1,7 @@
 // assets/js/contact-details/contact-autosave.js
 import { debounce } from '../../core/async.js';
 import { getState, setContact } from './state.js';
+import { emit } from './events.js';
 import * as api from './api.js';
 
 const DEBOUNCE_MS = 500;
@@ -11,7 +12,6 @@ const idMap = {
   lastName: 'lastName',
   email: 'email',
   phone: 'phone',
-  status: 'status',
   source: 'source',
   owner: 'owner',
   visitDate: 'visit-date',
@@ -137,6 +137,9 @@ async function savePayload(patch) {
     const { contactId } = getState();
     const updated = await api.saveContact(contactId, patch);
     setContact(updated);
+    if (Object.prototype.hasOwnProperty.call(patch, 'floorplans')) {
+      emit('history:show', { reason: 'floorplans' });
+    }
   } catch (e) {
     console.error('[autosave] failed', patch, e);
   }

@@ -96,6 +96,14 @@ body.auth{
   background: rgb(var(--danger));
   margin-top: 6px;
 }
+.auth__alert--success{
+  background: rgba(16, 185, 129, .12);
+  border-color: rgba(16, 185, 129, .45);
+  color: rgb(16, 185, 129);
+}
+.auth__alert--success .auth__alert-dot{
+  background: rgb(16, 185, 129);
+}
 
 .auth__form{ display: grid; gap: 14px; }
 

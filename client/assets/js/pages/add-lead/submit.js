@@ -26,7 +26,7 @@ function buildPayload(type) {
 
   if (type === 'contact') {
     if (els.communitySelect?.value) base.communityId = els.communitySelect.value;
-    if (els.statusSelect?.value) base.status = els.statusSelect.value;
+    if (els.statusSelect) base.status = els.statusSelect.value;
   }
 
   if (type === 'realtor') {

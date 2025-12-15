@@ -2,6 +2,7 @@
 import { DOM } from './domCache.js';
 import { getState, setContact } from './state.js';
 import * as api from './api.js';
+import { emit } from './events.js';
 
 const PURCHASED = 'Purchased';
 
@@ -29,21 +30,78 @@ export function initStatusLogic() {
 
   // Save + resync on change
   if (DOM.statusSelect) {
+    const initialStatus = DOM.statusSelect.value || getState().initialStatus || '';
+    let lastStatus = initialStatus;
+
+    const revertStatus = (value) => {
+      DOM.statusSelect.value = value || '';
+      paintStatusSelect();
+      syncStatusBadge();
+      updateStatusVisibility(value);
+    };
+
+    const parseBeBackDate = (raw) => {
+      if (!raw) return null;
+      const str = String(raw).trim();
+      if (!str) return null;
+      const dateOnly = str.match(/^(\d{4})-(\d{2})-(\d{2})$/);
+      if (dateOnly) {
+        const [, y, m, d] = dateOnly;
+        const parsed = new Date(Number(y), Number(m) - 1, Number(d), 12, 0, 0);
+        return Number.isNaN(parsed.getTime()) ? null : parsed;
+      }
+      const parsed = new Date(str);
+      return Number.isNaN(parsed.getTime()) ? null : parsed;
+    };
+
     DOM.statusSelect.addEventListener('change', async (e) => {
       const status = e.target.value;
+      const normalized = normalize(status);
+      const previousStatus = lastStatus;
 
       // First reflect in UI so it feels instant
-      paintStatusSelect();  
+      paintStatusSelect();
       syncStatusBadge();
       updateStatusVisibility(status);
 
+      const { contactId } = getState();
+      if (!contactId) {
+        console.warn('[status] missing contactId; reverting');
+        revertStatus(previousStatus);
+        return;
+      }
+
+      const payload = { status };
+
+      if (normalized === 'be-back') {
+        const defaultDate = new Date();
+        const defaultInput = defaultDate.toISOString().slice(0, 10);
+        const input = window.prompt('When did this Be-Back occur? (YYYY-MM-DD)', defaultInput);
+        if (!input) {
+          revertStatus(previousStatus);
+          return;
+        }
+        const parsed = parseBeBackDate(input);
+        if (!parsed) {
+          window.alert('Please enter a valid date (YYYY-MM-DD).');
+          revertStatus(previousStatus);
+          return;
+        }
+        payload.beBackDate = parsed.toISOString();
+      }
+
       // Persist to server and update local state
       try {
-        const { contactId } = getState();
-        const updated = await api.saveContact(contactId, { status });
-        setContact({ status: updated?.status ?? status });
+        const updated = await api.saveContact(contactId, payload);
+        setContact(updated || { status, beBackDate: payload.beBackDate || null });
+        lastStatus = status;
+        emit('status:changed', { status, previousStatus, beBackDate: payload.beBackDate || null });
+        if (normalized === 'be-back') {
+          emit('history:show', { reason: 'be-back' });
+        }
       } catch (err) {
         console.error('[status] save failed', err);
+        revertStatus(previousStatus);
       }
     });
         // UX parity with old statusStyling.js:
@@ -112,8 +170,8 @@ function syncStatusBadge() {
   const badge = document.getElementById('contact-status-badge');
   if (!badge || !DOM.statusSelect) return;
 
-  const raw = DOM.statusSelect.value || 'new';
-  const key = normalize(raw);
+  const raw = DOM.statusSelect.value;
+  const key = normalize(raw) || 'no-status';
   const label = formatStatusLabel(raw);
 
   badge.className = `status-badge ${key}`;
@@ -131,7 +189,7 @@ function syncStatusBadge() {
 function paintStatusSelect() {
   const sel = DOM.statusSelect;
   if (!sel) return;
-  const key = normalize(sel.value);
+  const key = normalize(sel.value) || 'no-status';
   const bg = STATUS_BG[key];
   if (bg) {
     sel.style.backgroundColor = bg;
@@ -147,11 +205,13 @@ function normalize(s) {
 }
 
 function formatStatusLabel(s) {
-  return String(s || '')
+  const normalized = String(s ?? '')
     .replace(/[-_]+/g, ' ')
     .replace(/\s+/g, ' ')
     .trim()
     .replace(/\b\w/g, c => c.toUpperCase());
+  if (!normalized) return 'No Status';
+  return normalized;
 }
 
 export function refreshStatusUI() {

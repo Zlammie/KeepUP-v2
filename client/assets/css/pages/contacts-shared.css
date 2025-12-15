@@ -10,9 +10,9 @@
 }
 
 /* Add a little breathing room on the right side of the listing pages */
-body.contacts-page.has-nav,
-body.realtors-page.has-nav,
-body.lenders-page.has-nav {
+body.contacts-page:not(.no-nav),
+body.realtors-page:not(.no-nav),
+body.lenders-page:not(.no-nav) {
   padding-right: var(--nav-content-gutter, 30px);
 }
 

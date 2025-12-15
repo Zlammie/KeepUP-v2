@@ -104,7 +104,7 @@ exports.update = async (req, res) => {
     'communityName','builderName','address','city','state','zip','builderWebsite','modelPlan',
     'salesPerson','salesPersonPhone','salesPersonEmail','lotSize','garageType',
     'schoolISD','elementarySchool','middleSchool','highSchool',
-    'totalLots','hoaFee','hoaFrequency','tax','feeTypes','mudFee','pidFee','pidFeeFrequency',
+    'totalLots','soldLots','quickMoveInLots','hoaFee','hoaFrequency','tax','feeTypes','mudFee','pidFee','pidFeeFrequency',
     'earnestAmount','realtorCommission','promotion','topPlan1','topPlan2','topPlan3','pros','cons'
   ];
 
@@ -115,7 +115,7 @@ exports.update = async (req, res) => {
     let value = body[key];
     if (value === undefined) return;
 
-    if (['totalLots','hoaFee','pidFee','mudFee','earnestAmount','realtorCommission','tax'].includes(key)) {
+    if (['totalLots','soldLots','quickMoveInLots','hoaFee','pidFee','mudFee','earnestAmount','realtorCommission','tax'].includes(key)) {
       value = numOrNull(value);
     } else if (key === 'garageType') {
       const norm = typeof value === 'string' ? value.trim().toLowerCase() : '';
@@ -550,10 +550,46 @@ exports.createQMI = async (req, res) => {
 };
 exports.updateQMI = async (req, res) => {
   const comp = await loadScopedCompetition(req, res); if (!comp || res.headersSent) return;
-  const { address, floorPlanId, floorPlan, listPrice, sqft, status, listDate, soldDate, soldPrice } = req.body;
+  const {
+    address,
+    floorPlanId,
+    floorPlan,
+    listPrice,
+    sqft,
+    status,
+    listDate,
+    soldDate,
+    soldPrice,
+    month
+  } = req.body;
+
+  // Determine target month:
+  //  - prefer explicit month (normalized)
+  //  - else use soldDate's month if provided
+  //  - else if marked SOLD with no soldDate, default to current month - 1
+  let targetMonth = toYM(month);
+  if (!targetMonth && soldDate) targetMonth = toYM(soldDate);
+  if (!targetMonth && String(status || '').trim().toUpperCase() === 'SOLD' && !soldDate) {
+    const today = new Date();
+    const prior = new Date(today.getFullYear(), today.getMonth() - 1, 1);
+    targetMonth = `${prior.getFullYear()}-${String(prior.getMonth() + 1).padStart(2, '0')}`;
+  }
+
+  const update = {
+    address,
+    floorPlan: floorPlanId || floorPlan,
+    listPrice: numOrNull(listPrice),
+    sqft: numOrNull(sqft),
+    status,
+    listDate,
+    soldDate: soldDate || null,
+    soldPrice: numOrNull(soldPrice),
+    ...(targetMonth ? { month: targetMonth } : {})
+  };
+
   const rec = await QuickMoveIn.findOneAndUpdate(
     { _id: req.params.recId, competition: comp._id },
-    { address, floorPlan: floorPlanId || floorPlan, listPrice: numOrNull(listPrice), sqft: numOrNull(sqft), status, listDate, soldDate: soldDate || null, soldPrice: numOrNull(soldPrice) },
+    update,
     { new: true, runValidators: true }
   ).lean();
   if (!rec) return res.status(404).json({ error: 'Not found' });
