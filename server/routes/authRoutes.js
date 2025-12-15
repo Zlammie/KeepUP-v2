@@ -192,6 +192,7 @@ const renderResetPassword = (res, overrides = {}) => {
     email: '',
     status: null,
     error: null,
+    message: '',
     mode: 'reset'
   };
   return res.render('auth/reset-password', { ...defaults, ...overrides });
