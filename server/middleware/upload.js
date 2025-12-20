@@ -4,12 +4,19 @@ const crypto = require('crypto');
 const multer = require('multer');
 
 const DEFAULT_MAX_MB = 20;
+const DEFAULT_MAX_FILES = 25;
 const FALLBACK_DIR = path.resolve(process.cwd(), 'uploads');
 
 function resolveMaxBytes() {
   const raw = parseInt(process.env.MAX_UPLOAD_MB || '', 10);
   const mb = Number.isFinite(raw) && raw > 0 ? raw : DEFAULT_MAX_MB;
   return mb * 1024 * 1024;
+}
+
+function resolveMaxFiles() {
+  const raw = parseInt(process.env.MAX_UPLOAD_FILES || '', 10);
+  const n = Number.isFinite(raw) && raw > 0 ? raw : DEFAULT_MAX_FILES;
+  return n;
 }
 
 function resolveAllowedTypes() {
@@ -22,6 +29,7 @@ function resolveAllowedTypes() {
 }
 
 const MAX_UPLOAD_BYTES = resolveMaxBytes();
+const MAX_UPLOAD_FILES = resolveMaxFiles();
 const ALLOWED_MIME = resolveAllowedTypes();
 const ALLOWED_EXT = new Set([
   '.jpg',
@@ -63,7 +71,7 @@ function fileFilter(_req, file, cb) {
 
 const upload = multer({
   storage,
-  limits: { fileSize: MAX_UPLOAD_BYTES, files: 1 },
+  limits: { fileSize: MAX_UPLOAD_BYTES, files: MAX_UPLOAD_FILES },
   fileFilter,
 });
 

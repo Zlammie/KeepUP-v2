@@ -25,7 +25,27 @@ const FloorPlanSchema = new Schema({
   communities: [{ type: Schema.Types.ObjectId, ref: 'Community', index: true }],
 
   // 4) lifecycle flags (handy in UI)
-  isActive: { type: Boolean, default: true }
+  isActive: { type: Boolean, default: true },
+
+  // 5) assets (optional PDF + generated preview)
+  asset: {
+    fileUrl: { type: String, default: '' },
+    previewUrl: { type: String, default: '' },
+    originalFilename: { type: String, default: '' },
+    mimeType: { type: String, default: '' }
+  },
+
+  // 6) elevations (name + optional asset)
+  elevations: [{
+    name: { type: String, default: '' },
+    asset: {
+      fileUrl: { type: String, default: '' },
+      previewUrl: { type: String, default: '' },
+      originalFilename: { type: String, default: '' },
+      mimeType: { type: String, default: '' }
+    },
+    squareFeet: { type: Number, default: null }
+  }]
 }, { timestamps: true });
 
 // 🔎 indexes

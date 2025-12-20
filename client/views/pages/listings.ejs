@@ -1,0 +1,223 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Listings</title>
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet" />
+  <link rel="stylesheet" href="/assets/css/main.css" />
+  <link rel="stylesheet" href="/assets/css/pages/listings.css" />
+</head>
+<body>
+  <%- include('../partials/nav') %>
+  <%- include('../partials/top-nav-blank') %>
+  <% const safeCommunities = Array.isArray(communities) ? communities : []; %>
+  <% const safeLots = Array.isArray(lots) ? lots : []; %>
+  <% const defaultCommunityId = safeCommunities.length === 1 ? safeCommunities[0].id : 'all'; %>
+
+  <main class="container py-4 listings-page">
+    <div class="d-flex align-items-start justify-content-between flex-wrap gap-3 mb-3">
+      <div>
+        <p class="text-uppercase text-muted fw-semibold small mb-1">Listings</p>
+        <h1 class="h3 mb-2">Company lots you can access</h1>
+        <p class="text-muted mb-0">Switch communities and review release dates, pricing, and status in one table.</p>
+      </div>
+      <div class="text-end listings-count">
+        <p class="fw-semibold mb-1"><span id="listings-total"><%= safeLots.length %></span> lots</p>
+        <p class="text-muted small mb-0">Scoped to your assigned communities</p>
+      </div>
+    </div>
+
+    <div class="card shadow-sm border-0 mb-4">
+      <div class="card-body">
+        <div class="d-flex flex-wrap align-items-center gap-3 mb-3 listings-controls">
+          <div class="flex-grow-1 d-flex gap-2 flex-wrap align-items-center">
+            <label for="listings-community" class="fw-semibold mb-0">Community</label>
+            <select id="listings-community" class="form-select form-select-sm" style="min-width: 240px;" data-default-id="<%= defaultCommunityId %>">
+              <% if (safeCommunities.length > 1) { %>
+                <option value="all">All assigned communities</option>
+              <% } %>
+              <% safeCommunities.forEach(function(community) { %>
+                <option value="<%= community.id %>"><%= community.name %><% if (community.location) { %> — <%= community.location %><% } %></option>
+              <% }); %>
+            </select>
+          </div>
+          <div class="d-flex align-items-center gap-2 listings-status-filters">
+            <span class="fw-semibold small text-muted">Status</span>
+            <div class="btn-group btn-group-sm" role="group" aria-label="Status filters">
+              <button type="button" class="btn btn-outline-secondary active" data-status="all">All</button>
+              <button type="button" class="btn btn-outline-secondary" data-status="Available">Available</button>
+              <button type="button" class="btn btn-outline-secondary" data-status="SPEC">SPEC</button>
+              <button type="button" class="btn btn-outline-secondary" data-status="Hold">Hold</button>
+            </div>
+          </div>
+          <div class="text-muted small">Showing <span id="listings-count"><%= safeLots.length %></span> lots</div>
+        </div>
+
+        <div class="table-responsive">
+          <table class="table align-middle listings-table mb-0">
+            <thead>
+              <tr>
+                <th scope="col">Community</th>
+                <th scope="col">Lot</th>
+                <th scope="col">Block</th>
+                <th scope="col">Job #</th>
+                <th scope="col">Address</th>
+                <th scope="col">Status</th>
+                <th scope="col">Published</th>
+                <th scope="col">Release</th>
+                <th scope="col">Completion</th>
+                <th scope="col">List Price</th>
+                <th scope="col">Sales Price</th>
+                <th scope="col" class="text-end">Actions</th>
+              </tr>
+            </thead>
+            <tbody id="listings-body"></tbody>
+          </table>
+        </div>
+        <div id="listings-empty" class="listings-empty text-center py-4 d-none">
+          <p class="fw-semibold mb-1">No lots to display</p>
+          <p class="text-muted mb-0 small">Either there are no lots in this community or you do not have access.</p>
+        </div>
+      </div>
+    </div>
+  </main>
+
+  <script nonce="<%= cspNonce %>">
+    (function() {
+      const data = {
+        communities: <%- JSON.stringify(safeCommunities) %>,
+        lots: <%- JSON.stringify(safeLots) %>
+      };
+
+      const communitySelect = document.getElementById('listings-community');
+      const rowsContainer = document.getElementById('listings-body');
+      const countEl = document.getElementById('listings-count');
+      const totalEl = document.getElementById('listings-total');
+      const emptyState = document.getElementById('listings-empty');
+
+      const formatDate = (value) => {
+        if (!value) return '';
+        const d = new Date(value);
+        if (Number.isNaN(d.getTime())) return '';
+        return d.toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' });
+      };
+
+      const formatMoney = (value) => {
+        if (value === null || value === undefined || value === '') return '';
+        if (typeof value !== 'number') return '';
+        return value.toLocaleString(undefined, { style: 'currency', currency: 'USD', maximumFractionDigits: 0 });
+      };
+
+      const statusClass = (status) => {
+        const normalized = (status || '').toLowerCase();
+        if (normalized.includes('coming')) return 'status-pill--coming-soon';
+        if (normalized.includes('spec')) return 'status-pill--spec';
+        if (normalized.includes('available')) return 'status-pill--available';
+        if (normalized.includes('hold')) return 'status-pill--hold';
+        if (normalized.includes('model')) return 'status-pill--model';
+        if (normalized.includes('sold')) return 'status-pill--sold';
+        if (normalized.includes('close')) return 'status-pill--closed';
+        return 'status-pill--default';
+      };
+
+      const createCell = (content) => {
+        const td = document.createElement('td');
+        if (typeof content === 'string' || typeof content === 'number') {
+          td.textContent = content;
+        } else if (content instanceof HTMLElement) {
+          td.appendChild(content);
+        }
+        return td;
+      };
+
+      let activeStatus = 'all';
+
+      const renderRows = (communityId) => {
+        if (!rowsContainer) return;
+        rowsContainer.innerHTML = '';
+
+        let filtered = communityId === 'all'
+          ? data.lots
+          : data.lots.filter((lot) => lot.communityId === communityId);
+
+        if (activeStatus !== 'all') {
+          const normStatus = activeStatus.toLowerCase();
+          filtered = filtered.filter((lot) => (lot.status || '').toLowerCase() === normStatus);
+        }
+
+        if (countEl) countEl.textContent = filtered.length;
+        if (totalEl) totalEl.textContent = filtered.length;
+
+        if (!filtered.length) {
+          if (emptyState) emptyState.classList.remove('d-none');
+          return;
+        }
+        if (emptyState) emptyState.classList.add('d-none');
+
+        filtered.forEach((lot) => {
+          const row = document.createElement('tr');
+
+          const communityWrap = document.createElement('div');
+          communityWrap.className = 'listings-community';
+          const name = document.createElement('div');
+          name.textContent = lot.communityName || 'Community';
+          const location = document.createElement('div');
+          location.className = 'text-muted small';
+          location.textContent = lot.location || '';
+          communityWrap.appendChild(name);
+          if (lot.location) communityWrap.appendChild(location);
+
+          const status = document.createElement('span');
+          status.className = `status-pill ${statusClass(lot.status)}`;
+          status.textContent = lot.status || 'Available';
+
+          const viewBtn = document.createElement('a');
+          viewBtn.className = 'btn btn-outline-primary btn-sm';
+          viewBtn.href = `/listing-details?communityId=${encodeURIComponent(lot.communityId || '')}&lotId=${encodeURIComponent(lot.id || '')}`;
+          viewBtn.textContent = 'View';
+
+          row.appendChild(createCell(communityWrap));
+          row.appendChild(createCell(lot.lot || ''));
+          row.appendChild(createCell(lot.block || ''));
+          row.appendChild(createCell(lot.jobNumber || ''));
+          row.appendChild(createCell(lot.address || ''));
+          row.appendChild(createCell(status));
+          row.appendChild(createCell(lot.listed ? 'Published' : 'Not Published'));
+          row.appendChild(createCell(formatDate(lot.releaseDate)));
+          row.appendChild(createCell(formatDate(lot.completionDate)));
+          row.appendChild(createCell(formatMoney(lot.listPrice)));
+          row.appendChild(createCell(formatMoney(lot.salesPrice)));
+          const actionsTd = document.createElement('td');
+          actionsTd.className = 'text-end';
+          actionsTd.appendChild(viewBtn);
+          row.appendChild(actionsTd);
+
+          rowsContainer.appendChild(row);
+        });
+      };
+
+      if (communitySelect) {
+        const defaultId = communitySelect.dataset.defaultId || 'all';
+        const hasOption = Array.from(communitySelect.options || []).some((opt) => opt.value === defaultId);
+        communitySelect.value = hasOption ? defaultId : (communitySelect.options[0]?.value || 'all');
+        communitySelect.addEventListener('change', (e) => renderRows(e.target.value));
+        renderRows(communitySelect.value);
+      } else {
+        renderRows('all');
+      }
+
+      const statusButtons = document.querySelectorAll('.listings-status-filters button[data-status]');
+      statusButtons.forEach((btn) => {
+        btn.addEventListener('click', () => {
+          statusButtons.forEach((b) => b.classList.remove('active'));
+          btn.classList.add('active');
+          activeStatus = btn.getAttribute('data-status') || 'all';
+          const currentCommunity = communitySelect ? communitySelect.value : 'all';
+          renderRows(currentCommunity);
+        });
+      });
+    })();
+  </script>
+</body>
+</html>

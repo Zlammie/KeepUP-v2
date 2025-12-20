@@ -23,3 +23,22 @@ If you already manage Zoho credentials elsewhere, you can also define the equiva
 ## Password reset & invites
 
 Forgot-password and invite emails reuse the same SMTP credentials (preferring `SMTP_*`, then `BETA_SMTP_*`/`ZOHO_SMTP_*`). Make sure `BASE_URL` matches your public app domain so the reset links open correctly. Set `SMTP_FROM` to the from-address you want (defaults to `noreply@keepupcrm.com` if unset).
+
+## BuildRootz publishing
+
+- Set `BUILDROOTZ_MONGODB_URI` to the BuildRootz Mongo connection string (runs on a separate cluster/DB from `MONGO_URI`).
+- If your BuildRootz database already exists with a specific casing, set `BUILDROOTZ_DB_NAME` to match (e.g., `BuildRootz`) to avoid Mongo’s “DatabaseDifferCase” error.
+- If your listing media are served from a host, set `BUILDROOTZ_UPLOAD_BASE_URL` (or ensure `BASE_URL` is correct) so `/uploads/...` paths become absolute URLs in BuildRootz.
+- Publishing is tenant-scoped; users can only publish homes in their company.
+- Endpoints (all `POST`, auth required):
+  - `/api/buildrootz/homes/:id/publish`
+  - `/api/buildrootz/homes/:id/unpublish`
+  - `/api/buildrootz/homes/:id/sync`
+
+Optional: to enable auto geocoding of lat/lng via Google Maps, set `GOOGLE_MAPS_API_KEY`.
+
+Quick curl test (replace `SID_COOKIE` with your session cookie and `HOME_ID` with the KeepUP lot id):
+```bash
+curl -X POST http://localhost:3000/api/buildrootz/homes/HOME_ID/publish \
+  -H "Cookie: keepup.sid=SID_COOKIE"
+```

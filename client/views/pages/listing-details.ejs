@@ -1,0 +1,904 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Listing Details</title>
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet" />
+  <link rel="stylesheet" href="/assets/css/main.css" />
+  <link rel="stylesheet" href="/assets/css/pages/listings.css" />
+</head>
+<body>
+  <%- include('../partials/nav') %>
+  <%- include('../partials/top-nav-blank') %>
+  <% const lotData = lot || {}; %>
+  <% const formatDate = (value) => {
+       if (!value) return '';
+       const d = new Date(value);
+       if (Number.isNaN(d.getTime())) return '';
+       return d.toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' });
+     };
+     const formatMoney = (value) => {
+       if (typeof value !== 'number') return '';
+       return value.toLocaleString(undefined, { style: 'currency', currency: 'USD', maximumFractionDigits: 0 });
+     };
+     const formatMoneyCompact = (value) => {
+       if (typeof value !== 'number') return '';
+       return value.toLocaleString(undefined, { style: 'currency', currency: 'USD', maximumFractionDigits: 0 });
+     };
+     const statusClass = (status) => {
+       const normalized = (status || '').toLowerCase();
+       if (normalized.includes('coming')) return 'status-pill--coming-soon';
+       if (normalized.includes('spec')) return 'status-pill--spec';
+       if (normalized.includes('available')) return 'status-pill--available';
+       if (normalized.includes('hold')) return 'status-pill--hold';
+       if (normalized.includes('model')) return 'status-pill--model';
+       if (normalized.includes('sold')) return 'status-pill--sold';
+       if (normalized.includes('close')) return 'status-pill--closed';
+       return 'status-pill--default';
+     };
+  %>
+
+  <main class="container py-4 listings-page">
+    <div class="d-flex justify-content-between align-items-start flex-wrap gap-3 mb-3 listing-details__header">
+      <div>
+        <p class="text-uppercase text-muted fw-semibold small mb-1">Listing Details</p>
+        <h1 class="h4 mb-1"><%= lotData.communityName || 'Community' %></h1>
+        <p class="text-muted mb-0">
+          <%= lotData.location || '' %>
+        </p>
+      </div>
+      <div class="d-flex align-items-center gap-2">
+        <a href="/listings" class="btn btn-outline-secondary btn-sm">Back to Listings</a>
+      </div>
+    </div>
+
+    <div class="listing-section-bar mb-3">
+      <div class="listing-section-tabs">
+        <button type="button" class="section-tab active" data-target="#section-overview">Overview</button>
+        <button type="button" class="section-tab" data-target="#section-fees">Fees & Amenities</button>
+        <button type="button" class="section-tab" data-target="#section-content">Listing Content</button>
+      </div>
+      <div class="section-actions">
+        <% const published = lotData.listingContent?.isPublished; %>
+        <button
+          type="button"
+          id="listing-publish-btn"
+          class="btn btn-primary btn-sm"
+          data-published="<%= published ? 'true' : 'false' %>"
+        >
+          <%= published ? 'Unpublish' : 'Publish' %>
+        </button>
+        <button
+          type="button"
+          id="listing-sync-btn"
+          class="btn btn-outline-secondary btn-sm"
+          data-published="<%= published ? 'true' : 'false' %>"
+          <%= published ? '' : 'disabled' %>
+        >
+          Sync updates
+        </button>
+        <button type="button" id="listing-content-save" class="btn btn-secondary btn-sm">Save content</button>
+      </div>
+    </div>
+
+    <div id="section-overview" class="card shadow-sm border-0 mb-3 section-pane active">
+      <div class="card-body">
+        <div class="d-flex justify-content-between align-items-center flex-wrap gap-3 mb-3">
+          <div class="d-flex align-items-center gap-2">
+            <span class="badge text-bg-light">Lot <%= lotData.lot || '-' %></span>
+            <span class="badge text-bg-light">Block <%= lotData.block || '-' %></span>
+            <span class="badge text-bg-light">Job <%= lotData.jobNumber || '-' %></span>
+          </div>
+          <div class="d-flex align-items-center gap-2">
+            <% if (lotData.buildingStatus) { %>
+              <span class="status-pill <%= statusClass(lotData.buildingStatus) %>"><%= lotData.buildingStatus %></span>
+            <% } %>
+            <span class="status-pill <%= statusClass(lotData.status) %>"><%= lotData.status || 'Available' %></span>
+            <span class="badge <%= lotData.listed ? 'text-bg-success' : 'text-bg-secondary' %>">
+              <%= lotData.listed ? 'Published' : 'Not Published' %>
+            </span>
+          </div>
+        </div>
+
+        <div class="row gy-3 listing-details__grid">
+          <div class="col-md-6">
+            <p class="text-muted small mb-1">Address</p>
+            <p class="fw-semibold mb-0"><%= lotData.address || 'Not set' %></p>
+          </div>
+          <div class="col-md-6">
+            <p class="text-muted small mb-1">Release date</p>
+            <p class="fw-semibold mb-0"><%= formatDate(lotData.releaseDate) || '—' %></p>
+          </div>
+          <div class="col-md-6">
+            <p class="text-muted small mb-1">Expected completion</p>
+            <p class="fw-semibold mb-0"><%= formatDate(lotData.completionDate) || '—' %></p>
+          </div>
+          <div class="col-md-6">
+            <p class="text-muted small mb-1">List price</p>
+            <p class="fw-semibold mb-0"><%= formatMoney(lotData.listPrice) || '—' %></p>
+          </div>
+          <div class="col-md-6">
+            <p class="text-muted small mb-1">Floor plan</p>
+            <p class="fw-semibold mb-1"><%= lotData.floorPlanName || '—' %></p>
+            <p class="text-muted small mb-0">
+              <% if (lotData.floorPlanBeds != null || lotData.floorPlanBaths != null || lotData.floorPlanSqft != null || lotData.floorPlanGarage != null) { %>
+                <%= lotData.floorPlanBeds != null ? lotData.floorPlanBeds + ' bd' : '' %>
+                <% if (lotData.floorPlanBeds != null && (lotData.floorPlanBaths != null || lotData.floorPlanSqft != null || lotData.floorPlanGarage != null)) { %> · <% } %>
+                <%= lotData.floorPlanBaths != null ? lotData.floorPlanBaths + ' ba' : '' %>
+                <% if (lotData.floorPlanBaths != null && (lotData.floorPlanSqft != null || lotData.floorPlanGarage != null)) { %> · <% } %>
+                <%= lotData.floorPlanSqft != null ? lotData.floorPlanSqft.toLocaleString() + ' sqft' : '' %>
+                <% if (lotData.floorPlanSqft != null && lotData.floorPlanGarage != null) { %> · <% } %>
+                <%= lotData.floorPlanGarage != null ? lotData.floorPlanGarage + ' garage' : '' %>
+              <% } else { %>
+                —
+              <% } %>
+            </p>
+          </div>
+          <div class="col-md-6">
+            <p class="text-muted small mb-1">Elevation</p>
+            <p class="fw-semibold mb-0"><%= lotData.elevation || '—' %></p>
+          </div>
+          <div class="col-md-6">
+            <p class="text-muted small mb-1">Lot size</p>
+            <p class="fw-semibold mb-0"><%= lotData.lotSize || '—' %></p>
+          </div>
+          <div class="col-md-6">
+            <p class="text-muted small mb-1">Sales contact</p>
+            <% if (lotData.salesContact && (lotData.salesContact.name || lotData.salesContact.phone || lotData.salesContact.email)) { %>
+              <ul class="list-unstyled mb-0 text-muted small">
+                <% if (lotData.salesContact.name) { %><li><strong>Name:</strong> <%= lotData.salesContact.name %></li><% } %>
+                <% if (lotData.salesContact.phone) { %><li><strong>Phone:</strong> <%= lotData.salesContact.phone %></li><% } %>
+                <% if (lotData.salesContact.email) { %><li><strong>Email:</strong> <%= lotData.salesContact.email %></li><% } %>
+              </ul>
+            <% } else { %>
+              <p class="text-muted small mb-0">Not provided.</p>
+            <% } %>
+            <div class="mt-2 d-flex flex-column gap-2">
+              <input type="text" class="form-control form-control-sm" id="salesContactName" placeholder="Override name (optional)" value="<%= lotData.salesContactOverride?.name || '' %>">
+              <input type="text" class="form-control form-control-sm" id="salesContactPhone" placeholder="Override phone (optional)" value="<%= lotData.salesContactOverride?.phone || '' %>">
+              <input type="email" class="form-control form-control-sm" id="salesContactEmail" placeholder="Override email (optional)" value="<%= lotData.salesContactOverride?.email || '' %>">
+            </div>
+          </div>
+          <div class="col-md-6">
+            <p class="text-muted small mb-1">Model address</p>
+            <% const modelParts = [lotData.modelAddress?.street, [lotData.modelAddress?.city, lotData.modelAddress?.state].filter(Boolean).join(', '), lotData.modelAddress?.zip].filter(Boolean); %>
+            <% if (modelParts.length) { %>
+              <p class="text-muted small mb-0"><%= modelParts.join(' · ') %></p>
+            <% } else { %>
+              <p class="text-muted small mb-0">Not provided.</p>
+            <% } %>
+          </div>
+          <div class="col-md-6">
+            <p class="text-muted small mb-1">Map coordinates (lat, lng)</p>
+            <div class="d-flex gap-2 align-items-center">
+              <input type="text" class="form-control form-control-sm" id="latitudeInput" placeholder="Latitude" value="<%= lotData.latitude ?? '' %>" style="max-width: 160px;">
+              <input type="text" class="form-control form-control-sm" id="longitudeInput" placeholder="Longitude" value="<%= lotData.longitude ?? '' %>" style="max-width: 160px;">
+              <button type="button" id="geocodeBtn" class="btn btn-outline-secondary btn-sm">Auto-fill</button>
+            </div>
+            <p class="text-muted small mt-1 mb-0">Optional: set exact map pin (used in BuildRootz).</p>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div id="section-fees" class="card shadow-sm border-0 section-pane">
+      <div class="card-body">
+        <div class="d-flex justify-content-between align-items-center flex-wrap gap-3 mb-3">
+          <h2 class="h6 mb-0">Fees & Amenities</h2>
+        </div>
+
+        <div class="row gy-3 listing-details__grid">
+          <div class="col-md-4">
+            <p class="text-muted small mb-1">HOA</p>
+            <p class="fw-semibold mb-0">
+              <% if (lotData.fees && (lotData.fees.hoaFee != null || lotData.fees.hoaFrequency)) { %>
+                <%= lotData.fees.hoaFee != null ? formatMoneyCompact(lotData.fees.hoaFee) : '—' %>
+                <% if (lotData.fees.hoaFrequency) { %>
+                  <span class="text-muted small">/ <%= lotData.fees.hoaFrequency %></span>
+                <% } %>
+              <% } else { %>
+                —
+              <% } %>
+            </p>
+          </div>
+          <div class="col-md-4">
+            <p class="text-muted small mb-1">Tax</p>
+            <p class="fw-semibold mb-0">
+              <% if (lotData.fees && lotData.fees.tax != null) { %>
+                <%= lotData.fees.tax %>%
+              <% } else { %>
+                —
+              <% } %>
+            </p>
+          </div>
+          <div class="col-md-4">
+            <p class="text-muted small mb-1">PID / MUD</p>
+            <p class="fw-semibold mb-0">
+              <% if (lotData.fees) { %>
+                <% const pieces = []; %>
+                <% if (lotData.fees.pidFee != null) { pieces.push(`PID ${formatMoneyCompact(lotData.fees.pidFee)}${lotData.fees.pidFeeFrequency ? ' / ' + lotData.fees.pidFeeFrequency : ''}`); } %>
+                <% if (lotData.fees.mudFee != null) { pieces.push(`MUD ${formatMoneyCompact(lotData.fees.mudFee)}`); } %>
+                <% if (pieces.length) { %>
+                  <%= pieces.join(' • ') %>
+                <% } else { %>
+                  —
+                <% } %>
+              <% } else { %>
+                —
+              <% } %>
+            </p>
+          </div>
+          <div class="col-md-12">
+            <p class="text-muted small mb-1">Fee Types</p>
+            <p class="fw-semibold mb-0">
+              <% if (lotData.fees && Array.isArray(lotData.fees.feeTypes) && lotData.fees.feeTypes.length) { %>
+                <%= lotData.fees.feeTypes.join(', ') %>
+              <% } else { %>
+                —
+              <% } %>
+            </p>
+          </div>
+
+          <div class="col-md-12 mt-2">
+            <p class="text-muted small mb-1">Schools</p>
+          <% if (lotData.schools && (lotData.schools.isd || lotData.schools.elementary || lotData.schools.middle || lotData.schools.high)) { %>
+            <ul class="list-unstyled mb-0 text-muted small">
+              <% if (lotData.schools.isd) { %><li><strong>ISD:</strong> <%= lotData.schools.isd %></li><% } %>
+              <% if (lotData.schools.elementary) { %><li><strong>Elementary:</strong> <%= lotData.schools.elementary %></li><% } %>
+              <% if (lotData.schools.middle) { %><li><strong>Middle:</strong> <%= lotData.schools.middle %></li><% } %>
+              <% if (lotData.schools.high) { %><li><strong>High:</strong> <%= lotData.schools.high %></li><% } %>
+            </ul>
+          <% } else { %>
+            <p class="text-muted small mb-0">No school info provided.</p>
+          <% } %>
+          </div>
+        </div>
+
+        <div class="mt-4">
+          <p class="text-muted small mb-2">Amenities</p>
+          <% if (Array.isArray(lotData.amenities) && lotData.amenities.length) { %>
+            <div class="row g-3">
+              <% lotData.amenities.forEach(function(group) { %>
+                <div class="col-md-4">
+                  <div class="listings-amenity-card">
+                    <p class="fw-semibold mb-1"><%= group.category || 'Amenities' %></p>
+                    <% if (Array.isArray(group.items) && group.items.length) { %>
+                      <ul class="list-unstyled mb-0 small text-muted">
+                        <% group.items.forEach(function(item) { %>
+                          <li><%= item %></li>
+                        <% }); %>
+                      </ul>
+                    <% } else { %>
+                      <p class="text-muted small mb-0">No items listed.</p>
+                    <% } %>
+                  </div>
+                </div>
+              <% }); %>
+            </div>
+          <% } else { %>
+            <p class="text-muted mb-0">No amenities have been added for this community.</p>
+          <% } %>
+        </div>
+      </div>
+    </div>
+
+    <div id="section-content" class="card shadow-sm border-0 section-pane">
+      <div class="card-body">
+        <div class="d-flex justify-content-between align-items-center flex-wrap gap-3 mb-3">
+          <h2 class="h6 mb-0">Listing Content</h2>
+        </div>
+
+        <div class="row gy-3 listing-details__grid">
+          <div class="col-md-12">
+            <p class="text-muted small mb-1">Hero image</p>
+            <% if (lotData.listingContent?.heroImage) { %>
+              <img class="listing-hero-img" src="<%= lotData.listingContent.heroImage %>" alt="Listing hero" loading="lazy" />
+            <% } else { %>
+              <div class="listing-hero-img placeholder">No hero image yet.</div>
+            <% } %>
+          </div>
+          <% const fpPreviewsRaw = Array.isArray(lotData.floorPlanPreviews) ? lotData.floorPlanPreviews.filter(p => p && p.url) : []; %>
+          <% const fpImagePreviews = fpPreviewsRaw.filter((p) => p.type !== 'file'); %>
+          <% const fpFilePreviews = fpPreviewsRaw.filter((p) => p.type === 'file'); %>
+          <div class="col-md-12">
+            <p class="text-muted small mb-1">Floor plan previews</p>
+            <% if (fpPreviewsRaw.length) { %>
+              <div class="listing-fp-thumbs" id="fpThumbsContainer" style="<%= fpImagePreviews.length ? '' : 'display:none;' %>">
+                <% fpImagePreviews.forEach(function(fp, idx) { %>
+                  <button type="button" class="fp-thumb" data-fp-src="<%= fp.url %>" aria-label="View <%= fp.label || 'Floor plan' %>">
+                    <img src="<%= fp.url %>" alt="<%= fp.label || 'Floor plan' %> thumbnail" loading="lazy" data-fp-img="1">
+                    <span class="fp-thumb-label"><%= fp.label || 'Floor plan' %></span>
+                  </button>
+                <% }); %>
+              </div>
+              <div class="listing-fp-lightbox" id="fpLightbox" style="display:none;">
+                <div class="fp-lightbox-header">
+                  <span id="fpLightboxLabel"></span>
+                  <button type="button" class="btn-close" id="fpLightboxClose" aria-label="Close"></button>
+                </div>
+                <div class="fp-lightbox-body">
+                  <img id="fpLightboxImg" alt="Floor plan preview" />
+                </div>
+              </div>
+              <% if (fpFilePreviews.length) { %>
+                <div class="mt-2 d-flex flex-wrap gap-2">
+                  <% fpFilePreviews.forEach(function(fp) { %>
+                    <a class="btn btn-outline-secondary btn-sm" href="<%= fp.url %>" target="_blank" rel="noopener">
+                      <%= fp.label || 'Floor plan file' %>
+                    </a>
+                  <% }); %>
+                </div>
+                <% if (!fpImagePreviews.length) { %>
+                  <p class="text-muted small mt-1 mb-0">Preview not available for this file; open the PDF to view.</p>
+                <% } %>
+              <% } %>
+            <% } else { %>
+              <div class="listing-fp-thumbs" id="fpThumbsContainer" style="display:none;"></div>
+              <p class="text-muted small mb-0">No floor plan preview available yet.</p>
+            <% } %>
+          </div>
+          <div class="col-md-12">
+            <p class="text-muted small mb-1">Listing photos</p>
+            <% const photos = lotData.listingContent?.photos || []; %>
+            <% if (photos.length) { %>
+              <div class="listing-photo-grid">
+                <% photos.forEach(function(src) { %>
+                  <div class="listing-photo-thumb" data-photo-url="<%= src %>">
+                    <img src="<%= src %>" alt="Listing photo" loading="lazy" />
+                    <button type="button" class="btn btn-sm btn-outline-danger listing-photo-delete" data-photo-url="<%= src %>">Delete</button>
+                  </div>
+                <% }); %>
+              </div>
+            <% } else { %>
+              <div class="listing-photo-grid placeholder">No photos uploaded.</div>
+            <% } %>
+            <div class="mt-3 d-flex flex-wrap align-items-start gap-2">
+              <input type="file" id="listingPhotosInput" accept="image/*" multiple class="form-control form-control-sm" style="max-width: 320px;">
+              <button type="button" id="listingPhotosUploadBtn" class="btn btn-outline-secondary btn-sm">Upload photos</button>
+            </div>
+            <p class="text-muted small mt-1 mb-0">You can upload up to 25 photos per listing.</p>
+          </div>
+          <div class="col-md-12">
+            <p class="text-muted small mb-1">Elevation (live photo override)</p>
+            <div class="d-flex align-items-start gap-3 flex-wrap">
+              <input type="text" class="form-control" id="liveElevationInput" placeholder="https://example.com/elevation.jpg" value="<%= lotData.listingContent?.liveElevationPhoto || '' %>" style="max-width: 420px;">
+              <div class="d-flex flex-column gap-2">
+                <input type="file" id="liveElevationFile" accept="image/*" class="form-control form-control-sm" />
+                <button type="button" id="liveElevationUploadBtn" class="btn btn-outline-secondary btn-sm">Upload & use photo</button>
+              </div>
+              <% const livePhoto = lotData.listingContent?.liveElevationPhoto; %>
+              <% if (livePhoto) { %>
+                <img id="liveElevationPreview" src="<%= livePhoto %>" alt="Live elevation" class="listing-hero-img" style="max-width: 240px;">
+              <% } else { %>
+                <div id="liveElevationPreview" class="listing-hero-img placeholder" style="max-width: 240px;">No live elevation set.</div>
+              <% } %>
+            </div>
+            <p class="text-muted small mt-2 mb-0">If set, this photo will override the floor plan elevation/rendering in BuildRootz.</p>
+          </div>
+          <div class="col-md-12">
+            <p class="text-muted small mb-1">Stock elevation (from floor plan)</p>
+            <% const stockElevation = lotData.listingContent?.stockElevationPhoto; %>
+            <% if (stockElevation) { %>
+              <img src="<%= stockElevation %>" alt="Stock elevation" class="listing-hero-img stock-elevation-img">
+            <% } else { %>
+              <div class="listing-hero-img placeholder stock-elevation-img">No stock elevation available.</div>
+            <% } %>
+            <p class="text-muted small mt-2 mb-0">This displays the plan’s stock rendering if available. The live elevation above overrides this in BuildRootz.</p>
+          </div>
+          <div class="col-md-12">
+            <p class="text-muted small mb-1">Promo text</p>
+            <textarea class="form-control" id="promoTextInput" rows="2" placeholder="Add promo text"><%= lotData.listingContent?.promoText || '' %></textarea>
+          </div>
+          <div class="col-md-12">
+            <p class="text-muted small mb-1">Listing description</p>
+            <textarea class="form-control" id="listingDescriptionInput" rows="4" placeholder="Add a full listing description"><%= lotData.listingContent?.description || '' %></textarea>
+          </div>
+        </div>
+      </div>
+    </div>
+</main>
+  <script src="/assets/vendor/pdfjs/pdf.min.js" nonce="<%= cspNonce %>"></script>
+  <script nonce="<%= cspNonce %>">
+  (() => {
+    const publishBtn = document.getElementById('listing-publish-btn');
+    const communityId = "<%= lotData.communityId %>";
+    const lotId = "<%= lotData.id %>";
+    const syncBtn = document.getElementById('listing-sync-btn');
+    const fpThumbsContainer = document.getElementById('fpThumbsContainer');
+    const fpLightbox = document.getElementById('fpLightbox');
+    const fpLightboxImg = document.getElementById('fpLightboxImg');
+    const fpLightboxLabel = document.getElementById('fpLightboxLabel');
+    const fpLightboxClose = document.getElementById('fpLightboxClose');
+    const photoGrid = document.querySelector('.listing-photo-grid');
+    const fpFiles = <%- JSON.stringify(fpPreviewsRaw.filter((p) => p && p.type === 'file')) %>;
+    const promoInput = document.getElementById('promoTextInput');
+    const descriptionInput = document.getElementById('listingDescriptionInput');
+    const saveContentBtn = document.getElementById('listing-content-save');
+    const liveElevationInput = document.getElementById('liveElevationInput');
+    const liveElevationFile = document.getElementById('liveElevationFile');
+    const liveElevationUploadBtn = document.getElementById('liveElevationUploadBtn');
+    const listingPhotosInput = document.getElementById('listingPhotosInput');
+    const listingPhotosUploadBtn = document.getElementById('listingPhotosUploadBtn');
+    const liveElevationPreview = document.getElementById('liveElevationPreview');
+    const sectionTabs = document.querySelectorAll('.section-tab');
+    const salesContactName = document.getElementById('salesContactName');
+    const salesContactPhone = document.getElementById('salesContactPhone');
+    const salesContactEmail = document.getElementById('salesContactEmail');
+    const latitudeInput = document.getElementById('latitudeInput');
+    const longitudeInput = document.getElementById('longitudeInput');
+
+    if (!publishBtn) return;
+
+    const setUi = (isPublished) => {
+      publishBtn.dataset.published = isPublished ? 'true' : 'false';
+      publishBtn.textContent = isPublished ? 'Unpublish' : 'Publish';
+      if (syncBtn) {
+        syncBtn.dataset.published = isPublished ? 'true' : 'false';
+        syncBtn.disabled = !isPublished;
+      }
+    };
+
+    publishBtn.addEventListener('click', async () => {
+      const current = publishBtn.dataset.published === 'true';
+      const nextValue = !current;
+      publishBtn.disabled = true;
+      publishBtn.textContent = nextValue ? 'Publishing...' : 'Unpublishing...';
+
+      try {
+        const resp = await fetch('/listing-details/publish', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json'
+          },
+          credentials: 'same-origin',
+          body: JSON.stringify({ communityId, lotId, isPublished: nextValue })
+        });
+        const data = await resp.json();
+        if (!resp.ok || !data?.success) {
+          throw new Error(data?.message || 'Unable to update publish status');
+        }
+        setUi(Boolean(data.isPublished));
+      } catch (err) {
+        console.error(err);
+        alert(err.message || 'Failed to update publish status');
+        setUi(current);
+      } finally {
+        publishBtn.disabled = false;
+        publishBtn.textContent = publishBtn.dataset.published === 'true' ? 'Unpublish' : 'Publish';
+      }
+    });
+
+    liveElevationUploadBtn?.addEventListener('click', async () => {
+      if (!liveElevationFile?.files?.length) {
+        alert('Choose an image to upload');
+        return;
+      }
+      liveElevationUploadBtn.disabled = true;
+      liveElevationUploadBtn.textContent = 'Uploading...';
+      try {
+        const fd = new FormData();
+        fd.append('file', liveElevationFile.files[0]);
+        fd.append('communityId', communityId);
+        fd.append('lotId', lotId);
+        const resp = await fetch('/listing-details/upload-elevation', {
+          method: 'POST',
+          credentials: 'same-origin',
+          body: fd
+        });
+        const data = await resp.json();
+        if (!resp.ok || !data?.success) throw new Error(data?.message || 'Upload failed');
+        if (liveElevationInput) liveElevationInput.value = data.url || '';
+        if (liveElevationPreview) {
+          if (data.url) {
+            liveElevationPreview.outerHTML = `<img id="liveElevationPreview" src="${data.url}" alt="Live elevation" class="listing-hero-img" style="max-width: 240px;">`;
+          } else {
+            liveElevationPreview.outerHTML = `<div id="liveElevationPreview" class="listing-hero-img placeholder" style="max-width: 240px;">No live elevation set.</div>`;
+          }
+        }
+        // optionally trigger a sync if published
+        if (syncBtn && syncBtn.dataset.published === 'true') {
+          syncBtn.disabled = true;
+          syncBtn.textContent = 'Syncing...';
+          try {
+            const syncResp = await fetch('/listing-details/sync', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              credentials: 'same-origin',
+              body: JSON.stringify({ communityId, lotId })
+            });
+            const syncData = await syncResp.json();
+            if (!syncResp.ok || !syncData?.success) {
+              throw new Error(syncData?.message || 'Sync failed');
+            }
+          } catch (syncErr) {
+            console.error(syncErr);
+            alert(syncErr.message || 'Uploaded, but failed to sync to BuildRootz');
+          } finally {
+            syncBtn.textContent = 'Sync updates';
+            syncBtn.disabled = syncBtn.dataset.published !== 'true';
+          }
+        }
+      } catch (err) {
+        console.error(err);
+        alert(err.message || 'Failed to upload elevation photo');
+      } finally {
+        liveElevationUploadBtn.disabled = false;
+        liveElevationUploadBtn.textContent = 'Upload & use photo';
+      }
+    });
+
+    const renderPhotos = (urls = []) => {
+      if (!photoGrid) return;
+      if (!urls.length) {
+        photoGrid.classList.add('placeholder');
+        photoGrid.innerHTML = 'No photos uploaded.';
+        return;
+      }
+      photoGrid.classList.remove('placeholder');
+      photoGrid.innerHTML = '';
+      urls.forEach((src) => {
+        const div = document.createElement('div');
+        div.className = 'listing-photo-thumb';
+        div.dataset.photoUrl = src;
+        const img = document.createElement('img');
+        img.src = src;
+        img.alt = 'Listing photo';
+        img.loading = 'lazy';
+        const btn = document.createElement('button');
+        btn.type = 'button';
+        btn.className = 'btn btn-sm btn-outline-danger listing-photo-delete';
+        btn.dataset.photoUrl = src;
+        btn.textContent = 'Delete';
+        div.appendChild(img);
+        div.appendChild(btn);
+        photoGrid.appendChild(div);
+      });
+    };
+
+    listingPhotosUploadBtn?.addEventListener('click', async () => {
+      const files = listingPhotosInput?.files ? Array.from(listingPhotosInput.files) : [];
+      if (!files.length) {
+        alert('Choose one or more photos to upload');
+        return;
+      }
+      listingPhotosUploadBtn.disabled = true;
+      const prevText = listingPhotosUploadBtn.textContent;
+      listingPhotosUploadBtn.textContent = 'Uploading...';
+      try {
+        const fd = new FormData();
+        fd.append('communityId', communityId);
+        fd.append('lotId', lotId);
+        files.forEach((f) => fd.append('files', f));
+        const resp = await fetch('/listing-details/upload-photos', {
+          method: 'POST',
+          credentials: 'same-origin',
+          body: fd
+        });
+        const data = await resp.json();
+        if (!resp.ok || !data?.success) throw new Error(data?.message || 'Upload failed');
+
+        const urls = Array.isArray(data.urls) ? data.urls : [];
+        renderPhotos(urls);
+
+        if (syncBtn && syncBtn.dataset.published === 'true') {
+          syncBtn.disabled = true;
+          syncBtn.textContent = 'Syncing...';
+          try {
+            const syncResp = await fetch('/listing-details/sync', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              credentials: 'same-origin',
+              body: JSON.stringify({ communityId, lotId })
+            });
+            const syncData = await syncResp.json();
+            if (!syncResp.ok || !syncData?.success) throw new Error(syncData?.message || 'Sync failed');
+          } catch (syncErr) {
+            console.error(syncErr);
+            alert(syncErr.message || 'Uploaded, but failed to sync to BuildRootz');
+          } finally {
+            syncBtn.textContent = 'Sync updates';
+            syncBtn.disabled = syncBtn.dataset.published !== 'true';
+          }
+        }
+      } catch (err) {
+        console.error(err);
+        alert(err.message || 'Failed to upload photos');
+      } finally {
+        listingPhotosUploadBtn.disabled = false;
+        listingPhotosUploadBtn.textContent = prevText;
+      }
+    });
+
+    photoGrid?.addEventListener('click', async (e) => {
+      const btn = e.target.closest('.listing-photo-delete');
+      if (!btn) return;
+      const url = btn.dataset.photoUrl;
+      if (!url) return;
+      btn.disabled = true;
+      const prevText = btn.textContent;
+      btn.textContent = 'Removing...';
+      try {
+        const resp = await fetch('/listing-details/delete-photo', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          credentials: 'same-origin',
+          body: JSON.stringify({ communityId, lotId, url })
+        });
+        const data = await resp.json();
+        if (!resp.ok || !data?.success) throw new Error(data?.message || 'Delete failed');
+        const urls = Array.isArray(data.urls) ? data.urls : [];
+        renderPhotos(urls);
+
+        if (syncBtn && syncBtn.dataset.published === 'true') {
+          syncBtn.disabled = true;
+          syncBtn.textContent = 'Syncing...';
+          try {
+            const syncResp = await fetch('/listing-details/sync', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              credentials: 'same-origin',
+              body: JSON.stringify({ communityId, lotId })
+            });
+            const syncData = await syncResp.json();
+            if (!syncResp.ok || !syncData?.success) throw new Error(syncData?.message || 'Sync failed');
+          } catch (syncErr) {
+            console.error(syncErr);
+            alert(syncErr.message || 'Deleted, but failed to sync to BuildRootz');
+          } finally {
+            syncBtn.textContent = 'Sync updates';
+            syncBtn.disabled = syncBtn.dataset.published !== 'true';
+          }
+        }
+      } catch (err) {
+        console.error(err);
+        alert(err.message || 'Failed to delete photo');
+      } finally {
+        btn.textContent = prevText;
+        btn.disabled = false;
+      }
+    });
+
+    syncBtn?.addEventListener('click', async () => {
+      syncBtn.disabled = true;
+      const prevText = syncBtn.textContent;
+      syncBtn.textContent = 'Syncing...';
+      try {
+        const resp = await fetch('/listing-details/sync', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          credentials: 'same-origin',
+          body: JSON.stringify({ communityId, lotId })
+        });
+        const data = await resp.json();
+        if (!resp.ok || !data?.success) {
+          throw new Error(data?.message || 'Sync failed');
+        }
+      } catch (err) {
+        console.error(err);
+        alert(err.message || 'Failed to sync listing');
+      } finally {
+        syncBtn.disabled = publishBtn?.dataset.published !== 'true';
+        syncBtn.textContent = prevText;
+      }
+    });
+
+    const openLightbox = (src, label) => {
+      if (!fpLightbox || !fpLightboxImg) return;
+      fpLightboxImg.src = src;
+      fpLightboxImg.alt = label || 'Floor plan preview';
+      if (fpLightboxLabel) fpLightboxLabel.textContent = label || '';
+      fpLightbox.style.display = 'block';
+    };
+
+    fpThumbsContainer?.addEventListener('click', (e) => {
+      const btn = e.target.closest('.fp-thumb');
+      if (!btn) return;
+      const src = btn.getAttribute('data-fp-src');
+      const img = btn.querySelector('img');
+      if (img && img.dataset.error === '1') return;
+      const label = btn.querySelector('.fp-thumb-label')?.textContent || 'Floor plan';
+      if (src) openLightbox(src, label);
+    });
+
+    const closeLightbox = () => {
+      if (fpLightbox) fpLightbox.style.display = 'none';
+      if (fpLightboxImg) {
+        fpLightboxImg.src = '';
+        fpLightboxImg.alt = '';
+      }
+    };
+
+    fpLightboxClose?.addEventListener('click', closeLightbox);
+    fpLightbox?.addEventListener('click', (e) => {
+      if (e.target === fpLightbox) closeLightbox();
+    });
+
+    // Mark broken thumbs and hide grid if none load
+    const thumbImgs = document.querySelectorAll('img[data-fp-img]');
+    thumbImgs.forEach((img) => {
+      img.addEventListener('error', () => {
+        img.dataset.error = '1';
+        img.style.display = 'none';
+        hideBrokenThumbs();
+      });
+    });
+
+    const hideBrokenThumbs = () => {
+      if (!fpThumbsContainer) return;
+      const thumbs = fpThumbsContainer.querySelectorAll('.fp-thumb');
+      const visibleThumb = Array.from(thumbs).some((btn) => {
+        const img = btn.querySelector('img');
+        return img && img.dataset.error !== '1';
+      });
+      if (!visibleThumb && thumbs.length) {
+        fpThumbsContainer.style.display = 'none';
+      }
+    };
+    hideBrokenThumbs();
+
+    // Client-side PDF -> image fallback using pdf.js for file-only previews
+    (async () => {
+      if (!fpFiles.length || !window['pdfjsLib']) return;
+      try {
+        // Configure worker (served locally)
+        pdfjsLib.GlobalWorkerOptions.workerSrc = '/assets/vendor/pdfjs/pdf.worker.min.js';
+      } catch (err) {
+        console.warn('pdfjs not available', err);
+        return;
+      }
+
+      const addThumb = (dataUrl, label) => {
+        if (!fpThumbsContainer) return;
+        const btn = document.createElement('button');
+        btn.type = 'button';
+        btn.className = 'fp-thumb';
+        btn.setAttribute('aria-label', `View ${label || 'Floor plan'}`);
+        btn.dataset.fpSrc = dataUrl;
+        btn.innerHTML = `
+          <img src="${dataUrl}" alt="${label || 'Floor plan'} thumbnail" loading="lazy" data-fp-img="1">
+          <span class="fp-thumb-label">${label || 'Floor plan'}</span>
+        `;
+        fpThumbsContainer.appendChild(btn);
+        fpThumbsContainer.style.display = '';
+      };
+
+      for (const fp of fpFiles) {
+        try {
+          const url = fp.url;
+          if (!url || !/\.pdf($|\\?)/i.test(url)) continue;
+          const loadingTask = pdfjsLib.getDocument(url);
+          const pdf = await loadingTask.promise;
+          const page = await pdf.getPage(1);
+          const viewport = page.getViewport({ scale: 1.5 });
+          const canvas = document.createElement('canvas');
+          const context = canvas.getContext('2d', { willReadFrequently: true });
+          canvas.width = viewport.width;
+          canvas.height = viewport.height;
+          await page.render({ canvasContext: context, viewport }).promise;
+          const dataUrl = canvas.toDataURL('image/png');
+          if (dataUrl) addThumb(dataUrl, fp.label || 'Floor plan');
+        } catch (err) {
+          console.warn('Failed to render PDF preview', err);
+        }
+      }
+    })();
+
+    saveContentBtn?.addEventListener('click', async () => {
+      const promoText = promoInput?.value ?? '';
+      const listingDescription = descriptionInput?.value ?? '';
+      const liveElevationPhoto = liveElevationInput?.value ?? '';
+      const salesContactNameVal = salesContactName?.value ?? '';
+      const salesContactPhoneVal = salesContactPhone?.value ?? '';
+      const salesContactEmailVal = salesContactEmail?.value ?? '';
+      const latitudeVal = latitudeInput?.value ?? '';
+      const longitudeVal = longitudeInput?.value ?? '';
+      saveContentBtn.disabled = true;
+      const prevText = saveContentBtn.textContent;
+      saveContentBtn.textContent = 'Saving...';
+      try {
+        const resp = await fetch('/listing-details/content', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          credentials: 'same-origin',
+          body: JSON.stringify({
+            communityId,
+            lotId,
+            promoText,
+            listingDescription,
+            liveElevationPhoto,
+            salesContactName: salesContactNameVal,
+            salesContactPhone: salesContactPhoneVal,
+            salesContactEmail: salesContactEmailVal,
+            latitude: latitudeVal,
+            longitude: longitudeVal
+          })
+        });
+        const data = await resp.json();
+        if (!resp.ok || !data?.success) {
+          throw new Error(data?.message || 'Save failed');
+        }
+        if (syncBtn && syncBtn.dataset.published === 'true') {
+          syncBtn.disabled = true;
+          syncBtn.textContent = 'Syncing...';
+          try {
+            const syncResp = await fetch('/listing-details/sync', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              credentials: 'same-origin',
+              body: JSON.stringify({ communityId, lotId })
+            });
+            const syncData = await syncResp.json();
+            if (!syncResp.ok || !syncData?.success) {
+              throw new Error(syncData?.message || 'Sync failed');
+            }
+          } catch (syncErr) {
+            console.error(syncErr);
+            alert(syncErr.message || 'Saved, but failed to sync to BuildRootz');
+          } finally {
+            syncBtn.textContent = 'Sync updates';
+            syncBtn.disabled = syncBtn.dataset.published !== 'true';
+          }
+        }
+      } catch (err) {
+        console.error(err);
+        alert(err.message || 'Failed to save listing content');
+      } finally {
+        saveContentBtn.disabled = false;
+        saveContentBtn.textContent = prevText;
+      }
+    });
+
+    geocodeBtn?.addEventListener('click', async () => {
+      geocodeBtn.disabled = true;
+      const prev = geocodeBtn.textContent;
+      geocodeBtn.textContent = 'Looking up...';
+      try {
+        const body = {
+          address: <%- JSON.stringify(lotData.modelAddress?.street || lotData.address || '') %>,
+          city: <%- JSON.stringify(lotData.modelAddress?.city || lotData.location || '') %>,
+          state: <%- JSON.stringify(lotData.modelAddress?.state || '') %>,
+          zip: <%- JSON.stringify(lotData.modelAddress?.zip || '') %>
+        };
+        const resp = await fetch('/listing-details/geocode', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          credentials: 'same-origin',
+          body: JSON.stringify(body)
+        });
+        const data = await resp.json();
+        if (!resp.ok || !data?.success) throw new Error(data?.message || 'Geocoding failed');
+        if (latitudeInput) latitudeInput.value = data.latitude ?? '';
+        if (longitudeInput) longitudeInput.value = data.longitude ?? '';
+      } catch (err) {
+        console.error(err);
+        alert(err.message || 'Could not fetch coordinates');
+      } finally {
+        geocodeBtn.disabled = false;
+        geocodeBtn.textContent = prev;
+      }
+    });
+
+    // Section tabs (folder-like anchors)
+    (() => {
+      const panes = document.querySelectorAll('.section-pane');
+      sectionTabs.forEach((tab) => {
+        tab.addEventListener('click', () => {
+          const target = tab.getAttribute('data-target');
+          sectionTabs.forEach((t) => t.classList.remove('active'));
+          tab.classList.add('active');
+          panes.forEach((p) => p.classList.remove('active'));
+          if (target) {
+            const el = document.querySelector(target);
+            if (el) el.classList.add('active');
+          }
+        });
+      });
+      // default to first tab active on load
+      const firstTab = sectionTabs[0];
+      if (firstTab) firstTab.click();
+    })();
+  })();
+</script>
+</body>
+</html>

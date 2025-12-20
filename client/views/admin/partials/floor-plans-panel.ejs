@@ -1,6 +1,22 @@
+  <style>
+    /* Override global hide rule for modals on this page */
+    #editPlanModal.modal-open {
+      display: flex !important;
+      opacity: 1 !important;
+      pointer-events: auto !important;
+    }
+  </style>
   <div class="admin-floorplans-layout">
-    <main class="add-lead-wrapper">
-      <h1>Add a New Floor Plan</h1>
+    <div class="d-flex align-items-center justify-content-between flex-wrap mb-3">
+      <h1 class="mb-2">Floor Plans</h1>
+      <div class="btn-group" role="group" aria-label="Floor plan tabs">
+        <button type="button" class="btn btn-outline-primary active" data-tab-target="add-tab">Add New Floor Plan</button>
+        <button type="button" class="btn btn-outline-primary" data-tab-target="existing-tab">Existing Floor Plans</button>
+      </div>
+    </div>
+
+    <main class="add-lead-wrapper tab-panel" id="add-tab">
+      <h2 class="h5 mb-3">Add a New Floor Plan</h2>
 
       <form id="floorPlanForm" class="mb-5">
         <div class="mb-3">
@@ -30,6 +46,11 @@
           </div>
         </div>
         <div class="mb-3 mt-3">
+          <label for="planFile" class="form-label">Floor Plan File (PDF or image)</label>
+          <input id="planFile" class="form-control" name="planFile" type="file" accept=".pdf,.png,.jpg,.jpeg" />
+          <div class="form-text" id="planFileStatus">Upload a PDF to auto-generate a PNG preview.</div>
+        </div>
+        <div class="mb-3 mt-3">
           <label for="communities" class="form-label">Communities</label>
           <select id="communities" class="form-select" name="communities" multiple required>
             <!-- Options populated via JS -->
@@ -41,8 +62,8 @@
       </form>
     </main>
 
-    <section class="mt-4 admin-floorplans-table" id="existingPlansSection">
-      <h2 class="h4">Existing Floor Plans</h2>
+    <section class="mt-4 admin-floorplans-table tab-panel" id="existing-tab" style="display:none;">
+      <h2 class="h5 mb-3">Existing Floor Plans</h2>
       <div class="table-responsive">
         <table class="table table-striped table-sm align-middle floor-plans-table" id="plansTable">
           <thead>
@@ -68,16 +89,66 @@
     <div class="modal-content" style="max-width: 520px; width: 100%;">
       <div class="d-flex justify-content-between align-items-start mb-3">
         <div>
-          <h5 class="mb-1">Edit Floor Plan Communities</h5>
+          <h5 class="mb-1">Edit Floor Plan</h5>
           <p class="text-muted mb-0" id="editPlanSummary"></p>
         </div>
         <button type="button" class="btn-close" aria-label="Close" id="closeEditPlan"></button>
       </div>
       <form id="editPlanForm" autocomplete="off">
+        <div class="row g-3">
+          <div class="col-md-6">
+            <label for="editPlanNumber" class="form-label">Floor Plan #</label>
+            <input id="editPlanNumber" class="form-control" name="planNumber" required />
+          </div>
+          <div class="col-md-6">
+            <label for="editPlanName" class="form-label">Floor Plan Name</label>
+            <input id="editPlanName" class="form-control" name="name" required />
+          </div>
+        </div>
+        <div class="row g-3 mt-2">
+          <div class="col-md-3">
+            <label for="editSquareFeet" class="form-label">Square Feet</label>
+            <input id="editSquareFeet" class="form-control" name="squareFeet" type="number" min="0" required />
+          </div>
+          <div class="col-md-3">
+            <label for="editBeds" class="form-label">Beds</label>
+            <input id="editBeds" class="form-control" name="beds" type="number" min="0" required />
+          </div>
+          <div class="col-md-3">
+            <label for="editBaths" class="form-label">Baths</label>
+            <input id="editBaths" class="form-control" name="baths" type="number" step="0.5" min="0" required />
+          </div>
+          <div class="col-md-3">
+            <label for="editGarage" class="form-label">Garage Spaces</label>
+            <input id="editGarage" class="form-control" name="garage" type="number" min="0" required />
+          </div>
+        </div>
+        <div class="mb-3 mt-3">
+          <label for="editPlanFile" class="form-label">Floor Plan File (PDF or image)</label>
+          <div class="d-flex gap-2 align-items-center">
+            <input id="editPlanFile" class="form-control" name="editPlanFile" type="file" accept=".pdf,.png,.jpg,.jpeg" />
+            <button type="button" class="btn btn-outline-danger btn-sm" id="removePlanFile">Remove file</button>
+          </div>
+          <div class="form-text" id="editPlanFileStatus">Upload a PDF to auto-generate a PNG preview.</div>
+          <div class="mt-2" id="editPlanPreviewContainer" style="display:none;">
+            <img id="editPlanPreview" alt="Plan preview" style="max-width:100%; border:1px solid #e5e7eb; border-radius:8px;" />
+          </div>
+          <div class="mt-2" id="editPlanFileLink" style="display:none;">
+            <a href="#" id="editPlanFileAnchor" target="_blank" rel="noopener">View plan file</a>
+          </div>
+        </div>
         <div class="mb-3">
           <label for="editCommunities" class="form-label">Communities</label>
           <select id="editCommunities" class="form-select" multiple></select>
           <div class="form-text">Hold Ctrl/Cmd to select multiple communities.</div>
+        </div>
+        <div class="mb-3">
+          <div class="d-flex justify-content-between align-items-center mb-2">
+            <label class="form-label mb-0">Elevations</label>
+            <button type="button" class="btn btn-sm btn-outline-primary" id="addElevation">Add Elevation</button>
+          </div>
+          <div id="editElevationsList" class="d-flex flex-column gap-3"></div>
+          <div class="form-text">Upload a PDF or image per elevation to auto-generate PNG previews. Add sqft if it differs by elevation.</div>
         </div>
         <div class="d-flex justify-content-end gap-2">
           <button type="button" class="btn btn-outline-secondary" id="cancelEditPlan">Cancel</button>
@@ -92,6 +163,10 @@
       const form = document.getElementById('floorPlanForm');
       const statusEl = document.getElementById('statusMsg');
       const communitiesSelect = document.getElementById('communities');
+      const planFileInput = document.getElementById('planFile');
+      const planFileStatus = document.getElementById('planFileStatus');
+      const tabButtons = document.querySelectorAll('[data-tab-target]');
+      const tabPanels = document.querySelectorAll('.tab-panel');
       const plansTableBody = document.querySelector('#plansTable tbody');
       const editModal = document.getElementById('editPlanModal');
       const editForm = document.getElementById('editPlanForm');
@@ -99,10 +174,56 @@
       const editPlanSummary = document.getElementById('editPlanSummary');
       const closeEditPlanBtn = document.getElementById('closeEditPlan');
       const cancelEditPlanBtn = document.getElementById('cancelEditPlan');
+      const editPlanNumber = document.getElementById('editPlanNumber');
+      const editPlanName = document.getElementById('editPlanName');
+      const editSquareFeet = document.getElementById('editSquareFeet');
+      const editBeds = document.getElementById('editBeds');
+      const editBaths = document.getElementById('editBaths');
+      const editGarage = document.getElementById('editGarage');
+      const editPlanFileInput = document.getElementById('editPlanFile');
+      const editPlanFileStatus = document.getElementById('editPlanFileStatus');
+      const editPlanPreview = document.getElementById('editPlanPreview');
+      const editPlanPreviewContainer = document.getElementById('editPlanPreviewContainer');
+      const editPlanFileLink = document.getElementById('editPlanFileLink');
+      const editPlanFileAnchor = document.getElementById('editPlanFileAnchor');
+      const editElevationsList = document.getElementById('editElevationsList');
+      const addElevationBtn = document.getElementById('addElevation');
+      const removePlanFileBtn = document.getElementById('removePlanFile');
 
       const communitiesMap = new Map();
       let plansCache = [];
       let currentEditPlanId = null;
+      let uploadedAsset = null;
+      let editUploadedAsset = null;
+      let editCurrentAsset = null;
+      let editElevations = [];
+      let editRemoveAsset = false;
+
+      // Client-side PDF -> image rendering (fallback when server cannot generate preview)
+      async function renderPdfToImg(url, imgEl, statusEl) {
+        if (!url || !imgEl || !window['pdfjsLib']) return null;
+        try {
+          pdfjsLib.GlobalWorkerOptions.workerSrc = '/assets/vendor/pdfjs/pdf.worker.min.js';
+          const loadingTask = pdfjsLib.getDocument(url);
+          const pdf = await loadingTask.promise;
+          const page = await pdf.getPage(1);
+          const viewport = page.getViewport({ scale: 1.5 });
+          const canvas = document.createElement('canvas');
+          const context = canvas.getContext('2d', { willReadFrequently: true });
+          canvas.width = viewport.width;
+          canvas.height = viewport.height;
+          await page.render({ canvasContext: context, viewport }).promise;
+          const dataUrl = canvas.toDataURL('image/png');
+          if (dataUrl) {
+            imgEl.src = dataUrl;
+            return dataUrl;
+          }
+        } catch (err) {
+          console.warn('Client PDF render failed', err);
+          if (statusEl) statusEl.textContent = 'Preview failed client-side. Open the PDF file.';
+        }
+        return null;
+      }
 
       const html = String.raw;
       const dateFormatter = new Intl.DateTimeFormat(undefined, {
@@ -145,11 +266,153 @@
         return badges;
       };
 
+      const renderElevations = () => {
+        if (!editElevationsList) return;
+        if (!Array.isArray(editElevations)) editElevations = [];
+        editElevationsList.innerHTML = '';
+
+        if (!editElevations.length) {
+          const empty = document.createElement('div');
+          empty.className = 'text-muted small';
+          empty.textContent = 'No elevations added yet.';
+          editElevationsList.appendChild(empty);
+          return;
+        }
+
+        editElevations.forEach((entry, idx) => {
+          const row = document.createElement('div');
+          row.className = 'p-2 border rounded elevation-row';
+          row.dataset.idx = idx;
+
+          row.innerHTML = `
+            <div class="row g-2 align-items-center">
+              <div class="col-md-4">
+                <label class="form-label mb-1">Name</label>
+                <input type="text" class="form-control form-control-sm elevation-name" data-idx="${idx}" value="${entry.name || ''}">
+              </div>
+              <div class="col-md-3">
+                <label class="form-label mb-1">Sqft (optional)</label>
+                <input type="number" min="0" class="form-control form-control-sm elevation-sqft" data-idx="${idx}" value="${entry.squareFeet ?? ''}">
+              </div>
+              <div class="col-md-5">
+                <label class="form-label mb-1">File (PDF or image)</label>
+                <input type="file" class="form-control form-control-sm elevation-file" data-idx="${idx}" accept=".pdf,.png,.jpg,.jpeg">
+                <div class="small text-muted mt-1 elevation-file-status" data-idx="${idx}">
+                  ${entry.asset?.originalFilename || 'Upload to generate preview.'}
+                </div>
+              </div>
+            </div>
+            <div class="mt-2">
+              <div class="elevation-preview" data-idx="${idx}" style="display:${entry.asset?.previewUrl ? 'block' : 'none'};">
+                ${entry.asset?.previewUrl ? `<img src="${entry.asset.previewUrl}" alt="Elevation preview" style="max-width:100%; border:1px solid #e5e7eb; border-radius:6px;">` : ''}
+              </div>
+            </div>
+          `;
+          editElevationsList.appendChild(row);
+        });
+
+        // wire up listeners after render
+        editElevationsList.querySelectorAll('.elevation-name').forEach((input) => {
+          input.addEventListener('input', (e) => {
+            const i = Number(e.target.dataset.idx);
+            if (!Number.isFinite(i) || !editElevations[i]) return;
+            editElevations[i].name = e.target.value;
+          });
+        });
+
+        editElevationsList.querySelectorAll('.elevation-sqft').forEach((input) => {
+          input.addEventListener('input', (e) => {
+            const i = Number(e.target.dataset.idx);
+            if (!Number.isFinite(i) || !editElevations[i]) return;
+            const val = e.target.value;
+            const num = Number(val);
+            editElevations[i].squareFeet = val === '' || Number.isNaN(num) ? null : num;
+          });
+        });
+
+        editElevationsList.querySelectorAll('.elevation-file').forEach((input) => {
+          input.addEventListener('change', async (e) => {
+            const i = Number(e.target.dataset.idx);
+            if (!Number.isFinite(i) || !editElevations[i]) return;
+            const file = e.target.files?.[0];
+            const statusEl = editElevationsList.querySelector(`.elevation-file-status[data-idx="${i}"]`);
+            const previewEl = editElevationsList.querySelector(`.elevation-preview[data-idx="${i}"]`);
+            if (!file) {
+              editElevations[i].asset = editElevations[i].asset || null;
+              return;
+            }
+            try {
+              if (statusEl) statusEl.textContent = 'Uploading...';
+              const asset = await uploadPlanFile(file);
+              editElevations[i].asset = asset;
+              if (statusEl) statusEl.textContent = asset.originalFilename || file.name;
+              if (previewEl) {
+                previewEl.innerHTML = asset.previewUrl
+                  ? `<img src="${asset.previewUrl}" alt="Elevation preview" style="max-width:100%; border:1px solid #e5e7eb; border-radius:6px;">`
+                  : '';
+                previewEl.style.display = asset.previewUrl ? 'block' : 'none';
+              }
+            } catch (err) {
+              console.error('Elevation upload failed:', err);
+              if (statusEl) {
+                statusEl.textContent = err.message || 'Upload failed.';
+                statusEl.classList.add('text-danger');
+              }
+            }
+          });
+        });
+      };
+
+      const activateTab = (targetId) => {
+        tabPanels.forEach((panel) => {
+          panel.style.display = panel.id === targetId ? '' : 'none';
+        });
+        tabButtons.forEach((btn) => {
+          const isActive = btn.getAttribute('data-tab-target') === targetId;
+          btn.classList.toggle('active', isActive);
+        });
+      };
+
       const planIdOf = (plan) => {
         if (!plan) return '';
         const id = plan._id ?? plan.id;
         return id ? String(id) : '';
       };
+
+      async function uploadPlanFile(file) {
+        if (!file) return null;
+        if (planFileStatus) {
+          planFileStatus.textContent = 'Uploading...';
+          planFileStatus.classList.remove('text-danger');
+        }
+        const formData = new FormData();
+        formData.append('file', file);
+        const res = await fetch('/api/floorplans/upload', {
+          method: 'POST',
+          body: formData
+        });
+        const data = await res.json().catch(() => ({}));
+        if (!res.ok || data.error) {
+          throw new Error(data.error || `Upload failed (${res.status})`);
+        }
+        if (planFileStatus) {
+          const msg = data.previewError
+            ? `Uploaded ${data.originalFilename || file.name} (${data.previewError})`
+            : `Uploaded ${data.originalFilename || file.name}`;
+          planFileStatus.textContent = msg;
+          if (data.previewError && !String(data.previewError).toLowerCase().includes('client will render')) {
+            planFileStatus.classList.add('text-danger');
+          } else {
+            planFileStatus.classList.remove('text-danger');
+          }
+        }
+        return {
+          fileUrl: data.fileUrl || '',
+          previewUrl: data.previewUrl || '',
+          originalFilename: data.originalFilename || file.name,
+          mimeType: data.mimeType || file.type || ''
+        };
+      }
 
       const normalizeCommunityId = (entry) => {
         if (!entry) return null;
@@ -300,27 +563,91 @@
         renderPlans(plansCache);
       }
 
+      // Override edit modal handlers to support full plan editing + file uploads
       function setEditModalVisible(visible) {
         if (!editModal) return;
+        editModal.classList.toggle('modal-open', visible);
         editModal.style.display = visible ? 'flex' : 'none';
         if (!visible) {
           currentEditPlanId = null;
           if (editForm) editForm.reset();
           if (editPlanSummary) editPlanSummary.textContent = '';
+          editUploadedAsset = null;
+          editCurrentAsset = null;
+          editRemoveAsset = false;
+          if (editPlanFileInput) editPlanFileInput.value = '';
+          if (editPlanFileStatus) {
+            editPlanFileStatus.textContent = 'Upload a PDF to auto-generate a PNG preview.';
+            editPlanFileStatus.classList.remove('text-danger');
+          }
+          if (editPlanPreviewContainer) editPlanPreviewContainer.style.display = 'none';
+          editElevations = [];
+          renderElevations();
         }
       }
 
+      
       function openEditModal(planId) {
         if (!planId || !editCommunitiesSelect) return;
         const plan = plansCache.find((p) => planIdOf(p) === String(planId));
         if (!plan) return;
 
         currentEditPlanId = String(planId);
+        editCurrentAsset = plan.asset || null;
+        editRemoveAsset = false;
+        editElevations = Array.isArray(plan.elevations)
+          ? plan.elevations.map((el) => ({
+              name: el?.name || '',
+              asset: el?.asset || null
+            }))
+          : [];
         if (editPlanSummary) {
           const parts = [];
           if (plan.planNumber) parts.push(`#${plan.planNumber}`);
           if (plan.name) parts.push(plan.name);
-          editPlanSummary.textContent = parts.join(' • ') || 'Selected floor plan';
+          editPlanSummary.textContent = parts.join(' - ') || 'Selected floor plan';
+        }
+
+        if (editPlanNumber) editPlanNumber.value = plan.planNumber || '';
+        if (editPlanName) editPlanName.value = plan.name || '';
+        if (editSquareFeet) editSquareFeet.value = plan.specs?.squareFeet ?? '';
+        if (editBeds) editBeds.value = plan.specs?.beds ?? '';
+        if (editBaths) editBaths.value = plan.specs?.baths ?? '';
+        if (editGarage) editGarage.value = plan.specs?.garage ?? '';
+
+        if (editPlanPreview && editPlanPreviewContainer) {
+          const previewSrc = normalizeAssetUrl(plan.asset?.previewUrl || '');
+          if (previewSrc) {
+            editPlanPreview.src = previewSrc;
+            editPlanPreviewContainer.style.display = 'block';
+            if (editPlanFileStatus) editPlanFileStatus.textContent = plan.asset.originalFilename || 'Existing file';
+            if (editPlanFileLink && editPlanFileAnchor && plan.asset?.fileUrl) {
+              editPlanFileAnchor.href = normalizeAssetUrl(plan.asset.fileUrl);
+              editPlanFileLink.style.display = 'block';
+            } else if (editPlanFileLink) {
+              editPlanFileLink.style.display = 'none';
+            }
+          } else {
+            editPlanPreview.src = '';
+            editPlanPreviewContainer.style.display = 'none';
+            if (editPlanFileStatus) {
+              const hasFile = Boolean(plan.asset?.fileUrl || plan.asset?.originalFilename);
+              editPlanFileStatus.textContent = hasFile
+                ? 'No preview generated. Re-upload to create a PNG preview.'
+                : 'Upload a PDF to auto-generate a PNG preview.';
+            }
+            if (editPlanFileLink) editPlanFileLink.style.display = 'none';
+            // try client-side render if we have a PDF file
+            const fileUrl = normalizeAssetUrl(plan.asset?.fileUrl || '');
+            if (fileUrl && fileUrl.toLowerCase().endsWith('.pdf')) {
+              renderPdfToImg(fileUrl, editPlanPreview, editPlanFileStatus).then((dataUrl) => {
+                if (dataUrl && editPlanPreviewContainer) {
+                  editPlanPreviewContainer.style.display = 'block';
+                  if (editPlanFileStatus) editPlanFileStatus.textContent = plan.asset?.originalFilename || 'Existing file';
+                }
+              });
+            }
+          }
         }
 
         populateSelectOptions(editCommunitiesSelect);
@@ -330,6 +657,7 @@
         });
 
         setEditModalVisible(true);
+        renderElevations();
       }
 
       function closeEditModal() {
@@ -354,17 +682,137 @@
         }
       });
 
+      tabButtons.forEach((btn) => {
+        btn.addEventListener('click', () => {
+          const target = btn.getAttribute('data-tab-target') || 'add-tab';
+          activateTab(target);
+        });
+      });
+      // set default tab
+      activateTab('add-tab');
+
+      const normalizeAssetUrl = (url) => {
+        if (!url || typeof url !== 'string') return '';
+        const raw = url.trim().replace(/\\\\/g, '/').replace(/\\/g, '/');
+        if (!raw) return '';
+        if (/^https?:\/\//i.test(raw) || raw.startsWith('/')) return raw;
+        if (raw.includes('/uploads/')) {
+          const idx = raw.indexOf('/uploads/');
+          return raw.slice(idx);
+        }
+        if (raw.includes('uploads/')) {
+          const idx = raw.indexOf('uploads/');
+          return '/' + raw.slice(idx);
+        }
+        return '/' + raw;
+      };
+
+      removePlanFileBtn?.addEventListener('click', () => {
+        editUploadedAsset = null;
+        editCurrentAsset = null;
+        editRemoveAsset = true;
+        if (editPlanFileInput) editPlanFileInput.value = '';
+        if (editPlanPreview) editPlanPreview.src = '';
+        if (editPlanPreviewContainer) editPlanPreviewContainer.style.display = 'none';
+        if (editPlanFileLink) editPlanFileLink.style.display = 'none';
+        if (editPlanFileStatus) editPlanFileStatus.textContent = 'File will be removed on save.';
+      });
+
+      addElevationBtn?.addEventListener('click', () => {
+        editElevations = Array.isArray(editElevations) ? editElevations : [];
+        editElevations.push({ name: '', asset: null });
+        renderElevations();
+      });
+
+      editPlanFileInput?.addEventListener('change', async (event) => {
+        const file = event.target.files?.[0];
+        if (!file) {
+          editUploadedAsset = null;
+          if (editPlanFileStatus) editPlanFileStatus.textContent = 'Upload a PDF to auto-generate a PNG preview.';
+          return;
+        }
+        try {
+          editUploadedAsset = await uploadPlanFile(file);
+          if (editPlanPreview && editPlanPreviewContainer && editUploadedAsset?.previewUrl) {
+            editPlanPreview.src = editUploadedAsset.previewUrl;
+            editPlanPreviewContainer.style.display = 'block';
+            editPlanFileStatus.textContent = editUploadedAsset.originalFilename || file.name;
+          } else if (editPlanPreview && editPlanPreviewContainer && editUploadedAsset?.fileUrl?.toLowerCase().endsWith('.pdf')) {
+            const pdfUrl = normalizeAssetUrl(editUploadedAsset.fileUrl);
+            const rendered = await renderPdfToImg(pdfUrl, editPlanPreview, editPlanFileStatus);
+            if (rendered) {
+              editPlanPreviewContainer.style.display = 'block';
+              editPlanFileStatus.textContent = editUploadedAsset.originalFilename || file.name;
+            }
+          }
+          editRemoveAsset = false;
+        } catch (err) {
+          console.error('Upload failed:', err);
+          editUploadedAsset = null;
+          if (editPlanFileStatus) {
+            editPlanFileStatus.textContent = err.message || 'Upload failed.';
+            editPlanFileStatus.classList.add('text-danger');
+          }
+        }
+      });
+
+      planFileInput?.addEventListener('change', async (event) => {
+        const file = event.target.files?.[0];
+        if (!file) {
+          uploadedAsset = null;
+          if (planFileStatus) planFileStatus.textContent = 'Upload a PDF to auto-generate a PNG preview.';
+          return;
+        }
+        try {
+          uploadedAsset = await uploadPlanFile(file);
+          if (!uploadedAsset.previewUrl && uploadedAsset.fileUrl?.toLowerCase().endsWith('.pdf')) {
+            // try client-side render to ensure something shows later
+            await renderPdfToImg(uploadedAsset.fileUrl, new Image(), planFileStatus);
+          }
+        } catch (err) {
+          console.error('Upload failed:', err);
+          uploadedAsset = null;
+          if (planFileStatus) {
+            planFileStatus.textContent = err.message || 'Upload failed.';
+            planFileStatus.classList.add('text-danger');
+          }
+        }
+      });
+
       editForm?.addEventListener('submit', async (event) => {
         event.preventDefault();
         if (!currentEditPlanId || !editCommunitiesSelect) return;
 
         const selectedCommunities = Array.from(editCommunitiesSelect.selectedOptions, (opt) => opt.value);
+        const payload = {
+          planNumber: editPlanNumber?.value?.trim() || '',
+          name: editPlanName?.value?.trim() || '',
+          specs: {
+            squareFeet: Number(editSquareFeet?.value) || 0,
+            beds: Number(editBeds?.value) || 0,
+            baths: Number(editBaths?.value) || 0,
+            garage: Number(editGarage?.value) || 0
+          },
+          communities: selectedCommunities,
+          elevations: (Array.isArray(editElevations) ? editElevations : []).map((el) => ({
+            name: el?.name || '',
+            asset: el?.asset || null
+          }))
+        };
+
+        if (editUploadedAsset) {
+          payload.asset = editUploadedAsset;
+        } else if (editRemoveAsset) {
+          payload.removeAsset = true;
+        } else if (editCurrentAsset) {
+          payload.asset = editCurrentAsset;
+        }
 
         try {
           const res = await fetch(`/api/floorplans/${encodeURIComponent(currentEditPlanId)}`, {
             method: 'PUT',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ communities: selectedCommunities })
+            body: JSON.stringify(payload)
           });
 
           if (!res.ok) {
@@ -397,7 +845,8 @@
             baths: Number(document.getElementById('baths').value) || 0,
             garage: Number(document.getElementById('garage').value) || 0
           },
-          communities: Array.from(communitiesSelect.selectedOptions, opt => opt.value)
+          communities: Array.from(communitiesSelect.selectedOptions, opt => opt.value),
+          ...(uploadedAsset ? { asset: uploadedAsset } : {})
         };
 
         try {
@@ -415,6 +864,8 @@
           const plan = await res.json();
           setStatus(`Created Floor Plan: ${plan.planNumber} - ${plan.name}`);
           form.reset();
+          uploadedAsset = null;
+          if (planFileStatus) planFileStatus.textContent = 'Upload a PDF to auto-generate a PNG preview.';
           prependPlan(plan);
         } catch (error) {
           console.error('Create floor plan failed:', error);
@@ -425,6 +876,6 @@
       hydrate();
     });
   </script>
+  <script src="/assets/vendor/pdfjs/pdf.min.js" nonce="<%= cspNonce %>"></script>
 </body>
 </html>
-

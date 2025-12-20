@@ -22,6 +22,7 @@ const LotSchema = new Schema({
 
   floorPlan: { type: Schema.Types.ObjectId, ref: 'FloorPlan', default: null },
   elevation: String,
+  buildingStatus: String,
 
   // Build/status tracking
   status: String, // (legacy)
@@ -78,6 +79,23 @@ const LotSchema = new Schema({
   // Prices — accept strings, store numbers
   listPrice:  { type: Number, set: toNumOrNull, default: null },
   salesPrice: { type: Number, set: toNumOrNull, default: null },
+
+  // Listing content (scaffold + BuildRootz publish metadata)
+  isPublished:        { type: Boolean, default: false },
+  isListed:           { type: Boolean, default: false },
+  publishedAt:        { type: Date, default: null },
+  buildrootzId:       { type: Schema.Types.Mixed, default: null },
+  publishVersion:     { type: Number, default: 0 },
+  promoText:          { type: String, default: '' },
+  listingDescription: { type: String, default: '' },
+  heroImage:          { type: String, default: '' },
+  listingPhotos:      [{ type: String, default: undefined }],
+  liveElevationPhoto: { type: String, default: '' },
+  salesContactName:   { type: String, default: '' },
+  salesContactPhone:  { type: String, default: '' },
+  salesContactEmail:  { type: String, default: '' },
+  latitude:           { type: Number, set: toNumOrNull, default: null },
+  longitude:          { type: Number, set: toNumOrNull, default: null }
 }, { _id: true });
 
 const CommunitySchema = new Schema({

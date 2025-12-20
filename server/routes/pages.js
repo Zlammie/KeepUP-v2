@@ -1,6 +1,7 @@
 // routes/pages.js (tenant-scoped, READONLY-gated)
 const express = require('express');
 const mongoose = require('mongoose');
+const path = require('path');
 const router = express.Router();
 
 const ensureAuth  = require('../middleware/ensureAuth');
@@ -13,13 +14,16 @@ const Lender      = require('../models/lenderModel');
 const Community   = require('../models/Community');
 const Competition = require('../models/Competition');
 const FloorPlanComp = require('../models/floorPlanComp');
+const FloorPlan = require('../models/FloorPlan');
 const CommunityCompetitionProfile = require('../models/communityCompetitionProfile');
 const Company = require('../models/Company');
 const Task = require('../models/Task');
 const User = require('../models/User');
 const AutoFollowUpSchedule = require('../models/AutoFollowUpSchedule');
 const AutoFollowUpAssignment = require('../models/AutoFollowUpAssignment');
+const { publishHome, unpublishHome, syncHome } = require('../services/buildrootzPublisher');
 const { hydrateTaskLinks, groupTasksByAttachment } = require('../utils/taskLinkedDetails');
+const upload = require('../middleware/upload');
 const {
   filterCommunitiesForUser,
   hasCommunityAccess,
@@ -30,10 +34,40 @@ const isId = v => mongoose.Types.ObjectId.isValid(String(v));
 const isSuper = req => (req.user?.roles || []).includes('SUPER_ADMIN');
 const isCompanyAdmin = req => (req.user?.roles || []).includes('COMPANY_ADMIN');
 const base = req => (isSuper(req) ? {} : { company: req.user.company });
+const uploadsDir = process.env.UPLOADS_DIR
+  ? path.resolve(process.env.UPLOADS_DIR)
+  : path.join(process.cwd(), 'uploads');
+
+const toPublicPath = (absPath) => {
+  if (!absPath) return '';
+  const rel = path.relative(uploadsDir, absPath).replace(/\\/g, '/');
+  return `/uploads/${rel}`;
+};
 const normalizeGarageType = (value) => {
   const norm = typeof value === 'string' ? value.trim().toLowerCase() : '';
   if (norm === 'front') return 'Front';
   if (norm === 'rear') return 'Rear';
+  return null;
+};
+
+const parseLatLng = (val) => {
+  if (val === '' || val == null) return null;
+  if (typeof val === 'number') return Number.isFinite(val) ? val : null;
+  const str = String(val).trim();
+  if (!str) return null;
+
+  // Decimal
+  const dec = Number(str);
+  if (Number.isFinite(dec)) return dec;
+
+  // DMS formats like 33°17'44.3"N
+  const dmsMatch = str.match(/^(-?\d+(?:\.\d+)?)°\s*(\d+(?:\.\d+)?)'\s*(\d+(?:\.\d+)?)"\s*([NSEW])$/i);
+  if (dmsMatch) {
+    const [, d, m, s, hemi] = dmsMatch;
+    let deg = Number(d) + Number(m) / 60 + Number(s) / 3600;
+    if (['S', 'W'].includes(hemi.toUpperCase())) deg *= -1;
+    return Number.isFinite(deg) ? deg : null;
+  }
   return null;
 };
 
@@ -672,6 +706,80 @@ router.get(
   }
 );
 
+router.get(
+  '/listings',
+  ensureAuth,
+  requireRole('READONLY', 'USER', 'MANAGER', 'COMPANY_ADMIN', 'SUPER_ADMIN'),
+  async (req, res, next) => {
+    try {
+      const filter = { ...base(req) };
+      const allowed = getAllowedCommunityIds(req.user || {});
+
+      if (allowed.length) {
+        const allowedObjectIds = allowed
+          .filter(isId)
+          .map((id) => new mongoose.Types.ObjectId(id));
+        filter._id = { $in: allowedObjectIds };
+      }
+
+      const communities = await Community.find(filter)
+        .select('name city state lots')
+        .lean();
+
+      const scopedCommunities = filterCommunitiesForUser(req.user, communities);
+      const communityOptions = scopedCommunities
+        .map((community) => ({
+          id: String(community._id),
+          name: community.name || 'Community',
+          location: [community.city, community.state].filter(Boolean).join(', ')
+        }))
+        .sort((a, b) => a.name.localeCompare(b.name));
+
+      const lots = [];
+      scopedCommunities.forEach((community) => {
+        const communityName = community.name || 'Community';
+        const location = [community.city, community.state].filter(Boolean).join(', ');
+        (community.lots || []).forEach((lot) => {
+          lots.push({
+            id: lot?._id ? String(lot._id) : '',
+            communityId: community._id ? String(community._id) : '',
+            communityName,
+            location,
+            jobNumber: lot.jobNumber || '',
+            lot: lot.lot || '',
+            block: lot.block || '',
+            address: lot.address || '',
+            status: lot.generalStatus || lot.status || 'Available',
+            releaseDate: lot.releaseDate || null,
+            completionDate: lot.expectedCompletionDate || null,
+            listPrice: lot.listPrice,
+            salesPrice: lot.salesPrice,
+            listed: Boolean(
+              lot.isPublished ?? lot.isListed ?? lot.listed ?? lot.listingActive ?? false
+            )
+          });
+        });
+      });
+
+      const sortedLots = lots.sort((a, b) => {
+        const communityCompare = a.communityName.localeCompare(b.communityName);
+        if (communityCompare !== 0) return communityCompare;
+        const lotA = a.lot || a.jobNumber || '';
+        const lotB = b.lot || b.jobNumber || '';
+        return lotA.localeCompare(lotB);
+      });
+
+      res.render('pages/listings', {
+        active: 'listings',
+        communities: communityOptions,
+        lots: sortedLots
+      });
+    } catch (err) {
+      next(err);
+    }
+  }
+);
+
 // ????????????????????????? lists ?????????????????????????
 router.get('/contacts', ensureAuth, requireRole('READONLY','USER','MANAGER','COMPANY_ADMIN','SUPER_ADMIN'),
   async (req, res, next) => {
@@ -767,6 +875,435 @@ router.get('/address-details', ensureAuth, requireRole('READONLY','USER','MANAGE
       return res.status(404).send('Community not found');
     }
     res.render('pages/address-details', { communityId, lotId, active: 'community' });
+  }
+);
+
+router.get('/listing-details', ensureAuth, requireRole('READONLY','USER','MANAGER','COMPANY_ADMIN','SUPER_ADMIN'),
+  async (req, res, next) => {
+    try {
+      const { communityId, lotId } = req.query;
+      if (!isId(communityId) || !isId(lotId)) return res.status(400).send('Invalid ID');
+      if (!hasCommunityAccess(req.user, communityId)) return res.status(404).send('Community not found');
+
+      const community = await Community.findOne({ _id: communityId, ...base(req) })
+        .select('name city state lots')
+        .populate('lots.floorPlan', 'name planNumber specs.squareFeet specs.beds specs.baths specs.garage asset elevations')
+        .lean();
+      if (!community) return res.status(404).send('Community not found');
+
+      const lot = (community.lots || []).find((l) => l && String(l._id) === String(lotId));
+      if (!lot) return res.status(404).send('Lot not found');
+
+      // Ensure we have full floor plan details (including asset) even if populate missed
+      let floorPlanDoc = null;
+      const rawFloorPlan = lot.floorPlan;
+      if (rawFloorPlan && typeof rawFloorPlan === 'object') {
+        floorPlanDoc = rawFloorPlan;
+      } else if (isId(rawFloorPlan)) {
+        floorPlanDoc = await FloorPlan.findOne(
+          { _id: rawFloorPlan, ...base(req) },
+          'name planNumber specs asset elevations'
+        ).lean();
+      }
+      if (floorPlanDoc && (!floorPlanDoc.specs || floorPlanDoc.specs.garage === undefined)) {
+        const refreshed = await FloorPlan.findOne(
+          { _id: floorPlanDoc._id, ...base(req) },
+          'name planNumber specs asset elevations'
+        ).lean();
+        if (refreshed) floorPlanDoc = refreshed;
+      }
+
+      const profile = await CommunityCompetitionProfile.findOne({ community: communityId, ...base(req) })
+        .select('hoaFee hoaFrequency tax feeTypes mudFee pidFee pidFeeFrequency communityAmenities promotion schoolISD elementarySchool middleSchool highSchool lotSize salesPerson salesPersonPhone salesPersonEmail address city state zip')
+        .lean();
+
+      const toIso = (value) => {
+        if (!value) return null;
+        const d = new Date(value);
+        return Number.isNaN(d.getTime()) ? null : d.toISOString();
+      };
+
+      const lotView = {
+        id: String(lot._id),
+        communityId: String(community._id),
+        communityName: community.name || 'Community',
+        location: [community.city, community.state].filter(Boolean).join(', '),
+        jobNumber: lot.jobNumber || '',
+        lot: lot.lot || '',
+        block: lot.block || '',
+        address: lot.address || '',
+        status: lot.generalStatus || lot.status || 'Available',
+        releaseDate: toIso(lot.releaseDate),
+        completionDate: toIso(lot.expectedCompletionDate),
+        listPrice: lot.listPrice,
+        salesPrice: null,
+        listed: Boolean(lot.isPublished ?? lot.isListed ?? lot.listed ?? lot.listingActive ?? false),
+        buildingStatus: lot.buildingStatus || lot.status || lot.generalStatus || '',
+        floorPlanName: (floorPlanDoc && (floorPlanDoc.name || floorPlanDoc.planNumber)) || '',
+        floorPlanBeds: floorPlanDoc?.specs?.beds ?? null,
+        floorPlanBaths: floorPlanDoc?.specs?.baths ?? null,
+        floorPlanSqft: floorPlanDoc?.specs?.squareFeet ?? null,
+        floorPlanGarage: floorPlanDoc?.specs?.garage ?? null,
+        lotSize: profile?.lotSize || '',
+        latitude: lot.latitude ?? null,
+        longitude: lot.longitude ?? null,
+        floorPlanPreviews: (() => {
+          const normalizeUrl = (url) => {
+            if (!url || typeof url !== 'string') return '';
+            const raw = url.trim();
+            if (!raw) return '';
+            const cleaned = raw.replace(/\\\\/g, '/').replace(/\\/g, '/');
+            if (/^https?:\/\//i.test(cleaned) || cleaned.startsWith('/')) return cleaned;
+            const uploadsIdx = cleaned.indexOf('/uploads/');
+            if (uploadsIdx >= 0) return cleaned.slice(uploadsIdx);
+            const uploadsIdx2 = cleaned.indexOf('uploads/');
+            if (uploadsIdx2 >= 0) return `/${cleaned.slice(uploadsIdx2)}`;
+            if (cleaned.startsWith('uploads/')) return `/${cleaned}`;
+            return `/${cleaned}`;
+          };
+
+          const previews = [];
+          const addPreview = (url, label, originalFilename, type = 'image') => {
+            const normalizedUrl = normalizeUrl(url);
+            if (!normalizedUrl) return;
+            previews.push({
+              url: normalizedUrl,
+              label: label || 'Floor Plan',
+              originalFilename: originalFilename || '',
+              type
+            });
+          };
+
+          const isPdfUrl = (url) => /\.pdf($|\\?)/i.test(String(url || ''));
+
+          const asset = floorPlanDoc?.asset || {};
+          const primaryUrl = asset.previewUrl || asset.fileUrl;
+          if (primaryUrl) {
+            const type = isPdfUrl(primaryUrl) ? 'file' : 'image';
+            addPreview(primaryUrl, 'Floor Plan', asset.originalFilename, type);
+          }
+
+          if (Array.isArray(floorPlanDoc?.elevations)) {
+            floorPlanDoc.elevations.forEach((el, idx) => {
+              if (!el) return;
+              const label = el.name || `Elevation ${idx + 1}`;
+              const elPrimary = el.asset?.previewUrl || el.asset?.fileUrl;
+              if (!elPrimary) return;
+              const type = isPdfUrl(elPrimary) ? 'file' : 'image';
+              addPreview(elPrimary, label, el.asset?.originalFilename, type);
+            });
+          }
+          return previews;
+        })(),
+        elevation: lot.elevation || '',
+        fees: profile ? {
+          hoaFee: profile.hoaFee,
+          hoaFrequency: profile.hoaFrequency || '',
+          tax: profile.tax,
+          feeTypes: Array.isArray(profile.feeTypes) ? profile.feeTypes : [],
+          mudFee: profile.mudFee,
+          pidFee: profile.pidFee,
+          pidFeeFrequency: profile.pidFeeFrequency || ''
+        } : null,
+        schools: profile ? {
+          isd: profile.schoolISD || '',
+          elementary: profile.elementarySchool || '',
+          middle: profile.middleSchool || '',
+          high: profile.highSchool || ''
+        } : null,
+        salesContact: profile ? {
+          name: lot.salesContactName || profile.salesPerson || '',
+          phone: lot.salesContactPhone || profile.salesPersonPhone || '',
+          email: lot.salesContactEmail || profile.salesPersonEmail || ''
+        } : null,
+        salesContactOverride: {
+          name: lot.salesContactName || '',
+          phone: lot.salesContactPhone || '',
+          email: lot.salesContactEmail || ''
+        },
+        modelAddress: profile ? {
+          street: profile.address || '',
+          city: profile.city || community.city || '',
+          state: profile.state || community.state || '',
+          zip: profile.zip || ''
+        } : null,
+        amenities: Array.isArray(profile?.communityAmenities) ? profile.communityAmenities : [],
+        listingContent: {
+          isPublished: Boolean(lot.isPublished ?? false),
+          promoText: lot.promoText || '',
+          description: lot.listingDescription || '',
+          heroImage: lot.heroImage || '',
+          photos: Array.isArray(lot.listingPhotos) ? lot.listingPhotos : [],
+          liveElevationPhoto: lot.liveElevationPhoto || '',
+          stockElevationPhoto: (() => {
+            const normalizeUrl = (url) => {
+              if (!url || typeof url !== 'string') return '';
+              const raw = url.trim();
+              if (!raw) return '';
+              const cleaned = raw.replace(/\\\\/g, '/').replace(/\\/g, '/');
+              if (/^https?:\/\//i.test(cleaned) || cleaned.startsWith('/')) return cleaned;
+              const uploadsIdx = cleaned.indexOf('/uploads/');
+              if (uploadsIdx >= 0) return cleaned.slice(uploadsIdx);
+              const uploadsIdx2 = cleaned.indexOf('uploads/');
+              if (uploadsIdx2 >= 0) return `/${cleaned.slice(uploadsIdx2)}`;
+              if (cleaned.startsWith('uploads/')) return `/${cleaned}`;
+              return `/${cleaned}`;
+            };
+            if (Array.isArray(floorPlanDoc?.elevations)) {
+              const el = floorPlanDoc.elevations.find((e) => e?.asset?.previewUrl || e?.asset?.fileUrl);
+              const url = el?.asset?.previewUrl || el?.asset?.fileUrl;
+              return normalizeUrl(url);
+            }
+            return '';
+          })()
+        }
+      };
+
+      res.render('pages/listing-details', { active: 'listings', lot: lotView });
+    } catch (err) {
+      next(err);
+    }
+  }
+);
+
+router.post('/listing-details/publish', ensureAuth, requireRole('READONLY','USER','MANAGER','COMPANY_ADMIN','SUPER_ADMIN'),
+  async (req, res, next) => {
+    try {
+      const { communityId, lotId } = req.body;
+      const desired = String(req.body?.isPublished).toLowerCase();
+      const isPublished = desired === 'true' || desired === '1' || desired === 'yes';
+
+      if (!isId(communityId) || !isId(lotId)) return res.status(400).json({ success: false, message: 'Invalid ID' });
+      if (!hasCommunityAccess(req.user, communityId)) return res.status(404).json({ success: false, message: 'Community not found' });
+
+      if (isPublished) {
+        await publishHome(lotId, req.user.company, req.user?._id);
+      } else {
+        await unpublishHome(lotId, req.user.company, req.user?._id);
+      }
+
+      return res.json({ success: true, isPublished });
+    } catch (err) {
+      next(err);
+    }
+  }
+);
+
+router.post('/listing-details/sync', ensureAuth, requireRole('READONLY','USER','MANAGER','COMPANY_ADMIN','SUPER_ADMIN'),
+  async (req, res, next) => {
+    try {
+      const { communityId, lotId } = req.body;
+      if (!isId(communityId) || !isId(lotId)) return res.status(400).json({ success: false, message: 'Invalid ID' });
+      if (!hasCommunityAccess(req.user, communityId)) return res.status(404).json({ success: false, message: 'Community not found' });
+
+      await syncHome(lotId, req.user.company, req.user?._id);
+      return res.json({ success: true });
+    } catch (err) {
+      next(err);
+    }
+  }
+);
+
+router.post('/listing-details/content', ensureAuth, requireRole('READONLY','USER','MANAGER','COMPANY_ADMIN','SUPER_ADMIN'),
+  async (req, res, next) => {
+    try {
+      const { communityId, lotId } = req.body;
+      if (!isId(communityId) || !isId(lotId)) return res.status(400).json({ success: false, message: 'Invalid ID' });
+      if (!hasCommunityAccess(req.user, communityId)) return res.status(404).json({ success: false, message: 'Community not found' });
+
+      const promoText = typeof req.body?.promoText === 'string' ? req.body.promoText : '';
+      const listingDescription = typeof req.body?.listingDescription === 'string' ? req.body.listingDescription : '';
+      const liveElevationPhoto = typeof req.body?.liveElevationPhoto === 'string' ? req.body.liveElevationPhoto : '';
+      const salesContactName = typeof req.body?.salesContactName === 'string' ? req.body.salesContactName : '';
+      const salesContactPhone = typeof req.body?.salesContactPhone === 'string' ? req.body.salesContactPhone : '';
+      const salesContactEmail = typeof req.body?.salesContactEmail === 'string' ? req.body.salesContactEmail : '';
+      const latitude = parseLatLng(req.body?.latitude);
+      const longitude = parseLatLng(req.body?.longitude);
+
+      const community = await Community.findOne(
+        { _id: communityId, ...base(req), 'lots._id': lotId },
+        { 'lots.$': 1 }
+      ).lean();
+      if (!community || !Array.isArray(community.lots) || !community.lots.length) {
+        return res.status(404).json({ success: false, message: 'Lot not found' });
+      }
+
+      await Community.updateOne(
+        { _id: communityId, ...base(req), 'lots._id': lotId },
+        { $set: {
+          'lots.$.promoText': promoText,
+          'lots.$.listingDescription': listingDescription,
+          'lots.$.liveElevationPhoto': liveElevationPhoto,
+          'lots.$.salesContactName': salesContactName,
+          'lots.$.salesContactPhone': salesContactPhone,
+          'lots.$.salesContactEmail': salesContactEmail,
+          'lots.$.latitude': Number.isFinite(latitude) ? latitude : null,
+          'lots.$.longitude': Number.isFinite(longitude) ? longitude : null
+        } }
+      );
+
+      const lot = community.lots[0];
+      if (lot?.isPublished) {
+        try {
+          await syncHome(lotId, req.user.company, req.user?._id);
+        } catch (syncErr) {
+          console.error('listing content sync failed', syncErr);
+        }
+      }
+
+      return res.json({ success: true });
+    } catch (err) {
+      next(err);
+    }
+  }
+);
+
+router.post('/listing-details/upload-elevation', ensureAuth, requireRole('READONLY','USER','MANAGER','COMPANY_ADMIN','SUPER_ADMIN'),
+  upload.single('file'),
+  async (req, res, next) => {
+    try {
+      const { communityId, lotId } = req.body;
+      if (!isId(communityId) || !isId(lotId)) return res.status(400).json({ success: false, message: 'Invalid ID' });
+      if (!hasCommunityAccess(req.user, communityId)) return res.status(404).json({ success: false, message: 'Community not found' });
+      if (!req.file) return res.status(400).json({ success: false, message: 'File is required' });
+
+      const mime = req.file.mimetype || '';
+      if (!mime.startsWith('image/')) {
+        return res.status(400).json({ success: false, message: 'Only image files are allowed' });
+      }
+
+      const url = toPublicPath(req.file.path);
+      const community = await Community.findOne(
+        { _id: communityId, ...base(req), 'lots._id': lotId },
+        { 'lots.$': 1 }
+      ).lean();
+      if (!community || !community.lots?.length) {
+        return res.status(404).json({ success: false, message: 'Lot not found' });
+      }
+
+      await Community.updateOne(
+        { _id: communityId, ...base(req), 'lots._id': lotId },
+        { $set: { 'lots.$.liveElevationPhoto': url } }
+      );
+
+      const lot = community.lots[0];
+      if (lot?.isPublished) {
+        try { await syncHome(lotId, req.user.company, req.user?._id); }
+        catch (syncErr) { console.error('elevation upload sync failed', syncErr); }
+      }
+
+      return res.json({ success: true, url });
+    } catch (err) {
+      next(err);
+    }
+  }
+);
+
+router.post('/listing-details/upload-photos', ensureAuth, requireRole('READONLY','USER','MANAGER','COMPANY_ADMIN','SUPER_ADMIN'),
+  upload.array('files', 25),
+  async (req, res, next) => {
+    try {
+      const { communityId, lotId } = req.body;
+      if (!isId(communityId) || !isId(lotId)) return res.status(400).json({ success: false, message: 'Invalid ID' });
+      if (!hasCommunityAccess(req.user, communityId)) return res.status(404).json({ success: false, message: 'Community not found' });
+      const files = Array.isArray(req.files) ? req.files : [];
+      if (!files.length) return res.status(400).json({ success: false, message: 'Files are required' });
+
+      const urls = files
+        .filter((f) => f?.mimetype?.startsWith('image/'))
+        .map((f) => toPublicPath(f.path))
+        .filter(Boolean);
+
+      if (!urls.length) return res.status(400).json({ success: false, message: 'No valid images uploaded' });
+
+      const community = await Community.findOne(
+        { _id: communityId, ...base(req), 'lots._id': lotId },
+        { 'lots.$': 1 }
+      ).lean();
+      if (!community || !community.lots?.length) {
+        return res.status(404).json({ success: false, message: 'Lot not found' });
+      }
+
+      const lot = community.lots[0];
+      const existing = Array.isArray(lot.listingPhotos) ? lot.listingPhotos : [];
+      const combined = Array.from(new Set([...existing, ...urls]));
+
+      await Community.updateOne(
+        { _id: communityId, ...base(req), 'lots._id': lotId },
+        { $set: { 'lots.$.listingPhotos': combined } }
+      );
+
+      if (lot?.isPublished) {
+        try { await syncHome(lotId, req.user.company, req.user?._id); }
+        catch (syncErr) { console.error('listing photos sync failed', syncErr); }
+      }
+
+      return res.json({ success: true, urls: combined });
+    } catch (err) {
+      next(err);
+    }
+  }
+);
+
+router.post('/listing-details/geocode', ensureAuth, requireRole('READONLY','USER','MANAGER','COMPANY_ADMIN','SUPER_ADMIN'),
+  async (req, res) => {
+    try {
+      const { address, city, state, zip } = req.body || {};
+      const key = process.env.GOOGLE_MAPS_API_KEY;
+      if (!key) return res.status(400).json({ success: false, message: 'Geocoding API key missing' });
+      const parts = [address, city, state, zip].filter(Boolean).map((s) => String(s).trim()).filter(Boolean);
+      if (!parts.length) return res.status(400).json({ success: false, message: 'Address is required' });
+      const qs = encodeURIComponent(parts.join(', '));
+      const url = `https://maps.googleapis.com/maps/api/geocode/json?address=${qs}&key=${encodeURIComponent(key)}`;
+      const resp = await fetch(url);
+      if (!resp.ok) return res.status(502).json({ success: false, message: 'Geocoder error' });
+      const data = await resp.json();
+      const loc = data?.results?.[0]?.geometry?.location;
+      if (!loc || typeof loc.lat !== 'number' || typeof loc.lng !== 'number') {
+        return res.status(404).json({ success: false, message: 'Location not found' });
+      }
+      return res.json({ success: true, latitude: loc.lat, longitude: loc.lng, formattedAddress: data.results?.[0]?.formatted_address || null });
+    } catch (err) {
+      console.error('geocode error', err);
+      return res.status(500).json({ success: false, message: 'Geocoding failed' });
+    }
+  }
+);
+
+router.post('/listing-details/delete-photo', ensureAuth, requireRole('READONLY','USER','MANAGER','COMPANY_ADMIN','SUPER_ADMIN'),
+  async (req, res, next) => {
+    try {
+      const { communityId, lotId, url } = req.body || {};
+      if (!isId(communityId) || !isId(lotId)) return res.status(400).json({ success: false, message: 'Invalid ID' });
+      if (!hasCommunityAccess(req.user, communityId)) return res.status(404).json({ success: false, message: 'Community not found' });
+      if (!url || typeof url !== 'string') return res.status(400).json({ success: false, message: 'Photo URL is required' });
+
+      const community = await Community.findOne(
+        { _id: communityId, ...base(req), 'lots._id': lotId },
+        { 'lots.$': 1 }
+      ).lean();
+      if (!community || !community.lots?.length) {
+        return res.status(404).json({ success: false, message: 'Lot not found' });
+      }
+
+      const lot = community.lots[0];
+      const existing = Array.isArray(lot.listingPhotos) ? lot.listingPhotos : [];
+      const filtered = existing.filter((p) => String(p) !== String(url));
+
+      await Community.updateOne(
+        { _id: communityId, ...base(req), 'lots._id': lotId },
+        { $set: { 'lots.$.listingPhotos': filtered } }
+      );
+
+      if (lot?.isPublished) {
+        try { await syncHome(lotId, req.user.company, req.user?._id); }
+        catch (syncErr) { console.error('listing photo delete sync failed', syncErr); }
+      }
+
+      return res.json({ success: true, urls: filtered });
+    } catch (err) {
+      next(err);
+    }
   }
 );
 

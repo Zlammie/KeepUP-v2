@@ -1,0 +1,310 @@
+.listings-count {
+  min-width: 160px;
+}
+
+.listings-controls {
+  border-bottom: 1px solid #eef2f6;
+  padding-bottom: 8px;
+}
+
+.listings-status-filters .btn {
+  min-width: 72px;
+}
+
+.listings-status-filters .btn.active {
+  background: #0e79b2;
+  color: #fff;
+  border-color: #0e79b2;
+}
+
+.listings-table th {
+  font-size: 12px;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: #5f6b7a;
+  background: #f8fafc;
+}
+
+.listings-table td {
+  font-size: 14px;
+  color: #1f2933;
+}
+
+.listings-community div:first-child {
+  font-weight: 600;
+}
+
+.status-pill {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 4px 10px;
+  border-radius: 999px;
+  font-size: 12px;
+  font-weight: 700;
+  border: 1px solid transparent;
+}
+
+.status-pill--available {
+  background: #e8f7ef;
+  color: #0f9d58;
+  border-color: #c5ead6;
+}
+
+.status-pill--spec {
+  background: #f3e8ff;
+  color: #7c3aed;
+  border-color: #e3d3ff;
+}
+
+.status-pill--coming-soon {
+  background: #fff7e6;
+  color: #c27803;
+  border-color: #f3e3b8;
+}
+
+.status-pill--hold {
+  background: #fff0f0;
+  color: #c20f0f;
+  border-color: #f5c7c7;
+}
+
+.status-pill--model {
+  background: #e6f0ff;
+  color: #1e54b7;
+  border-color: #cbdcf9;
+}
+
+.status-pill--sold {
+  background: #f1f5f9;
+  color: #334155;
+  border-color: #d8e0eb;
+}
+
+.status-pill--closed {
+  background: #e8f5ff;
+  color: #0b6fb9;
+  border-color: #cce5ff;
+}
+
+.status-pill--default {
+  background: #f5f7fa;
+  color: #475569;
+  border-color: #e2e8f0;
+}
+
+.listings-empty {
+  border: 1px dashed #d5e3ef;
+  background: #f9fcff;
+  border-radius: 12px;
+  padding: 14px;
+}
+
+.listing-details__header {
+  border-bottom: 1px solid #eef2f6;
+  padding-bottom: 8px;
+}
+
+.listing-details__grid p {
+  margin-bottom: 0;
+}
+
+.listings-amenity-card {
+  border: 1px solid #eef2f6;
+  border-radius: 10px;
+  padding: 12px;
+  background: #f9fbfd;
+}
+
+.listing-hero-img {
+  width: 100%;
+  min-height: 180px;
+  border-radius: 12px;
+  object-fit: cover;
+  border: 1px solid #eef2f6;
+}
+
+.listing-hero-img.placeholder {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: #f5f7fa;
+  color: #7a8795;
+  font-weight: 600;
+}
+
+.listing-photo-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(120px, 1fr));
+  gap: 10px;
+}
+
+.listing-photo-thumb {
+  width: 100%;
+  border-radius: 10px;
+  border: 1px solid #eef2f6;
+  padding: 6px;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  background: #fff;
+}
+
+.listing-photo-thumb img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+  border-radius: 6px;
+}
+
+.listing-photo-delete {
+  align-self: stretch;
+}
+
+.listing-photo-grid.placeholder {
+  border: 1px dashed #d5e3ef;
+  background: #f9fcff;
+  border-radius: 12px;
+  padding: 12px;
+  color: #7a8795;
+  font-weight: 600;
+  text-align: center;
+}
+
+.listing-content-box {
+  border: 1px solid #eef2f6;
+  border-radius: 10px;
+  padding: 12px;
+  background: #f9fbfd;
+  color: #0f172a;
+  min-height: 80px;
+}
+
+.listing-fp-thumbs {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+}
+
+.fp-thumb {
+  border: 1px solid #e5e7eb;
+  background: #fff;
+  border-radius: 10px;
+  padding: 8px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+  cursor: pointer;
+  transition: transform 0.15s ease, box-shadow 0.15s ease;
+  min-width: 120px;
+}
+
+.fp-thumb:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 4px 12px rgba(0,0,0,0.08);
+}
+
+.fp-thumb img {
+  max-width: 140px;
+  max-height: 120px;
+  object-fit: contain;
+  border-radius: 6px;
+}
+
+.fp-thumb-label {
+  font-size: 12px;
+  color: #475569;
+}
+
+.listing-fp-lightbox {
+  border: 1px solid #e5e7eb;
+  border-radius: 12px;
+  padding: 12px;
+  background: #fff;
+  margin-top: 12px;
+}
+
+.fp-lightbox-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 8px;
+}
+
+.fp-lightbox-body {
+  display: flex;
+  justify-content: center;
+}
+
+.fp-lightbox-body img {
+  max-width: 100%;
+  border-radius: 10px;
+  border: 1px solid #e5e7eb;
+}
+
+.listing-section-bar {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+.listing-section-tabs {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  border-bottom: 1px solid #e5e7eb;
+  padding-bottom: 6px;
+}
+
+.section-tab {
+  border: 1px solid #d9e2ec;
+  border-bottom: none;
+  background: #f8fafc;
+  padding: 8px 14px;
+  border-top-left-radius: 10px;
+  border-top-right-radius: 10px;
+  font-weight: 600;
+  color: #334155;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.section-tab:hover {
+  background: #eef2f6;
+}
+
+.section-tab.active {
+  background: #fff;
+  color: #0f172a;
+  border-color: #cbd5e1;
+  box-shadow: 0 -1px 3px rgba(0,0,0,0.06);
+}
+
+.stock-elevation-img {
+  max-width: 320px;
+}
+
+.section-pane {
+  display: none;
+}
+
+.section-pane.active {
+  display: block;
+}
+
+@media (max-width: 576px) {
+  .listing-details__header {
+    padding-bottom: 12px;
+  }
+}
+
+@media (max-width: 768px) {
+  .listings-table th,
+  .listings-table td {
+    white-space: nowrap;
+  }
+}

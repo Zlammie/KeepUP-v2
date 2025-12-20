@@ -19,6 +19,7 @@ const myCommunityCompetitionRoutes = require('../myCommunityCompetitionRoutes');
 const manageMyCommunityCompetitionRoutes = require('../manageMyCommunityCompetitionRoutes');
 const communityCompetitionProfileRoutes = require('../communityCompetitionProfileRoutes');
 const taskSchedulesApi = require('./task-schedules.api');
+const buildrootzPublishRoutes = require('../buildrootzPublishRoutes');
 
 const router = express.Router();
 
@@ -42,5 +43,6 @@ router.use('/competitions', competitionRoutes);
 router.use('/', myCommunityCompetitionRoutes);
 router.use('/', manageMyCommunityCompetitionRoutes);
 router.use('/', communityCompetitionProfileRoutes);
+router.use('/buildrootz', buildrootzPublishRoutes);
 
 module.exports = router;

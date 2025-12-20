@@ -15,6 +15,9 @@ const currentUserLocals = require('./middleware/currentUserLocals');
 const { formatPhoneForDisplay } = require('./utils/phone');
 
 const app = express();
+const uploadsDir = process.env.UPLOADS_DIR
+  ? path.resolve(process.env.UPLOADS_DIR)
+  : path.join(process.cwd(), 'uploads');
 const isProd = process.env.NODE_ENV === 'production';
 
 const TRUE_SET = new Set(['1', 'true', 'yes', 'on']);
@@ -274,6 +277,7 @@ app.get('/favicon.ico', (req, res) =>
   res.sendFile(path.join(__dirname, '../client/assets/icons/home-icon.svg'))
 );
 app.use('/assets', express.static(path.join(__dirname, '../client/assets')));
+app.use('/uploads', express.static(uploadsDir));
 app.set('views', path.join(__dirname, '../client/views'));
 app.set('view engine', 'ejs');
 
