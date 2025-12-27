@@ -251,6 +251,9 @@ function buildLenderStats(contacts) {
   for (const c of contacts) {
     const cStatus = normalizeContactStatus(c.status);
     const linkedLenders = getLinkedLenderIds(c);
+    if ((c.financeType || '').toLowerCase() === 'cash') {
+      linkedLenders.push('cash');
+    }
     if (!linkedLenders.length) continue;
 
     for (const lid of linkedLenders) {
@@ -311,7 +314,8 @@ document.addEventListener('DOMContentLoaded', async () => {
     const statsByLender = buildLenderStats(contacts);
 
     // Save to state BEFORE init & filtering
-    state.allLenders    = lenders;
+    const hasCashRow = lenders.some(l => String(l._id) === 'cash');
+    state.allLenders    = hasCashRow ? lenders : [...lenders, { _id: 'cash', firstName: 'Cash', lastName: 'Buyer', lenderBrokerage: 'Cash Purchase', isCash: true }];
     state.statsByLender = statsByLender;
 
     initTopBar();

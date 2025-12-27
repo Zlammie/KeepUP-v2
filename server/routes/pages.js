@@ -725,6 +725,14 @@ router.get('/lenders', ensureAuth, requireRole('READONLY','USER','MANAGER','COMP
     const lenders = await Lender.find({ ...base(req) })
       .select('firstName lastName email phone lenderBrokerage visitDate company')
       .lean();
+    lenders.push({
+      _id: 'cash',
+      firstName: 'Cash',
+      lastName: 'Buyer',
+      lenderBrokerage: 'Cash Purchase',
+      email: '',
+      phone: ''
+    });
     res.render('pages/lenders', { lenders, active: 'lenders' });
   }
 );
@@ -778,7 +786,7 @@ router.get('/contact-details', ensureAuth, requireRole('READONLY','USER','MANAGE
       if (!isId(id)) return res.status(400).send('Invalid contact ID');
 
       const contact = await Contact.findOne({ _id: id, ...base(req) })
-        .select('firstName lastName email phone visitDate status notes source communityIds realtorId lenderId lenderStatus lenderInviteDate lenderApprovedDate linkedLot lotLineUp buyTime buyMonth facing living investor renting ownSelling ownNotSelling')
+        .select('firstName lastName email phone visitDate status notes source communityIds realtorId lenderId lenderStatus lenderInviteDate lenderApprovedDate linkedLot lotLineUp buyTime buyMonth facing living investor renting ownSelling ownNotSelling financeType fundsVerified fundsVerifiedDate')
         .populate('realtorId', 'firstName lastName brokerage')
         .populate('lenderId',  'firstName lastName lenderBrokerage')
         .lean();
@@ -813,17 +821,31 @@ router.get('/realtor-details', ensureAuth, requireRole('READONLY','USER','MANAGE
 router.get('/lender-view', ensureAuth, requireRole('READONLY','USER','MANAGER','COMPANY_ADMIN','SUPER_ADMIN'),
   async (req, res) => {
     const id = req.query.id;
-    if (!isId(id)) return res.status(400).send('Invalid lender ID');
+    const isCash = id === 'cash';
+    if (!isCash && !isId(id)) return res.status(400).send('Invalid lender ID');
 
-    const lender = await Lender.findOne({ _id: id, ...base(req) })
-      .populate('company', 'name')
-      .lean();
+    const lender = isCash
+      ? {
+          _id: 'cash',
+          firstName: 'Cash',
+          lastName: 'Buyer',
+          lenderBrokerage: 'Cash Purchase',
+          email: '',
+          phone: ''
+        }
+      : await Lender.findOne({ _id: id, ...base(req) })
+          .populate('company', 'name')
+          .lean();
     if (!lender) return res.status(404).send('Lender not found');
 
     // adjust this filter to your actual schema: either "lenders: { $in: [id] }" (array) or "linkedLender: id" (single)
-    const contacts = await Contact.find({ ...base(req), lenderId: id })
-   .select('firstName lastName email phone')
-   .lean();
+    const contacts = await Contact.find(
+      isCash
+        ? { ...base(req), financeType: 'cash' }
+        : { ...base(req), lenderId: id }
+    )
+      .select('firstName lastName email phone financeType fundsVerified fundsVerifiedDate status')
+      .lean();
 
     res.render('pages/lender-view', { lender, contacts, active: 'lenders' });
   }

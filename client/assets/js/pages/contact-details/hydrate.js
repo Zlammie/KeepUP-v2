@@ -6,6 +6,7 @@ import { populateCommunities } from './communitySection.js';
 import { fillRealtorFields, updateRealtorDisplay } from './realtorSearch.js';
 import * as api from './api.js';
 import { formatPhoneDisplay } from '../../shared/phone.js';
+import { refreshFinanceUI } from './financeToggle.js';
 
 let summaryListenersBound = false;
 
@@ -39,6 +40,7 @@ export async function hydrateAll() {
   setInputValue('owner', contact?.owner);
   const visitDate = contact?.visitDate || contact?.VisitDate || contact?.visit_date;
   setDateInputValue('visit-date', visitDate);
+  refreshFinanceUI(contact);
   await populateRealtor(contact);
 
   // 2) Name in header (already there)

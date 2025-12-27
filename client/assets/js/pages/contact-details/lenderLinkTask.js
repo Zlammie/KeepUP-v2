@@ -278,8 +278,9 @@ function resolveHighlightState(state) {
 
   const status = normalizeStatus(state.contact.status || state.initialStatus);
   const requireCommunity = COMMUNITY_REQUIRED_STATUSES.has(status);
+  const isCash = String(state.contact.financeType || '').toLowerCase() === 'cash';
 
-  if (!PURCHASED_STATUSES.has(status)) {
+  if (!PURCHASED_STATUSES.has(status) || isCash) {
     return {
       highlightInput: false,
       highlightPrimary: false,

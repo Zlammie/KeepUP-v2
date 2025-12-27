@@ -9,6 +9,7 @@ import { getContact } from './state.js';
 import { initLotLinking } from './lotLink.js';
 import { initRealtorSearch } from './realtorSearch.js';
 import { initLenderSearch } from './lenderSearch.js';
+import { initFinanceToggle } from './financeToggle.js';
 import { setupCommentSection } from './commentLoader.js';
 import { on, emit } from './events.js';
 import { initMiscUI } from './ui.js';
@@ -42,6 +43,7 @@ window.addEventListener('DOMContentLoaded', async () => {
     initCommunitySection();    // community select change handler
     initLotLinking();          // linked-lot render from state
     initRealtorSearch();
+    initFinanceToggle();
     initLenderSearch();
     initLotSearch();
     setupCommentSection();

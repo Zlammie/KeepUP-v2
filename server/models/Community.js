@@ -70,6 +70,17 @@ const LotSchema = new Schema({
   firstWalk:    { type: Date, default: null },
   finalSignOff: { type: Date, default: null },
 
+  // Earnest money tracking
+  earnestAmount: { type: Number, set: toNumOrNull, default: null },
+  earnestAdditionalAmount: { type: Number, set: toNumOrNull, default: null },
+  earnestCollectedDate: { type: Date, set: toDateOrNull, default: null },
+  earnestTotal: { type: Number, set: toNumOrNull, default: null },
+  earnestEntries: [{
+    amount: { type: Number, set: toNumOrNull, default: null },
+    dueDate: { type: Date, set: toDateOrNull, default: null },
+    collectedDate: { type: Date, set: toDateOrNull, default: null }
+  }],
+
   lender: String,
 
   // If you truly need date + time, store as Date

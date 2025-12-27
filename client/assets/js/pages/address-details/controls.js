@@ -9,6 +9,8 @@ import {
 } from './statusMaps.js';
 import { splitDateTimeForInputs } from '../../core/datetime.js';
 import { formatCurrency, parseCurrency } from '../../core/currency.js';
+import { renderEarnestRows } from './render.js';
+import { updateEarnestTasks } from './earnestTasks.js';
 
 // --- helpers -------------------------------------------------------
 const restyleSelect = (selectEl, classesMap, newVal) => {
@@ -85,6 +87,20 @@ const saveLotField = async (communityId, lotId, payload) => {
   } catch (e) {
     console.error('Auto-save failed', payload, e);
   }
+};
+
+const parseLocalDate = (value) => {
+  if (!value) return null;
+  if (typeof value === 'string') {
+    const t = value.trim();
+    if (/^\d{4}-\d{2}-\d{2}$/.test(t)) return new Date(`${t}T00:00:00`);
+    if (t.includes('T')) {
+      const [datePart] = t.split('T');
+      if (/^\d{4}-\d{2}-\d{2}$/.test(datePart)) return new Date(`${datePart}T00:00:00`);
+    }
+  }
+  const d = value instanceof Date ? value : new Date(value);
+  return Number.isNaN(d.getTime()) ? null : d;
 };
 
 // --- main attachment ------------------------------------------------
@@ -174,6 +190,128 @@ export const attachAllControls = ({ communityId, lotId, lot, purchaserContact, p
       await saveLotField(communityId, lotId, { walkStatus: v });
       els.walkStatusValue.innerHTML =
         `<span class="status-badge ${walkStatusClasses[v]}">${walkStatusLabels[v]}</span>`;
+    });
+  }
+
+  // 5b) Earnest money (table)
+  const earnestBody = document.getElementById('earnestTableBody');
+  const earnestTotalValue = document.getElementById('earnestTotalValue');
+  const addEarnestRowBtn = document.getElementById('addEarnestRow');
+
+  const collectEarnestEntries = () => {
+    if (!earnestBody) return [];
+    const rows = Array.from(earnestBody.querySelectorAll('.earnest-row'));
+    return rows.map((row) => {
+      const amtEl = row.querySelector('.earnest-amount');
+      const dueEl = row.querySelector('.earnest-due');
+      const colEl = row.querySelector('.earnest-collected');
+      const amount = parseCurrency(amtEl?.value);
+      const dueDate = dueEl?.value || null;
+      const collectedDate = colEl?.value || null;
+      const allBlank = amount == null && !dueDate && !collectedDate;
+      return allBlank ? null : { amount: amount ?? null, dueDate, collectedDate };
+    }).filter(Boolean);
+  };
+
+  const renderTotal = (entries) => {
+    if (!earnestTotalValue) return;
+    const total = entries.length ? entries.reduce((sum, e) => sum + (Number(e.amount) || 0), 0) : null;
+    earnestTotalValue.textContent = total == null ? '' : (formatCurrency(total) || total.toString());
+    return total;
+  };
+
+  const updateDueWarnings = (entries) => {
+    if (!earnestBody) return;
+    const rows = Array.from(earnestBody.querySelectorAll('.earnest-row'));
+    const today = new Date();
+    today.setHours(0,0,0,0);
+    rows.forEach((row, idx) => {
+      const dueInput = row.querySelector('.earnest-due');
+      const collectedInput = row.querySelector('.earnest-collected');
+      if (!dueInput) return;
+      const entry = entries[idx];
+      const hasAmount = entry && entry.amount != null && !Number.isNaN(Number(entry.amount));
+      const missingDue = hasAmount && !entry?.dueDate && !entry?.collectedDate;
+      const dueDate = parseLocalDate(entry?.dueDate);
+      const collectedDate = parseLocalDate(entry?.collectedDate);
+      const overdue = hasAmount && !collectedDate && dueDate && dueDate < today;
+      dueInput.classList.toggle('earnest-missing-due', missingDue);
+      if (collectedInput) {
+        collectedInput.classList.toggle('earnest-overdue-collected', overdue);
+      }
+    });
+  };
+
+  const persistEarnest = debounce(async () => {
+    const entries = collectEarnestEntries();
+    const total = renderTotal(entries);
+    updateDueWarnings(entries);
+    updateEarnestTasks(entries);
+    const payload = {
+      earnestEntries: entries,
+      earnestTotal: total ?? null,
+      earnestAmount: entries[0]?.amount ?? null,
+      earnestAdditionalAmount: entries[1]?.amount ?? null,
+      earnestCollectedDate: entries[0]?.collectedDate ?? null
+    };
+    await saveLotField(communityId, lotId, payload);
+  }, 250);
+
+  if (earnestBody) {
+    earnestBody.addEventListener('input', (e) => {
+      if (!e.target.closest('.earnest-row')) return;
+      if (e.target.classList.contains('earnest-amount')) {
+        // live total update without formatting
+        const entries = collectEarnestEntries();
+        renderTotal(entries);
+        updateDueWarnings(entries);
+      }
+    });
+    earnestBody.addEventListener('blur', (e) => {
+      if (!e.target.closest('.earnest-row')) return;
+      if (e.target.classList.contains('earnest-amount')) {
+        const numeric = parseCurrency(e.target.value);
+        e.target.value = numeric == null ? '' : (formatCurrency(numeric) || numeric.toString());
+      }
+      persistEarnest();
+    }, true);
+    earnestBody.addEventListener('change', (e) => {
+      if (!e.target.closest('.earnest-row')) return;
+      const entries = collectEarnestEntries();
+      updateDueWarnings(entries);
+      persistEarnest();
+    });
+  }
+
+  if (addEarnestRowBtn && earnestBody) {
+    addEarnestRowBtn.addEventListener('click', () => {
+      const entries = collectEarnestEntries();
+      entries.push({ amount: null, dueDate: null, collectedDate: null });
+      renderEarnestRows(entries);
+      renderTotal(entries);
+      updateDueWarnings(entries);
+      updateEarnestTasks(entries);
+    });
+  }
+
+  if (earnestBody) {
+    earnestBody.addEventListener('click', (e) => {
+      const btn = e.target.closest('.earnest-delete');
+      if (!btn) return;
+      const row = btn.closest('.earnest-row');
+      if (!row) return;
+      if (!confirm('Delete this earnest entry?')) return;
+      const idx = Number(row.dataset.earnestIndex || '0');
+      const entries = collectEarnestEntries();
+      if (idx >= 0 && idx < entries.length) {
+        entries.splice(idx, 1);
+      }
+      renderEarnestRows(entries);
+      renderTotal(entries);
+      updateDueWarnings(entries);
+      updateEarnestTasks(entries);
+      alert('Earnest entry deleted.');
+      persistEarnest();
     });
   }
 

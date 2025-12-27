@@ -44,33 +44,54 @@
   text-align: center;
 }
 
-/* Status-specific borders only (text stays default) */
-.status-pill.new            { border-color: var(--contact-primary); }
-.status-pill.be-back        { border-color: #FFB347; }
-.status-pill.cold           { border-color: #4682B4; }
-.status-pill.target         { border-color: #6A0DAD; }
-.status-pill.possible       { border-color: #B57EDC; }
-.status-pill.negotiation    { border-color: #3CB371; }
-.status-pill.purchased      { border-color: #2E8B57; }
-.status-pill.closed         { border-color: #495057; }
-.status-pill.not-interested { border-color: #FF6F61; }
-.status-pill.deal-lost      { border-color: #B22222; }
-.status-pill.bust           { border-color: #8B0000; }
+/* Financing toggle */
+.finance-toggle {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 10px;
+}
+.finance-toggle__label {
+  font-weight: 700;
+  color: #0f172a;
+}
+.finance-toggle__options {
+  display: inline-flex;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+.finance-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 10px;
+  border: 1px solid #dfe3ea;
+  border-radius: 999px;
+  background: #fff;
+  cursor: pointer;
+  font-weight: 600;
+}
+.finance-pill input {
+  margin: 0;
+}
+.finance-pill.funds-pill {
+  background: #f4f6fb;
+}
+.finance-toggle__verify {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 0.9rem;
+}
+.finance-toggle__verify input[type="date"] {
+  max-width: 160px;
+}
+[data-show-when-cash] {
+  display: none;
+}
 
-/* When active → text also takes on the border color */
-.status-pill.new.active            { color: var(--contact-primary); }
-.status-pill.be-back.active        { color: #FFB347; }
-.status-pill.cold.active           { color: #4682B4; }
-.status-pill.target.active         { color: #6A0DAD; }
-.status-pill.possible.active       { color: #B57EDC; }
-.status-pill.negotiation.active    { color: #3CB371; }
-.status-pill.purchased.active      { color: #2E8B57; }
-.status-pill.closed.active         { color: #495057; }
-.status-pill.not-interested.active { color: #FF6F61; }
-.status-pill.deal-lost.active      { color: #B22222; }
-.status-pill.bust.active           { color: #8B0000; }
-/* keep your existing icon styles for the table */
-
+/* Status pill colors centralized in contacts-shared.css for reuse */
 
 /* hide delete column cells unless table is in 'show-delete' mode */
 
@@ -142,3 +163,4 @@
 .contacts-inline-form .form-select {
   font-size: 0.875rem;
 }
+

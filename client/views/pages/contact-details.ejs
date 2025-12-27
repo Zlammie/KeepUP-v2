@@ -203,8 +203,30 @@
       <section id="lender-link-section" class="lender-link-card ku-subcard">
         <h3 class="lender-link-title">Link a Lender</h3>
 
+        <div class="finance-toggle" id="finance-toggle">
+          <div class="finance-toggle__label">Financing</div>
+          <div class="finance-toggle__options">
+            <label class="finance-pill">
+              <input type="radio" name="financeType" value="financed" id="finance-type-financed" data-autosave="financeType" />
+              <span>Financed</span>
+            </label>
+            <label class="finance-pill">
+              <input type="radio" name="financeType" value="cash" id="finance-type-cash" data-autosave="financeType" />
+              <span>Cash</span>
+            </label>
+            <label class="finance-pill funds-pill" data-show-when-cash data-show-display="inline-flex">
+              <input type="checkbox" id="funds-verified" data-autosave="fundsVerified" />
+              <span>Funds Verified</span>
+            </label>
+          </div>
+          <div class="finance-toggle__verify" data-show-when-cash data-show-display="flex">
+            <label for="funds-verified-date-input">Verified Date</label>
+            <input type="date" id="funds-verified-date-input" data-autosave="fundsVerifiedDate" />
+          </div>
+        </div>
+
         <!-- Search input -->
-        <div class="form-group">
+        <div class="form-group" data-hide-when-cash>
           <input
             id="lender-search-input"
             type="text"
@@ -212,10 +234,10 @@
           />
         </div>
 
-        <div id="lender-search-results" class="search-results"></div>
+        <div id="lender-search-results" class="search-results" data-hide-when-cash></div>
 
         <!-- Auto-filled fields -->
-        <div id="lender-info-fields" class="lender-info" style="display:none;">
+        <div id="lender-info-fields" class="lender-info" style="display:none;" data-hide-when-cash>
           <div class="form-pair">
             <label>First Name</label>
             <input id="lender-firstName" readonly />
@@ -237,7 +259,7 @@
             <input id="lender-brokerage" readonly />
           </div>
           <div class="form-actions">
-            <button id="lender-link-btn" type="button" disabled>
+            <button id="lender-link-btn" type="button" disabled data-hide-when-cash>
               Link to Contact
             </button>
           </div>
