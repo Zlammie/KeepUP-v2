@@ -740,25 +740,27 @@ router.get(
         const communityName = community.name || 'Community';
         const location = [community.city, community.state].filter(Boolean).join(', ');
         (community.lots || []).forEach((lot) => {
-          lots.push({
-            id: lot?._id ? String(lot._id) : '',
-            communityId: community._id ? String(community._id) : '',
-            communityName,
-            location,
-            jobNumber: lot.jobNumber || '',
-            lot: lot.lot || '',
-            block: lot.block || '',
-            address: lot.address || '',
-            status: lot.generalStatus || lot.status || 'Available',
-            releaseDate: lot.releaseDate || null,
-            completionDate: lot.expectedCompletionDate || null,
-            listPrice: lot.listPrice,
-            salesPrice: lot.salesPrice,
-            listed: Boolean(
-              lot.isPublished ?? lot.isListed ?? lot.listed ?? lot.listingActive ?? false
-            )
+            lots.push({
+              id: lot?._id ? String(lot._id) : '',
+              communityId: community._id ? String(community._id) : '',
+              communityName,
+              location,
+              jobNumber: lot.jobNumber || '',
+              lot: lot.lot || '',
+              block: lot.block || '',
+              address: lot.address || '',
+              status: lot.generalStatus || lot.status || 'Available',
+              releaseDate: lot.releaseDate || null,
+              completionDate: lot.expectedCompletionDate || null,
+              listPrice: lot.listPrice,
+              salesPrice: lot.salesPrice,
+              publishedAt: lot.publishedAt || lot.listDate || null,
+              syncDate: lot.contentSyncedAt || lot.buildrootzSyncedAt || lot.syncedAt || null,
+              listed: Boolean(
+                lot.isPublished ?? lot.isListed ?? lot.listed ?? lot.listingActive ?? false
+              )
+            });
           });
-        });
       });
 
       const sortedLots = lots.sort((a, b) => {

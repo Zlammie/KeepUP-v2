@@ -6,6 +6,7 @@
   <title>Listings</title>
   <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet" />
   <link rel="stylesheet" href="/assets/css/main.css" />
+  <link rel="stylesheet" href="/assets/css/pages/contacts-shared.css" />
   <link rel="stylesheet" href="/assets/css/pages/listings.css" />
 </head>
 <body>
@@ -51,6 +52,14 @@
               <button type="button" class="btn btn-outline-secondary" data-status="Hold">Hold</button>
             </div>
           </div>
+          <div class="d-flex align-items-center gap-2 listings-published-filters">
+            <span class="fw-semibold small text-muted">Published</span>
+            <div class="btn-group btn-group-sm" role="group" aria-label="Published filter">
+              <button type="button" class="btn btn-outline-secondary active" data-published="all">All</button>
+              <button type="button" class="btn btn-outline-secondary" data-published="published">Published</button>
+              <button type="button" class="btn btn-outline-secondary" data-published="unpublished">Not Published</button>
+            </div>
+          </div>
           <div class="text-muted small">Showing <span id="listings-count"><%= safeLots.length %></span> lots</div>
         </div>
 
@@ -58,6 +67,8 @@
           <table class="table align-middle listings-table mb-0">
             <thead>
               <tr>
+                <th scope="col" class="listings-actions-col">Actions</th>
+                <th scope="col" class="listings-view-col">View</th>
                 <th scope="col">Community</th>
                 <th scope="col">Lot</th>
                 <th scope="col">Block</th>
@@ -65,11 +76,11 @@
                 <th scope="col">Address</th>
                 <th scope="col">Status</th>
                 <th scope="col">Published</th>
+                <th scope="col">Published Date</th>
+                <th scope="col">Sync Date</th>
                 <th scope="col">Release</th>
                 <th scope="col">Completion</th>
                 <th scope="col">List Price</th>
-                <th scope="col">Sales Price</th>
-                <th scope="col" class="text-end">Actions</th>
               </tr>
             </thead>
             <tbody id="listings-body"></tbody>
@@ -131,7 +142,56 @@
         return td;
       };
 
+      const actionButtons = [
+        { action: 'task', icon: '/assets/icons/add_task.svg', label: 'Manage tasks' },
+        { action: 'flag', icon: '/assets/icons/exclamation.svg', label: 'Flag lot' },
+        { action: 'comment', icon: '/assets/icons/comment.svg', label: 'Comment on lot' },
+      ];
+
+      const createActionButton = (config, lot) => {
+        const btn = document.createElement('button');
+        btn.type = 'button';
+        btn.className = 'table-icon-btn';
+        btn.dataset.action = config.action;
+        if (lot?.id) btn.dataset.lotId = lot.id;
+        if (lot?.communityId) btn.dataset.communityId = lot.communityId;
+        const readableLabel = lot?.address || lot?.lot || 'lot';
+        btn.setAttribute('aria-label', `${config.label} for ${readableLabel}`);
+
+        const img = document.createElement('img');
+        img.src = config.icon;
+        img.alt = '';
+        btn.appendChild(img);
+        return btn;
+      };
+
+      const createActionsCell = (lot) => {
+        const td = document.createElement('td');
+        td.className = 'listings-actions-col';
+
+        const iconsWrap = document.createElement('div');
+        iconsWrap.className = 'table-action-buttons listings-actions-icons';
+        actionButtons.forEach((config) => iconsWrap.appendChild(createActionButton(config, lot)));
+
+        td.appendChild(iconsWrap);
+        return td;
+      };
+
+      const createViewCell = (lot) => {
+        const td = document.createElement('td');
+        td.className = 'listings-view-col';
+
+        const viewBtn = document.createElement('a');
+        viewBtn.className = 'btn btn-outline-primary btn-sm listings-view-btn';
+        viewBtn.href = `/listing-details?communityId=${encodeURIComponent(lot.communityId || '')}&lotId=${encodeURIComponent(lot.id || '')}`;
+        viewBtn.textContent = 'View';
+
+        td.appendChild(viewBtn);
+        return td;
+      };
+
       let activeStatus = 'all';
+      let activePublished = 'all';
 
       const renderRows = (communityId) => {
         if (!rowsContainer) return;
@@ -144,6 +204,11 @@
         if (activeStatus !== 'all') {
           const normStatus = activeStatus.toLowerCase();
           filtered = filtered.filter((lot) => (lot.status || '').toLowerCase() === normStatus);
+        }
+
+        if (activePublished !== 'all') {
+          const shouldBePublished = activePublished === 'published';
+          filtered = filtered.filter((lot) => Boolean(lot.listed) === shouldBePublished);
         }
 
         if (countEl) countEl.textContent = filtered.length;
@@ -172,11 +237,8 @@
           status.className = `status-pill ${statusClass(lot.status)}`;
           status.textContent = lot.status || 'Available';
 
-          const viewBtn = document.createElement('a');
-          viewBtn.className = 'btn btn-outline-primary btn-sm';
-          viewBtn.href = `/listing-details?communityId=${encodeURIComponent(lot.communityId || '')}&lotId=${encodeURIComponent(lot.id || '')}`;
-          viewBtn.textContent = 'View';
-
+          row.appendChild(createActionsCell(lot));
+          row.appendChild(createViewCell(lot));
           row.appendChild(createCell(communityWrap));
           row.appendChild(createCell(lot.lot || ''));
           row.appendChild(createCell(lot.block || ''));
@@ -184,14 +246,11 @@
           row.appendChild(createCell(lot.address || ''));
           row.appendChild(createCell(status));
           row.appendChild(createCell(lot.listed ? 'Published' : 'Not Published'));
+          row.appendChild(createCell(formatDate(lot.publishedAt)));
+          row.appendChild(createCell(formatDate(lot.syncDate)));
           row.appendChild(createCell(formatDate(lot.releaseDate)));
           row.appendChild(createCell(formatDate(lot.completionDate)));
           row.appendChild(createCell(formatMoney(lot.listPrice)));
-          row.appendChild(createCell(formatMoney(lot.salesPrice)));
-          const actionsTd = document.createElement('td');
-          actionsTd.className = 'text-end';
-          actionsTd.appendChild(viewBtn);
-          row.appendChild(actionsTd);
 
           rowsContainer.appendChild(row);
         });
@@ -213,6 +272,17 @@
           statusButtons.forEach((b) => b.classList.remove('active'));
           btn.classList.add('active');
           activeStatus = btn.getAttribute('data-status') || 'all';
+          const currentCommunity = communitySelect ? communitySelect.value : 'all';
+          renderRows(currentCommunity);
+        });
+      });
+
+      const publishedButtons = document.querySelectorAll('.listings-published-filters button[data-published]');
+      publishedButtons.forEach((btn) => {
+        btn.addEventListener('click', () => {
+          publishedButtons.forEach((b) => b.classList.remove('active'));
+          btn.classList.add('active');
+          activePublished = btn.getAttribute('data-published') || 'all';
           const currentCommunity = communitySelect ? communitySelect.value : 'all';
           renderRows(currentCommunity);
         });

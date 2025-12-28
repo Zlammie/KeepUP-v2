@@ -2,6 +2,30 @@
   min-width: 160px;
 }
 
+.listings-table {
+  min-width: 1300px;
+}
+
+.listings-actions-col {
+  width: 140px;
+  min-width: 140px;
+}
+
+.listings-view-col {
+  width: 110px;
+  min-width: 110px;
+}
+
+.listings-actions-icons {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.listings-view-btn {
+  white-space: nowrap;
+}
+
 .listings-controls {
   border-bottom: 1px solid #eef2f6;
   padding-bottom: 8px;
@@ -12,6 +36,12 @@
 }
 
 .listings-status-filters .btn.active {
+  background: #0e79b2;
+  color: #fff;
+  border-color: #0e79b2;
+}
+
+.listings-published-filters .btn.active {
   background: #0e79b2;
   color: #fff;
   border-color: #0e79b2;

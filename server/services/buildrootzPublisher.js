@@ -280,6 +280,7 @@ async function publishHome(homeId, companyId, userId) {
     isPublished: lot.isPublished || false,
     isListed: lot.isListed || false,
     publishedAt: lot.publishedAt || null,
+    contentSyncedAt: lot.contentSyncedAt || null,
     buildrootzId: lot.buildrootzId || null,
     publishVersion: typeof lot.publishVersion === 'number' ? lot.publishVersion : 0
   };
@@ -295,6 +296,7 @@ async function publishHome(homeId, companyId, userId) {
       isPublished: true,
       isListed: true,
       publishedAt: now,
+      contentSyncedAt: now,
       publishVersion: nextVersion
     }
   });
@@ -318,14 +320,15 @@ async function publishHome(homeId, companyId, userId) {
       communityId: community._id,
       lotId: lot._id,
       companyId,
-      fields: {
-        buildrootzId: publicHome._id,
-        publishVersion: nextVersion,
-        publishedAt: now,
-        isPublished: true,
-        isListed: true
-      }
-    });
+    fields: {
+      buildrootzId: publicHome._id,
+      publishVersion: nextVersion,
+      publishedAt: now,
+      contentSyncedAt: now,
+      isPublished: true,
+      isListed: true
+    }
+  });
 
     console.info('[buildrootz] published home', { homeId: String(homeId), companyId: String(companyId), userId: String(userId || '') });
     return { publicHomeId: publicHome._id, publicCommunityId: publicCommunity?._id || null };
@@ -335,15 +338,16 @@ async function publishHome(homeId, companyId, userId) {
       communityId: community._id,
       lotId: lot._id,
       companyId,
-      fields: {
-        isPublished: prev.isPublished,
-        isListed: prev.isListed,
-        publishedAt: prev.publishedAt,
-        buildrootzId: prev.buildrootzId,
-        publishVersion: prev.publishVersion
-      }
-    });
-    throw err;
+    fields: {
+      isPublished: prev.isPublished,
+      isListed: prev.isListed,
+      publishedAt: prev.publishedAt,
+      contentSyncedAt: prev.contentSyncedAt,
+      buildrootzId: prev.buildrootzId,
+      publishVersion: prev.publishVersion
+    }
+  });
+  throw err;
   }
 }
 
@@ -355,9 +359,12 @@ async function unpublishHome(homeId, companyId, userId) {
     isPublished: lot.isPublished || false,
     isListed: lot.isListed || false,
     publishedAt: lot.publishedAt || null,
+    contentSyncedAt: lot.contentSyncedAt || null,
     buildrootzId: lot.buildrootzId || null,
     publishVersion: typeof lot.publishVersion === 'number' ? lot.publishVersion : 0
   };
+
+  const now = new Date();
 
   await updateLotFields({
     communityId: community._id,
@@ -366,7 +373,8 @@ async function unpublishHome(homeId, companyId, userId) {
     fields: {
       isPublished: false,
       isListed: false,
-      publishedAt: null
+      publishedAt: null,
+      contentSyncedAt: now
     }
   });
 
@@ -377,25 +385,26 @@ async function unpublishHome(homeId, companyId, userId) {
       communityId: community._id,
       lotId: lot._id,
       companyId,
-      fields: { buildrootzId: null }
-    });
-    console.info('[buildrootz] unpublished home', { homeId: String(homeId), companyId: String(companyId), userId: String(userId || '') });
-    return { ok: true };
-  } catch (err) {
-    console.error('[buildrootz] unpublish failed, reverting KeepUP flags', err);
-    await updateLotFields({
-      communityId: community._id,
-      lotId: lot._id,
-      companyId,
-      fields: {
-        isPublished: prev.isPublished,
-        isListed: prev.isListed,
-        publishedAt: prev.publishedAt,
-        buildrootzId: prev.buildrootzId,
-        publishVersion: prev.publishVersion
-      }
-    });
-    throw err;
+    fields: { buildrootzId: null }
+  });
+  console.info('[buildrootz] unpublished home', { homeId: String(homeId), companyId: String(companyId), userId: String(userId || '') });
+  return { ok: true };
+} catch (err) {
+  console.error('[buildrootz] unpublish failed, reverting KeepUP flags', err);
+  await updateLotFields({
+    communityId: community._id,
+    lotId: lot._id,
+    companyId,
+    fields: {
+      isPublished: prev.isPublished,
+      isListed: prev.isListed,
+      publishedAt: prev.publishedAt,
+      contentSyncedAt: prev.contentSyncedAt,
+      buildrootzId: prev.buildrootzId,
+      publishVersion: prev.publishVersion
+    }
+  });
+  throw err;
   }
 }
 
@@ -415,6 +424,14 @@ async function syncHome(homeId, companyId, userId) {
     { $set: buildPublicHomePayload({ ...ctx, buildrootzCommunityId: publicCommunity?._id, publishVersion }) },
     { upsert: true, new: true, setDefaultsOnInsert: true }
   );
+
+  const now = new Date();
+  await updateLotFields({
+    communityId: community._id,
+    lotId: lot._id,
+    companyId,
+    fields: { contentSyncedAt: now }
+  });
 
   console.info('[buildrootz] synced home', { homeId: String(homeId), companyId: String(companyId), userId: String(userId || '') });
   return { publicHomeId: publicHome._id, publicCommunityId: publicCommunity?._id || null };

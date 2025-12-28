@@ -84,6 +84,7 @@ const LotSchema = new Schema({
   isPublished:        { type: Boolean, default: false },
   isListed:           { type: Boolean, default: false },
   publishedAt:        { type: Date, default: null },
+  contentSyncedAt:    { type: Date, set: toDateOrNull, default: null },
   buildrootzId:       { type: Schema.Types.Mixed, default: null },
   publishVersion:     { type: Number, default: 0 },
   promoText:          { type: String, default: '' },
