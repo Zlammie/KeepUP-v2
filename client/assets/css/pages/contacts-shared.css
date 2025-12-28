@@ -160,3 +160,28 @@ body.lenders-page:not(.no-nav) {
 }
 
 .status-pill:hover { box-shadow: 0 0 0 3px rgba(0,0,0,.04) inset; }
+
+/* Status color palette shared across contacts + realtor details */
+.status-pill.new            { border-color: var(--contact-primary, #0e79b2); }
+.status-pill.be-back        { border-color: #ffb347; }
+.status-pill.cold           { border-color: #4682b4; }
+.status-pill.target         { border-color: #6a0dad; }
+.status-pill.possible       { border-color: #b57edc; }
+.status-pill.negotiation    { border-color: #3cb371; }
+.status-pill.purchased      { border-color: #2e8b57; }
+.status-pill.closed         { border-color: #495057; }
+.status-pill.not-interested { border-color: #ff6f61; }
+.status-pill.deal-lost      { border-color: #b22222; }
+.status-pill.bust           { border-color: #8b0000; }
+
+.status-pill.new.active            { color: var(--contact-primary, #0e79b2); }
+.status-pill.be-back.active        { color: #ffb347; }
+.status-pill.cold.active           { color: #4682b4; }
+.status-pill.target.active         { color: #6a0dad; }
+.status-pill.possible.active       { color: #b57edc; }
+.status-pill.negotiation.active    { color: #3cb371; }
+.status-pill.purchased.active      { color: #2e8b57; }
+.status-pill.closed.active         { color: #495057; }
+.status-pill.not-interested.active { color: #ff6f61; }
+.status-pill.deal-lost.active      { color: #b22222; }
+.status-pill.bust.active           { color: #8b0000; }

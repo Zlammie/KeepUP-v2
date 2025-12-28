@@ -22,10 +22,20 @@ function renderLenderSummary() {
     subdocs: 'Submitted Docs',
     missingdocs: 'Missing Docs',
     approved: 'Approved',
-    cannotqualify: 'Cannot Qualify'
+    cannotqualify: 'Cannot Qualify',
+    cash: 'Cash Buyer'
   };
 
-  const lenders = Array.isArray(contact.lenders) ? contact.lenders : [];
+  const lenders = Array.isArray(contact.lenders) ? contact.lenders.slice() : [];
+  const isCash = String(contact.financeType || '').toLowerCase() === 'cash';
+  if (isCash && !lenders.length) {
+    lenders.push({
+      _id: 'cash',
+      isPrimary: true,
+      status: 'cash',
+      lender: { firstName: 'Cash', lastName: 'Buyer', lenderBrokerage: 'Cash Purchase' }
+    });
+  }
   const maxCards = 3;
 
   for (let i = 0; i < maxCards; i++) {
@@ -66,7 +76,17 @@ function renderLenderCards() {
   if (!list) return;
 
   list.innerHTML = '';
-  const lenders = Array.isArray(contact.lenders) ? contact.lenders : [];
+  const lenders = Array.isArray(contact.lenders) ? contact.lenders.slice() : [];
+  const isCash = String(contact.financeType || '').toLowerCase() === 'cash';
+  if (isCash && !lenders.length) {
+    lenders.push({
+      _id: 'cash',
+      isPrimary: true,
+      status: 'cash',
+      lender: { firstName: 'Cash', lastName: 'Buyer', lenderBrokerage: 'Cash Purchase' },
+      isCash: true
+    });
+  }
 
   lenders.forEach((entry) => {
     list.appendChild(createLenderCard(entry));
@@ -79,6 +99,7 @@ function renderLenderCards() {
 function createLenderCard(entry) {
   const container = document.createElement('div');
   const lender = entry?.lender || {};
+  const isCash = entry?._id === 'cash' || entry?.status === 'cash' || entry?.isCash;
   const classes = ['lender-card'];
   if (entry?.isPrimary) classes.push('primary');
   container.className = classes.join(' ');
@@ -96,12 +117,12 @@ function createLenderCard(entry) {
     return { text: safe, titleAttr: ` title="${safe}"` };
   };
 
-  const fullName = combineName(lender.firstName, lender.lastName);
+  const fullName = isCash ? 'Cash Buyer' : combineName(lender.firstName, lender.lastName);
   const nameInfo = asDisplay(fullName);
-  const brokerageInfo = asDisplay(lender.brokerage || lender.lenderBrokerage);
+  const brokerageInfo = asDisplay(isCash ? 'Cash Purchase' : (lender.brokerage || lender.lenderBrokerage));
 
-  const email = String(lender.email || '').trim();
-  const phoneRaw = String(lender.phone || '').trim();
+  const email = isCash ? '' : String(lender.email || '').trim();
+  const phoneRaw = isCash ? '' : String(lender.phone || '').trim();
   const phoneDisplay = formatPhoneDisplay(phoneRaw) || '';
   const phoneDigits = phoneRaw.replace(/[^\d+]/g, '');
 
@@ -121,7 +142,7 @@ function createLenderCard(entry) {
         <div class="lender-card__name"${nameInfo.titleAttr}>${nameInfo.text}</div>
         <div class="lender-card__brokerage"${brokerageInfo.titleAttr}>${brokerageInfo.text}</div>
       </div>
-      <button type="button" class="remove-lender-btn" data-entry-id="${entry._id}" aria-label="Remove lender">
+      <button type="button" class="remove-lender-btn" data-entry-id="${entry._id}" aria-label="Remove lender" ${isCash ? 'disabled' : ''}>
         <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24">
           <polyline points="3 6 5 6 21 6"></polyline>
           <path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"></path>
@@ -145,9 +166,10 @@ function createLenderCard(entry) {
 
     <div class="lender-card__controls">
       <label class="primary-label">
-        <input type="radio" name="primaryLender" value="${entry._id}" ${entry.isPrimary ? 'checked' : ''} class="no-auto"/>
-        <span>Primary Lender</span>
+        <input type="radio" name="primaryLender" value="${entry._id}" ${entry.isPrimary ? 'checked' : ''} class="no-auto" ${isCash ? 'checked disabled' : ''}/>
+        <span>${isCash ? 'Cash Buyer' : 'Primary Lender'}</span>
       </label>
+      ${isCash ? '' : `
       <label class="lender-card__status">
         <span class="lender-card__status-label">Status</span>
         <select class="lender-status no-auto">
@@ -159,10 +181,10 @@ function createLenderCard(entry) {
           <option${entry.status==='approved'?' selected':''} value="approved">Approved</option>
           <option${entry.status==='cannotqualify'?' selected':''} value="cannotqualify">Cannot Qualify</option>
         </select>
-      </label>
+      </label>`}
     </div>
 
-    <div class="lender-card__dates">
+    ${isCash ? '' : `<div class="lender-card__dates">
       <label class="lender-card__date-field">
         <span>Invite Date</span>
         <input type="date" class="lender-invite-date no-auto" value="${entry.inviteDate?.split('T')[0]||''}" />
@@ -174,24 +196,27 @@ function createLenderCard(entry) {
     </div>
 
     <div class="lender-card__footer">
-      <button type="button" class="save-lender-btn">Save</button>
+      <button type="button" class="save-lender-btn" ${isCash ? 'disabled' : ''}>Save</button>
       <span class="lender-save-hint" aria-live="polite"></span>
-    </div>
+    </div>`}
   `;
 
   const removeBtn = container.querySelector('.remove-lender-btn');
-  if (removeBtn) {
+  if (removeBtn && !isCash) {
     removeBtn.addEventListener('click', () => onRemoveLender(entry));
   }
 
-  container.querySelector('.save-lender-btn')
-    .addEventListener('click', () => onSaveLender(entry, container));
+  const saveBtn = container.querySelector('.save-lender-btn');
+  if (saveBtn && !isCash) {
+    saveBtn.addEventListener('click', () => onSaveLender(entry, container));
+  }
 
   return container;
 }
 
 /* ---------- actions ---------- */
 async function onRemoveLender(entry) {
+  if (entry?._id === 'cash' || entry?.status === 'cash' || entry?.isCash) return;
   const { contactId, contact } = getState();
   const lender = entry?.lender || {};
   if (!confirm(`Remove lender "${(lender.firstName||'')} ${(lender.lastName||'')}"?`)) return;
@@ -215,6 +240,7 @@ async function onRemoveLender(entry) {
 }
 
 async function onSaveLender(entry, container) {
+  if (entry?._id === 'cash' || entry?.status === 'cash' || entry?.isCash) return;
   const { contactId, contact } = getState();
   if (!contactId) return alert('Missing contact ID — cannot save lender info.');
 
@@ -263,6 +289,7 @@ async function setupPrimaryLenderRadios() {
   document.querySelectorAll('input[name="primaryLender"]').forEach(radio => {
     radio.addEventListener('change', async (e) => {
       const lenderId = e.target.value;
+      if (lenderId === 'cash') return;
       const { contactId, contact } = getState();
       if (!contactId) return;
 

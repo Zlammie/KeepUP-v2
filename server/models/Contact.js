@@ -98,6 +98,13 @@ const ContactSchema = new Schema(
     lenderStatus:    { type: String, enum: ['Invite','Submitted Application','Submitted Docs','Missing Docs','Approved','Cannot Qualify'] },
     lenderInviteDate:{ type: Date },
     lenderApprovedDate:{ type: Date },
+    financeType: {
+      type: String,
+      enum: ['financed', 'cash'],
+      default: 'financed'
+    },
+    fundsVerified:   { type: Boolean, default: false },
+    fundsVerifiedDate: { type: Date, set: toDateOrNull, default: null },
 
     lenders: [{
       lender: { type: Schema.Types.ObjectId, ref: 'Lender', required: true },

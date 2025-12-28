@@ -1,0 +1,9 @@
+{
+  "mapId": "8a3db4eb-aca4-4cbb-806a-5ca2e3dcfc20",
+  "versionId": "aec9ff2d-e371-45fb-95bc-fea93d97edaa",
+  "exportedAt": "2025-12-28T06:13:26.239Z",
+  "files": {
+    "overlay": "overlay.svg",
+    "links": "links.json"
+  }
+}

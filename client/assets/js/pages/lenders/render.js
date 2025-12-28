@@ -30,6 +30,7 @@ export function renderTable(lenders, statsByLender = new Map()) {
   lenders.forEach((lender) => {
     const row = document.createElement('tr');
     row.dataset.id = lender._id;
+    const isCash = lender._id === 'cash';
 
     const fullName = `${lender.firstName || ''} ${lender.lastName || ''}`.trim() || lender.lenderBrokerage || 'Lender';
 
@@ -55,11 +56,16 @@ export function renderTable(lenders, statsByLender = new Map()) {
         src: '/assets/icons/add_task.svg',
         label: `Manage tasks for ${fullName}`
       });
-      taskBtn.addEventListener('click', (event) => {
-        event.preventDefault();
-        event.stopPropagation();
-        actionHandlers.onTask?.({ id: lender._id, name: fullName });
-      });
+      if (isCash) {
+        taskBtn.disabled = true;
+        taskBtn.title = 'Tasks not available for cash buyers';
+      } else {
+        taskBtn.addEventListener('click', (event) => {
+          event.preventDefault();
+          event.stopPropagation();
+          actionHandlers.onTask?.({ id: lender._id, name: fullName });
+        });
+      }
       wrapper.appendChild(taskBtn);
 
       const requiresAttention = Boolean(lender.requiresAttention);
@@ -80,11 +86,16 @@ export function renderTable(lenders, statsByLender = new Map()) {
         src: '/assets/icons/comment.svg',
         label: `Add comment for ${fullName}`
       });
-      commentBtn.addEventListener('click', (event) => {
-        event.preventDefault();
-        event.stopPropagation();
-        actionHandlers.onComment?.({ id: lender._id, name: fullName });
-      });
+      if (isCash) {
+        commentBtn.disabled = true;
+        commentBtn.title = 'Comments not available for cash buyers';
+      } else {
+        commentBtn.addEventListener('click', (event) => {
+          event.preventDefault();
+          event.stopPropagation();
+          actionHandlers.onComment?.({ id: lender._id, name: fullName });
+        });
+      }
       wrapper.appendChild(commentBtn);
 
       cell.appendChild(wrapper);
@@ -114,7 +125,7 @@ export function renderTable(lenders, statsByLender = new Map()) {
 
       cell.textContent = displayValue;
       cell.title = displayValue;
-      cell.contentEditable = true;
+      cell.contentEditable = !isCash;
       cell.dataset.field = field;
       cell.dataset.displayValue = displayValue;
       cell.dataset.comparable = isPhone ? currentValue.replace(/\D+/g, '') : currentValue;
@@ -125,29 +136,31 @@ export function renderTable(lenders, statsByLender = new Map()) {
         });
       }
 
-      cell.addEventListener('blur', async (e) => {
-        const newValue = e.target.textContent.trim();
-        const comparableValue = isPhone ? newValue.replace(/\D+/g, '') : newValue;
-        if (comparableValue === cell.dataset.comparable) {
-          e.target.textContent = cell.dataset.displayValue || '';
-          cell.title = cell.dataset.displayValue || '';
-          return;
-        }
-        try {
-          await updateLender(lender._id, { [field]: newValue });
-          lender[field] = newValue;
-          const updatedDisplay = isPhone ? formatPhoneDisplay(newValue) : newValue;
-          cell.dataset.displayValue = updatedDisplay;
-          cell.dataset.comparable = comparableValue;
-          e.target.textContent = updatedDisplay;
-          cell.title = updatedDisplay;
-        } catch (err) {
-          console.error(err);
-          const fallback = cell.dataset.displayValue || lender[field] || '';
-          e.target.textContent = fallback;
-          cell.title = fallback;
-        }
-      });
+      if (!isCash) {
+        cell.addEventListener('blur', async (e) => {
+          const newValue = e.target.textContent.trim();
+          const comparableValue = isPhone ? newValue.replace(/\D+/g, '') : newValue;
+          if (comparableValue === cell.dataset.comparable) {
+            e.target.textContent = cell.dataset.displayValue || '';
+            cell.title = cell.dataset.displayValue || '';
+            return;
+          }
+          try {
+            await updateLender(lender._id, { [field]: newValue });
+            lender[field] = newValue;
+            const updatedDisplay = isPhone ? formatPhoneDisplay(newValue) : newValue;
+            cell.dataset.displayValue = updatedDisplay;
+            cell.dataset.comparable = comparableValue;
+            e.target.textContent = updatedDisplay;
+            cell.title = updatedDisplay;
+          } catch (err) {
+            console.error(err);
+            const fallback = cell.dataset.displayValue || lender[field] || '';
+            e.target.textContent = fallback;
+            cell.title = fallback;
+          }
+        });
+      }
 
       row.appendChild(cell);
     });
@@ -180,7 +193,11 @@ export function renderTable(lenders, statsByLender = new Map()) {
   btn.classList.add('btn', 'btn-sm', 'btn-danger', 'delete-lender-btn');
   btn.dataset.id = lender._id;
   btn.title = 'Delete';
-  btn.textContent = '✕';
+  btn.textContent = 'x';
+  if (isCash) {
+    btn.disabled = true;
+    btn.title = 'Cash row cannot be deleted';
+  }
 
   cell.appendChild(btn);
   row.appendChild(cell);

@@ -1,0 +1,88 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>KeepUP Map Test - Ten Mile Creek</title>
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet"/>
+  <link rel="stylesheet" href="/assets/css/main.css">
+  <link rel="stylesheet" href="/assets/css/maps-ten-mile-creek.css">
+</head>
+<body class="map-test-page">
+  <%- include('../partials/nav') %>
+  <%- include('../partials/top-nav-blank') %>
+
+  <main class="container-fluid py-4">
+    <div class="d-flex flex-column flex-lg-row align-items-start justify-content-between gap-3 mb-3">
+      <div>
+        <p class="text-uppercase text-muted small mb-1">Maps / Testbed</p>
+        <h1 class="h4 mb-0">Ten Mile Creek Overlay</h1>
+        <p class="mb-0 text-muted small">Loads overlay + links and renders linked regions.</p>
+      </div>
+      <div class="text-muted small">
+        <div>Overlay: <code><%= overlayPath %></code></div>
+        <div>Links: <code><%= linksPath %></code></div>
+        <div>Combined: <code><%= combinedPath %></code></div>
+      </div>
+    </div>
+
+    <div id="map-root"
+      class="map-test-layout"
+      data-overlay-src="<%= overlayPath %>"
+      data-combined-src="<%= combinedPath %>"
+      data-links-src="<%= linksPath %>">
+      <div class="map-canvas card shadow-sm">
+        <div class="map-frame">
+          <div id="overlay" class="map-overlay-layer" aria-hidden="true"></div>
+        </div>
+      </div>
+
+      <aside class="map-info card shadow-sm" id="map-info-panel">
+        <div class="card-body">
+          <div class="d-flex align-items-center justify-content-between mb-3">
+            <div>
+              <p class="text-uppercase text-muted small mb-1">Selection</p>
+              <h2 class="h5 mb-0" id="map-selected-title">No lot selected</h2>
+            </div>
+            <span class="badge bg-light text-dark" id="map-status">Loading...</span>
+          </div>
+
+          <div id="map-info-empty" class="text-muted">
+            Click a highlighted lot to view details from links.json.
+          </div>
+
+          <dl id="map-info-details" class="map-info-grid visually-hidden">
+            <div>
+              <dt>Region ID</dt>
+              <dd data-field="regionId">-</dd>
+            </div>
+            <div>
+              <dt>Lot ID</dt>
+              <dd data-field="lotId">-</dd>
+            </div>
+            <div>
+              <dt>Lot Number</dt>
+              <dd data-field="lotNumber">-</dd>
+            </div>
+            <div>
+              <dt>Block</dt>
+              <dd data-field="block">-</dd>
+            </div>
+            <div>
+              <dt>Phase</dt>
+              <dd data-field="phase">-</dd>
+            </div>
+            <div>
+              <dt>Address</dt>
+              <dd data-field="address">-</dd>
+            </div>
+          </dl>
+        </div>
+      </aside>
+    </div>
+  </main>
+
+  <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+  <script type="module" src="/assets/js/maps-ten-mile-creek.js"></script>
+</body>
+</html>

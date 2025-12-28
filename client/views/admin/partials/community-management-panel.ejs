@@ -118,7 +118,11 @@
     <button id="cm-edit-toggle" class="btn btn-sm btn-secondary" aria-pressed="false">Edit Mode</button>
     <button id="cm-delete-toggle" class="btn btn-sm btn-danger" aria-pressed="false">Delete Mode</button>
     <small class="text-muted ms-2">Tip: Edit cells then press Enter/blur to save.</small>
-    <button id="deleteCommunityBtn" type="button" class="btn btn-sm btn-outline-danger ms-auto">Delete Community</button>
+
+    <div class="ms-auto d-flex align-items-center gap-2">
+      <button id="cm-export-csv" type="button" class="btn btn-sm btn-outline-primary">Export CSV</button>
+      <button id="deleteCommunityBtn" type="button" class="btn btn-sm btn-outline-danger">Delete Community</button>
+    </div>
   </div>
 
   <div id="lotsContainer"></div>
@@ -262,6 +266,7 @@ document.addEventListener('DOMContentLoaded', () => {
   const editBtn      = $('#cm-edit-toggle');
   const delBtn       = $('#cm-delete-toggle');
   const lotsWrap     = $('#lotsContainer');
+  const exportBtn    = $('#cm-export-csv');
   const deleteCommunityBtn = $('#deleteCommunityBtn');
 
   let state = {
@@ -458,6 +463,38 @@ document.addEventListener('DOMContentLoaded', () => {
     delBtn.classList.toggle('btn-warning', state.deleteMode);
     delBtn.setAttribute('aria-pressed', String(state.deleteMode));
     await loadLots();
+  });
+  exportBtn?.addEventListener('click', async () => {
+    if (!state.communityId) {
+      alert('Select a community first');
+      return;
+    }
+
+    try {
+      const url = new URL(`/api/communities/${state.communityId}/lots`, location.origin);
+      if (state.search) url.searchParams.set('q', state.search);
+      url.searchParams.set('format', 'csv');
+
+      const res = await fetch(url, { headers: { Accept: 'text/csv' } });
+      const text = await res.text();
+      if (!res.ok) throw new Error(text || `Export failed (${res.status})`);
+
+      const blob = new Blob([text], { type: 'text/csv' });
+      const dlUrl = window.URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      const name = (state.communities.find(c => c._id === state.communityId)?.name || 'community')
+        .replace(/[^a-z0-9]+/gi, '-')
+        .replace(/^-+|-+$/g, '') || 'community';
+      link.href = dlUrl;
+      link.download = `${name}-lots.csv`;
+      document.body.appendChild(link);
+      link.click();
+      link.remove();
+      window.URL.revokeObjectURL(dlUrl);
+    } catch (err) {
+      console.error(err);
+      alert(err.message || 'Export failed');
+    }
   });
   deleteCommunityBtn?.addEventListener('click', async () => {
     if (!state.communityId) {

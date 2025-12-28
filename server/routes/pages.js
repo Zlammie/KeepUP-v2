@@ -2,6 +2,7 @@
 const express = require('express');
 const mongoose = require('mongoose');
 const path = require('path');
+const fs = require('fs');
 const router = express.Router();
 
 const ensureAuth  = require('../middleware/ensureAuth');
@@ -49,6 +50,27 @@ const normalizeGarageType = (value) => {
   if (norm === 'rear') return 'Rear';
   return null;
 };
+
+const tenMileBaseDir = path.join(__dirname, '../..', 'public', 'maps', 'ten-mile-creek');
+function resolveTenMileFiles() {
+  const manifestPath = path.join(tenMileBaseDir, 'manifest.json');
+  let overlayFile = 'overlay.svg';
+  let linksFile = 'links.json';
+  let backgroundFile = 'ten-mile-creek-bg.png';
+
+  try {
+    if (fs.existsSync(manifestPath)) {
+      const manifest = JSON.parse(fs.readFileSync(manifestPath, 'utf8'));
+      if (manifest?.files?.overlay) overlayFile = manifest.files.overlay;
+      if (manifest?.files?.links) linksFile = manifest.files.links;
+      if (manifest?.files?.background) backgroundFile = manifest.files.background;
+    }
+  } catch (err) {
+    console.warn('Failed to read Ten Mile Creek map manifest', err);
+  }
+
+  return { overlayFile, linksFile, backgroundFile };
+}
 
 const parseLatLng = (val) => {
   if (val === '' || val == null) return null;
@@ -782,6 +804,15 @@ router.get(
   }
 );
 
+router.get(
+  '/listing-map',
+  ensureAuth,
+  requireRole('READONLY','USER','MANAGER','COMPANY_ADMIN','SUPER_ADMIN'),
+  (_req, res) => {
+    res.render('pages/listing-map', { active: 'listings' });
+  }
+);
+
 // ????????????????????????? lists ?????????????????????????
 router.get('/contacts', ensureAuth, requireRole('READONLY','USER','MANAGER','COMPANY_ADMIN','SUPER_ADMIN'),
   async (req, res, next) => {
@@ -835,6 +866,14 @@ router.get('/lenders', ensureAuth, requireRole('READONLY','USER','MANAGER','COMP
     const lenders = await Lender.find({ ...base(req) })
       .select('firstName lastName email phone lenderBrokerage visitDate company')
       .lean();
+    lenders.push({
+      _id: 'cash',
+      firstName: 'Cash',
+      lastName: 'Buyer',
+      lenderBrokerage: 'Cash Purchase',
+      email: '',
+      phone: ''
+    });
     res.render('pages/lenders', { lenders, active: 'lenders' });
   }
 );
@@ -1317,7 +1356,7 @@ router.get('/contact-details', ensureAuth, requireRole('READONLY','USER','MANAGE
       if (!isId(id)) return res.status(400).send('Invalid contact ID');
 
       const contact = await Contact.findOne({ _id: id, ...base(req) })
-        .select('firstName lastName email phone visitDate status notes source communityIds realtorId lenderId lenderStatus lenderInviteDate lenderApprovedDate linkedLot lotLineUp buyTime buyMonth facing living investor renting ownSelling ownNotSelling')
+        .select('firstName lastName email phone visitDate status notes source communityIds realtorId lenderId lenderStatus lenderInviteDate lenderApprovedDate linkedLot lotLineUp buyTime buyMonth facing living investor renting ownSelling ownNotSelling financeType fundsVerified fundsVerifiedDate')
         .populate('realtorId', 'firstName lastName brokerage')
         .populate('lenderId',  'firstName lastName lenderBrokerage')
         .lean();
@@ -1352,17 +1391,31 @@ router.get('/realtor-details', ensureAuth, requireRole('READONLY','USER','MANAGE
 router.get('/lender-view', ensureAuth, requireRole('READONLY','USER','MANAGER','COMPANY_ADMIN','SUPER_ADMIN'),
   async (req, res) => {
     const id = req.query.id;
-    if (!isId(id)) return res.status(400).send('Invalid lender ID');
+    const isCash = id === 'cash';
+    if (!isCash && !isId(id)) return res.status(400).send('Invalid lender ID');
 
-    const lender = await Lender.findOne({ _id: id, ...base(req) })
-      .populate('company', 'name')
-      .lean();
+    const lender = isCash
+      ? {
+          _id: 'cash',
+          firstName: 'Cash',
+          lastName: 'Buyer',
+          lenderBrokerage: 'Cash Purchase',
+          email: '',
+          phone: ''
+        }
+      : await Lender.findOne({ _id: id, ...base(req) })
+          .populate('company', 'name')
+          .lean();
     if (!lender) return res.status(404).send('Lender not found');
 
     // adjust this filter to your actual schema: either "lenders: { $in: [id] }" (array) or "linkedLender: id" (single)
-    const contacts = await Contact.find({ ...base(req), lenderId: id })
-   .select('firstName lastName email phone')
-   .lean();
+    const contacts = await Contact.find(
+      isCash
+        ? { ...base(req), financeType: 'cash' }
+        : { ...base(req), lenderId: id }
+    )
+      .select('firstName lastName email phone financeType fundsVerified fundsVerifiedDate status')
+      .lean();
 
     res.render('pages/lender-view', { lender, contacts, active: 'lenders' });
   }
@@ -1479,6 +1532,81 @@ router.get('/competition-dashboard',
       communityId,
       currentUserId: req.user?._id ? String(req.user._id) : ''
     });
+  }
+);
+
+// ????????????????????????? map testbed ?????????????????????????
+router.get('/maps/test/ten-mile-creek',
+  ensureAuth, requireRole('READONLY','USER','MANAGER','COMPANY_ADMIN','SUPER_ADMIN'),
+  (_req, res) => {
+    const { overlayFile, linksFile, backgroundFile } = resolveTenMileFiles();
+
+    res.render('pages/maps-ten-mile-creek', {
+      overlayPath: `/public/maps/ten-mile-creek/${overlayFile}`,
+      linksPath: `/public/maps/ten-mile-creek/${linksFile}`,
+      backgroundPath: `/public/maps/ten-mile-creek/${backgroundFile}`,
+      combinedPath: '/maps/test/ten-mile-creek/combined.svg'
+    });
+  }
+);
+
+router.get('/maps/test/ten-mile-creek/combined.svg',
+  ensureAuth, requireRole('READONLY','USER','MANAGER','COMPANY_ADMIN','SUPER_ADMIN'),
+  (_req, res) => {
+    const { overlayFile, backgroundFile } = resolveTenMileFiles();
+    const overlayPath = path.join(tenMileBaseDir, overlayFile);
+    const backgroundPath = path.join(tenMileBaseDir, backgroundFile);
+
+    try {
+      const overlaySvg = fs.readFileSync(overlayPath, 'utf8');
+      const backgroundBuffer = fs.readFileSync(backgroundPath);
+      const bgBase64 = backgroundBuffer.toString('base64');
+
+      const svgTagMatch = overlaySvg.match(/<svg[^>]*>/i);
+      if (!svgTagMatch) {
+        console.warn('combined.svg: <svg> tag not found');
+        return res.status(500).send('Invalid SVG');
+      }
+
+      let svgTag = svgTagMatch[0];
+      const svgStartIdx = svgTagMatch.index;
+      const afterSvgOpen = overlaySvg.slice(svgStartIdx + svgTag.length);
+
+      let viewBoxWidth = null;
+      let viewBoxHeight = null;
+      const viewBoxMatch = svgTag.match(/viewBox\s*=\s*["']([^"']+)["']/i);
+      if (viewBoxMatch) {
+        const parts = viewBoxMatch[1].trim().split(/\s+/);
+        if (parts.length === 4) {
+          viewBoxWidth = parts[2];
+          viewBoxHeight = parts[3];
+        }
+      } else {
+        console.warn('combined.svg: viewBox not found, falling back to width/height');
+        const widthMatch = svgTag.match(/width\s*=\s*["']([^"']+)["']/i);
+        const heightMatch = svgTag.match(/height\s*=\s*["']([^"']+)["']/i);
+        viewBoxWidth = widthMatch ? widthMatch[1] : null;
+        viewBoxHeight = heightMatch ? heightMatch[1] : null;
+      }
+
+      if (!/preserveAspectRatio\s*=/.test(svgTag)) {
+        svgTag = svgTag.replace(/>$/, ' preserveAspectRatio="xMidYMid meet">');
+      }
+
+      const imageTag = `<image href="data:image/png;base64,${bgBase64}" x="0" y="0" width="${viewBoxWidth || '100%'}" height="${viewBoxHeight || '100%'}" />`;
+      const combinedSvg =
+        overlaySvg.slice(0, svgStartIdx) +
+        svgTag +
+        '\n  ' +
+        imageTag +
+        '\n' +
+        afterSvgOpen;
+
+      res.type('image/svg+xml').send(combinedSvg);
+    } catch (err) {
+      console.error('Failed to build combined SVG', err);
+      res.status(500).send('Failed to build combined SVG');
+    }
   }
 );
 

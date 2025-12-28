@@ -1,0 +1,28 @@
+.lm-dropzone {
+  border: 1px dashed #ced4da;
+  border-radius: 10px;
+  padding: 16px;
+  background: #f8fafc;
+  cursor: pointer;
+  transition: border-color 0.2s ease, background 0.2s ease;
+}
+
+.lm-dropzone.drag {
+  border-color: #0d6efd;
+  background: #eef4ff;
+}
+
+.lm-map-card {
+  min-height: 360px;
+}
+
+.lm-map-placeholder {
+  border: 1px dashed #d1d5db;
+  border-radius: 12px;
+  padding: 32px;
+  background: #f9fafb;
+  min-height: 280px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}

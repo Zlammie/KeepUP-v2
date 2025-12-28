@@ -13,6 +13,67 @@ import {
 } from './statusMaps.js';
 import { formatPhoneDisplay } from '../../shared/phone.js';
 
+const formatMoney = (num) => {
+  if (num == null || Number.isNaN(num)) return '';
+  const formatted = formatCurrency(num);
+  return formatted || num.toString();
+};
+
+const toDateInputValue = (v) => {
+  if (!v) return '';
+  if (typeof v === 'string') {
+    const t = v.trim();
+    if (/^\d{4}-\d{2}-\d{2}$/.test(t)) return t;
+    const parts = t.split('T');
+    if (parts[0] && /^\d{4}-\d{2}-\d{2}$/.test(parts[0])) return parts[0];
+  }
+  try {
+    const d = (v instanceof Date) ? v : new Date(v);
+    if (isNaN(d.getTime())) return '';
+    const y = d.getFullYear();
+    const m = String(d.getMonth() + 1).padStart(2, '0');
+    const day = String(d.getDate()).padStart(2, '0');
+    return `${y}-${m}-${day}`;
+  } catch { return ''; }
+};
+
+function buildEarnestRow(entry = {}, idx = 0) {
+  const safeAmount = formatMoney(entry.amount);
+  const due = toDateInputValue(entry.dueDate);
+  const collected = toDateInputValue(entry.collectedDate);
+  const hasAmount = entry.amount != null && !Number.isNaN(Number(entry.amount));
+  const missingDue = hasAmount && !entry.dueDate && !entry.collectedDate;
+
+  const row = document.createElement('div');
+  row.className = 'earnest-row';
+  row.dataset.earnestIndex = idx;
+  row.innerHTML = `
+    <div class="earnest-cell amount">
+      <input class="value earnest-amount" inputmode="numeric" placeholder="$0" value="${safeAmount}">
+    </div>
+    <div class="earnest-cell date">
+      <input type="date" class="value earnest-due ${missingDue ? 'earnest-missing-due' : ''}" value="${due}">
+    </div>
+    <div class="earnest-cell date">
+      <input type="date" class="value earnest-collected" value="${collected}">
+    </div>
+    <div class="earnest-cell actions">
+      <button type="button" class="earnest-delete" aria-label="Delete earnest entry">Delete</button>
+    </div>
+  `;
+  return row;
+}
+
+export function renderEarnestRows(entries = []) {
+  const body = document.getElementById('earnestTableBody');
+  if (!body) return;
+  body.innerHTML = '';
+  const rows = entries.length ? entries : [{ amount: null, dueDate: null, collectedDate: null }];
+  rows.forEach((entry, idx) => {
+    body.appendChild(buildEarnestRow(entry, idx));
+  });
+}
+
 export const renderTitleAndBasics = (lot) => {
   els.lotTitle.textContent =  `${lot.address ?? ''}`;
   els.jobNumberValue.textContent = lot.jobNumber ?? '';
@@ -117,6 +178,7 @@ export const renderRightColumn = (purchaser, realtor, primaryEntry) => {
   const set = (node, v) => { if (node) node.textContent = v ?? ''; };
   const all = (css) => Array.from(document.querySelectorAll(css));
 
+  const isCashBuyer = String(purchaser?.financeType || '').toLowerCase() === 'cash';
   const L = primaryEntry?.lender ?? {};
 
   // helpers
@@ -127,21 +189,25 @@ export const renderRightColumn = (purchaser, realtor, primaryEntry) => {
   };
 
   // Name: first/last -> name/fullName -> primaryEntry fallbacks
-  const displayName = first(
-    `${L.firstName ?? ''} ${L.lastName ?? ''}`.trim(),
-    L.name, L.fullName,
-    primaryEntry?.lenderName,
-    `${primaryEntry?.lenderFirstName ?? ''} ${primaryEntry?.lenderLastName ?? ''}`.trim()
-  );
+  const displayName = isCashBuyer
+    ? 'Cash Buyer'
+    : first(
+        `${L.firstName ?? ''} ${L.lastName ?? ''}`.trim(),
+        L.name, L.fullName,
+        primaryEntry?.lenderName,
+        `${primaryEntry?.lenderFirstName ?? ''} ${primaryEntry?.lenderLastName ?? ''}`.trim()
+      );
 
   // Brokerage: include lenderBrokerage + common variants (flat & nested)
-  const brokerage = first(
-    L.lenderBrokerage,             // <- THIS was missing before
-    L.brokerage, L.brokerageName, L?.brokerage?.name,
-    L.company, L.companyName, L?.company?.name,
-    L.organization, L.organizationName, L.org, L?.org?.name,
-    primaryEntry?.lenderBrokerage, primaryEntry?.lenderCompany, primaryEntry?.lenderOrganization
-  );
+  const brokerage = isCashBuyer
+    ? 'Cash Purchase'
+    : first(
+        L.lenderBrokerage,             // <- THIS was missing before
+        L.brokerage, L.brokerageName, L?.brokerage?.name,
+        L.company, L.companyName, L?.company?.name,
+        L.organization, L.organizationName, L.org, L?.org?.name,
+        primaryEntry?.lenderBrokerage, primaryEntry?.lenderCompany, primaryEntry?.lenderOrganization
+      );
 
   // Compose final line
   const nameLine = displayName
@@ -156,9 +222,9 @@ export const renderRightColumn = (purchaser, realtor, primaryEntry) => {
   if (!target) all('#lenderNameFinance').forEach(n => set(n, nameLine));
 
   // Phone / Email (with a few extra fallbacks)
-  const rawPhone = first(L.phone, L.mobile, L.cell, L.primaryPhone, primaryEntry?.lenderPhone);
-  const phone = formatPhoneDisplay(rawPhone);
-  const email = first(L.email, L.emailAddress, primaryEntry?.lenderEmail);
+  const rawPhone = isCashBuyer ? '' : first(L.phone, L.mobile, L.cell, L.primaryPhone, primaryEntry?.lenderPhone);
+  const phone = isCashBuyer ? '' : formatPhoneDisplay(rawPhone);
+  const email = isCashBuyer ? '' : first(L.email, L.emailAddress, primaryEntry?.lenderEmail);
   set(els?.lenderPhoneFinance || el('lenderPhoneFinance'), phone);
   set(els?.lenderEmailFinance || el('lenderEmailFinance'), email);
 }
@@ -244,4 +310,24 @@ export const setInitialFormValues = (lot, primaryEntry) => {
   const gSel = els.generalStatusSelect || document.getElementById('generalStatusSelect');
   if (gSel) gSel.value = lot.generalStatus ?? 'Available';
 }
+
+  // ----- Earnest money (entries + total)
+  const entries = Array.isArray(lot.earnestEntries) ? lot.earnestEntries.slice() : [];
+  if (!entries.length) {
+    if (lot.earnestAmount != null) {
+      entries.push({ amount: lot.earnestAmount, dueDate: null, collectedDate: lot.earnestCollectedDate || null });
+    }
+    if (lot.earnestAdditionalAmount != null) {
+      entries.push({ amount: lot.earnestAdditionalAmount, dueDate: null, collectedDate: null });
+    }
+  }
+  renderEarnestRows(entries);
+
+  const totalEl = getEl('earnestTotalValue');
+  const total =
+    lot.earnestTotal ??
+    (entries.length
+      ? entries.reduce((sum, row) => sum + (Number(row.amount) || 0), 0)
+      : null);
+  if (totalEl) totalEl.textContent = total == null ? '' : formatMoney(total);
 };

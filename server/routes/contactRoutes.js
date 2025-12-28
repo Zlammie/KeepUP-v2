@@ -375,7 +375,7 @@ router.get('/',
       }
 
       const contacts = await Contact.find(filter)
-        .select('firstName lastName email phone status visitDate communityIds realtorId lenderId lenders updatedAt flagged company')
+        .select('firstName lastName email phone status visitDate communityIds realtorId lenderId lenders updatedAt flagged company financeType fundsVerified fundsVerifiedDate')
         .populate('communityIds', 'name')
         .populate('floorplans', 'name planNumber')
         .populate('realtorId', 'firstName lastName brokerage email phone')
@@ -435,7 +435,7 @@ router.get('/:id',
       if (!isObjectId(id)) return res.status(400).json({ error: 'Invalid id' });
 
       const contact = await Contact.findOne(contactQuery(req, { _id: new mongoose.Types.ObjectId(id) }))
-        .select('firstName lastName email phone status notes source communityIds floorplans realtorId lenderId lotId ownerId visitDate lotLineUp buyTime buyMonth facing living investor renting ownSelling ownNotSelling lenderStatus lenderInviteDate lenderApprovedDate lenders updatedAt followUpSchedule beBackDate statusHistory')
+        .select('firstName lastName email phone status notes source communityIds floorplans realtorId lenderId lotId ownerId visitDate lotLineUp buyTime buyMonth facing living investor renting ownSelling ownNotSelling lenderStatus lenderInviteDate lenderApprovedDate lenders updatedAt followUpSchedule beBackDate statusHistory financeType fundsVerified fundsVerifiedDate')
         .populate('communityIds', 'name')
         .populate('floorplans', 'name planNumber')                                       // ✅ array of communities
         .populate('realtorId', 'firstName lastName brokerage email phone')      // ✅ real field
@@ -809,6 +809,32 @@ router.put('/:id',
         }
       }
 
+      if (Object.prototype.hasOwnProperty.call(b, 'financeType')) {
+        const ft = String(b.financeType || '').trim().toLowerCase();
+        if (ft === 'cash' || ft === 'financed') {
+          $set.financeType = ft;
+          if (ft === 'financed' && Object.prototype.hasOwnProperty.call($unset, 'financeType')) delete $unset.financeType;
+        } else if (!ft) {
+          $unset.financeType = '';
+        }
+      }
+
+      if (Object.prototype.hasOwnProperty.call(b, 'fundsVerified')) {
+        $set.fundsVerified = !!b.fundsVerified;
+        if (Object.prototype.hasOwnProperty.call($unset, 'fundsVerified')) delete $unset.fundsVerified;
+      }
+
+      if (Object.prototype.hasOwnProperty.call(b, 'fundsVerifiedDate')) {
+        const parsed = parseDateMaybe(b.fundsVerifiedDate);
+        if (!parsed) {
+          $unset.fundsVerifiedDate = '';
+          delete $set.fundsVerifiedDate;
+        } else {
+          $set.fundsVerifiedDate = parsed;
+          if (Object.prototype.hasOwnProperty.call($unset, 'fundsVerifiedDate')) delete $unset.fundsVerifiedDate;
+        }
+      }
+
       // --- Build update doc
       const updateDoc = {};
       if (Object.keys($set).length)   updateDoc.$set   = $set;
@@ -1044,18 +1070,21 @@ router.get('/by-lender/:lenderId',
   async (req, res) => {
     try {
       const { lenderId } = req.params;
-      if (!isObjectId(lenderId)) return res.status(400).json({ error: 'Invalid lenderId' });
+      const isCash = lenderId === 'cash';
+      if (!isCash && !isObjectId(lenderId)) return res.status(400).json({ error: 'Invalid lenderId' });
 
-      const lenderObjectId = new mongoose.Types.ObjectId(lenderId);
-      const filter = contactQuery(req, {
-        $or: [
-          { lenderId: lenderObjectId },
-          { 'lenders.lender': lenderObjectId }
-        ]
-      });
+      const lenderObjectId = isCash ? null : new mongoose.Types.ObjectId(lenderId);
+      const filter = isCash
+        ? contactQuery(req, { financeType: 'cash' })
+        : contactQuery(req, {
+            $or: [
+              { lenderId: lenderObjectId },
+              { 'lenders.lender': lenderObjectId }
+            ]
+          });
 
       const contacts = await Contact.find(filter)
-        .select('firstName lastName email phone communityIds lenderId lenders ownerId lenderStatus lenderInviteDate lenderApprovedDate linkedLot lotId status company requiresAttention')
+        .select('firstName lastName email phone communityIds lenderId lenders ownerId lenderStatus lenderInviteDate lenderApprovedDate linkedLot lotId status company requiresAttention financeType fundsVerified fundsVerifiedDate')
         .populate('communityIds', 'name')
         .populate('lenderId', 'firstName lastName lenderBrokerage email phone')
         .populate('lenders.lender', 'firstName lastName lenderBrokerage email phone')
@@ -1086,11 +1115,13 @@ router.get('/by-lender/:lenderId',
           lender: entry?.lender || null,
         });
 
-        const lenderEntries = (contact.lenders || [])
-          .filter((entry) => entry?.lender && String(entry.lender._id) === lenderId)
-          .map(formatter);
+        const lenderEntries = isCash
+          ? []
+          : (contact.lenders || [])
+              .filter((entry) => entry?.lender && String(entry.lender._id) === lenderId)
+              .map(formatter);
 
-        if (!lenderEntries.length && contact.lenderId && String(contact.lenderId._id) === lenderId) {
+        if (!isCash && !lenderEntries.length && contact.lenderId && String(contact.lenderId._id) === lenderId) {
           lenderEntries.push({
             _id: contact.lenderId._id,
             lender: contact.lenderId,
@@ -1138,7 +1169,10 @@ router.get('/by-lender/:lenderId',
           linkedLot: linkedLotData,
           hasLinkedLot,
           isPurchaserWithLot,
-          requiresAttention: Boolean(contact.requiresAttention)
+          requiresAttention: Boolean(contact.requiresAttention),
+          financeType: contact.financeType || 'financed',
+          fundsVerified: Boolean(contact.fundsVerified),
+          fundsVerifiedDate: contact.fundsVerifiedDate || null
         };
       });
 

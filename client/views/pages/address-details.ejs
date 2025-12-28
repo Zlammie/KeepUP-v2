@@ -219,6 +219,7 @@
 
 
 
+            <div class="card-row walk-earnest-grid">
             <div class="card">
               <h2>Walk Status</h2>
               <div class="row two">
@@ -260,6 +261,27 @@
                   </div>
                 </div>
               </div>
+            </div>
+            <div class="card earnest-card">
+              <div class="earnest-card__head">
+                <h2>Earnest Money</h2>
+                <div class="earnest-total">
+                  <span class="earnest-total-label">Total Earnest</span>
+                  <span id="earnestTotalValue" class="earnest-total-value price-figure"></span>
+                </div>
+              </div>
+
+              <div class="earnest-table">
+                <div class="earnest-row earnest-row--head">
+                  <div class="earnest-cell">Amount</div>
+                  <div class="earnest-cell">Due</div>
+                  <div class="earnest-cell">Collected</div>
+                  <div class="earnest-cell actions">Actions</div>
+                </div>
+                <div id="earnestTableBody"></div>
+              </div>
+              <button type="button" id="addEarnestRow" class="btn btn-sm btn-outline-primary earnest-add-btn">Add Row</button>
+            </div>
             </div>
           </section>
 

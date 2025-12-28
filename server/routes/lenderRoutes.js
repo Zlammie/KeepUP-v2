@@ -63,6 +63,15 @@ router.get("/",
           delete lender.company;
         }
       });
+      lenders.push({
+        _id: 'cash',
+        firstName: 'Cash',
+        lastName: 'Buyer',
+        lenderBrokerage: 'Cash Purchase',
+        email: '',
+        phone: '',
+        isCash: true
+      });
       res.json(lenders);
     } catch (err) {
       res.status(500).json({ error: "Failed to fetch lenders", details: err.message });
@@ -102,6 +111,17 @@ router.get("/:id",
   async (req, res) => {
     try {
       const { id } = req.params;
+      if (id === 'cash') {
+        return res.json({
+          _id: 'cash',
+          firstName: 'Cash',
+          lastName: 'Buyer',
+          lenderBrokerage: 'Cash Purchase',
+          email: '',
+          phone: '',
+          isCash: true
+        });
+      }
       if (!isObjectId(id)) return res.status(400).json({ error: "Invalid id" });
 
       const lender = await Lender.findOne({ _id: id, ...companyFilter(req) }).lean();

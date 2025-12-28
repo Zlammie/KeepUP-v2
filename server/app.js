@@ -18,6 +18,7 @@ const app = express();
 const uploadsDir = process.env.UPLOADS_DIR
   ? path.resolve(process.env.UPLOADS_DIR)
   : path.join(process.cwd(), 'uploads');
+const publicDir = path.join(process.cwd(), 'public');
 const isProd = process.env.NODE_ENV === 'production';
 
 const TRUE_SET = new Set(['1', 'true', 'yes', 'on']);
@@ -278,6 +279,7 @@ app.get('/favicon.ico', (req, res) =>
 );
 app.use('/assets', express.static(path.join(__dirname, '../client/assets')));
 app.use('/uploads', express.static(uploadsDir));
+app.use('/public', express.static(publicDir));
 app.set('views', path.join(__dirname, '../client/views'));
 app.set('view engine', 'ejs');
 

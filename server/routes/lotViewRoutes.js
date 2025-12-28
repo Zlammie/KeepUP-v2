@@ -15,6 +15,13 @@ const isSuper = req => (req.user?.roles || []).includes('SUPER_ADMIN');
 const companyFilter = req => (isSuper(req) ? {} : { company: req.user.company });
 const READ_ROLES = ['READONLY','USER','MANAGER','COMPANY_ADMIN','SUPER_ADMIN'];
 const WRITE_ROLES = ['USER','MANAGER','COMPANY_ADMIN','SUPER_ADMIN'];
+const escapeRegex = (str = '') => String(str).replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+const normalizeJobNumber = (val) => {
+  const s = (val == null ? '' : String(val)).trim();
+  if (!s) return '';
+  // Many imports pad to 4 digits; do the same when matching.
+  return s.padStart(4, '0');
+};
 
 // allow updates only to these nested lot keys (expand as needed)
 const ALLOWED_LOT_FIELDS = new Set([
@@ -84,6 +91,169 @@ async function assertContactInTenant(req, contactId) {
 
 // All routes require auth
 router.use(ensureAuth);
+
+/**
+ * POST /lots/batch
+ * Returns lots by _id across all communities in the tenant.
+ */
+router.post('/lots/batch',
+  requireRole(...READ_ROLES),
+  async (req, res) => {
+    try {
+      const ids = Array.isArray(req.body?.ids) ? req.body.ids : [];
+      const objectIds = Array.from(new Set(ids.map(String)))
+        .map((id) => (isObjectId(id) ? new mongoose.Types.ObjectId(id) : null))
+        .filter(Boolean);
+
+      if (!objectIds.length) return res.json([]);
+
+      const matchCompany = companyFilter(req);
+
+      const lots = await Community.aggregate([
+        { $match: { ...matchCompany, 'lots._id': { $in: objectIds } } },
+        { $unwind: '$lots' },
+        { $match: { 'lots._id': { $in: objectIds } } },
+        { $project: { _id: 0, lot: '$lots' } }
+      ]);
+
+      const lotsList = lots.map((doc) => doc.lot);
+
+      const planIds = Array.from(new Set(
+        lotsList
+          .map((lot) => lot?.floorPlan)
+          .filter((id) => isObjectId(id))
+          .map(String)
+      ));
+
+      let planNameById = {};
+      if (planIds.length) {
+        const plans = await FloorPlan.find({
+          _id: { $in: planIds },
+          ...matchCompany
+        })
+          .select('_id name')
+          .lean();
+        planNameById = plans.reduce((acc, plan) => {
+          acc[plan._id.toString()] = plan.name || '';
+          return acc;
+        }, {});
+      }
+
+      const hydrated = lotsList.map((lot) => {
+        const out = { ...lot };
+        if (lot?.floorPlan && planNameById[lot.floorPlan.toString()]) {
+          out.floorPlanName = planNameById[lot.floorPlan.toString()];
+        }
+        return out;
+      });
+
+      const dedup = new Map();
+      hydrated.forEach((lot) => {
+        if (lot && lot._id) dedup.set(lot._id.toString(), lot);
+      });
+
+      return res.json(Array.from(dedup.values()));
+    } catch (err) {
+      console.error('POST /lots/batch error', err);
+      return res.status(500).json({ error: 'Failed to fetch lots' });
+    }
+  }
+);
+
+/**
+ * POST /lots/lookup
+ * Looks up lots by address and/or jobNumber (tenant-scoped).
+ * Body: { addresses: string[], jobNumbers: string[] }
+ */
+router.post('/lots/lookup',
+  requireRole(...READ_ROLES),
+  async (req, res) => {
+    try {
+      const rawAddresses = Array.isArray(req.body?.addresses) ? req.body.addresses : [];
+      const rawJobs = Array.isArray(req.body?.jobNumbers) ? req.body.jobNumbers : [];
+
+      const addresses = Array.from(new Set(
+        rawAddresses
+          .map((a) => (a == null ? '' : String(a)).trim())
+          .filter(Boolean)
+      ));
+      const jobNumbers = Array.from(new Set(
+        rawJobs
+          .map(normalizeJobNumber)
+          .filter(Boolean)
+      ));
+
+      if (!addresses.length && !jobNumbers.length) return res.json([]);
+
+      const addressRegexes = addresses.map((addr) => new RegExp(`^${escapeRegex(addr)}$`, 'i'));
+      const lotFilters = [];
+      if (addressRegexes.length) lotFilters.push({ 'lots.address': { $in: addressRegexes } });
+      if (jobNumbers.length) lotFilters.push({ 'lots.jobNumber': { $in: jobNumbers } });
+
+      const companyMatch = companyFilter(req);
+      const pipeline = [
+        { $match: { ...companyMatch, ...(lotFilters.length ? {} : {}) } },
+        { $unwind: '$lots' },
+        ...(lotFilters.length ? [{ $match: { $or: lotFilters } }] : []),
+        { $project: {
+          _id: 0,
+          lot: '$lots',
+          communityId: '$_id',
+          communityName: '$name',
+          communityCity: '$city',
+          communityState: '$state'
+        } }
+      ];
+
+      const docs = await Community.aggregate(pipeline);
+
+      // Hydrate floor plan labels for coloring/tooltip
+      const floorPlanIds = Array.from(new Set(
+        docs
+          .map((doc) => doc?.lot?.floorPlan)
+          .filter((id) => isObjectId(id))
+          .map(String)
+      ));
+
+      let planById = new Map();
+      if (floorPlanIds.length) {
+        const plans = await FloorPlan.find({
+          _id: { $in: floorPlanIds },
+          ...companyMatch
+        })
+          .select('_id name planNumber title code')
+          .lean({ virtuals: true });
+        planById = new Map(plans.map((p) => [String(p._id), p]));
+      }
+
+      const results = docs.map((doc) => {
+        const lot = doc.lot || {};
+        const jobNumber = normalizeJobNumber(lot.jobNumber);
+        const planId = lot.floorPlan && isObjectId(lot.floorPlan) ? String(lot.floorPlan) : null;
+        const planDoc = planId && planById.get(planId) ? planById.get(planId) : null;
+
+        return {
+          ...lot,
+          jobNumber,
+          communityId: doc.communityId,
+          communityName: doc.communityName || '',
+          communityCity: doc.communityCity || '',
+          communityState: doc.communityState || '',
+          floorPlan: planDoc || lot.floorPlan || null,
+          floorPlanId: planId || null,
+          floorPlanName: lot.floorPlanName || planDoc?.name || planDoc?.title || null,
+          floorPlanNumber: planDoc?.planNumber || lot.floorPlanNumber || null,
+          floorPlanCode: planDoc?.code || null
+        };
+      });
+
+      return res.json(results);
+    } catch (err) {
+      console.error('POST /lots/lookup error', err);
+      return res.status(500).json({ error: 'Failed to lookup lots' });
+    }
+  }
+);
 
 /**
  * GET /communities/:communityId/lots

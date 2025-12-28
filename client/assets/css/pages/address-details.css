@@ -151,6 +151,100 @@
 .addr-card .general-select-wrap{
   flex: 0 0 auto;
 }
+.walk-earnest-grid{
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+  gap: 12px;
+  align-items: start;
+}
+.walk-earnest-grid > .card{
+  height: 100%;
+}
+.walk-earnest-grid > .card:first-child{
+  padding: 16px;
+}
+.earnest-card .row.two{
+  gap: 10px;
+}
+.earnest-card .price-figure{
+  font-weight: 700;
+  font-size: 1.05rem;
+}
+.earnest-card__head{
+  display:flex;
+  align-items:center;
+  justify-content:space-between;
+  gap:12px;
+}
+.earnest-total{
+  display:inline-flex;
+  align-items:center;
+  gap:8px;
+  font-weight:700;
+}
+.earnest-total-value{
+  min-width:90px;
+  display:inline-block;
+  text-align:right;
+}
+.earnest-table{
+  display:flex;
+  flex-direction:column;
+  gap:6px;
+  margin-top:8px;
+}
+.earnest-row{
+  display:grid;
+  grid-template-columns: 1fr 1fr 1fr auto;
+  align-items:center;
+  gap:10px;
+}
+.earnest-row--head{
+  font-weight:700;
+  color:#475467;
+}
+.earnest-cell input[type="date"]{
+  min-width: 0;
+}
+.earnest-cell.amount input,
+.earnest-cell.date input{
+  width:100%;
+}
+.earnest-table input.value{
+  padding:8px 10px;
+}
+.earnest-add-btn{
+  margin-top:8px;
+}
+.earnest-cell.actions{
+  text-align:right;
+}
+.earnest-delete{
+  border:1px solid #e5e7eb;
+  background:#fff;
+  padding:6px 10px;
+  border-radius:8px;
+  cursor:pointer;
+  font-weight:600;
+}
+.earnest-delete:hover{
+  background:#fee2e2;
+  border-color:#fca5a5;
+}
+.earnest-missing-due{
+  border-color: #fca5a5 !important;
+  box-shadow: 0 0 0 3px rgba(252, 165, 165, 0.35);
+}
+.earnest-overdue-collected{
+  border-color: #f97316 !important;
+  box-shadow: 0 0 0 3px rgba(249, 115, 22, 0.3);
+}
+.walks-grid{
+  padding-right: 8px;
+}
+.walks-grid .row.inline{
+  gap: 8px;
+}
 .closing-status-wrap{
   display: flex;
   flex-direction: column;

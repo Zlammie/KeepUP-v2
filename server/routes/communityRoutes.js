@@ -2,6 +2,10 @@
 const express = require('express');
 const mongoose = require('mongoose');
 const xlsx = require('xlsx');
+const fs = require('fs');
+const path = require('path');
+const crypto = require('crypto');
+const multer = require('multer');
 
 const router = express.Router();
 
@@ -112,6 +116,422 @@ function normalizeFloorPlan(plan) {
 function deriveFloorPlanName(plan) {
   if (!plan || typeof plan !== 'object') return '';
   return trimValue(plan.name) || trimValue(plan.title) || trimValue(plan.planNumber) || trimValue(plan.code);
+}
+
+function formatDate(val) {
+  if (!val) return '';
+  const d = val instanceof Date ? val : new Date(val);
+  return Number.isNaN(d.getTime()) ? '' : d.toISOString();
+}
+
+function escapeCsvValue(value) {
+  const str = value == null ? '' : String(value);
+  if (!str.length) return '';
+  if (/[",\r\n]/.test(str)) return `"${str.replace(/"/g, '""')}"`;
+  return str;
+}
+
+function listToString(value) {
+  if (Array.isArray(value)) {
+    return value
+      .map((v) => (v == null ? '' : String(v)))
+      .filter(Boolean)
+      .join(' | ');
+  }
+  return value == null ? '' : String(value);
+}
+
+function sanitizeFilename(base, fallback = 'community') {
+  const cleaned = trimValue(base).replace(/[^a-z0-9]+/gi, '-').replace(/^-+|-+$/g, '');
+  return cleaned || fallback;
+}
+
+const mapUpload = multer({
+  storage: multer.memoryStorage(),
+  limits: { fileSize: 25 * 1024 * 1024, files: 5 },
+  fileFilter: (_req, file, cb) => {
+    const allowedExt = new Set(['.svg', '.json', '.png', '.jpg', '.jpeg']);
+    const ext = path.extname(file.originalname || '').toLowerCase();
+    if (allowedExt.has(ext)) return cb(null, true);
+    return cb(new Error(`Unsupported map file type: ${ext}`));
+  }
+});
+
+const mapsBaseDir = path.join(process.cwd(), 'public', 'maps', 'communities');
+
+function ensureDirSync(dir) {
+  fs.mkdirSync(dir, { recursive: true });
+}
+
+function safeName(prefix, original) {
+  const ext = path.extname(original || '').toLowerCase() || '.dat';
+  const stamp = Date.now();
+  const rand = crypto.randomBytes(6).toString('hex');
+  return `${prefix}-${stamp}-${rand}${ext}`;
+}
+
+function writeFileToDir(dir, filename, buffer) {
+  ensureDirSync(dir);
+  const target = path.join(dir, filename);
+  fs.writeFileSync(target, buffer);
+  return target;
+}
+
+function getMapDir(communityId) {
+  return path.join(mapsBaseDir, String(communityId));
+}
+
+function readCommunityMapManifest(communityId) {
+  const dir = getMapDir(communityId);
+  const manifestPath = path.join(dir, 'manifest.json');
+  if (!fs.existsSync(manifestPath)) return null;
+  const data = JSON.parse(fs.readFileSync(manifestPath, 'utf8'));
+  // Expose via the existing /public static mount
+  const basePath = `/public/maps/communities/${communityId}`;
+  const files = data?.files || {};
+  return {
+    ...data,
+    files,
+    paths: {
+      basePath,
+      overlayPath: files.overlay ? `${basePath}/${files.overlay}` : null,
+      linksPath: files.links ? `${basePath}/${files.links}` : null,
+      backgroundPath: files.background ? `${basePath}/${files.background}` : null,
+      combinedPath: `/api/communities/${communityId}/map/combined.svg`
+    }
+  };
+}
+
+async function buildLotsPayload(req, community, searchTerm = '') {
+  const q = String(searchTerm || '').toLowerCase();
+  const allLots = community.lots || [];
+  const baseLots = q
+    ? allLots.filter((l) => (l.address || '').toLowerCase().includes(q))
+    : allLots;
+
+  const lotMetaPairs = baseLots.map((lot) => ({ lot, meta: derivePurchaserMeta(lot) }));
+  const purchaserIds = Array.from(new Set(
+    lotMetaPairs
+      .map(({ meta }) => meta.id)
+      .filter(Boolean)
+      .map((id) => String(id))
+  ));
+
+  let contactNameById = new Map();
+  let contactById = new Map();
+  let closingByContactId = new Map();
+  if (purchaserIds.length) {
+    const objectIds = purchaserIds
+      .filter((id) => /^[0-9a-fA-F]{24}$/.test(id))
+      .map((id) => new mongoose.Types.ObjectId(id));
+    const lookupIds = objectIds.length ? objectIds : purchaserIds;
+    const contacts = await Contact.find({
+      _id: { $in: lookupIds },
+      ...companyFilter(req)
+    })
+      .select('firstName lastName fullName name email phone status notes lenders.isPrimary lenders.closingDateTime lenders.closingStatus')
+      .lean({ virtuals: true });
+    contactNameById = new Map();
+    contactById = new Map();
+    closingByContactId = new Map();
+    for (const contact of contacts) {
+      const contactId = toStringId(contact._id);
+      if (!contactId) continue;
+      contactById.set(contactId, contact);
+
+      const name = trimValue(buildContactName(contact));
+      if (name) contactNameById.set(contactId, name);
+
+      const lenders = Array.isArray(contact.lenders) ? contact.lenders : [];
+      const primary = lenders.find((entry) => entry?.isPrimary) || lenders[0] || null;
+      if (primary && (primary.closingDateTime || primary.closingStatus)) {
+        closingByContactId.set(contactId, {
+          closingDateTime: primary.closingDateTime || null,
+          closingStatus: primary.closingStatus || null
+        });
+      }
+    }
+  }
+
+  const floorPlanIds = Array.from(new Set(
+    baseLots
+      .map((lot) => {
+        const fp = lot.floorPlan;
+        if (!fp) return null;
+        if (typeof fp === 'string') return fp.trim();
+        if (typeof fp === 'object') return toStringId(fp._id || fp.id);
+        return null;
+      })
+      .filter(Boolean)
+  ));
+
+  let floorPlanById = new Map();
+  if (floorPlanIds.length) {
+    const objectFloorIds = floorPlanIds
+      .filter((id) => /^[0-9a-fA-F]{24}$/.test(id))
+      .map((id) => new mongoose.Types.ObjectId(id));
+    const lookupFloorIds = objectFloorIds.length ? objectFloorIds : floorPlanIds;
+    const floorPlans = await FloorPlan.find({
+      _id: { $in: lookupFloorIds },
+      ...companyFilter(req)
+    })
+      .select('name planNumber title code')
+      .lean({ virtuals: true });
+    floorPlanById = new Map();
+    for (const plan of floorPlans) {
+      const planId = toStringId(plan._id);
+      const normalizedPlan = normalizeFloorPlan(plan);
+      if (planId && normalizedPlan) {
+        if (!normalizedPlan._id) normalizedPlan._id = planId;
+        floorPlanById.set(planId, normalizedPlan);
+      }
+    }
+  }
+
+  const lots = lotMetaPairs.map(({ lot, meta }) => {
+    const result = { ...lot };
+    const existingPlanName = trimValue(result.floorPlanName);
+
+    let displayName = meta.name || '';
+    if (!displayName && meta.id) {
+      const key = String(meta.id);
+      displayName = contactNameById.get(key) || key;
+      const needsHydration =
+        !result.purchaser ||
+        typeof result.purchaser === 'string' ||
+        (typeof result.purchaser === 'object' && result.purchaser._bsontype);
+      if (needsHydration) {
+        const contact = contactById.get(key);
+        if (contact) result.purchaser = contact;
+      }
+    }
+    result.purchaserDisplayName = displayName;
+    result.purchaserId = meta.id || null;
+
+    if (meta.id) {
+      const closing = closingByContactId.get(String(meta.id));
+      if (closing) {
+        if (!result.closingDateTime && closing.closingDateTime) result.closingDateTime = closing.closingDateTime;
+        if (!result.closeDateTime && closing.closingDateTime) result.closeDateTime = closing.closingDateTime;
+        if (!result.closeDate && closing.closingDateTime) result.closeDate = closing.closingDateTime;
+        if (!result.closingDate && closing.closingDateTime) result.closingDate = closing.closingDateTime;
+        if (!result.closingStatus && closing.closingStatus) result.closingStatus = closing.closingStatus;
+      }
+    }
+
+    const rawPlan = lot.floorPlan;
+    const floorPlanId = (() => {
+      if (!rawPlan) return null;
+      if (typeof rawPlan === 'string') return rawPlan.trim();
+      if (typeof rawPlan === 'object') return toStringId(rawPlan._id || rawPlan.id);
+      return null;
+    })();
+
+    let floorPlanValue = rawPlan;
+    if (floorPlanId && floorPlanById.has(floorPlanId)) {
+      floorPlanValue = floorPlanById.get(floorPlanId);
+    } else if (floorPlanValue && typeof floorPlanValue === 'object') {
+      const normalized = normalizeFloorPlan(floorPlanValue);
+      if (normalized) floorPlanValue = normalized;
+    }
+
+    if (floorPlanValue && typeof floorPlanValue === 'object') {
+      const normalized = normalizeFloorPlan(floorPlanValue) || {};
+      if (floorPlanId && !normalized._id) normalized._id = floorPlanId;
+      result.floorPlan = normalized;
+      const planName = deriveFloorPlanName(normalized);
+      if (planName) result.floorPlanName = planName;
+    } else if (floorPlanId && floorPlanById.has(floorPlanId)) {
+      const plan = floorPlanById.get(floorPlanId);
+      result.floorPlan = plan;
+      const planName = deriveFloorPlanName(plan);
+      if (planName) result.floorPlanName = planName;
+    } else {
+      result.floorPlan = floorPlanValue;
+    }
+
+    if (!result.floorPlanName && floorPlanId && floorPlanById.has(floorPlanId)) {
+      const plan = floorPlanById.get(floorPlanId);
+      const planName = deriveFloorPlanName(plan);
+      if (planName) result.floorPlanName = planName;
+    }
+
+    if (!result.floorPlanName && existingPlanName) {
+      result.floorPlanName = existingPlanName;
+    }
+
+    return result;
+  });
+
+  return lots;
+}
+
+function buildCommunityCsv(community, lots) {
+  const headers = [
+    'Company ID',
+    'Community ID',
+    'Community Name',
+    'Project Number',
+    'Market',
+    'City',
+    'State',
+    'Community Created At',
+    'Community Updated At',
+    'Lot ID',
+    'Job Number',
+    'Lot',
+    'Block',
+    'Phase',
+    'Address',
+    'Elevation',
+    'Building Status',
+    'Status',
+    'General Status',
+    'Floor Plan Name',
+    'Floor Plan Number',
+    'Floor Plan Code',
+    'Floor Plan ID',
+    'Purchaser Name',
+    'Purchaser Email',
+    'Purchaser Phone',
+    'Purchaser Status',
+    'Purchaser Notes',
+    'Purchaser ID',
+    'Release Date',
+    'Expected Completion Date',
+    'Close Month',
+    'Sales Date',
+    'Closing Date/Time',
+    'Closing Status',
+    'Walk Status',
+    'Third Party Date',
+    'First Walk Date',
+    'Final Sign Off Date',
+    'Earnest Amount',
+    'Earnest Additional Amount',
+    'Earnest Collected Date',
+    'Earnest Total',
+    'Earnest Entries',
+    'Lender',
+    'Close DateTime',
+    'List Price',
+    'Sales Price',
+    'Is Published',
+    'Is Listed',
+    'Published At',
+    'Content Synced At',
+    'Buildrootz Id',
+    'Publish Version',
+    'Promo Text',
+    'Listing Description',
+    'Hero Image',
+    'Listing Photos',
+    'Live Elevation Photo',
+    'Sales Contact Name',
+    'Sales Contact Phone',
+    'Sales Contact Email',
+    'Latitude',
+    'Longitude'
+  ];
+
+  const rows = lots.map((lot) => {
+    const purchaser =
+      lot?.purchaser && typeof lot.purchaser === 'object' && !lot.purchaser._bsontype
+        ? lot.purchaser
+        : null;
+    const floorPlan =
+      lot?.floorPlan && typeof lot.floorPlan === 'object' && !lot.floorPlan._bsontype
+        ? lot.floorPlan
+        : null;
+
+    const purchaserName = trimValue(
+      lot.purchaserDisplayName ||
+      buildContactName(purchaser) ||
+      buildContactName(lot?.purchaser)
+    );
+    const earnestEntries = Array.isArray(lot.earnestEntries)
+      ? lot.earnestEntries
+          .map((entry) => {
+            if (!entry) return '';
+            const parts = [];
+            if (entry.amount != null) parts.push(entry.amount);
+            if (entry.dueDate) parts.push(`due:${formatDate(entry.dueDate)}`);
+            if (entry.collectedDate) parts.push(`collected:${formatDate(entry.collectedDate)}`);
+            return parts.join(' | ');
+          })
+          .filter(Boolean)
+          .join('; ')
+      : '';
+
+    return [
+      toStringId(community.company),
+      toStringId(community._id),
+      trimValue(community.name || community.communityName),
+      trimValue(community.projectNumber),
+      trimValue(community.market),
+      trimValue(community.city),
+      trimValue(community.state),
+      formatDate(community.createdAt),
+      formatDate(community.updatedAt),
+      toStringId(lot._id),
+      trimValue(lot.jobNumber),
+      trimValue(lot.lot),
+      trimValue(lot.block),
+      trimValue(lot.phase),
+      trimValue(lot.address),
+      trimValue(lot.elevation),
+      trimValue(lot.buildingStatus),
+      trimValue(lot.status),
+      trimValue(lot.generalStatus),
+      trimValue(lot.floorPlanName || deriveFloorPlanName(floorPlan)),
+      trimValue(floorPlan?.planNumber),
+      trimValue(floorPlan?.code || floorPlan?.title),
+      toStringId(floorPlan?._id),
+      purchaserName,
+      trimValue(purchaser?.email || lot.email),
+      trimValue(purchaser?.phone || lot.phone),
+      trimValue(purchaser?.status),
+      trimValue(purchaser?.notes),
+      trimValue(lot.purchaserId || toStringId(purchaser?._id)),
+      formatDate(lot.releaseDate),
+      formatDate(lot.expectedCompletionDate),
+      trimValue(lot.closeMonth),
+      formatDate(lot.salesDate),
+      formatDate(lot.closingDateTime || lot.closeDateTime || lot.closingDate || lot.closeDate),
+      trimValue(lot.closingStatus),
+      trimValue(lot.walkStatus),
+      formatDate(lot.thirdParty),
+      formatDate(lot.firstWalk),
+      formatDate(lot.finalSignOff),
+      lot.earnestAmount ?? '',
+      lot.earnestAdditionalAmount ?? '',
+      formatDate(lot.earnestCollectedDate),
+      lot.earnestTotal ?? '',
+      earnestEntries,
+      trimValue(lot.lender),
+      formatDate(lot.closeDateTime || lot.closeDate),
+      lot.listPrice ?? '',
+      lot.salesPrice ?? '',
+      lot.isPublished === true ? 'true' : lot.isPublished === false ? 'false' : '',
+      lot.isListed === true ? 'true' : lot.isListed === false ? 'false' : '',
+      formatDate(lot.publishedAt),
+      formatDate(lot.contentSyncedAt),
+      listToString(lot.buildrootzId),
+      lot.publishVersion ?? '',
+      trimValue(lot.promoText),
+      trimValue(lot.listingDescription),
+      trimValue(lot.heroImage),
+      listToString(lot.listingPhotos),
+      trimValue(lot.liveElevationPhoto),
+      trimValue(lot.salesContactName),
+      trimValue(lot.salesContactPhone),
+      trimValue(lot.salesContactEmail),
+      lot.latitude ?? '',
+      lot.longitude ?? ''
+    ].map(escapeCsvValue).join(',');
+  });
+
+  return [headers.map(escapeCsvValue).join(','), ...rows].join('\r\n');
 }
 
 async function loadScopedCommunity(req, res) {
@@ -272,6 +692,181 @@ router.get('/',
   }
 );
 
+// Map manifest (READONLY+)
+router.get('/:communityId/map',
+  requireRole(...READ_ROLES),
+  async (req, res) => {
+    try {
+      const { communityId } = req.params;
+      if (!isObjectId(communityId)) return res.status(400).json({ error: 'Invalid community id' });
+      if (!hasCommunityAccess(req.user, communityId)) return res.status(404).json({ error: 'Community not found' });
+      const manifest = readCommunityMapManifest(communityId);
+      if (!manifest) return res.status(404).json({ error: 'Map not found for community' });
+      res.json(manifest);
+    } catch (err) {
+      console.error('Get community map manifest failed:', err);
+      res.status(500).json({ error: 'Failed to load community map' });
+    }
+  }
+);
+
+// Upload map assets (MANAGER+)
+router.post('/:communityId/map',
+  requireRole(...ADMIN_ROLES),
+  mapUpload.any(),
+  async (req, res) => {
+    try {
+      const { communityId } = req.params;
+      if (!isObjectId(communityId)) return res.status(400).json({ error: 'Invalid community id' });
+      if (!hasCommunityAccess(req.user, communityId)) return res.status(404).json({ error: 'Community not found' });
+
+      const files = Array.isArray(req.files) ? req.files : [];
+      if (!files.length) return res.status(400).json({ error: 'No files uploaded' });
+
+      const dir = getMapDir(communityId);
+      const manifest = readCommunityMapManifest(communityId) || {
+        mapId: communityId,
+        versionId: crypto.randomUUID ? crypto.randomUUID() : new mongoose.Types.ObjectId().toString(),
+        exportedAt: new Date().toISOString(),
+        files: {}
+      };
+
+      const filesMeta = manifest.files || {};
+      const jsonCandidates = [];
+
+      files.forEach((file) => {
+        const ext = path.extname(file.originalname || '').toLowerCase();
+        if (ext === '.svg') {
+          const fname = safeName('overlay', file.originalname);
+          writeFileToDir(dir, fname, file.buffer);
+          filesMeta.overlay = fname;
+        } else if (ext === '.json') {
+          jsonCandidates.push(file);
+        } else if (ext === '.png' || ext === '.jpg' || ext === '.jpeg') {
+          const fname = safeName('background', file.originalname);
+          writeFileToDir(dir, fname, file.buffer);
+          filesMeta.background = fname;
+        }
+      });
+
+      // Pick the most link-like JSON (prefer files that actually contain a links array)
+      if (jsonCandidates.length) {
+        const pickScore = (file) => {
+          const name = (file.originalname || '').toLowerCase();
+          let score = /links/.test(name) ? 1 : 0;
+          try {
+            const parsed = JSON.parse(file.buffer.toString('utf8'));
+            if (Array.isArray(parsed)) score += 2;
+            if (Array.isArray(parsed?.links)) score += 2;
+            if (Array.isArray(parsed?.data?.links)) score += 2;
+          } catch (_) {
+            // ignore parse issues; keep current score
+          }
+          return score;
+        };
+        const best = jsonCandidates.reduce((winner, file) => {
+          const score = pickScore(file);
+          if (!winner || score > winner.score) return { file, score };
+          return winner;
+        }, null);
+        const selected = best?.file || jsonCandidates[0];
+        if (selected) {
+          const fname = safeName('links', selected.originalname);
+          writeFileToDir(dir, fname, selected.buffer);
+          filesMeta.links = fname;
+        }
+      }
+
+      manifest.files = filesMeta;
+      manifest.exportedAt = new Date().toISOString();
+      ensureDirSync(dir);
+      fs.writeFileSync(path.join(dir, 'manifest.json'), JSON.stringify(manifest, null, 2));
+
+      const full = readCommunityMapManifest(communityId);
+      res.json(full);
+    } catch (err) {
+      console.error('Upload community map failed:', err);
+      res.status(500).json({ error: err.message || 'Failed to upload map' });
+    }
+  }
+);
+
+// Combined SVG with background (READONLY+)
+router.get('/:communityId/map/combined.svg',
+  requireRole(...READ_ROLES),
+  async (req, res) => {
+    try {
+      const { communityId } = req.params;
+      if (!isObjectId(communityId)) return res.status(400).send('Invalid community id');
+      if (!hasCommunityAccess(req.user, communityId)) return res.status(404).send('Community not found');
+
+      const manifest = readCommunityMapManifest(communityId);
+      if (!manifest?.files?.overlay) return res.status(404).send('Map not found');
+
+      const dir = getMapDir(communityId);
+      const overlayPath = path.join(dir, manifest.files.overlay);
+      const backgroundPath = manifest.files.background ? path.join(dir, manifest.files.background) : null;
+
+      try {
+        const overlaySvg = fs.readFileSync(overlayPath, 'utf8');
+        if (!backgroundPath || !fs.existsSync(backgroundPath)) {
+          res.type('image/svg+xml').send(overlaySvg);
+          return;
+        }
+        const backgroundBuffer = fs.readFileSync(backgroundPath);
+        const bgBase64 = backgroundBuffer.toString('base64');
+
+        const svgTagMatch = overlaySvg.match(/<svg[^>]*>/i);
+        if (!svgTagMatch) {
+          console.warn('combined.svg: <svg> tag not found');
+          return res.status(500).send('Invalid SVG');
+        }
+
+        let svgTag = svgTagMatch[0];
+        const svgStartIdx = svgTagMatch.index;
+        const afterSvgOpen = overlaySvg.slice(svgStartIdx + svgTag.length);
+
+        let viewBoxWidth = null;
+        let viewBoxHeight = null;
+        const viewBoxMatch = svgTag.match(/viewBox\s*=\s*["']([^"']+)["']/i);
+        if (viewBoxMatch) {
+          const parts = viewBoxMatch[1].trim().split(/\s+/);
+          if (parts.length === 4) {
+            viewBoxWidth = parts[2];
+            viewBoxHeight = parts[3];
+          }
+        } else {
+          const widthMatch = svgTag.match(/width\s*=\s*["']([^"']+)["']/i);
+          const heightMatch = svgTag.match(/height\s*=\s*["']([^"']+)["']/i);
+          viewBoxWidth = widthMatch ? widthMatch[1] : null;
+          viewBoxHeight = heightMatch ? heightMatch[1] : null;
+        }
+
+        if (!/preserveAspectRatio\s*=/.test(svgTag)) {
+          svgTag = svgTag.replace(/>$/, ' preserveAspectRatio="xMidYMid meet">');
+        }
+
+        const imageTag = `<image href="data:image/png;base64,${bgBase64}" x="0" y="0" width="${viewBoxWidth || '100%'}" height="${viewBoxHeight || '100%'}" />`;
+        const combinedSvg =
+          overlaySvg.slice(0, svgStartIdx) +
+          svgTag +
+          '\n  ' +
+          imageTag +
+          '\n' +
+          afterSvgOpen;
+
+        res.type('image/svg+xml').send(combinedSvg);
+      } catch (err) {
+        console.error('Failed to build combined SVG for community map', err);
+        res.status(500).send('Failed to build combined SVG');
+      }
+    } catch (err) {
+      console.error('Community combined map error:', err);
+      res.status(500).send('Server error');
+    }
+  }
+);
+
 // ??????????????????????????????????????????????????????????????????????????? lots search ???????????????????????????????????????????????????????????????????????????
 // GET /api/communities/:id/lots?q=address  (READONLY+)
 router.get('/:id/lots',
@@ -281,165 +876,16 @@ router.get('/:id/lots',
       const community = await loadScopedCommunity(req, res);
       if (!community) return;
 
-      const q = (req.query.q || '').toLowerCase();
-      const allLots = community.lots || [];
-      const baseLots = q
-        ? allLots.filter(l => (l.address || '').toLowerCase().includes(q))
-        : allLots;
+      const lots = await buildLotsPayload(req, community, req.query.q || '');
+      const wantsCsv = String(req.query.format || req.query.export || '').toLowerCase() === 'csv';
 
-      const lotMetaPairs = baseLots.map(lot => ({ lot, meta: derivePurchaserMeta(lot) }));
-      const purchaserIds = Array.from(new Set(
-        lotMetaPairs
-          .map(({ meta }) => meta.id)
-          .filter(Boolean)
-          .map(id => String(id))
-      ));
-
-      let contactNameById = new Map();
-      let contactById = new Map();
-      let closingByContactId = new Map();
-      if (purchaserIds.length) {
-        const objectIds = purchaserIds
-          .filter(id => /^[0-9a-fA-F]{24}$/.test(id))
-          .map(id => new mongoose.Types.ObjectId(id));
-        const lookupIds = objectIds.length ? objectIds : purchaserIds;
-        const contacts = await Contact.find({
-          _id: { $in: lookupIds },
-          ...companyFilter(req)
-        })
-          .select('firstName lastName fullName name email phone lenders.isPrimary lenders.closingDateTime lenders.closingStatus')
-          .lean({ virtuals: true });
-        contactNameById = new Map();
-        contactById = new Map();
-        closingByContactId = new Map();
-        for (const contact of contacts) {
-          const contactId = toStringId(contact._id);
-          if (!contactId) continue;
-          contactById.set(contactId, contact);
-
-          const name = trimValue(buildContactName(contact));
-          if (name) contactNameById.set(contactId, name);
-
-          const lenders = Array.isArray(contact.lenders) ? contact.lenders : [];
-          const primary = lenders.find(entry => entry?.isPrimary) || lenders[0] || null;
-          if (primary && (primary.closingDateTime || primary.closingStatus)) {
-            closingByContactId.set(contactId, {
-              closingDateTime: primary.closingDateTime || null,
-              closingStatus: primary.closingStatus || null
-            });
-          }
-        }
+      if (wantsCsv) {
+        const csv = buildCommunityCsv(community, lots);
+        const safeName = sanitizeFilename(community.name || community.communityName || community._id);
+        res.setHeader('Content-Type', 'text/csv');
+        res.setHeader('Content-Disposition', `attachment; filename="${safeName}-lots.csv"`);
+        return res.send(csv);
       }
-
-      const floorPlanIds = Array.from(new Set(
-        baseLots
-          .map(lot => {
-            const fp = lot.floorPlan;
-            if (!fp) return null;
-            if (typeof fp === 'string') return fp.trim();
-            if (typeof fp === 'object') return toStringId(fp._id || fp.id);
-            return null;
-          })
-          .filter(Boolean)
-      ));
-
-      let floorPlanById = new Map();
-      if (floorPlanIds.length) {
-        const objectFloorIds = floorPlanIds
-          .filter(id => /^[0-9a-fA-F]{24}$/.test(id))
-          .map(id => new mongoose.Types.ObjectId(id));
-        const lookupFloorIds = objectFloorIds.length ? objectFloorIds : floorPlanIds;
-        const floorPlans = await FloorPlan.find({
-          _id: { $in: lookupFloorIds },
-          ...companyFilter(req)
-        })
-          .select('name planNumber title code')
-          .lean({ virtuals: true });
-        floorPlanById = new Map();
-        for (const plan of floorPlans) {
-          const planId = toStringId(plan._id);
-          const normalizedPlan = normalizeFloorPlan(plan);
-          if (planId && normalizedPlan) {
-            if (!normalizedPlan._id) normalizedPlan._id = planId;
-            floorPlanById.set(planId, normalizedPlan);
-          }
-        }
-      }
-
-      const lots = lotMetaPairs.map(({ lot, meta }) => {
-        const result = { ...lot };
-        const existingPlanName = trimValue(result.floorPlanName);
-
-        let displayName = meta.name || '';
-        if (!displayName && meta.id) {
-          const key = String(meta.id);
-          displayName = contactNameById.get(key) || key;
-          const needsHydration =
-            !result.purchaser ||
-            typeof result.purchaser === 'string' ||
-            (typeof result.purchaser === 'object' && result.purchaser._bsontype);
-          if (needsHydration) {
-            const contact = contactById.get(key);
-            if (contact) result.purchaser = contact;
-          }
-        }
-        result.purchaserDisplayName = displayName;
-        result.purchaserId = meta.id || null;
-
-        if (meta.id) {
-          const closing = closingByContactId.get(String(meta.id));
-          if (closing) {
-            if (!result.closingDateTime && closing.closingDateTime) result.closingDateTime = closing.closingDateTime;
-            if (!result.closeDateTime && closing.closingDateTime) result.closeDateTime = closing.closingDateTime;
-            if (!result.closeDate && closing.closingDateTime) result.closeDate = closing.closingDateTime;
-            if (!result.closingDate && closing.closingDateTime) result.closingDate = closing.closingDateTime;
-            if (!result.closingStatus && closing.closingStatus) result.closingStatus = closing.closingStatus;
-          }
-        }
-
-        const rawPlan = lot.floorPlan;
-        const floorPlanId = (() => {
-          if (!rawPlan) return null;
-          if (typeof rawPlan === 'string') return rawPlan.trim();
-          if (typeof rawPlan === 'object') return toStringId(rawPlan._id || rawPlan.id);
-          return null;
-        })();
-
-        let floorPlanValue = rawPlan;
-        if (floorPlanId && floorPlanById.has(floorPlanId)) {
-          floorPlanValue = floorPlanById.get(floorPlanId);
-        } else if (floorPlanValue && typeof floorPlanValue === 'object') {
-          const normalized = normalizeFloorPlan(floorPlanValue);
-          if (normalized) floorPlanValue = normalized;
-        }
-
-        if (floorPlanValue && typeof floorPlanValue === 'object') {
-          const normalized = normalizeFloorPlan(floorPlanValue) || {};
-          if (floorPlanId && !normalized._id) normalized._id = floorPlanId;
-          result.floorPlan = normalized;
-          const planName = deriveFloorPlanName(normalized);
-          if (planName) result.floorPlanName = planName;
-        } else if (floorPlanId && floorPlanById.has(floorPlanId)) {
-          const plan = floorPlanById.get(floorPlanId);
-          result.floorPlan = plan;
-          const planName = deriveFloorPlanName(plan);
-          if (planName) result.floorPlanName = planName;
-        } else {
-          result.floorPlan = floorPlanValue;
-        }
-
-        if (!result.floorPlanName && floorPlanId && floorPlanById.has(floorPlanId)) {
-          const plan = floorPlanById.get(floorPlanId);
-          const planName = deriveFloorPlanName(plan);
-          if (planName) result.floorPlanName = planName;
-        }
-
-        if (!result.floorPlanName && existingPlanName) {
-          result.floorPlanName = existingPlanName;
-        }
-
-        return result;
-      });
 
       res.json(lots);
     } catch (err) {

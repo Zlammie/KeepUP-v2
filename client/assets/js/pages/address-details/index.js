@@ -15,6 +15,7 @@ import { initClosingDateAutomation } from './closingDateTask.js';
 import { initClosingTimeAutomation } from './closingTimeTask.js';
 import { initClosingStatusAutomation } from './closingStatusTask.js';
 import { initWalkTasksAutomation } from './walkTasks.js';
+import { initEarnestTasks } from './earnestTasks.js';
 
 document.addEventListener('DOMContentLoaded', async () => {
   const makeNameLink = (elId, targetUrl) => {
@@ -93,6 +94,7 @@ document.addEventListener('DOMContentLoaded', async () => {
 
     // attach controls after hydration so initial values exist
     attachAllControls({ communityId, lotId, lot, purchaserContact, primaryEntry });
+    initEarnestTasks({ lotId, entries: lot.earnestEntries || [] });
 
     initListPriceAutomation({ lotId, lot });
     initReleaseDateAutomation({ lotId, lot });
