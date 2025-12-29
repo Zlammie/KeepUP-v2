@@ -26,6 +26,30 @@
     return PLAN_CLASS_BY_NAME[norm] || null;
   };
 
+  const extractPlanInfo = (lot, link) => {
+    const pickFirst = (list) => list.map((v) => (v == null ? '' : String(v).trim())).find(Boolean) || '';
+    const planObj = lot && typeof lot === 'object' && lot.floorPlan && typeof lot.floorPlan === 'object'
+      ? lot.floorPlan
+      : null;
+    const planName = pickFirst([
+      lot?.floorPlanName,
+      lot?.floorPlan,
+      planObj?.name,
+      planObj?.title,
+      planObj?.code,
+      link?.plan,
+      link?.floorPlan,
+      link?.floorPlanName
+    ]);
+    const planNumber = pickFirst([
+      lot?.floorPlanNumber,
+      lot?.planNumber,
+      planObj?.planNumber,
+      link?.planNumber
+    ]);
+    return { name: planName, number: planNumber };
+  };
+
   const normalizeSvgViewport = (svgEl) => {
     if (!svgEl) return;
     const parseNumber = (value) => {
@@ -244,6 +268,8 @@
     fields.block && (fields.block.textContent = record.block || '-');
     fields.phase && (fields.phase.textContent = record.phase || '-');
     fields.address && (fields.address.textContent = record.address || '-');
+    fields.planName && (fields.planName.textContent = record.planName || record.plan || '-');
+    fields.planNumber && (fields.planNumber.textContent = record.planNumber || '-');
   };
 
   const bindPaths = (ctx, svgEl, linkMap) => {
@@ -277,15 +303,33 @@
       const isSold = isSoldLike(lot);
       if (isSold) path.classList.add('lot-sold');
 
+      const planInfo = extractPlanInfo(lot, link);
+      const planClassKey = planClass || DEFAULT_PLAN_CLASS;
+      if (!ctx.planMetaMap.has(planClassKey)) {
+        const label = planClassKey === DEFAULT_PLAN_CLASS
+          ? 'Not Avai'
+          : (planInfo.name || planInfo.number || planClassKey.replace(/^plan-/, '').replace(/-/g, ' ').replace(/\b\w/g, (c) => c.toUpperCase()));
+        ctx.planMetaMap.set(planClassKey, {
+          className: planClassKey,
+          name: planInfo.name || '',
+          planNumber: planClassKey === DEFAULT_PLAN_CLASS ? 'N/A' : (planInfo.number || ''),
+          label
+        });
+      }
       path.addEventListener('mouseenter', (evt) => {
         path.classList.add('hovered');
         const addr = buildAddress(lot, link);
-        const plan = lot?.floorPlanName || lot?.floorPlan || '';
+        const plan = (() => {
+          if (planInfo.name && planInfo.number) return `${planInfo.name} (${planInfo.number})`;
+          if (planInfo.name) return planInfo.name;
+          if (planInfo.number) return planInfo.number;
+          return '';
+        })();
         const jobNumber = lot?.jobNumber || link?.jobNumber || link?.lotNumber || '';
         const tooltipLines = [];
         if (addr) tooltipLines.push(addr);
         if (jobNumber) tooltipLines.push(`Job #: ${jobNumber}`);
-        if (plan) tooltipLines.push(`Plan: ${plan}`);
+        if (plan) tooltipLines.push(plan);
         if (tooltipLines.length) showTooltip(tooltipLines.join('<br>'), evt);
       });
 
@@ -307,10 +351,12 @@
         ctx.activePath = path;
         ctx.activePath.classList.add('selected');
         const detail = link ? { ...link } : { regionId };
+        detail.planName = detail.planName || planInfo.name || detail.plan;
+        detail.planNumber = detail.planNumber || planInfo.number || detail.plan;
         if (lot) {
           detail.lotId = lot._id || detail.lotId;
           detail.address = buildAddress(lot, link) || detail.address;
-          detail.floorPlan = lot.floorPlanName || lot.floorPlan || detail.floorPlan;
+          detail.floorPlan = lot.floorPlanName || lot.floorPlan || detail.floorPlan || planInfo.name || planInfo.number;
           detail.status = lot.status || lot.generalStatus || detail.status;
           detail.block = lot.block || detail.block;
           detail.phase = lot.phase || detail.phase;
@@ -339,7 +385,9 @@
       lotNumber: root.querySelector('[data-field="lotNumber"]'),
       block: root.querySelector('[data-field="block"]'),
       phase: root.querySelector('[data-field="phase"]'),
-      address: root.querySelector('[data-field="address"]')
+      address: root.querySelector('[data-field="address"]'),
+      planName: root.querySelector('[data-field="planName"]'),
+      planNumber: root.querySelector('[data-field="planNumber"]')
     };
 
     const ctx = {
@@ -349,6 +397,7 @@
       infoDetails,
       selectedTitle,
       fields,
+      planMetaMap: new Map(),
       setStatus: (text) => { if (statusEl) statusEl.textContent = text; }
     };
 
@@ -386,6 +435,8 @@
       const desiredZoom = parseFloat(root.dataset.zoom || '1') || 1;
       if (desiredZoom !== 1) applyLotMapZoom(root, desiredZoom);
       else applyLotMapZoom(root, fitted);
+      const planMeta = Array.from(ctx.planMetaMap.values());
+      root.dispatchEvent(new CustomEvent('lotmap:ready', { detail: { root, svgEl, linkMap, planMeta } }));
     } catch (err) {
       console.error('Map overlay setup failed', err);
       if (ctx.infoEmpty) ctx.infoEmpty.classList.remove('visually-hidden');

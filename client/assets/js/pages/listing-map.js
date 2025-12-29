@@ -9,6 +9,152 @@ document.addEventListener('DOMContentLoaded', () => {
   const zoomInBtn = document.getElementById('lm-zoom-in');
   const zoomOutBtn = document.getElementById('lm-zoom-out');
   const zoomResetBtn = document.getElementById('lm-zoom-reset');
+  const panelTabs = document.querySelectorAll('[data-panel-tab]');
+  const panelDetails = document.getElementById('map-panel-details');
+  const panelTools = document.getElementById('map-panel-tools');
+  const panelTitle = document.getElementById('map-panel-title');
+  const planToolsList = document.getElementById('plan-tools-list');
+
+  const paletteStyleId = 'plan-palette-style';
+
+  const cssColorToHex = (color) => {
+    if (!color) return '#cccccc';
+    const trimmed = color.trim();
+    if (trimmed.startsWith('#') && (trimmed.length === 7 || trimmed.length === 4)) return trimmed;
+    const match = trimmed.match(/rgba?\((\d+),\s*(\d+),\s*(\d+)/i);
+    if (match) {
+      const [, r, g, b] = match.map((v) => Number(v));
+      const toHex = (n) => n.toString(16).padStart(2, '0');
+      return `#${toHex(r)}${toHex(g)}${toHex(b)}`;
+    }
+    return '#cccccc';
+  };
+
+  const loadPalette = (communityId) => {
+    const key = `lm-plan-palette:${communityId || 'default'}`;
+    try {
+      const raw = localStorage.getItem(key);
+      if (!raw) return {};
+      const parsed = JSON.parse(raw);
+      return parsed && typeof parsed === 'object' ? parsed : {};
+    } catch (_) {
+      return {};
+    }
+  };
+
+  const savePalette = (communityId, palette) => {
+    const key = `lm-plan-palette:${communityId || 'default'}`;
+    try {
+      localStorage.setItem(key, JSON.stringify(palette || {}));
+    } catch (_) {
+      // ignore storage issues
+    }
+  };
+
+  const applyPalette = (root, palette) => {
+    if (!root) return;
+    const entries = Object.entries(palette || {}).filter(([, color]) => Boolean(color));
+    let styleTag = document.getElementById(paletteStyleId);
+    if (!styleTag) {
+      styleTag = document.createElement('style');
+      styleTag.id = paletteStyleId;
+      document.head.appendChild(styleTag);
+    }
+    if (!entries.length) {
+      styleTag.textContent = '';
+      return;
+    }
+    const css = entries
+      .map(([cls, color]) => `.map-overlay-layer path.${cls} { fill: ${color} !important; }`)
+      .join('\n');
+    styleTag.textContent = css;
+  };
+
+  const collectPlanClasses = (root) => {
+    if (!root) return [];
+    const overlay = root.querySelector('#overlay');
+    if (!overlay) return [];
+    const paths = Array.from(overlay.querySelectorAll('path'));
+    const map = new Map();
+    paths.forEach((path) => {
+      const planClass = Array.from(path.classList).find((cls) => cls.startsWith('plan-'));
+      if (!planClass) return;
+      if (map.has(planClass)) return;
+      const fill = window.getComputedStyle(path).fill;
+      map.set(planClass, {
+        className: planClass,
+        label: planClass.replace(/^plan-/, '').replace(/-/g, ' ').replace(/\b\w/g, (c) => c.toUpperCase()),
+        fill: cssColorToHex(fill)
+      });
+    });
+    return Array.from(map.values());
+  };
+
+  const renderPlanTools = (root, meta = []) => {
+    if (!planToolsList || !root) return;
+    const communityId = root.dataset.communityId || 'default';
+    const palette = loadPalette(communityId);
+    const metaByClass = new Map(
+      (meta || []).map((entry) => [entry.className, entry])
+    );
+    const classes = collectPlanClasses(root);
+    if (!classes.length && !meta.length) {
+      planToolsList.textContent = 'No plan classes detected yet.';
+      return;
+    }
+    const combined = classes.map((entry) => {
+      const m = metaByClass.get(entry.className);
+      return {
+        ...entry,
+        label: (m?.label || entry.label || entry.className),
+        planNumber: m?.planNumber || ''
+      };
+    });
+    planToolsList.innerHTML = '';
+    combined.forEach((entry) => {
+      const row = document.createElement('div');
+      row.className = 'map-tool-row';
+
+      const label = document.createElement('div');
+      label.className = 'map-tool-label';
+      label.innerHTML = `<span>${entry.label}</span><code>${entry.planNumber || entry.className}</code>`;
+
+      const colorInput = document.createElement('input');
+      colorInput.type = 'color';
+      colorInput.className = 'form-control form-control-color form-control-sm';
+      colorInput.value = palette[entry.className] || entry.fill || '#cccccc';
+      colorInput.setAttribute('aria-label', `Color for ${entry.label}`);
+
+      colorInput.addEventListener('input', () => {
+        palette[entry.className] = colorInput.value;
+        applyPalette(root, palette);
+        savePalette(communityId, palette);
+      });
+
+      row.appendChild(label);
+      row.appendChild(colorInput);
+      planToolsList.appendChild(row);
+    });
+    applyPalette(root, palette);
+  };
+
+  const showPanel = (name) => {
+    const isDetails = name === 'details';
+    panelTabs.forEach((btn) => {
+      const isActive = btn.dataset.panelTab === name;
+      btn.classList.toggle('active', isActive);
+      btn.classList.toggle('btn-primary', isActive);
+      btn.classList.toggle('btn-outline-secondary', !isActive);
+    });
+    if (panelDetails) panelDetails.classList.toggle('visually-hidden', !isDetails);
+    if (panelTools) panelTools.classList.toggle('visually-hidden', isDetails);
+    if (panelTitle) panelTitle.textContent = isDetails ? 'Selection' : 'Tools';
+  };
+
+  panelTabs.forEach((btn) => {
+    btn.addEventListener('click', () => showPanel(btn.dataset.panelTab || 'details'));
+  });
+  showPanel('details');
 
   const setStatus = (text) => {
     if (statusEl) statusEl.textContent = text;
@@ -95,11 +241,6 @@ document.addEventListener('DOMContentLoaded', () => {
     setFile(files);
   });
 
-  uploadBtn?.addEventListener('click', (e) => {
-    e.preventDefault();
-    setStatus('Upload placeholder (not wired yet)');
-  });
-
   async function loadManifest(communityId) {
     if (!communityId) {
       setStatus('Select a community');
@@ -107,6 +248,7 @@ document.addEventListener('DOMContentLoaded', () => {
         mapRoot.dataset.overlaySrc = '';
         mapRoot.dataset.combinedSrc = '';
         mapRoot.dataset.linksSrc = '';
+        mapRoot.dataset.communityId = '';
       }
       return;
     }
@@ -118,6 +260,7 @@ document.addEventListener('DOMContentLoaded', () => {
           mapRoot.dataset.overlaySrc = '';
           mapRoot.dataset.combinedSrc = '';
           mapRoot.dataset.linksSrc = '';
+          mapRoot.dataset.communityId = communityId;
         }
         return;
       }
@@ -127,6 +270,7 @@ document.addEventListener('DOMContentLoaded', () => {
         mapRoot.dataset.overlaySrc = paths.overlayPath || '';
         mapRoot.dataset.combinedSrc = paths.combinedPath || paths.overlayPath || '';
         mapRoot.dataset.linksSrc = paths.linksPath || '';
+        mapRoot.dataset.communityId = communityId;
         window.renderLotMap && window.renderLotMap(mapRoot);
         setStatus('Map loaded');
       } else {
@@ -199,6 +343,12 @@ document.addEventListener('DOMContentLoaded', () => {
     applyZoom(current - 0.2);
   });
   zoomResetBtn?.addEventListener('click', () => applyZoom(1));
+
+  mapRoot?.addEventListener('lotmap:ready', (evt) => {
+    const meta = evt?.detail?.planMeta || [];
+    renderPlanTools(mapRoot, meta);
+    showPanel('details');
+  });
 
   loadCommunities();
 });

@@ -85,43 +85,70 @@
               <aside class="map-info card shadow-sm" id="map-info-panel">
                 <div class="card-body">
                   <div class="d-flex align-items-center justify-content-between mb-3">
-                    <div>
-                      <p class="text-uppercase text-muted small mb-1">Selection</p>
-                      <h2 class="h5 mb-0" id="map-selected-title">No lot selected</h2>
+                    <div class="d-flex flex-column">
+                      <p class="text-uppercase text-muted small mb-1">Panel</p>
+                      <h2 class="h5 mb-0" id="map-panel-title">Selection</h2>
                     </div>
                     <span class="badge bg-light text-dark" id="map-status">Waiting for upload</span>
                   </div>
 
-                  <div id="map-info-empty" class="text-muted">
-                    Click a highlighted lot to view details from links.json.
+                  <div class="btn-group btn-group-sm map-panel-tabs mb-3" role="group" aria-label="Map panel toggles">
+                    <button type="button" class="btn btn-outline-secondary active" data-panel-tab="details">Details</button>
+                    <button type="button" class="btn btn-outline-secondary" data-panel-tab="tools">Tools</button>
                   </div>
 
-                  <dl id="map-info-details" class="map-info-grid visually-hidden">
-                    <div>
-                      <dt>Region ID</dt>
-                      <dd data-field="regionId">-</dd>
+                  <div id="map-panel-details">
+                    <p class="fw-semibold mb-2" id="map-selected-title">No lot selected</p>
+                    <h3 class="visually-hidden">Lot details</h3>
+                    <div id="map-info-empty" class="text-muted">
+                      Click a highlighted lot to view details from links.json.
                     </div>
-                    <div>
-                      <dt>Lot ID</dt>
-                      <dd data-field="lotId">-</dd>
+
+                    <dl id="map-info-details" class="map-info-grid visually-hidden">
+                      <div>
+                        <dt>Region ID</dt>
+                        <dd data-field="regionId">-</dd>
+                      </div>
+                      <div>
+                        <dt>Plan</dt>
+                        <dd data-field="planName">-</dd>
+                      </div>
+                      <div>
+                        <dt>Plan #</dt>
+                        <dd data-field="planNumber">-</dd>
+                      </div>
+                      <div>
+                        <dt>Lot ID</dt>
+                        <dd data-field="lotId">-</dd>
+                      </div>
+                      <div>
+                        <dt>Lot Number</dt>
+                        <dd data-field="lotNumber">-</dd>
+                      </div>
+                      <div>
+                        <dt>Block</dt>
+                        <dd data-field="block">-</dd>
+                      </div>
+                      <div>
+                        <dt>Phase</dt>
+                        <dd data-field="phase">-</dd>
+                      </div>
+                      <div>
+                        <dt>Address</dt>
+                        <dd data-field="address">-</dd>
+                      </div>
+                    </dl>
+                  </div>
+
+                  <div id="map-panel-tools" class="visually-hidden" aria-live="polite">
+                    <h3 class="visually-hidden">Plan tools</h3>
+                    <div class="map-tools">
+                      <p class="text-muted small mb-2">Adjust the colors used for each plan class.</p>
+                      <div id="plan-tools-list" class="map-tools-list text-muted small">
+                        No plan data yet.
+                      </div>
                     </div>
-                    <div>
-                      <dt>Lot Number</dt>
-                      <dd data-field="lotNumber">-</dd>
-                    </div>
-                    <div>
-                      <dt>Block</dt>
-                      <dd data-field="block">-</dd>
-                    </div>
-                    <div>
-                      <dt>Phase</dt>
-                      <dd data-field="phase">-</dd>
-                    </div>
-                    <div>
-                      <dt>Address</dt>
-                      <dd data-field="address">-</dd>
-                    </div>
-                  </dl>
+                  </div>
                 </div>
               </aside>
             </div>

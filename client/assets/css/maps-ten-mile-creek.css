@@ -53,23 +53,17 @@
   pointer-events: auto;
   cursor: pointer;
   fill: #cbd5e1;
-  stroke: #0b66c3;
-  stroke-width: 2;
-  transition: stroke-width 0.2s ease, fill 0.2s ease, filter 0.2s ease;
-}
-
-.map-overlay-layer path.linked {
-  stroke: #0b66c3;
+  stroke: none;
+  stroke-width: 0;
+  transition: fill 0.2s ease, filter 0.2s ease;
 }
 
 .map-overlay-layer path.hovered {
-  stroke-width: 3.5;
   filter: drop-shadow(0 0 6px rgba(0, 0, 0, 0.2));
 }
 
 .map-overlay-layer path.selected {
-  stroke-width: 4;
-  stroke: #e09114;
+  filter: drop-shadow(0 0 8px rgba(224, 145, 20, 0.55));
 }
 
 .map-overlay-layer path.plan-catalpa { fill: #2f9e44; }
@@ -85,7 +79,6 @@
 .map-overlay-layer path.lot-sold {
   stroke: #c53030;
   stroke-width: 4;
-  stroke-dasharray: 6 4;
   filter: drop-shadow(0 0 4px rgba(197, 48, 48, 0.45));
 }
 
