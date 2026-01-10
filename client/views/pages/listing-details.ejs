@@ -66,6 +66,8 @@
           id="listing-publish-btn"
           class="btn btn-primary btn-sm"
           data-published="<%= published ? 'true' : 'false' %>"
+          data-brz-mapped="<%= lotData.buildrootzMapping?.communityId ? 'true' : 'false' %>"
+          data-brz-name="<%= lotData.buildrootzMapping?.canonicalName || '' %>"
         >
           <%= published ? 'Unpublish' : 'Publish' %>
         </button>
@@ -79,6 +81,19 @@
           Sync updates
         </button>
         <button type="button" id="listing-content-save" class="btn btn-secondary btn-sm">Save content</button>
+      </div>
+      <div class="mt-2">
+        <% if (lotData.buildrootzMapping?.communityId) { %>
+          <p class="text-muted small mb-0">
+            Community mapped to BuildRootz:
+            <strong><%= lotData.buildrootzMapping.canonicalName || lotData.buildrootzMapping.communityId %></strong>
+          </p>
+        <% } else { %>
+          <div class="alert alert-warning py-2 mb-0">
+            Map this community to BuildRootz before publishing.
+            <a href="/admin/buildrootz/communities" class="alert-link">Open mapping</a>
+          </div>
+        <% } %>
       </div>
     </div>
 
@@ -442,6 +457,12 @@
     publishBtn.addEventListener('click', async () => {
       const current = publishBtn.dataset.published === 'true';
       const nextValue = !current;
+      const isMapped = publishBtn.dataset.brzMapped === 'true';
+      if (!isMapped) {
+        alert('Map this community to BuildRootz before publishing. Use the BuildRootz mapping page.');
+        publishBtn.disabled = false;
+        return;
+      }
       publishBtn.disabled = true;
       publishBtn.textContent = nextValue ? 'Publishing...' : 'Unpublishing...';
 
@@ -456,6 +477,13 @@
         });
         const data = await resp.json();
         if (!resp.ok || !data?.success) {
+          if (data?.code === 'COMMUNITY_NOT_MAPPED' || data?.code === 'COMMUNITY_MAPPING_CHANGED' || data?.code === 'COMMUNITY_MAPPING_INVALID') {
+            const mappingUrl = data?.mappingUrl || '/admin/buildrootz/communities';
+            throw new Error(`${data?.message || 'Map this community before publishing.'} Visit ${mappingUrl}`);
+          }
+          if (data?.code === 'BUILDROOTZ_COMMUNITY_NOT_FOUND') {
+            throw new Error('Mapped BuildRootz community not found. Remap and try again.');
+          }
           throw new Error(data?.message || 'Unable to update publish status');
         }
         setUi(Boolean(data.isPublished));

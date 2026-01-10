@@ -107,7 +107,13 @@ const LotSchema = new Schema({
   salesContactPhone:  { type: String, default: '' },
   salesContactEmail:  { type: String, default: '' },
   latitude:           { type: Number, set: toNumOrNull, default: null },
-  longitude:          { type: Number, set: toNumOrNull, default: null }
+  longitude:          { type: Number, set: toNumOrNull, default: null },
+
+  // BuildRootz publish metadata
+  buildrootzCommunityId: { type: Schema.Types.Mixed, default: null },
+  buildrootzCanonicalName: { type: String, default: '' },
+  buildrootzLastPublishStatus: { type: String, default: '' },
+  buildrootzLastPublishError: { type: String, default: '' }
 }, { _id: true });
 
 const CommunitySchema = new Schema({
@@ -121,6 +127,24 @@ const CommunitySchema = new Schema({
   market: String,
   city:   String,
   state:  String,
+
+  // BuildRootz canonical mapping (prevents duplicate community records)
+  buildrootz: {
+    communityId:    { type: Schema.Types.Mixed, default: null },
+    canonicalName:  { type: String, default: '' },
+    mappedAt:       { type: Date, default: null },
+    mappedByUserId: { type: Schema.Types.ObjectId, default: null },
+    request: {
+      requestId:        { type: String, default: null },
+      status:           { type: String, default: null },
+      requestedName:    { type: String, default: '' },
+      requestedAt:      { type: Date, default: null },
+      lastCheckedAt:    { type: Date, default: null },
+      resolvedCommunityId: { type: String, default: null },
+      resolvedAt:       { type: Date, default: null },
+      rejectedReason:   { type: String, default: '' }
+    }
+  },
 
   // Lots
   lots: [LotSchema]

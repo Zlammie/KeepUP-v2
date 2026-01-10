@@ -12,6 +12,7 @@ const router = express.Router();
 const Community = require('../models/Community');
 const FloorPlan = require('../models/FloorPlan');
 const Contact = require('../models/Contact');
+const CommunityCompetitionProfile = require('../models/communityCompetitionProfile');
 
 const ensureAuth  = require('../middleware/ensureAuth');
 const requireRole = require('../middleware/requireRole');
@@ -19,6 +20,7 @@ const requireRole = require('../middleware/requireRole');
 const upload = require('../middleware/upload');
 const { hasCommunityAccess, filterCommunitiesForUser } = require('../utils/communityScope');
 const { syncInternalCompetitions } = require('../services/competitionSync');
+const { publishCommunity } = require('../services/buildrootzPublisher');
 
 // ??????????????????????????????????????????????????????????????????????????? helpers ???????????????????????????????????????????????????????????????????????????
 const isObjectId = v => mongoose.Types.ObjectId.isValid(String(v));
@@ -1046,6 +1048,104 @@ router.get('/select-options',
       });
       res.json(data);
     } catch (e) { next(e); }
+  }
+);
+
+// BuildRootz community profile (description/hero image)
+router.get('/:id/buildrootz-profile',
+  requireRole(...READ_ROLES),
+  async (req, res) => {
+    try {
+      const { id } = req.params;
+      if (!isObjectId(id)) return res.status(400).json({ error: 'Invalid community id' });
+      if (!hasCommunityAccess(req.user, id)) return res.status(404).json({ error: 'Community not found' });
+
+      const community = await Community.findOne({ _id: id, ...companyFilter(req) }).select('name city state').lean();
+      if (!community) return res.status(404).json({ error: 'Community not found' });
+
+      const profile = await CommunityCompetitionProfile.findOne({ community: id, ...companyFilter(req) })
+        .select('buildrootzDescription heroImage')
+        .lean();
+
+      return res.json({
+        communityId: String(community._id),
+        name: community.name || '',
+        city: community.city || '',
+        state: community.state || '',
+        buildrootzDescription: profile?.buildrootzDescription || '',
+        heroImage: profile?.heroImage || ''
+      });
+    } catch (err) {
+      console.error('[buildrootz-profile:get]', err);
+      res.status(500).json({ error: 'Server error' });
+    }
+  }
+);
+
+router.put('/:id/buildrootz-profile',
+  requireRole(...WRITE_ROLES),
+  async (req, res) => {
+    try {
+      const { id } = req.params;
+      if (!isObjectId(id)) return res.status(400).json({ error: 'Invalid community id' });
+      if (!hasCommunityAccess(req.user, id)) return res.status(404).json({ error: 'Community not found' });
+
+      const { buildrootzDescription, heroImage } = req.body || {};
+      const update = {};
+      if (buildrootzDescription !== undefined) update.buildrootzDescription = trimValue(buildrootzDescription);
+      if (heroImage !== undefined) update.heroImage = trimValue(heroImage);
+
+      const profile = await CommunityCompetitionProfile.findOneAndUpdate(
+        { community: id },
+        { $set: { ...update, company: req.user.company } },
+        { new: true, upsert: true }
+      ).select('buildrootzDescription heroImage');
+
+      const community = await Community.findOne({ _id: id, ...companyFilter(req) }).select('name city state').lean();
+
+      return res.json({
+        communityId: id,
+        name: community?.name || '',
+        city: community?.city || '',
+        state: community?.state || '',
+        buildrootzDescription: profile?.buildrootzDescription || '',
+        heroImage: profile?.heroImage || ''
+      });
+    } catch (err) {
+      console.error('[buildrootz-profile:put]', err);
+      res.status(500).json({ error: 'Server error' });
+    }
+  }
+);
+
+router.post('/:id/buildrootz/publish',
+  requireRole(...WRITE_ROLES),
+  async (req, res) => {
+    try {
+      const { id } = req.params;
+      if (!isObjectId(id)) return res.status(400).json({ error: 'Invalid community id' });
+      if (!hasCommunityAccess(req.user, id)) return res.status(404).json({ error: 'Community not found' });
+
+      // Optionally persist incoming fields before publish
+      const { buildrootzDescription, heroImage } = req.body || {};
+      const update = {};
+      if (buildrootzDescription !== undefined) update.buildrootzDescription = trimValue(buildrootzDescription);
+      if (heroImage !== undefined) update.heroImage = trimValue(heroImage);
+      if (Object.keys(update).length) {
+        await CommunityCompetitionProfile.findOneAndUpdate(
+          { community: id },
+          { $set: { ...update, company: req.user.company } },
+          { new: true, upsert: true }
+        );
+      }
+
+      const result = await publishCommunity(id, req.user.company, req.user?._id);
+      return res.json({ success: true, ...result });
+    } catch (err) {
+      console.error('[buildrootz-profile:publish]', err);
+      const status = err?.status || 500;
+      res.status(status).json({ error: err.message || 'Publish failed' });
+    }
   }
 );
 

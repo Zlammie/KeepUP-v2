@@ -49,10 +49,10 @@ const extractIncentives = (...values) =>
         .map((s) => s.trim()))
   );
 
-async function fetchHomeContext(homeId, companyId) {
+async function fetchHomeContext(homeId, companyId, { requireMapping = true } = {}) {
   const filter = { company: companyId, 'lots._id': homeId };
   const community = await Community.findOne(filter)
-    .select('name city state market company lots')
+    .select('name city state market company lots buildrootz')
     .lean();
 
   if (!community) {
@@ -66,6 +66,17 @@ async function fetchHomeContext(homeId, companyId) {
     const err = new Error('Home not found for this company');
     err.status = 404;
     throw err;
+  }
+
+  if (requireMapping) {
+    const mappedCommunityId = community.buildrootz?.communityId;
+    if (!mappedCommunityId) {
+      const err = new Error('Community must be mapped to BuildRootz before publishing');
+      err.status = 409;
+      err.code = 'COMMUNITY_NOT_MAPPED';
+      err.mappingUrl = '/admin/buildrootz/communities';
+      throw err;
+    }
   }
 
   const floorPlanId = lot.floorPlan && isObjectId(lot.floorPlan) ? lot.floorPlan : null;
@@ -116,22 +127,54 @@ function buildFloorPlanMedia(floorPlan) {
   return media;
 }
 
-function buildPublicCommunityPayload({ community, profile, company, heroImage }) {
-  const name = community.name || '';
+const resolveModelAddress = ({ community, profile }) => {
+  const fallback = {
+    street: profile?.address || '',
+    city: profile?.city || community.city || '',
+    state: profile?.state || community.state || '',
+    zip: profile?.zip || ''
+  };
+
+  const lots = Array.isArray(community?.lots) ? community.lots : [];
+  const modelLot = lots.find((lot) => {
+    const status = (lot?.generalStatus || lot?.status || '').toString().toLowerCase();
+    return status === 'model';
+  });
+
+  if (!modelLot) return fallback;
+
+  return {
+    street: modelLot.address || fallback.street,
+    city: fallback.city,
+    state: fallback.state,
+    zip: fallback.zip
+  };
+};
+
+function buildPublicCommunityPayload({ community, profile, company, heroImage, buildrootzCommunityId, canonicalName }) {
+  const mappedId = buildrootzCommunityId || community.buildrootz?.communityId || null;
+  const canonicalNameResolved = canonicalName || community.buildrootz?.canonicalName || community.name || '';
+  const name = canonicalNameResolved || community.name || '';
   const slug = slugify(name);
   const builderName = company?.name || '';
   const builderSlug = slugify(company?.slug || builderName);
+  const modelAddress = resolveModelAddress({ community, profile });
+  const description = profile?.buildrootzDescription || '';
+  const hero = profile?.heroImage || heroImage;
+  const resolvedCommunityId =
+    mappedId && isObjectId(mappedId) ? new mongoose.Types.ObjectId(mappedId) : mappedId || community._id;
 
   return {
     companyId: community.company,
-    communityId: community._id,
-    name,
+    communityId: resolvedCommunityId,
+    name: canonicalNameResolved,
     slug,
     city: profile?.city || community.city || '',
     state: profile?.state || community.state || '',
     market: community.market || '',
     builder: { name: builderName, slug: builderSlug },
     promotion: profile?.promotion || '',
+    description,
     amenities: Array.isArray(profile?.communityAmenities) ? profile.communityAmenities : [],
     fees: {
       hoaFee: profile?.hoaFee ?? null,
@@ -142,12 +185,22 @@ function buildPublicCommunityPayload({ community, profile, company, heroImage })
       pidFeeFrequency: profile?.pidFeeFrequency || '',
       feeTypes: Array.isArray(profile?.feeTypes) ? profile.feeTypes : []
     },
-    heroImage: toPublicUrl(heroImage)
+    heroImage: toPublicUrl(hero),
+    modelAddress
   };
 }
 
-function buildPublicHomePayload({ community, lot, floorPlan, profile, company, buildrootzCommunityId, publishVersion }) {
+function buildPublicHomePayload({ community, lot, floorPlan, profile, company, buildrootzCommunityId, canonicalName, publishVersion, publicCommunityId }) {
   const companyId = community.company;
+  const builderId = company?._id || community.company || null;
+  const normalizedStatus = typeof lot.generalStatus === 'string' ? lot.generalStatus.trim().toLowerCase() : '';
+  const publishedFlag = Boolean(
+    lot.isPublished ??
+    lot.isListed ??
+    lot.listed ??
+    lot.listingActive ??
+    normalizedStatus === 'model'
+  );
   const title = lot.address || lot.jobNumber || lot.lot
     ? `${community.name || 'Home'} – ${lot.address || `Lot ${lot.lot || lot.jobNumber || ''}`}`.trim()
     : community.name || 'Home';
@@ -184,14 +237,22 @@ function buildPublicHomePayload({ community, lot, floorPlan, profile, company, b
     lng: typeof lot.longitude === 'number' ? lot.longitude : null
   };
 
+  const communityName = canonicalName || community.name || '';
+  const resolvedBuildrootzCommunityId = buildrootzCommunityId
+    ? (isObjectId(buildrootzCommunityId) ? new mongoose.Types.ObjectId(buildrootzCommunityId) : buildrootzCommunityId)
+    : null;
+
   return {
     companyId,
-    communityId: community._id,
-    buildrootzCommunityId: buildrootzCommunityId || null,
+    communityId: resolvedBuildrootzCommunityId || community._id,
+    buildrootzCommunityId: resolvedBuildrootzCommunityId,
+    publicCommunityId: publicCommunityId || null,
     sourceHomeId: lot._id,
+    builderId,
     title,
     slug: slugify(slugSource || title),
     status: lot.generalStatus || lot.status || lot.buildingStatus || 'Available',
+    published: publishedFlag,
     address: {
       street: lot.address || '',
       city: community.city || profile?.city || '',
@@ -212,10 +273,10 @@ function buildPublicHomePayload({ community, lot, floorPlan, profile, company, b
       garage: floorPlanSpecs.garage ?? null
     },
     community: {
-      name: community.name || '',
+      name: communityName,
       city: community.city || '',
       state: community.state || '',
-      slug: slugify(community.name || '')
+      slug: slugify(communityName || community.name || '')
     },
     builder: { name: builderName, slug: builderSlug },
     lotSize: profile?.lotSize || '',
@@ -273,8 +334,28 @@ async function updateLotFields({ communityId, lotId, companyId, fields }) {
 }
 
 async function publishHome(homeId, companyId, userId) {
-  const ctx = await fetchHomeContext(homeId, companyId);
+  const ctx = await fetchHomeContext(homeId, companyId, { requireMapping: true });
   const { community, lot } = ctx;
+  const mappedCommunityId = community.buildrootz?.communityId;
+  const canonicalName = community.buildrootz?.canonicalName || community.name || '';
+
+  if (!isObjectId(mappedCommunityId)) {
+    const err = new Error('Invalid BuildRootz community mapping. Please remap and try again.');
+    err.status = 409;
+    err.code = 'COMMUNITY_MAPPING_INVALID';
+    err.mappingUrl = '/admin/buildrootz/communities';
+    throw err;
+  }
+
+  const mappedObjectId = new mongoose.Types.ObjectId(mappedCommunityId);
+  const prevMappedId = lot.buildrootzCommunityId ? String(lot.buildrootzCommunityId) : null;
+  if (prevMappedId && prevMappedId !== String(mappedObjectId)) {
+    const err = new Error('Community mapping changed. Remap and republish the listing.');
+    err.status = 409;
+    err.code = 'COMMUNITY_MAPPING_CHANGED';
+    err.mappingUrl = '/admin/buildrootz/communities';
+    throw err;
+  }
 
   const prev = {
     isPublished: lot.isPublished || false,
@@ -282,7 +363,11 @@ async function publishHome(homeId, companyId, userId) {
     publishedAt: lot.publishedAt || null,
     contentSyncedAt: lot.contentSyncedAt || null,
     buildrootzId: lot.buildrootzId || null,
-    publishVersion: typeof lot.publishVersion === 'number' ? lot.publishVersion : 0
+    publishVersion: typeof lot.publishVersion === 'number' ? lot.publishVersion : 0,
+    buildrootzCommunityId: lot.buildrootzCommunityId || null,
+    buildrootzCanonicalName: lot.buildrootzCanonicalName || '',
+    buildrootzLastPublishStatus: lot.buildrootzLastPublishStatus || '',
+    buildrootzLastPublishError: lot.buildrootzLastPublishError || ''
   };
 
   const now = new Date();
@@ -305,14 +390,14 @@ async function publishHome(homeId, companyId, userId) {
     const freshCtx = { ...ctx, lot: { ...lot, publishedAt: now, publishVersion: nextVersion } };
 
     const publicCommunity = await PublicCommunity.findOneAndUpdate(
-      { companyId, communityId: community._id },
-      { $set: buildPublicCommunityPayload({ community, profile: ctx.profile, company: ctx.company, heroImage: lot.heroImage }) },
+      { companyId, communityId: mappedObjectId },
+      { $set: buildPublicCommunityPayload({ community, profile: ctx.profile, company: ctx.company, heroImage: lot.heroImage, buildrootzCommunityId: mappedObjectId, canonicalName }) },
       { upsert: true, new: true, setDefaultsOnInsert: true }
     );
 
     const publicHome = await PublicHome.findOneAndUpdate(
       { companyId, sourceHomeId: lot._id },
-      { $set: buildPublicHomePayload({ ...freshCtx, buildrootzCommunityId: publicCommunity?._id, publishVersion: nextVersion }) },
+      { $set: buildPublicHomePayload({ ...freshCtx, buildrootzCommunityId: mappedObjectId, canonicalName, publishVersion: nextVersion, publicCommunityId: publicCommunity?._id }) },
       { upsert: true, new: true, setDefaultsOnInsert: true }
     );
 
@@ -320,15 +405,19 @@ async function publishHome(homeId, companyId, userId) {
       communityId: community._id,
       lotId: lot._id,
       companyId,
-    fields: {
-      buildrootzId: publicHome._id,
-      publishVersion: nextVersion,
-      publishedAt: now,
-      contentSyncedAt: now,
-      isPublished: true,
-      isListed: true
-    }
-  });
+      fields: {
+        buildrootzId: publicHome._id,
+        publishVersion: nextVersion,
+        publishedAt: now,
+        contentSyncedAt: now,
+        isPublished: true,
+        isListed: true,
+        buildrootzCommunityId: mappedObjectId,
+        buildrootzCanonicalName: canonicalName,
+        buildrootzLastPublishStatus: 'ok',
+        buildrootzLastPublishError: ''
+      }
+    });
 
     console.info('[buildrootz] published home', { homeId: String(homeId), companyId: String(companyId), userId: String(userId || '') });
     return { publicHomeId: publicHome._id, publicCommunityId: publicCommunity?._id || null };
@@ -338,21 +427,25 @@ async function publishHome(homeId, companyId, userId) {
       communityId: community._id,
       lotId: lot._id,
       companyId,
-    fields: {
-      isPublished: prev.isPublished,
-      isListed: prev.isListed,
-      publishedAt: prev.publishedAt,
-      contentSyncedAt: prev.contentSyncedAt,
-      buildrootzId: prev.buildrootzId,
-      publishVersion: prev.publishVersion
-    }
-  });
-  throw err;
+      fields: {
+        isPublished: prev.isPublished,
+        isListed: prev.isListed,
+        publishedAt: prev.publishedAt,
+        contentSyncedAt: prev.contentSyncedAt,
+        buildrootzId: prev.buildrootzId,
+        publishVersion: prev.publishVersion,
+        buildrootzCommunityId: prev.buildrootzCommunityId,
+        buildrootzCanonicalName: prev.buildrootzCanonicalName,
+        buildrootzLastPublishStatus: 'error',
+        buildrootzLastPublishError: err?.message || 'Publish failed'
+      }
+    });
+    throw err;
   }
 }
 
 async function unpublishHome(homeId, companyId, userId) {
-  const ctx = await fetchHomeContext(homeId, companyId);
+  const ctx = await fetchHomeContext(homeId, companyId, { requireMapping: false });
   const { community, lot } = ctx;
 
   const prev = {
@@ -409,19 +502,31 @@ async function unpublishHome(homeId, companyId, userId) {
 }
 
 async function syncHome(homeId, companyId, userId) {
-  const ctx = await fetchHomeContext(homeId, companyId);
+  const ctx = await fetchHomeContext(homeId, companyId, { requireMapping: true });
   const { community, lot } = ctx;
   const publishVersion = typeof lot.publishVersion === 'number' ? lot.publishVersion : 0;
+  const mappedCommunityId = community.buildrootz?.communityId;
+  const canonicalName = community.buildrootz?.canonicalName || community.name || '';
+
+  if (!isObjectId(mappedCommunityId)) {
+    const err = new Error('Invalid BuildRootz community mapping. Please remap and try again.');
+    err.status = 409;
+    err.code = 'COMMUNITY_MAPPING_INVALID';
+    err.mappingUrl = '/admin/buildrootz/communities';
+    throw err;
+  }
+
+  const mappedObjectId = new mongoose.Types.ObjectId(mappedCommunityId);
 
   const publicCommunity = await PublicCommunity.findOneAndUpdate(
-    { companyId, communityId: community._id },
-    { $set: buildPublicCommunityPayload({ community, profile: ctx.profile, company: ctx.company, heroImage: lot.heroImage }) },
+    { companyId, communityId: mappedObjectId },
+    { $set: buildPublicCommunityPayload({ community, profile: ctx.profile, company: ctx.company, heroImage: lot.heroImage, buildrootzCommunityId: mappedObjectId, canonicalName }) },
     { upsert: true, new: true, setDefaultsOnInsert: true }
   );
 
   const publicHome = await PublicHome.findOneAndUpdate(
     { companyId, sourceHomeId: lot._id },
-    { $set: buildPublicHomePayload({ ...ctx, buildrootzCommunityId: publicCommunity?._id, publishVersion }) },
+    { $set: buildPublicHomePayload({ ...ctx, buildrootzCommunityId: mappedObjectId, canonicalName, publishVersion, publicCommunityId: publicCommunity?._id }) },
     { upsert: true, new: true, setDefaultsOnInsert: true }
   );
 
@@ -437,8 +542,45 @@ async function syncHome(homeId, companyId, userId) {
   return { publicHomeId: publicHome._id, publicCommunityId: publicCommunity?._id || null };
 }
 
+async function publishCommunity(communityId, companyId, userId) {
+  const community = await Community.findOne({ _id: communityId, company: companyId })
+    .select('name city state market company lots buildrootz')
+    .lean();
+  if (!community) {
+    const err = new Error('Community not found');
+    err.status = 404;
+    throw err;
+  }
+
+  const mappedCommunityId = community.buildrootz?.communityId;
+  const canonicalName = community.buildrootz?.canonicalName || community.name || '';
+  if (!isObjectId(mappedCommunityId)) {
+    const err = new Error('Community must be mapped to BuildRootz before publishing');
+    err.status = 409;
+    err.code = 'COMMUNITY_NOT_MAPPED';
+    err.mappingUrl = '/admin/buildrootz/communities';
+    throw err;
+  }
+  const mappedObjectId = new mongoose.Types.ObjectId(mappedCommunityId);
+
+  const profile = await CommunityCompetitionProfile.findOne({ community: communityId, company: companyId })
+    .select('hoaFee hoaFrequency tax feeTypes mudFee pidFee pidFeeFrequency communityAmenities promotion buildrootzDescription heroImage city state zip address')
+    .lean();
+  const company = await Company.findById(companyId).select('name slug').lean();
+
+  const publicCommunity = await PublicCommunity.findOneAndUpdate(
+    { companyId, communityId: mappedObjectId },
+    { $set: buildPublicCommunityPayload({ community, profile, company, heroImage: profile?.heroImage || '', buildrootzCommunityId: mappedObjectId, canonicalName }) },
+    { upsert: true, new: true, setDefaultsOnInsert: true }
+  );
+
+  console.info('[buildrootz] published community', { communityId: String(communityId), companyId: String(companyId), userId: String(userId || '') });
+  return { publicCommunityId: publicCommunity?._id || null };
+}
+
 module.exports = {
   publishHome,
   unpublishHome,
-  syncHome
+  syncHome,
+  publishCommunity
 };

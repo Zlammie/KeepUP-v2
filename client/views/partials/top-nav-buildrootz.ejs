@@ -1,0 +1,47 @@
+<!-- views/partials/top-nav-buildrootz.ejs -->
+</head>
+<div class="header-wrapper">
+  <header class="header">
+    <div class="header-items">
+      <ul>
+        <li>
+          <div>
+            <img src="/assets/icons/listings.svg" alt="Listings">
+          </div>
+          <div>
+            <a href="/listings" class="top-nav-link">Listings</a>
+          </div>
+        </li>
+        <li>
+          <div>
+            <img src="/assets/icons/graph.svg" alt="Listing map">
+          </div>
+          <div>
+            <a href="/listing-map" class="top-nav-link">Listing Map</a>
+          </div>
+        </li>
+        <li>
+          <div>
+            <img src="/assets/icons/community-icon.svg" alt="BuildRootz mapping">
+          </div>
+          <div>
+            <a href="/admin/buildrootz/communities" class="top-nav-link">BRZ Mapping</a>
+          </div>
+        </li>
+      </ul>
+    </div>
+  </header>
+</div>
+<script nonce="<%= typeof cspNonce !== 'undefined' ? cspNonce : '' %>">
+  (() => {
+    const { pathname } = window.location;
+    document.querySelectorAll('.top-nav-link').forEach((link) => {
+      const href = link.getAttribute('href');
+      if (!href || href === '#') return;
+      if (pathname === href || (href !== '/' && pathname.startsWith(href))) {
+        link.classList.add('active');
+        link.setAttribute('aria-current', 'page');
+      }
+    });
+  })();
+</script>

@@ -15,8 +15,8 @@ const FeesSchema = new Schema({
 }, { _id: false });
 
 const PublicCommunitySchema = new Schema({
-  companyId: { type: Schema.Types.ObjectId, index: true },
-  communityId: { type: Schema.Types.ObjectId, index: true },
+  companyId: { type: Schema.Types.ObjectId, required: true, index: true },
+  communityId: { type: Schema.Types.ObjectId, required: true, index: true }, // canonical BuildRootz community
 
   name: { type: String, default: '', index: true },
   slug: { type: String, default: '', index: true },
@@ -28,8 +28,15 @@ const PublicCommunitySchema = new Schema({
     name: { type: String, default: '' },
     slug: { type: String, default: '' }
   },
+  modelAddress: {
+    street: { type: String, default: '' },
+    city: { type: String, default: '' },
+    state: { type: String, default: '' },
+    zip: { type: String, default: '' }
+  },
 
   promotion: { type: String, default: '' },
+  description: { type: String, default: '' },
   amenities: {
     type: [{
       category: { type: String, default: '' },

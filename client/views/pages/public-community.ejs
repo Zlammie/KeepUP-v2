@@ -1,0 +1,175 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Community Builders</title>
+    <style>
+      :root {
+        --bg: #0f172a;
+        --card: #111827;
+        --muted: #94a3b8;
+        --text: #e2e8f0;
+        --accent: #38bdf8;
+        --border: #1e293b;
+      }
+      body {
+        margin: 0;
+        font-family: 'Inter', system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+        background: radial-gradient(circle at 10% 20%, rgba(56, 189, 248, 0.12), transparent 25%),
+          radial-gradient(circle at 80% 10%, rgba(236, 72, 153, 0.08), transparent 20%),
+          var(--bg);
+        color: var(--text);
+        min-height: 100vh;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        padding: 32px 16px;
+      }
+      .pc-card {
+        width: min(960px, 100%);
+        background: var(--card);
+        border: 1px solid var(--border);
+        border-radius: 20px;
+        padding: 28px;
+        box-shadow: 0 24px 60px rgba(0, 0, 0, 0.3);
+      }
+      .pc-header h1 {
+        margin: 0 0 8px;
+        font-size: 26px;
+        letter-spacing: -0.01em;
+      }
+      .pc-header p {
+        margin: 0;
+        color: var(--muted);
+        font-size: 15px;
+      }
+      .pc-status {
+        margin: 16px 0;
+        color: var(--muted);
+        font-size: 14px;
+      }
+      table {
+        width: 100%;
+        border-collapse: collapse;
+        margin-top: 8px;
+      }
+      th, td {
+        padding: 12px 10px;
+        text-align: left;
+        border-bottom: 1px solid var(--border);
+        font-size: 14px;
+      }
+      th {
+        color: var(--muted);
+        text-transform: uppercase;
+        letter-spacing: 0.04em;
+        font-size: 12px;
+      }
+      .pc-badge {
+        display: inline-flex;
+        align-items: center;
+        gap: 6px;
+        border-radius: 999px;
+        padding: 4px 10px;
+        background: rgba(56, 189, 248, 0.14);
+        color: #7dd3fc;
+        font-weight: 600;
+        font-size: 12px;
+      }
+      .pc-empty {
+        color: var(--muted);
+        text-align: center;
+        padding: 14px 0;
+      }
+    </style>
+  </head>
+  <body>
+    <main class="pc-card" aria-live="polite">
+      <header class="pc-header">
+        <p class="pc-badge">Public Community</p>
+        <h1>Builders &amp; Model Addresses</h1>
+        <p>
+          One model listing per builder, prioritized by published status and most recent updates.
+        </p>
+      </header>
+
+      <p id="pc-status" class="pc-status">Loading builders…</p>
+
+      <table aria-label="Builder model addresses">
+        <thead>
+          <tr>
+            <th>Builder Name</th>
+            <th>Model Address</th>
+          </tr>
+        </thead>
+        <tbody id="pc-table-body">
+          <tr><td colspan="2" class="pc-empty">Loading…</td></tr>
+        </tbody>
+      </table>
+    </main>
+
+    <script nonce="<%= cspNonce %>">
+      (function loadBuilders() {
+        const communityId = <%- JSON.stringify(communityId || '') %>;
+        const statusEl = document.getElementById('pc-status');
+        const tbody = document.getElementById('pc-table-body');
+
+        if (!communityId) {
+          statusEl.textContent = 'Community id is missing or invalid.';
+          tbody.innerHTML = '<tr><td colspan="2" class="pc-empty">No data available.</td></tr>';
+          return;
+        }
+
+        const fmtAddress = (addr) => {
+          if (!addr || typeof addr !== 'object') return '';
+          const parts = [
+            addr.street,
+            [addr.city, addr.state].filter(Boolean).join(', '),
+            addr.zip
+          ].filter(Boolean);
+          return parts.join(' · ');
+        };
+
+        const renderRows = (rows) => {
+          if (!Array.isArray(rows) || !rows.length) {
+            tbody.innerHTML = '<tr><td colspan="2" class="pc-empty">No model listings found.</td></tr>';
+            statusEl.textContent = 'No builders reported for this community.';
+            return;
+          }
+
+          tbody.innerHTML = '';
+          rows.forEach((row) => {
+            const tr = document.createElement('tr');
+            const builderCell = document.createElement('td');
+            const modelCell = document.createElement('td');
+
+            builderCell.textContent = row.builderName || 'Unknown builder';
+
+            const listing = row.modelListing || null;
+            const addr = listing ? fmtAddress(listing.address) : '';
+            modelCell.textContent = listing && addr ? addr : 'No model set';
+
+            tr.appendChild(builderCell);
+            tr.appendChild(modelCell);
+            tbody.appendChild(tr);
+          });
+
+          statusEl.textContent = `${rows.length} builder${rows.length === 1 ? '' : 's'} found.`;
+        };
+
+        fetch(`/api/public/communities/${communityId}/builders`, { credentials: 'include' })
+          .then((res) => {
+            if (!res.ok) throw new Error(`Request failed (${res.status})`);
+            return res.json();
+          })
+          .then(renderRows)
+          .catch((err) => {
+            console.error(err);
+            statusEl.textContent = 'Could not load builders right now.';
+            tbody.innerHTML = '<tr><td colspan="2" class="pc-empty">Error loading data.</td></tr>';
+          });
+      })();
+    </script>
+  </body>
+</html>

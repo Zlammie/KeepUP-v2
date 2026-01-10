@@ -21,14 +21,17 @@ const SpecsSchema = new Schema({
 }, { _id: false });
 
 const PublicHomeSchema = new Schema({
-  companyId: { type: Schema.Types.ObjectId, index: true },
-  communityId: { type: Schema.Types.ObjectId, index: true },
+  companyId: { type: Schema.Types.ObjectId, index: true, required: true },
+  communityId: { type: Schema.Types.ObjectId, index: true }, // canonical BuildRootz community id (analytics)
+  publicCommunityId: { type: Schema.Types.ObjectId, ref: 'PublicCommunity', required: true, index: true },
   buildrootzCommunityId: { type: Schema.Types.ObjectId, index: true, default: null },
   sourceHomeId: { type: Schema.Types.Mixed, required: true, index: true },
+  builderId: { type: Schema.Types.ObjectId, index: true, default: null },
 
   title: { type: String, default: '' },
   slug:  { type: String, default: '', index: true },
   status: { type: String, default: '' },
+  published: { type: Boolean, default: false, index: true },
 
   address: { type: AddressSchema, default: () => ({}) },
   price: { type: Number, default: null },
@@ -124,5 +127,6 @@ const PublicHomeSchema = new Schema({
 
 PublicHomeSchema.index({ companyId: 1, sourceHomeId: 1 }, { unique: true });
 PublicHomeSchema.index({ slug: 1 });
+PublicHomeSchema.index({ communityId: 1, builderId: 1, published: -1, updatedAt: -1 });
 
 module.exports = conn.model('PublicHome', PublicHomeSchema);

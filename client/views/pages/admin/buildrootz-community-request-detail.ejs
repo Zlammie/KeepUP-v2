@@ -1,0 +1,244 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>BuildRootz Request • <%= request.requestedName %></title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet" />
+    <link rel="stylesheet" href="/assets/css/main.css" />
+  </head>
+  <body>
+    <%- include('../../partials/nav') %>
+    <main class="main-content p-4">
+      <header class="mb-3 d-flex justify-content-between align-items-center">
+        <div>
+          <p class="text-uppercase text-muted small mb-1">BuildRootz</p>
+          <h1 class="h4 mb-1">Community Request</h1>
+          <p class="text-muted mb-0">Review and link, create, or reject.</p>
+        </div>
+        <a class="btn btn-outline-secondary" href="/admin/buildrootz/community-requests">Back to queue</a>
+      </header>
+
+      <div id="alertBox" class="alert d-none" role="alert"></div>
+
+      <div class="row g-3">
+        <div class="col-lg-5">
+          <div class="card shadow-sm mb-3">
+            <div class="card-body">
+              <div class="d-flex justify-content-between align-items-start mb-2">
+                <div>
+                  <p class="text-uppercase small text-muted mb-0">Requested</p>
+                  <h2 class="h5 mb-0"><%= request.requestedName %></h2>
+                </div>
+                <span class="badge text-bg-light text-uppercase"><%= request.status %></span>
+              </div>
+              <p class="text-muted mb-2"><%= [request.city, request.state].filter(Boolean).join(', ') %></p>
+              <% if (request.notes) { %>
+                <p class="small mb-0"><strong>Notes:</strong> <%= request.notes %></p>
+              <% } %>
+              <div class="small text-muted mt-2">
+                Submitted: <%= new Date(request.submittedAt).toLocaleString() %>
+              </div>
+            </div>
+          </div>
+
+          <div class="card shadow-sm">
+            <div class="card-body">
+              <p class="text-uppercase small text-muted mb-0">KeepUp Community</p>
+              <% if (community) { %>
+                <h3 class="h6 mb-1"><%= community.name %></h3>
+                <p class="text-muted small mb-0"><%= [community.city, community.state].filter(Boolean).join(', ') %></p>
+              <% } else { %>
+                <p class="text-muted mb-0">Community not found.</p>
+              <% } %>
+              <% if (community?.buildrootz?.communityId) { %>
+                <div class="alert alert-success mt-3 mb-0">
+                  Already mapped to BuildRootz: <strong><%= community.buildrootz.canonicalName || community.buildrootz.communityId %></strong>
+                </div>
+              <% } %>
+            </div>
+          </div>
+        </div>
+
+        <div class="col-lg-7">
+          <div class="card shadow-sm mb-3">
+            <div class="card-body">
+              <div class="d-flex justify-content-between align-items-center mb-2">
+                <div>
+                  <p class="text-uppercase small text-muted mb-0">Suggested Matches</p>
+                  <p class="small mb-0 text-muted">Link to an existing BuildRootz community to avoid duplicates.</p>
+                </div>
+              </div>
+              <% if (suggestionsError) { %>
+                <div class="alert alert-warning py-2 mb-2"><%= suggestionsError %></div>
+              <% } %>
+              <form id="linkForm" class="mb-0">
+                <div class="mb-3">
+                  <% if ((suggestions || []).length === 0) { %>
+                    <p class="text-muted small mb-2">No suggestions. Paste a BuildRootz community ID to link.</p>
+                  <% } else { %>
+                    <div class="list-group mb-2">
+                      <% suggestions.forEach((s) => { %>
+                        <label class="list-group-item list-group-item-action d-flex align-items-center gap-2">
+                          <input class="form-check-input" type="radio" name="suggestion" value="<%= s._id %>" />
+                          <div>
+                            <div class="fw-semibold"><%= s.name %></div>
+                            <div class="text-muted small"><%= [s.city, s.state].filter(Boolean).join(', ') %></div>
+                          </div>
+                        </label>
+                      <% }) %>
+                    </div>
+                  <% } %>
+                  <label class="form-label">BuildRootz Community ID</label>
+                  <input type="text" name="buildrootzCommunityId" class="form-control" placeholder="Paste ID or select above" />
+                </div>
+                <button class="btn btn-primary" type="submit">Link to Existing</button>
+              </form>
+            </div>
+          </div>
+
+          <div class="card shadow-sm mb-3">
+            <div class="card-body">
+              <div class="d-flex justify-content-between align-items-center mb-2">
+                <div>
+                  <p class="text-uppercase small text-muted mb-0">Approve &amp; Create</p>
+                  <p class="small mb-0 text-muted">Creates canonical community in BuildRootz if not found.</p>
+                </div>
+              </div>
+              <form id="createForm" class="row g-2">
+                <div class="col-md-6">
+                  <label class="form-label">Name</label>
+                  <input type="text" class="form-control" name="name" value="<%= request.requestedName %>" required />
+                </div>
+                <div class="col-md-3">
+                  <label class="form-label">City</label>
+                  <input type="text" class="form-control" name="city" value="<%= request.city %>" required />
+                </div>
+                <div class="col-md-3">
+                  <label class="form-label">State</label>
+                  <input type="text" class="form-control" name="state" value="<%= request.state %>" required />
+                </div>
+                <div class="col-12">
+                  <label class="form-label">Notes (optional)</label>
+                  <textarea class="form-control" name="notes" rows="2"><%= request.notes || '' %></textarea>
+                </div>
+                <div class="col-12">
+                  <button class="btn btn-success" type="submit">Approve &amp; Create</button>
+                </div>
+              </form>
+            </div>
+          </div>
+
+          <div class="card shadow-sm">
+            <div class="card-body">
+              <p class="text-uppercase small text-muted mb-1">Reject</p>
+              <form id="rejectForm" class="row g-2">
+                <div class="col-12">
+                  <label class="form-label">Reason</label>
+                  <textarea class="form-control" name="reason" rows="2" required></textarea>
+                </div>
+                <div class="col-12">
+                  <button class="btn btn-outline-danger" type="submit">Reject Request</button>
+                </div>
+              </form>
+            </div>
+          </div>
+        </div>
+      </div>
+    </main>
+
+    <script nonce="<%= cspNonce %>">
+      (() => {
+        const requestId = '<%= request.id %>';
+        const alertBox = document.getElementById('alertBox');
+
+        const showAlert = (msg, tone = 'info') => {
+          if (!alertBox) return;
+          alertBox.textContent = msg;
+          alertBox.className = `alert alert-${tone}`;
+          alertBox.classList.remove('d-none');
+        };
+
+        const linkForm = document.getElementById('linkForm');
+        if (linkForm) {
+          linkForm.addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const selected = linkForm.querySelector('input[name="suggestion"]:checked');
+            const manual = linkForm.buildrootzCommunityId?.value?.trim();
+            const brId = (selected?.value || manual || '').trim();
+            if (!brId) {
+              showAlert('Provide a BuildRootz community ID to link.', 'warning');
+              return;
+            }
+            try {
+              const res = await fetch(`/api/superadmin/buildrootz/community-requests/${requestId}/link`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
+                body: JSON.stringify({ buildrootzCommunityId: brId })
+              });
+              const data = await res.json().catch(() => ({}));
+              if (!res.ok) throw new Error(data?.error || `Link failed (${res.status})`);
+              showAlert('Linked to existing BuildRootz community.', 'success');
+            } catch (err) {
+              showAlert(err.message || 'Link failed.', 'danger');
+            }
+          });
+        }
+
+        const createForm = document.getElementById('createForm');
+        if (createForm) {
+          createForm.addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const formData = new FormData(createForm);
+            const payload = {
+              name: formData.get('name')?.toString().trim(),
+              city: formData.get('city')?.toString().trim(),
+              state: formData.get('state')?.toString().trim(),
+              notes: formData.get('notes')?.toString().trim()
+            };
+            if (!payload.name || !payload.city || !payload.state) {
+              showAlert('Name, city, and state are required.', 'warning');
+              return;
+            }
+            try {
+              const res = await fetch(`/api/superadmin/buildrootz/community-requests/${requestId}/approve-create`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
+                body: JSON.stringify(payload)
+              });
+              const data = await res.json().catch(() => ({}));
+              if (!res.ok) throw new Error(data?.error || `Create failed (${res.status})`);
+              showAlert(`Approved. Community ID: ${data.communityId || 'created'}`, 'success');
+            } catch (err) {
+              showAlert(err.message || 'Create failed.', 'danger');
+            }
+          });
+        }
+
+        const rejectForm = document.getElementById('rejectForm');
+        if (rejectForm) {
+          rejectForm.addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const reason = rejectForm.reason?.value?.trim();
+            if (!reason) {
+              showAlert('Reason is required.', 'warning');
+              return;
+            }
+            try {
+              const res = await fetch(`/api/superadmin/buildrootz/community-requests/${requestId}/reject`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
+                body: JSON.stringify({ reason })
+              });
+              const data = await res.json().catch(() => ({}));
+              if (!res.ok) throw new Error(data?.error || `Reject failed (${res.status})`);
+              showAlert('Request rejected.', 'success');
+            } catch (err) {
+              showAlert(err.message || 'Reject failed.', 'danger');
+            }
+          });
+        }
+      })();
+    </script>
+  </body>
+</html>

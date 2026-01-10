@@ -52,6 +52,11 @@
                 Settings
               </button>
             </li>
+            <li class="nav-item" role="presentation">
+              <button class="nav-link" id="admin-tab-buildrootz" data-admin-target="buildrootz" type="button" role="tab" aria-controls="admin-panel-buildrootz" aria-selected="false">
+                BuildRootz
+              </button>
+            </li>
           </ul>
         </nav>
 
@@ -494,6 +499,46 @@
             <p class="mb-0">Feature toggles and preferences specific to your team.</p>
           </div>
         </section>
+
+        <section id="admin-panel-buildrootz" class="admin-panel d-none" role="tabpanel" aria-labelledby="admin-tab-buildrootz">
+          <div class="d-flex flex-wrap justify-content-between align-items-center mb-3">
+            <div>
+              <h2 class="h4 mb-1">BuildRootz Profile</h2>
+              <p class="text-muted mb-0">
+                Control what BuildRootz sees for your builder profile: name, logo, and description.
+              </p>
+            </div>
+          </div>
+
+          <form id="buildrootz-form" class="row g-4">
+            <div class="col-12 col-lg-6">
+              <label for="buildrootzName" class="form-label">Builder Name</label>
+              <input type="text" id="buildrootzName" class="form-control" readonly />
+              <div class="form-text">Pulled from your Company name.</div>
+            </div>
+            <div class="col-12 col-lg-6">
+              <label for="buildrootzLogo" class="form-label">Logo URL</label>
+              <input type="url" id="buildrootzLogo" class="form-control" placeholder="https://example.com/logo.png" />
+              <div class="form-text">We’ll send this logo to your BuildRootz builder profile.</div>
+              <div class="mt-2" id="buildrootzLogoPreviewWrapper">
+                <img id="buildrootzLogoPreview" src="" alt="Logo preview" style="max-height:60px; display:none;" />
+              </div>
+            </div>
+            <div class="col-12">
+              <label for="buildrootzDescription" class="form-label">Company Description</label>
+              <textarea id="buildrootzDescription" class="form-control" rows="4" placeholder="Add a short bio for your builder profile on BuildRootz."></textarea>
+            </div>
+
+            <div class="col-12 d-flex justify-content-end align-items-center gap-2 flex-wrap">
+              <div id="buildrootz-status" class="small text-muted me-auto"></div>
+              <div class="d-flex gap-2">
+                <button type="button" class="btn btn-outline-secondary" id="buildrootz-discard">Discard</button>
+                <button type="submit" class="btn btn-secondary" id="buildrootz-save">Save</button>
+                <button type="button" class="btn btn-primary" id="buildrootz-publish">Publish to BuildRootz</button>
+              </div>
+            </div>
+          </form>
+        </section>
       </div>
     </div>
   </main>
@@ -521,6 +566,11 @@
       const state = {
         loadedPanels: new Set(),
         company: {
+          loading: false,
+          saving: false,
+          data: null
+        },
+        buildrootz: {
           loading: false,
           saving: false,
           data: null
@@ -602,6 +652,19 @@
       const companyViewOnlyMessage =
         'Company settings are view-only for Manager accounts. Contact a Company Admin to make changes.';
 
+      const buildrootzEls = {
+        form: document.getElementById('buildrootz-form'),
+        name: document.getElementById('buildrootzName'),
+        logo: document.getElementById('buildrootzLogo'),
+        description: document.getElementById('buildrootzDescription'),
+        status: document.getElementById('buildrootz-status'),
+        save: document.getElementById('buildrootz-save'),
+        publish: document.getElementById('buildrootz-publish'),
+        discard: document.getElementById('buildrootz-discard'),
+        logoPreview: document.getElementById('buildrootzLogoPreview'),
+        logoPreviewWrapper: document.getElementById('buildrootzLogoPreviewWrapper')
+      };
+
       if (companyForm && !canEditCompany) {
         companyForm.querySelectorAll('input, select, textarea').forEach((field) => {
           field.setAttribute('disabled', 'disabled');
@@ -612,6 +675,20 @@
         if (companyStatusEl) {
           companyStatusEl.textContent = companyViewOnlyMessage;
           companyStatusEl.classList.add('text-muted');
+        }
+      }
+
+      if (buildrootzEls.form && !canEditCompany) {
+        buildrootzEls.form.querySelectorAll('input, textarea, button').forEach((el) => {
+          if (el.id === 'buildrootz-publish' || el.type === 'submit' || el.type === 'button') {
+            el.setAttribute('disabled', 'disabled');
+          } else {
+            el.setAttribute('disabled', 'disabled');
+          }
+        });
+        if (buildrootzEls.status) {
+          buildrootzEls.status.textContent = companyViewOnlyMessage;
+          buildrootzEls.status.classList.add('text-muted');
         }
       }
 
@@ -654,9 +731,42 @@
 
       const clearCompanyStatus = () => setCompanyStatus('', 'muted');
 
+      const setBuildrootzStatus = (message, tone = 'muted') => {
+        if (!buildrootzEls.status) return;
+        buildrootzEls.status.textContent = message || '';
+        buildrootzEls.status.classList.remove('text-muted', 'text-success', 'text-danger');
+        const toneClass = tone === 'success' ? 'text-success' : tone === 'danger' ? 'text-danger' : 'text-muted';
+        buildrootzEls.status.classList.add(toneClass);
+      };
+
+      const clearBuildrootzStatus = () => setBuildrootzStatus('', 'muted');
+
       const getInputValue = (input) => {
         if (!input || typeof input.value !== 'string') return '';
         return input.value.trim();
+      };
+
+      const updateBuildrootzLogoPreview = (url) => {
+        if (!buildrootzEls.logoPreview || !buildrootzEls.logoPreviewWrapper) return;
+        const trimmed = (url || '').trim();
+        if (trimmed) {
+          buildrootzEls.logoPreview.src = trimmed;
+          buildrootzEls.logoPreview.style.display = 'block';
+          buildrootzEls.logoPreviewWrapper.classList.remove('d-none');
+        } else {
+          buildrootzEls.logoPreview.src = '';
+          buildrootzEls.logoPreview.style.display = 'none';
+          buildrootzEls.logoPreviewWrapper.classList.add('d-none');
+        }
+      };
+
+      const populateBuildrootzForm = (data) => {
+        if (!data) return;
+        if (buildrootzEls.name) buildrootzEls.name.value = data.builderName || '';
+        if (buildrootzEls.logo) buildrootzEls.logo.value = data.logoUrl || '';
+        if (buildrootzEls.description) buildrootzEls.description.value = data.description || '';
+        updateBuildrootzLogoPreview(data.logoUrl || data.fallbackLogoUrl || '');
+        state.buildrootz.data = data;
       };
 
       const showUsersLoading = (message = 'Loading users...') => {
@@ -701,6 +811,19 @@
         }
         if (!response.ok) {
           throw new Error(data?.error || `Request failed (${response.status})`);
+        }
+        return data;
+      };
+
+      const fetchBuildrootzProfile = async () => {
+        const response = await fetch('/api/admin/buildrootz/profile', {
+          headers: { Accept: 'application/json' },
+          credentials: 'same-origin'
+        });
+        const data = await readJsonResponse(response);
+        if (!response.ok) {
+          const message = data?.error || `Request failed (${response.status})`;
+          throw new Error(message);
         }
         return data;
       };
@@ -790,6 +913,33 @@
         }
       };
 
+      const loadBuildrootzPanel = async ({ force = false } = {}) => {
+        if (!buildrootzEls.form) return;
+        if (state.buildrootz.loading) return;
+        if (!force && state.loadedPanels.has('buildrootz') && state.buildrootz.data) {
+          populateBuildrootzForm(state.buildrootz.data);
+          return;
+        }
+        state.buildrootz.loading = true;
+        setBuildrootzStatus('Loading BuildRootz profile...', 'muted');
+        try {
+          const payload = await fetchBuildrootzProfile();
+          state.buildrootz.data = payload;
+          state.loadedPanels.add('buildrootz');
+          populateBuildrootzForm(payload);
+          if (payload.publishedAt) {
+            setBuildrootzStatus('Last published to BuildRootz', 'muted');
+          } else {
+            clearBuildrootzStatus();
+          }
+        } catch (err) {
+          console.error('Failed to load BuildRootz profile', err);
+          setBuildrootzStatus(err.message || 'Unable to load BuildRootz profile.', 'danger');
+        } finally {
+          state.buildrootz.loading = false;
+        }
+      };
+
       const handleCompanySubmit = async (event) => {
         event.preventDefault();
         if (!companyForm || state.company.saving || state.company.loading) return;
@@ -858,6 +1008,106 @@
         } finally {
           state.company.saving = false;
           if (companySaveButton) companySaveButton.disabled = false;
+        }
+      };
+
+      const handleBuildrootzSubmit = async (event) => {
+        event.preventDefault();
+        if (!buildrootzEls.form || state.buildrootz.saving || state.buildrootz.loading) return;
+        if (!canEditCompany) return;
+
+        const payload = {
+          companyId: state.company.data?.companyId,
+          description: getInputValue(buildrootzEls.description),
+          logoUrl: getInputValue(buildrootzEls.logo)
+        };
+
+        state.buildrootz.saving = true;
+        setBuildrootzStatus('Saving...', 'muted');
+        if (buildrootzEls.save) buildrootzEls.save.disabled = true;
+        if (buildrootzEls.publish) buildrootzEls.publish.disabled = true;
+
+        try {
+          const response = await fetch('/api/admin/buildrootz/profile', {
+            method: 'PUT',
+            headers: {
+              'Content-Type': 'application/json',
+              Accept: 'application/json'
+            },
+            credentials: 'same-origin',
+            body: JSON.stringify(payload)
+          });
+          const data = await readJsonResponse(response);
+          if (!response.ok) {
+            const message = data?.error || `Save failed (${response.status})`;
+            throw new Error(message);
+          }
+          state.buildrootz.data = data;
+          populateBuildrootzForm(data);
+          setBuildrootzStatus('Saved.', 'success');
+        } catch (err) {
+          console.error('BuildRootz save failed', err);
+          setBuildrootzStatus(err.message || 'Save failed.', 'danger');
+        } finally {
+          state.buildrootz.saving = false;
+          if (buildrootzEls.save) buildrootzEls.save.disabled = false;
+          if (buildrootzEls.publish) buildrootzEls.publish.disabled = false;
+        }
+      };
+
+      const handleBuildrootzPublish = async (event) => {
+        event.preventDefault();
+        if (!buildrootzEls.form || state.buildrootz.saving || state.buildrootz.loading) return;
+        if (!canEditCompany) return;
+
+        const payload = {
+          companyId: state.company.data?.companyId,
+          description: getInputValue(buildrootzEls.description),
+          logoUrl: getInputValue(buildrootzEls.logo)
+        };
+
+        state.buildrootz.saving = true;
+        setBuildrootzStatus('Publishing to BuildRootz...', 'muted');
+        if (buildrootzEls.publish) buildrootzEls.publish.disabled = true;
+        if (buildrootzEls.save) buildrootzEls.save.disabled = true;
+
+        try {
+          const response = await fetch('/api/admin/buildrootz/profile/publish', {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+              Accept: 'application/json'
+            },
+            credentials: 'same-origin',
+            body: JSON.stringify(payload)
+          });
+          const data = await readJsonResponse(response);
+          if (!response.ok) {
+            const message = data?.error || `Publish failed (${response.status})`;
+            throw new Error(message);
+          }
+          state.buildrootz.data = data;
+          populateBuildrootzForm(data);
+          setBuildrootzStatus('Published to BuildRootz.', 'success');
+        } catch (err) {
+          console.error('BuildRootz publish failed', err);
+          setBuildrootzStatus(err.message || 'Publish failed.', 'danger');
+        } finally {
+          state.buildrootz.saving = false;
+          if (buildrootzEls.publish) buildrootzEls.publish.disabled = false;
+          if (buildrootzEls.save) buildrootzEls.save.disabled = false;
+        }
+      };
+
+      const handleBuildrootzDiscard = (event) => {
+        if (event) event.preventDefault();
+        if (state.buildrootz.data) {
+          populateBuildrootzForm(state.buildrootz.data);
+          clearBuildrootzStatus();
+        } else {
+          if (buildrootzEls.logo) buildrootzEls.logo.value = '';
+          if (buildrootzEls.description) buildrootzEls.description.value = '';
+          clearBuildrootzStatus();
         }
       };
 
@@ -1436,7 +1686,8 @@
 
       const panelLoaders = {
         company: loadCompanyPanel,
-        users: loadUsersPanel
+        users: loadUsersPanel,
+        buildrootz: loadBuildrootzPanel
       };
       if (permissions && permissions.canUseImpersonation) {
         panelLoaders.impersonation = loadImpersonationPanel;
@@ -1719,6 +1970,21 @@
           }
           clearCompanyStatus();
         });
+      }
+
+      if (buildrootzEls.form) {
+        buildrootzEls.form.addEventListener('submit', handleBuildrootzSubmit);
+        if (buildrootzEls.publish) {
+          buildrootzEls.publish.addEventListener('click', handleBuildrootzPublish);
+        }
+        if (buildrootzEls.discard) {
+          buildrootzEls.discard.addEventListener('click', handleBuildrootzDiscard);
+        }
+        if (buildrootzEls.logo) {
+          buildrootzEls.logo.addEventListener('input', () => {
+            updateBuildrootzLogoPreview(getInputValue(buildrootzEls.logo));
+          });
+        }
       }
 
       if (permissions && permissions.canUseImpersonation) {

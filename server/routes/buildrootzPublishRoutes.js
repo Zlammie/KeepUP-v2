@@ -22,7 +22,11 @@ router.post('/homes/:id/publish', requireRole(...WRITE_ROLES), async (req, res) 
   } catch (err) {
     console.error('[buildrootz] publish route error', err);
     const status = err.status || 500;
-    return res.status(status).json({ error: err.message || 'Publish failed' });
+    return res.status(status).json({
+      error: err.message || 'Publish failed',
+      code: err.code,
+      mappingUrl: err.mappingUrl
+    });
   }
 });
 
@@ -38,7 +42,11 @@ router.post('/homes/:id/unpublish', requireRole(...WRITE_ROLES), async (req, res
   } catch (err) {
     console.error('[buildrootz] unpublish route error', err);
     const status = err.status || 500;
-    return res.status(status).json({ error: err.message || 'Unpublish failed' });
+    return res.status(status).json({
+      error: err.message || 'Unpublish failed',
+      code: err.code,
+      mappingUrl: err.mappingUrl
+    });
   }
 });
 
@@ -54,7 +62,11 @@ router.post('/homes/:id/sync', requireRole(...WRITE_ROLES), async (req, res) => 
   } catch (err) {
     console.error('[buildrootz] sync route error', err);
     const status = err.status || 500;
-    return res.status(status).json({ error: err.message || 'Sync failed' });
+    return res.status(status).json({
+      error: err.message || 'Sync failed',
+      code: err.code,
+      mappingUrl: err.mappingUrl
+    });
   }
 });
 

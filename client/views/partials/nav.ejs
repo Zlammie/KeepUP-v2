@@ -70,16 +70,18 @@
         </li>
         <li>
           <a href="/listings" class="nav-link">
-            <img src="/assets/icons/listings.svg" alt="Listings">
-            <span>Listings</span>
+            <img src="/assets/icons/community-icon.svg" alt="BuildRootz">
+            <span>BuildRootz</span>
           </a>
         </li>
-        <li>
-          <a href="/listing-map" class="nav-link">
-            <img src="/assets/icons/graph.svg" alt="Map">
-            <span>Map</span>
-          </a>
-        </li>
+        <% if (permissions && permissions.isSuperAdmin) { %>
+          <li>
+            <a href="/admin/buildrootz/community-requests" class="nav-link">
+              <img src="/assets/icons/account-icon.svg" alt="BuildRootz Approvals">
+              <span>BRZ Approvals</span>
+            </a>
+          </li>
+        <% } %>
         <% if (canAccessAdmin) { %>
           <li class="admin-item">
             <a href="/admin-section" class="nav-link">

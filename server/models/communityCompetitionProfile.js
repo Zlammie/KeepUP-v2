@@ -86,6 +86,8 @@ const CommunityCompetitionProfileSchema = new Schema({
 
   // Marketing
   promotion: String,
+  buildrootzDescription: { type: String, default: '' },
+  heroImage: { type: String, default: '' },
 
   // Top plans (no dupes)
   topPlans: {

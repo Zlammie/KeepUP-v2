@@ -14,6 +14,8 @@ const adminCompanyApi = require('./admin-company.api');
 const tasksApi = require('./tasks.api');
 const adminUsersApi = require('./admin-users.api');
 const adminImpersonationApi = require('./admin-impersonation.api');
+const buildrootzAdminApi = require('./buildrootz-admin.api');
+const buildrootzSuperAdminApi = require('./buildrootz-superadmin.api');
 const competitionRoutes = require('../competitionRoutes');
 const myCommunityCompetitionRoutes = require('../myCommunityCompetitionRoutes');
 const manageMyCommunityCompetitionRoutes = require('../manageMyCommunityCompetitionRoutes');
@@ -35,6 +37,8 @@ router.use('/floorplans', floorPlanRoutes);
 router.use('/admin/company', adminCompanyApi);
 router.use('/admin/users', adminUsersApi);
 router.use('/admin/impersonation', adminImpersonationApi);
+router.use('/admin/buildrootz', buildrootzAdminApi);
+router.use('/superadmin/buildrootz', buildrootzSuperAdminApi);
 router.use('/tasks', tasksApi);
 router.use('/task-schedules', taskSchedulesApi);
 router.use('/', lotViewRoutes); // if this exposes /lots or other root endpoints

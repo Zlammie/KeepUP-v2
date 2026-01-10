@@ -21,6 +21,12 @@ const PrimaryContactSchema = new Schema({
   phone: { type: String, trim: true, default: null }
 }, { _id: false });
 
+const BuildrootzProfileSchema = new Schema({
+  description: { type: String, trim: true, default: '' },
+  logoUrl: { type: String, trim: true, default: '' },
+  publishedAt: { type: Date, default: null }
+}, { _id: false });
+
 const SettingsSchema = new Schema({
   timezone: { type: String, default: 'America/Chicago' },
   locale:   { type: String, default: 'en-US' },
@@ -49,7 +55,10 @@ const CompanySchema = new Schema({
   // Company profile + admin-only notes
   address: { type: AddressSchema, default: () => ({}) },
   primaryContact: { type: PrimaryContactSchema, default: () => ({}) },
-  notes: { type: String, trim: true, default: '' }
+  notes: { type: String, trim: true, default: '' },
+
+  // BuildRootz profile content (builder-facing)
+  buildrootzProfile: { type: BuildrootzProfileSchema, default: () => ({}) }
 }, { timestamps: true });
 
 // Helper: auto-generate slug from name on create (don’t clobber if provided)

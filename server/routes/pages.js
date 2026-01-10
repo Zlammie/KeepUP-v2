@@ -17,12 +17,14 @@ const Competition = require('../models/Competition');
 const FloorPlanComp = require('../models/floorPlanComp');
 const FloorPlan = require('../models/FloorPlan');
 const CommunityCompetitionProfile = require('../models/communityCompetitionProfile');
+const BuildRootzCommunityRequest = require('../models/BuildRootzCommunityRequest');
 const Company = require('../models/Company');
 const Task = require('../models/Task');
 const User = require('../models/User');
 const AutoFollowUpSchedule = require('../models/AutoFollowUpSchedule');
 const AutoFollowUpAssignment = require('../models/AutoFollowUpAssignment');
 const { publishHome, unpublishHome, syncHome } = require('../services/buildrootzPublisher');
+const { buildrootzFetch } = require('../services/buildrootzClient');
 const { hydrateTaskLinks, groupTasksByAttachment } = require('../utils/taskLinkedDetails');
 const upload = require('../middleware/upload');
 const {
@@ -893,6 +895,112 @@ router.get('/view-communities', ensureAuth, requireRole('READONLY','USER','MANAG
   }
 );
 
+router.get('/buildrootz-community', ensureAuth, requireRole('READONLY','USER','MANAGER','COMPANY_ADMIN','SUPER_ADMIN'),
+  async (req, res) => {
+    const communities = await Community.find({ ...base(req) })
+      .select('name city state')
+      .lean();
+    const scoped = filterCommunitiesForUser(req.user, communities)
+      .map((c) => ({
+        id: String(c._id),
+        name: c.name || 'Community',
+        location: [c.city, c.state].filter(Boolean).join(', ')
+      }))
+      .sort((a, b) => a.name.localeCompare(b.name));
+    res.render('pages/buildrootz-community', { communities: scoped, active: 'community' });
+  }
+);
+
+router.get('/admin/buildrootz/communities', ensureAuth, requireRole('MANAGER','COMPANY_ADMIN','SUPER_ADMIN'),
+  async (req, res) => {
+    const communities = await Community.find({ ...base(req) })
+      .select('name city state buildrootz')
+      .sort({ name: 1 })
+      .lean();
+    const scoped = filterCommunitiesForUser(req.user, communities).map((c) => ({
+      id: String(c._id),
+      name: c.name || 'Community',
+      city: c.city || '',
+      state: c.state || '',
+      buildrootz: c.buildrootz || {}
+    }));
+    res.render('pages/buildrootz-community', { communities: scoped, active: 'community' });
+  }
+);
+
+router.get(
+  '/admin/buildrootz/community-requests',
+  ensureAuth,
+  requireRole('SUPER_ADMIN'),
+  async (req, res, next) => {
+    try {
+      const { status } = req.query;
+      const filter = {};
+      if (status && status !== 'all') filter.status = status;
+      const requests = await BuildRootzCommunityRequest.find(filter)
+        .sort({ submittedAt: -1 })
+        .limit(200)
+        .lean();
+      const communityIds = Array.from(new Set(requests.map((r) => String(r.keepupCommunityId))));
+      const communities = await Community.find({ _id: { $in: communityIds } })
+        .select('name city state')
+        .lean();
+      const communityMap = new Map(communities.map((c) => [String(c._id), c]));
+      const rows = requests.map((r) => ({
+        ...r,
+        id: String(r._id),
+        community: communityMap.get(String(r.keepupCommunityId)) || null
+      }));
+      res.render('pages/admin/buildrootz-community-requests', {
+        requests: rows,
+        active: 'community'
+      });
+    } catch (err) {
+      next(err);
+    }
+  }
+);
+
+router.get(
+  '/admin/buildrootz/community-requests/:id',
+  ensureAuth,
+  requireRole('SUPER_ADMIN'),
+  async (req, res, next) => {
+    try {
+      const { id } = req.params;
+      if (!isId(id)) return res.status(400).send('Invalid request id');
+      const requestDoc = await BuildRootzCommunityRequest.findById(id).lean();
+      if (!requestDoc) return res.status(404).send('Request not found');
+
+      const community = await Community.findById(requestDoc.keepupCommunityId)
+        .select('name city state buildrootz company')
+        .lean();
+
+      let suggestions = [];
+      let suggestionsError = '';
+      const q = requestDoc.requestedName;
+      if (q && q.length >= 2) {
+        try {
+          const data = await buildrootzFetch(`/api/internal/communities/search?q=${encodeURIComponent(q)}`);
+          suggestions = Array.isArray(data?.results) ? data.results : [];
+        } catch (err) {
+          suggestionsError = err.message || 'Search unavailable';
+        }
+      }
+
+      res.render('pages/admin/buildrootz-community-request-detail', {
+        request: { ...requestDoc, id: String(requestDoc._id) },
+        community,
+        suggestions,
+        suggestionsError,
+        active: 'community'
+      });
+    } catch (err) {
+      next(err);
+    }
+  }
+);
+
 router.get('/add-floorplan', ensureAuth, requireRole('READONLY','USER','MANAGER','COMPANY_ADMIN','SUPER_ADMIN'),
   (req, res) => res.render('pages/add-floorplan', { active: 'floor-plans' })
 );
@@ -927,7 +1035,7 @@ router.get('/listing-details', ensureAuth, requireRole('READONLY','USER','MANAGE
       if (!hasCommunityAccess(req.user, communityId)) return res.status(404).send('Community not found');
 
       const community = await Community.findOne({ _id: communityId, ...base(req) })
-        .select('name city state lots')
+        .select('name city state lots buildrootz')
         .populate('lots.floorPlan', 'name planNumber specs.squareFeet specs.beds specs.baths specs.garage asset elevations')
         .lean();
       if (!community) return res.status(404).send('Community not found');
@@ -969,6 +1077,16 @@ router.get('/listing-details', ensureAuth, requireRole('READONLY','USER','MANAGE
         communityId: String(community._id),
         communityName: community.name || 'Community',
         location: [community.city, community.state].filter(Boolean).join(', '),
+        buildrootzMapping: {
+          communityId: community.buildrootz?.communityId || null,
+          canonicalName: community.buildrootz?.canonicalName || ''
+        },
+        buildrootzPublish: {
+          communityId: lot.buildrootzCommunityId || community.buildrootz?.communityId || null,
+          canonicalName: lot.buildrootzCanonicalName || community.buildrootz?.canonicalName || '',
+          lastStatus: lot.buildrootzLastPublishStatus || '',
+          lastError: lot.buildrootzLastPublishError || ''
+        },
         jobNumber: lot.jobNumber || '',
         lot: lot.lot || '',
         block: lot.block || '',
@@ -1125,7 +1243,14 @@ router.post('/listing-details/publish', ensureAuth, requireRole('READONLY','USER
 
       return res.json({ success: true, isPublished });
     } catch (err) {
-      next(err);
+      const status = err.status || 500;
+      const message = err.message || 'Failed to update publish status';
+      return res.status(status).json({
+        success: false,
+        message,
+        code: err.code,
+        mappingUrl: err.mappingUrl
+      });
     }
   }
 );

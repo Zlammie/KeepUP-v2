@@ -1,4 +1,5 @@
 const express = require('express');
+const mongoose = require('mongoose');
 const router = express.Router();
 
 const { sendBetaSignupEmail } = require('../services/betaSignupMailer');
@@ -12,6 +13,8 @@ const emptyValues = () => ({
   phone: '',
   notes: ''
 });
+
+const isId = (value) => mongoose.Types.ObjectId.isValid(String(value || ''));
 
 const renderView = (res, overrides = {}) => {
   const defaults = {
@@ -32,6 +35,11 @@ const renderView = (res, overrides = {}) => {
 };
 
 router.get('/beta-signup', (req, res) => renderView(res));
+
+router.get('/public/communities/:communityId', (req, res) => {
+  const communityId = isId(req.params.communityId) ? req.params.communityId : '';
+  return res.render('pages/public-community', { communityId });
+});
 
 router.post('/beta-signup', async (req, res) => {
   const values = {
