@@ -133,10 +133,15 @@
           <option value="contacts">Contacts</option>
           <option value="realtors">Realtors</option>
         </select>
+        <label for="importCommunitySelect" class="form-label">Apply Community (optional)</label>
+        <select id="importCommunitySelect" class="form-select mb-3">
+          <option value="">No community (leave blank)</option>
+        </select>
         <input type="file" id="importFile" class="form-control" accept=".csv,.xlsx" />
         <div class="form-text mt-2">
-          Contacts expected headers: FirstName, LastName, Email, Phone, VisitDate, Community, Source (Community matches by name you can access).<br/>
-          Realtors expected headers: FirstName, LastName, Email, Phone, Brokerage
+          Contacts expected headers: FirstName, LastName, Email, Phone, VisitDate, Community, Source.
+          If you pick a community above, it will be applied to every imported contact (optional).<br/>
+          Realtors expected headers: FirstName, LastName, Email, Phone, Brokerage.
         </div>
         <div class="mt-3 d-flex flex-column gap-2">
           <a class="link-primary" href="/assets/samples/import-contacts-sample.csv" download>

@@ -326,6 +326,7 @@ app.use((req, res, next) => {
 app.use(routes);
 
 // 8) Health check
+app.get('/health', (req, res) => res.json({ ok: true }));
 app.get('/healthz', (req, res) => res.json({ ok: true }));
 
 // 9) 404 + error handling

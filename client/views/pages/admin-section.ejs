@@ -234,6 +234,7 @@
                   <th scope="col">First Name</th>
                   <th scope="col">Last Name</th>
                   <th scope="col">Email</th>
+                  <th scope="col">Password</th>
                   <th scope="col">Phone</th>
                   <th scope="col">Role</th>
                   <th scope="col">Status</th>
@@ -244,7 +245,7 @@
               </thead>
               <tbody>
                 <tr>
-                  <td colspan="9" class="text-center text-muted">Loading users&hellip;</td>
+                  <td colspan="10" class="text-center text-muted">Loading users&hellip;</td>
                 </tr>
               </tbody>
             </table>
@@ -1126,19 +1127,18 @@
         if (!usersEls.tableBody) return;
 
         const payload = state.users.payload;
+        const editing = state.users.editing;
+        const currentUserId = state.users.currentUserId || null;
         if (!payload) {
           usersEls.tableBody.innerHTML = `
             <tr>
-              <td colspan="9" class="text-center text-muted py-4">
+              <td colspan="${editing ? 10 : 9}" class="text-center text-muted py-4">
                 No users loaded.
               </td>
             </tr>
           `;
           return;
         }
-
-        const editing = state.users.editing;
-        const currentUserId = state.users.currentUserId || null;
 
         // Populate invite role options using the same role options available in the table
         if (usersControls.inviteRole) {
@@ -1164,7 +1164,7 @@
         if (!payload.users || !payload.users.length) {
           usersEls.tableBody.innerHTML = `
             <tr>
-              <td colspan="${editing ? 9 : 8}" class="text-center text-muted py-4">
+              <td colspan="${editing ? 10 : 9}" class="text-center text-muted py-4">
                 No users found for this company yet.
               </td>
             </tr>
@@ -1196,6 +1196,7 @@
               <td>${escapeHtml(user.firstName || '')}</td>
               <td>${escapeHtml(user.lastName || '')}</td>
               <td>${escapeHtml(user.email)}</td>
+              <td class="text-muted">Hidden</td>
               <td>${escapeHtml(phoneDisplay || '')}</td>
               <td>${escapeHtml(roleLabel)}</td>
               <td>${escapeHtml(statusLabel)}</td>
@@ -1266,6 +1267,15 @@
               </td>
               <td>
                 <span class="form-control-plaintext form-control-sm">${escapeHtml(user.email)}</span>
+              </td>
+              <td>
+                <input
+                  type="password"
+                  class="form-control form-control-sm admin-users-password"
+                  name="password"
+                  placeholder="Set password (min 8)"
+                  autocomplete="new-password"
+                />
               </td>
               <td>
                 <input type="text" class="form-control form-control-sm" name="phone" value="${escapeHtml(user.phone || '')}" placeholder="(555) 555-5555" />
@@ -1768,6 +1778,8 @@
         const status = row.querySelector('[name="status"]')?.value ?? '';
         const communities = collectMultiSelectValues(row.querySelector('[name="communities"]'));
         const manager = row.querySelector('[name="manager"]')?.value ?? '';
+        const passwordRaw = row.querySelector('[name="password"]')?.value ?? '';
+        const password = passwordRaw.toString().trim();
         const payload = {
           firstName,
           lastName,
@@ -1777,6 +1789,9 @@
           communities,
           manager: manager || null
         };
+        if (password) {
+          payload.password = password;
+        }
 
         triggerButton.disabled = true;
         const cancelButton = row.querySelector('button[data-action="cancel-user"]');
