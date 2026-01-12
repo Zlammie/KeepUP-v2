@@ -199,7 +199,7 @@ function readCommunityMapManifest(communityId) {
       overlayPath: files.overlay ? `${basePath}/${files.overlay}` : null,
       linksPath: files.links ? `${basePath}/${files.links}` : null,
       backgroundPath: files.background ? `${basePath}/${files.background}` : null,
-      combinedPath: `/api/communities/${communityId}/map/combined.svg`
+      combinedPath: files.overlay ? `/api/communities/${communityId}/map/combined.svg` : null
     }
   };
 }
