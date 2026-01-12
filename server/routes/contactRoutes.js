@@ -1351,6 +1351,22 @@ router.post('/import',
         idSet: allowedCommunityIdSet,
         enforceScope: enforceCommunityScope
       } = await loadImportableCommunities(req);
+      const selectedCommunityId = toObjectId(req.body.communityId);
+      if (req.body.communityId) {
+        if (!selectedCommunityId) {
+          return res.status(400).json({ error: 'Invalid community selection.' });
+        }
+        const selectedStr = selectedCommunityId.toString();
+        if (
+          enforceCommunityScope &&
+          (allowedCommunityIdSet.size === 0 || !allowedCommunityIdSet.has(selectedStr))
+        ) {
+          return res.status(403).json({ error: 'Selected community is not available for your account.' });
+        }
+        if (allowedCommunityIdSet.size && !allowedCommunityIdSet.has(selectedStr)) {
+          return res.status(400).json({ error: 'Selected community was not found.' });
+        }
+      }
 
       for (let i = 0; i < rows.length; i++) {
         const r = rows[i];
@@ -1394,6 +1410,10 @@ router.post('/import',
               missingCommunities.push(name);
             }
           });
+        }
+
+        if (selectedCommunityId) {
+          communityIdsFromRow.push(selectedCommunityId);
         }
 
         if (!firstName && !lastName && !emailRaw && !phoneNorm) { skipped++; continue; }

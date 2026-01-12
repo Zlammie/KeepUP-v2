@@ -361,7 +361,8 @@ router.put(
         role,
         status,
         communities,
-        manager
+        manager,
+        password
       } = req.body || {};
 
       const trimOrUndefined = (value) => {
@@ -428,6 +429,23 @@ router.put(
             return res.status(400).json({ error: 'Manager not found for this company' });
           }
           user.manager = managerRecord._id;
+        }
+      }
+
+      if (password !== undefined) {
+        const trimmed = String(password || '').trim();
+        if (!trimmed) {
+          return res.status(400).json({ error: 'Password cannot be empty.' });
+        }
+        if (trimmed.length < 8) {
+          return res.status(400).json({ error: 'Password must be at least 8 characters.' });
+        }
+        user.passwordHash = await bcrypt.hash(trimmed, 11);
+        // Clear any outstanding invite/reset tokens since the password is now set manually.
+        PasswordToken.deleteMany({ userId: user._id }).catch(() => {});
+        if (user.status === User.STATUS.INVITED) {
+          user.status = User.STATUS.ACTIVE;
+          user.isActive = true;
         }
       }
 

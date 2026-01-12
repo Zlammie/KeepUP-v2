@@ -24,7 +24,8 @@ const candidates = [
 let loadedFrom = null;
 for (const file of candidates) {
   if (fs.existsSync(file)) {
-    dotenv.config({ path: file, override: true });
+    // Do not override env vars already provided by the runtime (e.g., Docker compose)
+    dotenv.config({ path: file, override: false });
     loadedFrom = file;
     break;
   }
