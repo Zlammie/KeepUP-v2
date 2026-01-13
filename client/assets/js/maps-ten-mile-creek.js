@@ -20,6 +20,7 @@
     '2260': 'plan-2260'
   };
   const DEFAULT_PLAN_CLASS = 'plan-unknown';
+  const UNASSIGNED_CLASS = 'lot-unassigned';
 
   const normalizePlanClass = (planName) => {
     const norm = (planName || '').trim().toLowerCase();
@@ -296,16 +297,22 @@
 
       if (link) path.classList.add('linked');
 
-      const planClass = derivePlanClass(lot, link);
-      if (planClass) path.classList.add(planClass);
-      else path.classList.add(DEFAULT_PLAN_CLASS);
+      const hasLot = Boolean(lot);
+      let planClass = null;
+      if (hasLot) {
+        planClass = derivePlanClass(lot, link);
+        if (planClass) path.classList.add(planClass);
+        else path.classList.add(DEFAULT_PLAN_CLASS);
+      } else {
+        path.classList.add(UNASSIGNED_CLASS);
+      }
 
       const isSold = isSoldLike(lot);
       if (isSold) path.classList.add('lot-sold');
 
       const planInfo = extractPlanInfo(lot, link);
-      const planClassKey = planClass || DEFAULT_PLAN_CLASS;
-      if (!ctx.planMetaMap.has(planClassKey)) {
+      const planClassKey = planClass || (hasLot ? DEFAULT_PLAN_CLASS : null);
+      if (planClassKey && !ctx.planMetaMap.has(planClassKey)) {
         const label = planClassKey === DEFAULT_PLAN_CLASS
           ? 'Not Avai'
           : (planInfo.name || planInfo.number || planClassKey.replace(/^plan-/, '').replace(/-/g, ' ').replace(/\b\w/g, (c) => c.toUpperCase()));

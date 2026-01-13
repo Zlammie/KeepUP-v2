@@ -191,15 +191,19 @@ function readCommunityMapManifest(communityId) {
   // Expose via the existing /public static mount
   const basePath = `/public/maps/communities/${communityId}`;
   const files = data?.files || {};
+  const overlayFiles = Array.isArray(files.overlays) && files.overlays.length
+    ? files.overlays
+    : (files.overlay ? [files.overlay] : []);
   return {
     ...data,
     files,
     paths: {
       basePath,
-      overlayPath: files.overlay ? `${basePath}/${files.overlay}` : null,
+      overlayPath: overlayFiles[0] ? `${basePath}/${overlayFiles[0]}` : null,
+      overlayPaths: overlayFiles.map((file) => `${basePath}/${file}`),
       linksPath: files.links ? `${basePath}/${files.links}` : null,
       backgroundPath: files.background ? `${basePath}/${files.background}` : null,
-      combinedPath: files.overlay ? `/api/communities/${communityId}/map/combined.svg` : null
+      combinedPath: overlayFiles.length ? `/api/communities/${communityId}/map/combined.svg` : null
     }
   };
 }
@@ -735,13 +739,14 @@ router.post('/:communityId/map',
 
       const filesMeta = manifest.files || {};
       const jsonCandidates = [];
+      const overlayFiles = [];
 
       files.forEach((file) => {
         const ext = path.extname(file.originalname || '').toLowerCase();
         if (ext === '.svg') {
           const fname = safeName('overlay', file.originalname);
           writeFileToDir(dir, fname, file.buffer);
-          filesMeta.overlay = fname;
+          overlayFiles.push(fname);
         } else if (ext === '.json') {
           jsonCandidates.push(file);
         } else if (ext === '.png' || ext === '.jpg' || ext === '.jpeg') {
@@ -750,6 +755,11 @@ router.post('/:communityId/map',
           filesMeta.background = fname;
         }
       });
+
+      if (overlayFiles.length) {
+        filesMeta.overlays = overlayFiles;
+        filesMeta.overlay = overlayFiles[0];
+      }
 
       // Pick the most link-like JSON (prefer files that actually contain a links array)
       if (jsonCandidates.length) {
@@ -803,30 +813,44 @@ router.get('/:communityId/map/combined.svg',
       if (!hasCommunityAccess(req.user, communityId)) return res.status(404).send('Community not found');
 
       const manifest = readCommunityMapManifest(communityId);
-      if (!manifest?.files?.overlay) return res.status(404).send('Map not found');
+      const overlayFiles = Array.isArray(manifest?.files?.overlays) && manifest.files.overlays.length
+        ? manifest.files.overlays
+        : (manifest?.files?.overlay ? [manifest.files.overlay] : []);
+      if (!overlayFiles.length) return res.status(404).send('Map not found');
 
       const dir = getMapDir(communityId);
-      const overlayPath = path.join(dir, manifest.files.overlay);
       const backgroundPath = manifest.files.background ? path.join(dir, manifest.files.background) : null;
 
       try {
-        const overlaySvg = fs.readFileSync(overlayPath, 'utf8');
-        if (!backgroundPath || !fs.existsSync(backgroundPath)) {
-          res.type('image/svg+xml').send(overlaySvg);
+        const overlaySvgs = overlayFiles.map((file) => fs.readFileSync(path.join(dir, file), 'utf8'));
+        if (overlaySvgs.length === 1 && (!backgroundPath || !fs.existsSync(backgroundPath))) {
+          res.type('image/svg+xml').send(overlaySvgs[0]);
           return;
         }
-        const backgroundBuffer = fs.readFileSync(backgroundPath);
-        const bgBase64 = backgroundBuffer.toString('base64');
 
-        const svgTagMatch = overlaySvg.match(/<svg[^>]*>/i);
-        if (!svgTagMatch) {
+        const splitSvg = (svgText) => {
+          const openMatch = svgText.match(/<svg[^>]*>/i);
+          if (!openMatch) return null;
+          const openStart = openMatch.index;
+          const openEnd = openStart + openMatch[0].length;
+          const closeStart = svgText.toLowerCase().lastIndexOf('</svg>');
+          if (closeStart < 0) return null;
+          return {
+            prefix: svgText.slice(0, openStart),
+            svgTag: openMatch[0],
+            body: svgText.slice(openEnd, closeStart),
+            suffix: svgText.slice(closeStart + 6)
+          };
+        };
+
+        const overlayParts = overlaySvgs.map(splitSvg).filter(Boolean);
+        if (!overlayParts.length) {
           console.warn('combined.svg: <svg> tag not found');
           return res.status(500).send('Invalid SVG');
         }
 
-        let svgTag = svgTagMatch[0];
-        const svgStartIdx = svgTagMatch.index;
-        const afterSvgOpen = overlaySvg.slice(svgStartIdx + svgTag.length);
+        const base = overlayParts[0];
+        let svgTag = base.svgTag;
 
         let viewBoxWidth = null;
         let viewBoxHeight = null;
@@ -848,14 +872,29 @@ router.get('/:communityId/map/combined.svg',
           svgTag = svgTag.replace(/>$/, ' preserveAspectRatio="xMidYMid meet">');
         }
 
-        const imageTag = `<image href="data:image/png;base64,${bgBase64}" x="0" y="0" width="${viewBoxWidth || '100%'}" height="${viewBoxHeight || '100%'}" />`;
+        let imageTag = '';
+        if (backgroundPath && fs.existsSync(backgroundPath)) {
+          const backgroundBuffer = fs.readFileSync(backgroundPath);
+          const bgBase64 = backgroundBuffer.toString('base64');
+          imageTag = `<image href="data:image/png;base64,${bgBase64}" x="0" y="0" width="${viewBoxWidth || '100%'}" height="${viewBoxHeight || '100%'}" />`;
+        }
+
+        const overlayBodies = overlayParts.map((parts, idx) => {
+          const body = (parts.body || '').trim();
+          if (!body) return '';
+          if (idx === 0) return body;
+          const label = overlayFiles[idx] ? String(overlayFiles[idx]).replace(/"/g, '') : `overlay-${idx + 1}`;
+          return `\n  <g data-overlay="${label}">\n${body}\n  </g>`;
+        }).filter(Boolean).join('\n');
+
         const combinedSvg =
-          overlaySvg.slice(0, svgStartIdx) +
+          base.prefix +
           svgTag +
-          '\n  ' +
-          imageTag +
           '\n' +
-          afterSvgOpen;
+          (imageTag ? `  ${imageTag}\n` : '') +
+          overlayBodies +
+          '\n</svg>' +
+          (base.suffix || '');
 
         res.type('image/svg+xml').send(combinedSvg);
       } catch (err) {

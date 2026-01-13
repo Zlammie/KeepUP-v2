@@ -52,7 +52,7 @@
 .map-overlay-layer path {
   pointer-events: auto;
   cursor: pointer;
-  fill: #cbd5e1;
+  fill: #e5e7eb;
   stroke: none;
   stroke-width: 0;
   transition: fill 0.2s ease, filter 0.2s ease;
@@ -75,6 +75,7 @@
 .map-overlay-layer path.plan-2263 { fill: #62BB4A; }
 .map-overlay-layer path.plan-2260 { fill: #C46B33; }
 .map-overlay-layer path.plan-2262 { fill: #E9A01F; }
+.map-overlay-layer path.lot-unassigned { fill: #e5e7eb !important; }
 
 .map-overlay-layer path.lot-sold {
   stroke: #c53030;

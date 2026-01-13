@@ -1,17 +1,13 @@
 {
   "mapId": "6960686cb3c0c05ae4e73497",
-  "versionId": "fd3c26c5-97e7-4f15-89ce-645530dc1007",
-  "exportedAt": "2026-01-12T14:56:09.003Z",
+  "versionId": "741fdc80-ca21-4884-8483-e66cca3ac2e7",
+  "exportedAt": "2026-01-13T05:50:46.598Z",
   "files": {
-    "background": "background-1768197228847-9bf3edcdf3e0.png",
-    "overlay": "overlay-1768229769002-7564802cb842.svg",
-    "links": "links-1768197228850-aec07cb62492.json"
-  },
-  "paths": {
-    "basePath": "/public/maps/communities/6960686cb3c0c05ae4e73497",
-    "overlayPath": "/public/maps/communities/6960686cb3c0c05ae4e73497/overlay-1768197228849-ff8360356c0f.svg",
-    "linksPath": "/public/maps/communities/6960686cb3c0c05ae4e73497/links-1768197228850-aec07cb62492.json",
-    "backgroundPath": "/public/maps/communities/6960686cb3c0c05ae4e73497/background-1768197228847-9bf3edcdf3e0.png",
-    "combinedPath": "/api/communities/6960686cb3c0c05ae4e73497/map/combined.svg"
+    "background": "background-1768283446590-451b9052b23d.png",
+    "overlays": [
+      "overlay-1768283446595-e8d3ea799435.svg"
+    ],
+    "overlay": "overlay-1768283446595-e8d3ea799435.svg",
+    "links": "links-1768283446597-502edf729d06.json"
   }
 }
