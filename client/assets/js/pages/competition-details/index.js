@@ -1,4 +1,4 @@
-// assets/js/competition-details/index.js
+﻿// assets/js/competition-details/index.js
 import { readBoot } from './boot.js';
 import { initFees } from './fees.js';
 import { initAutosave } from './autosave.js';
@@ -60,6 +60,8 @@ let priceSqftChart = null;
 let cachedQmi = null;
 let cachedSolds = null;
 let cachedPlans = null;
+const qmiTableBody = document.getElementById('qmiTableBody');
+const soldTableBody = document.getElementById('soldTableBody');
 
 // 1) Autosave & Fees
 const triggerSave = initAutosave(competitionId);
@@ -93,6 +95,120 @@ if (totalLotsInput && totalLotsStat) {
   });
 }
 
+
+function wireSectionNav() {
+  const nav = document.getElementById('sectionNav');
+  if (!nav) return;
+
+  const links = Array.from(nav.querySelectorAll('.nav-link[data-section]'));
+  const panes = Array.from(document.querySelectorAll('.section-pane[data-section-content]'));
+
+  const activate = (key) => {
+    links.forEach((link) => {
+      const active = link.dataset.section === key;
+      link.classList.toggle('active', active);
+      if (active) {
+        link.setAttribute('aria-current', 'page');
+      } else {
+        link.removeAttribute('aria-current');
+      }
+    });
+    panes.forEach((pane) => {
+      const show = pane.dataset.sectionContent === key;
+      pane.classList.toggle('is-hidden', !show);
+      if (show) {
+        pane.removeAttribute('hidden');
+      } else {
+        pane.setAttribute('hidden', 'true');
+      }
+    });
+  };
+
+  links.forEach((link) => {
+    link.addEventListener('click', (ev) => {
+      ev.preventDefault();
+      activate(link.dataset.section);
+    });
+  });
+
+  const initial = nav.querySelector('.nav-link.active') || links[0];
+  if (initial) activate(initial.dataset.section || 'overview');
+}
+
+function monthLabelShort(dateLike) {
+  const d = new Date(String(dateLike));
+  if (Number.isNaN(d.getTime())) return '--';
+  return d.toLocaleString(undefined, { month: 'short', year: 'numeric' });
+}
+
+function fmtMoney(val) {
+  const n = Number(val);
+  return Number.isFinite(n) ? `$${n.toLocaleString()}` : '--';
+}
+
+function fmtSqft(val) {
+  const n = Number(val);
+  return Number.isFinite(n) ? n.toLocaleString() : '--';
+}
+
+function renderQmiSoldTables({ qmi = [], sold = [] } = {}) {
+  if (qmiTableBody) {
+    qmiTableBody.innerHTML = '';
+    if (!qmi.length) {
+      qmiTableBody.innerHTML = '<tr><td colspan=\"5\" class=\"text-muted\">No quick move-in homes recorded.</td></tr>';
+    } else {
+      qmi
+        .sort((a, b) => (new Date(b.listDate || b.createdAt || 0)) - (new Date(a.listDate || a.createdAt || 0)))
+        .forEach((item) => {
+          const row = document.createElement('tr');
+          row.innerHTML = `
+            <td>${monthLabelShort(item.listDate || item.createdAt)}</td>
+            <td>${item.address || '--'}</td>
+            <td>${item.planName || item.floorPlanName || (item.plan && item.plan.name) || '--'}</td>
+            <td>${fmtSqft(item.sqft ?? item.squareFeet)}</td>
+            <td>${fmtMoney(item.listPrice)}</td>
+          `;
+          qmiTableBody.appendChild(row);
+        });
+    }
+  }
+
+  if (soldTableBody) {
+    soldTableBody.innerHTML = '';
+    if (!sold.length) {
+      soldTableBody.innerHTML = '<tr><td colspan=\"5\" class=\"text-muted\">No sold homes recorded.</td></tr>';
+    } else {
+      sold
+        .sort((a, b) => (new Date(b.soldDate || b.closingDate || b.createdAt || 0)) - (new Date(a.soldDate || a.closingDate || a.createdAt || 0)))
+        .forEach((item) => {
+          const row = document.createElement('tr');
+          row.innerHTML = `
+            <td>${monthLabelShort(item.soldDate || item.closingDate || item.listDate)}</td>
+            <td>${item.address || '--'}</td>
+            <td>${item.planName || item.floorPlanName || (item.plan && item.plan.name) || '--'}</td>
+            <td>${fmtSqft(item.sqft ?? item.squareFeet)}</td>
+            <td>${fmtMoney(item.soldPrice)}</td>
+          `;
+          soldTableBody.appendChild(row);
+        });
+    }
+  }
+}
+
+async function loadQmiSoldTables() {
+  if (!qmiTableBody || !soldTableBody) return;
+  renderQmiSoldTables({ qmi: [], sold: [] });
+  try {
+    const [qmi, sold] = await Promise.all([
+      fetchQuickMoveIns(competitionId).catch(() => []),
+      fetchSoldsAll(competitionId).catch(() => [])
+    ]);
+    renderQmiSoldTables({ qmi: Array.isArray(qmi) ? qmi : [], sold: Array.isArray(sold) ? sold : [] });
+  } catch (err) {
+    console.error('Failed to load QMI/Sold tables', err);
+    renderQmiSoldTables({ qmi: [], sold: [] });
+  }
+}
 
 // Graphs 
 
@@ -693,3 +809,6 @@ if (tabButtons.length && graphMount) {
   console.log('monthlyMetrics full ->', JSON.stringify(BOOT.monthlyMetrics, null, 2));
   render('sales'); // initial paint
 }
+
+wireSectionNav();
+loadQmiSoldTables().catch(console.error);

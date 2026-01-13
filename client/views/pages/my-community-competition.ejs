@@ -220,185 +220,198 @@
             </li>
           </ul>
 
-          <div id="overviewCollapsedBar" class="overview-collapsed span-full is-hidden" role="status">
-            <span>Promotion & HOA, Pros & Cons hidden</span>
-            <button type="button" id="overviewExpandBtn" class="btn btn-sm btn-primary">Show Sections</button>
-          </div>
+          <nav class="span-full section-nav-wrap">
+            <ul id="sectionNav" class="nav folder-tabs">
+              <li class="nav-item">
+                <a class="nav-link active" href="#" data-section="overview">Promo & HOA</a>
+              </li>
+              <li class="nav-item">
+                <a class="nav-link" href="#" data-section="graphs">Graphs</a>
+              </li>
+              <li class="nav-item">
+                <a class="nav-link" href="#" data-section="qmi">QMI vs Sold</a>
+              </li>
+              <li class="nav-item">
+                <a class="nav-link" href="#" data-section="competitors">Linked Competitors</a>
+              </li>
+            </ul>
+          </nav>
 
-          <div id="overviewSections" class="overview-sections span-full">
-            <section class="section-box span-full card card--white overview-nested-card">
-              <div class="overview-nested-card__header">
-                <button type="button" id="overviewCollapseToggle" class="btn btn-sm btn-outline-secondary">Hide</button>
-              </div>
-              <div class="overview-nested-card__grid">
-                <!-- Promotion & HOA row -->
-                <section class="section-box card card--white overview-nested-card__item">
-                  <div class="section-box__header">
-                    <h4>Promotion & HOA</h4>
-                  </div>
-                  <div id="promoHoaContent" class="promo-hoa-row">
-                    <div class="promo">
-                      <p id="promoText">Select a community to load promotions.</p>
+          <div class="span-full section-panels">
+            <section class="section-pane" data-section-content="overview">
+              <section class="section-box span-full card card--white overview-nested-card">
+                <div class="overview-nested-card__grid">
+                  <!-- Promotion & HOA row -->
+                  <section class="section-box card card--white overview-nested-card__item">
+                    <div class="section-box__header">
+                      <h4>Promotion & HOA</h4>
                     </div>
-                    <div class="hoa-tax">
-                      <div class="kv"><span class="k">HOA</span><span class="v" id="hoaDisplay">Not specified</span></div>
-                      <div class="kv"><span class="k">Tax Rate</span><span class="v" id="taxDisplay">Not specified</span></div>
+                    <div id="promoHoaContent" class="promo-hoa-row">
+                      <div class="promo">
+                        <p id="promoText">Select a community to load promotions.</p>
+                      </div>
+                      <div class="hoa-tax">
+                        <div class="kv"><span class="k">HOA</span><span class="v" id="hoaDisplay">Not specified</span></div>
+                        <div class="kv"><span class="k">Tax Rate</span><span class="v" id="taxDisplay">Not specified</span></div>
+                      </div>
                     </div>
-                  </div>
-                </section>
+                  </section>
 
-                <!-- Pros & Cons full width -->
-                <section class="section-box card card--white overview-nested-card__item">
-                  <div class="section-box__header">
-                    <h4>Pros & Cons</h4>
-                  </div>
-                  <div id="prosConsContent" class="proscons-grid">
-                    <div>
-                      <h5>Pros</h5>
-                      <ul id="prosUl"></ul>
+                  <!-- Pros & Cons full width -->
+                  <section class="section-box card card--white overview-nested-card__item">
+                    <div class="section-box__header">
+                      <h4>Pros & Cons</h4>
                     </div>
-                    <div>
-                      <h5>Cons</h5>
-                      <ul id="consUl"></ul>
+                    <div id="prosConsContent" class="proscons-grid">
+                      <div>
+                        <h5>Pros</h5>
+                        <ul id="prosUl"></ul>
+                      </div>
+                      <div>
+                        <h5>Cons</h5>
+                        <ul id="consUl"></ul>
+                      </div>
+                    </div>
+                  </section>
+                </div>
+              </section>
+            </section>
+
+            <section class="section-pane is-hidden" data-section-content="graphs">
+              <section class="section-box span-full card card--white" id="graphsSection">
+                <div class="section-box__header graphs-header">
+                  <h4 class="graphs-title">Performance Graphs</h4>
+                  <div class="graphs-controls">
+                    <div class="tab-nav" role="tablist" aria-label="Graph selector">
+                      <button class="tab-btn is-active" data-tab="sales" role="tab" aria-selected="true">Sales</button>
+                      <button class="tab-btn" data-tab="sqft" role="tab" aria-selected="false">Sqft Comparison</button>
+                      <button class="tab-btn" data-tab="base" role="tab" aria-selected="false">Base Price</button>
+                      <button class="tab-btn" data-tab="qmi" role="tab" aria-selected="false">QMI / Solds</button>
+                    </div>
+                    <div class="graph-filter is-hidden" id="sqftMonthFilter">
+                      <label class="sr-only" for="sqftMonthSelect">Select month</label>
+                      <select id="sqftMonthSelect" class="graph-select">
+                        <option value="">Latest Month</option>
+                      </select>
                     </div>
                   </div>
-                </section>
-              </div>
+                </div>
+                <div id="graphMount" class="graph-mount" role="region" aria-live="polite" aria-busy="false"></div>
+              </section>
+            </section>
+
+            <section class="section-pane is-hidden" data-section-content="qmi">
+              <section class="section-box span-full card card--white" id="qmiSoldSection">
+                <div class="section-box__header">
+                  <h4>QMI vs Sold Tables</h4>
+                  <small class="text-muted">Last 12 recorded months</small>
+                </div>
+                <div class="row g-3">
+                  <div class="col-md-6" id="qmiTableCardWrap">
+                    <div class="card card--white p-3 expandable-table-card h-100" id="qmiTableCard">
+                      <div class="expandable-table-card-header mb-2">
+                        <h5 class="mb-0">Quick Move-In Homes</h5>
+                        <button type="button"
+                                id="qmiTableToggle"
+                                class="btn btn-sm btn-outline-secondary expandable-table-toggle"
+                                aria-expanded="false"
+                                aria-controls="qmiTable"
+                                aria-label="Expand quick move-in table">
+                          <span class="expandable-table-toggle-icon" aria-hidden="true">[+]</span>
+                          <span class="visually-hidden">Expand quick move-in table</span>
+                        </button>
+                      </div>
+                      <div class="table-responsive">
+                        <table class="table table-sm table-striped" id="qmiTable">
+                          <thead>
+                            <tr>
+                              <th scope="col">Month</th>
+                              <th scope="col">Address</th>
+                              <th scope="col">Floor Plan</th>
+                              <th scope="col">Sqft</th>
+                              <th scope="col">List Price</th>
+                              <th scope="col">Status</th>
+                            </tr>
+                          </thead>
+                          <tbody id="qmiTableBody">
+                            <tr>
+                              <td colspan="6" class="text-muted">Select a community to load data.</td>
+                            </tr>
+                          </tbody>
+                        </table>
+                      </div>
+                    </div>
+                  </div>
+                  <div class="col-md-6">
+                    <div class="card card--white p-3 h-100">
+                      <div class="d-flex align-items-center justify-content-between mb-2">
+                        <h5 class="mb-0">Sold Homes</h5>
+                      </div>
+                      <div class="table-responsive">
+                        <table class="table table-sm table-striped" id="soldTable">
+                          <thead>
+                            <tr>
+                              <th scope="col">Month</th>
+                              <th scope="col">Address</th>
+                              <th scope="col">Floor Plan</th>
+                              <th scope="col">Sqft</th>
+                              <th scope="col">List Price</th>
+                              <th scope="col">Sold Price</th>
+                              <th scope="col">Sold Date</th>
+                            </tr>
+                          </thead>
+                          <tbody id="soldTableBody">
+                            <tr>
+                              <td colspan="7" class="text-muted">Select a community to load data.</td>
+                            </tr>
+                          </tbody>
+                        </table>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </section>
+            </section>
+
+            <section class="section-pane is-hidden" data-section-content="competitors">
+              <section class="section-box span-full card card--white" id="linkedCompetitorsSection">
+                <div class="section-box__header">
+                  <h4>Linked Competitors</h4>
+                  <span class="linked-badge" id="linkedCountBadge">0 linked</span>
+                </div>
+                <div class="competitor-grid">
+                  <div class="competitor-column">
+                    <div class="competitor-header">
+                      <div>
+                        <h6 class="mb-1">All Competitors</h6>
+                        <small class="text-muted" id="availableListCount">0 builders</small>
+                      </div>
+                      <div class="competitor-toggle" id="competitorModeToggle">
+                        <button type="button" class="mode-btn is-active" data-mode="external">Builders</button>
+                        <button type="button" class="mode-btn" data-mode="internal">My Communities</button>
+                      </div>
+                      <div class="competitor-search">
+                        <label for="allCompetitionsSearch" class="sr-only">Search competitors</label>
+                        <input type="search" id="allCompetitionsSearch" placeholder="Search by builder or community" autocomplete="off">
+                      </div>
+                    </div>
+                    <div id="allCompetitionsEmpty" class="empty-state is-hidden">No competitors match your search.</div>
+                    <div id="internalCommunitiesEmpty" class="empty-state is-hidden">No communities available.</div>
+                    <div id="allCompetitionsList" class="list-group"></div>
+                    <div id="internalCommunitiesList" class="list-group is-hidden"></div>
+                  </div>
+                  <div class="competitor-column">
+                    <div class="competitor-header">
+                      <h6 class="mb-1">Linked</h6>
+                      <small class="text-muted" id="linkedCompetitorsCount">0 linked</small>
+                    </div>
+                    <div id="linkedCompetitorsEmpty" class="empty-state">No competitors linked yet.</div>
+                    <div id="linkedCompetitors" class="list-group"></div>
+                  </div>
+                </div>
+              </section>
             </section>
           </div>
-
-          <!-- Graphs wrapper to match the look -->
-          
-            <section class="section-box span-full card card--white mt-3" id="graphsSection">
-              <div class="section-box__header graphs-header">
-                <h4 class="graphs-title">Performance Graphs</h4>
-                <div class="graphs-controls">
-                  <div class="tab-nav" role="tablist" aria-label="Graph selector">
-                    <button class="tab-btn is-active" data-tab="sales" role="tab" aria-selected="true">Sales</button>
-                    <button class="tab-btn" data-tab="sqft" role="tab" aria-selected="false">Sqft Comparison</button>
-                    <button class="tab-btn" data-tab="base" role="tab" aria-selected="false">Base Price</button>
-                    <button class="tab-btn" data-tab="qmi" role="tab" aria-selected="false">QMI / Solds</button>
-                  </div>
-                  <div class="graph-filter is-hidden" id="sqftMonthFilter">
-                    <label class="sr-only" for="sqftMonthSelect">Select month</label>
-                    <select id="sqftMonthSelect" class="graph-select">
-                      <option value="">Latest Month</option>
-                    </select>
-                  </div>
-                </div>
-              </div>
-              <div id="graphMount" class="graph-mount" role="region" aria-live="polite" aria-busy="false"></div>
-            </section>
-          
-
-          <section class="section-box span-full card card--white mt-3" id="qmiSoldSection">
-            <div class="section-box__header">
-              <h4>QMI vs Sold Tables</h4>
-              <small class="text-muted">Last 12 recorded months</small>
-            </div>
-            <div class="row g-3">
-              <div class="col-md-6" id="qmiTableCardWrap">
-                <div class="card card--white p-3 expandable-table-card h-100" id="qmiTableCard">
-                  <div class="expandable-table-card-header mb-2">
-                    <h5 class="mb-0">Quick Move-In Homes</h5>
-                    <button type="button"
-                            id="qmiTableToggle"
-                            class="btn btn-sm btn-outline-secondary expandable-table-toggle"
-                            aria-expanded="false"
-                            aria-controls="qmiTable"
-                            aria-label="Expand quick move-in table">
-                      <span class="expandable-table-toggle-icon" aria-hidden="true">[+]</span>
-                      <span class="visually-hidden">Expand quick move-in table</span>
-                    </button>
-                  </div>
-                  <div class="table-responsive">
-                    <table class="table table-sm table-striped" id="qmiTable">
-                      <thead>
-                        <tr>
-                          <th scope="col">Month</th>
-                          <th scope="col">Address</th>
-                          <th scope="col">Floor Plan</th>
-                          <th scope="col">Sqft</th>
-                          <th scope="col">List Price</th>
-                          <th scope="col">Status</th>
-                        </tr>
-                      </thead>
-                      <tbody id="qmiTableBody">
-                        <tr>
-                          <td colspan="6" class="text-muted">Select a community to load data.</td>
-                        </tr>
-                      </tbody>
-                    </table>
-                  </div>
-                </div>
-              </div>
-              <div class="col-md-6">
-                <div class="card card--white p-3 h-100">
-                  <div class="d-flex align-items-center justify-content-between mb-2">
-                    <h5 class="mb-0">Sold Homes</h5>
-                  </div>
-                  <div class="table-responsive">
-                    <table class="table table-sm table-striped" id="soldTable">
-                      <thead>
-                        <tr>
-                          <th scope="col">Month</th>
-                          <th scope="col">Address</th>
-                          <th scope="col">Floor Plan</th>
-                          <th scope="col">Sqft</th>
-                          <th scope="col">List Price</th>
-                          <th scope="col">Sold Price</th>
-                          <th scope="col">Sold Date</th>
-                        </tr>
-                      </thead>
-                      <tbody id="soldTableBody">
-                        <tr>
-                          <td colspan="7" class="text-muted">Select a community to load data.</td>
-                        </tr>
-                      </tbody>
-                    </table>
-                  </div>
-                </div>
-              </div>
-            </div>
-          </section>
-
-          <!-- Linked competitors selector (full width) -->
-          <section class="section-box span-full card card--white mt-3" id="linkedCompetitorsSection">
-            <div class="section-box__header">
-              <h4>Linked Competitors</h4>
-              <span class="linked-badge" id="linkedCountBadge">0 linked</span>
-            </div>
-            <div class="competitor-grid">
-              <div class="competitor-column">
-                <div class="competitor-header">
-                  <div>
-                    <h6 class="mb-1">All Competitors</h6>
-                    <small class="text-muted" id="availableListCount">0 builders</small>
-                  </div>
-                  <div class="competitor-toggle" id="competitorModeToggle">
-                    <button type="button" class="mode-btn is-active" data-mode="external">Builders</button>
-                    <button type="button" class="mode-btn" data-mode="internal">My Communities</button>
-                  </div>
-                  <div class="competitor-search">
-                    <label for="allCompetitionsSearch" class="sr-only">Search competitors</label>
-                    <input type="search" id="allCompetitionsSearch" placeholder="Search by builder or community" autocomplete="off">
-                  </div>
-                </div>
-                <div id="allCompetitionsEmpty" class="empty-state is-hidden">No competitors match your search.</div>
-                <div id="internalCommunitiesEmpty" class="empty-state is-hidden">No communities available.</div>
-                <div id="allCompetitionsList" class="list-group"></div>
-                <div id="internalCommunitiesList" class="list-group is-hidden"></div>
-              </div>
-              <div class="competitor-column">
-                <div class="competitor-header">
-                  <h6 class="mb-1">Linked</h6>
-                  <small class="text-muted" id="linkedCompetitorsCount">0 linked</small>
-                </div>
-                <div id="linkedCompetitorsEmpty" class="empty-state">No competitors linked yet.</div>
-                <div id="linkedCompetitors" class="list-group"></div>
-              </div>
-            </div>
-          </section>
         </div>
       </div>
 

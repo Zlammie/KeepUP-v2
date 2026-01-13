@@ -1,4 +1,4 @@
-<!DOCTYPE html>
+﻿<!DOCTYPE html>
 <html lang="en">
 <head>
   <meta charset="UTF-8" />
@@ -218,112 +218,198 @@
           <ul class="lot-stats">
             <li class="lot-stat">
               <span class="stat-label">Total Lots</span>
-              <span class="stat-value" id="statTotalLots"><%= competition.totalLots ?? '—' %></span>
+              <span class="stat-value" id="statTotalLots"><%= competition.totalLots ?? 'N/A' %></span>
             </li>
             <li class="lot-stat">
               <span class="stat-label">Lots Sold</span>
-              <span class="stat-value" id="statLotsSold">—</span>
+              <span class="stat-value" id="statLotsSold">N/A</span>
             </li>
             <li class="lot-stat">
               <span class="stat-label">Remaining</span>
-              <span class="stat-value" id="statLotsRemaining">—</span>
+              <span class="stat-value" id="statLotsRemaining">N/A</span>
             </li>
             <li class="lot-stat">
               <span class="stat-label">QMI</span>
-              <span class="stat-value" id="statQmiAvailable">—</span>
+              <span class="stat-value" id="statQmiAvailable">N/A</span>
             </li>
           </ul>
 
-          <!-- ROW 2: combined surface with inner breaks -->
-          <section class="section-box span-full card card--white promo-pros-wrap is-collapsed">
-            <div class="promo-pros-header">
-              
-              <button
-                class="toggle-btn"
-                data-target="#promoProsBody"
-                data-alt="#promoProsCollapsed"
-              >Hide Sections</button>
-            </div>
+          <nav class="span-full section-nav-wrap">
+            <ul id="sectionNav" class="nav folder-tabs">
+              <li class="nav-item">
+                <a class="nav-link active" href="#" data-section="overview">Promo & HOA</a>
+              </li>
+              <li class="nav-item">
+                <a class="nav-link" href="#" data-section="graphs">Graphs</a>
+              </li>
+              <li class="nav-item">
+                <a class="nav-link" href="#" data-section="qmi">QMI vs Sold</a>
+              </li>
+              <li class="nav-item">
+                <a class="nav-link" href="#" data-section="competitors">Linked Competitors</a>
+              </li>
+            </ul>
+          </nav>
 
-            <div id="promoProsBody" class="promo-pros-body is-hidden">
-              <div class="section-block">
-                <div class="section-box__header">
-                  <h4>Promotion & HOA</h4>
-                </div>
-                <div class="promo-hoa-row">
-                  <div class="promo">
-                    <p id="promoText"><%= (competition.promotion && competition.promotion.trim())
-                      ? competition.promotion : 'No promotion recorded.' %></p>
+          <div class="span-full section-panels">
+            <section class="section-pane" data-section-content="overview">
+              <section class="section-box span-full card card--white promo-pros-wrap">
+                <div class="section-block">
+                  <div class="section-box__header">
+                    <h4>Promotion & HOA</h4>
                   </div>
-                  <div class="hoa-tax">
-                    <div class="kv"><span class="k">HOA</span><span class="v">
-                      <% if (competition.hoaFee && competition.hoaFrequency) { %>
-                        $<%= competition.hoaFee %> / <%= competition.hoaFrequency %>
-                      <% } else { %>Not specified<% } %>
-                    </span></div>
-                    <div class="kv"><span class="k">Tax Rate</span>
-                      <span class="v"><%= competition.tax ? competition.tax + '%' : 'Not specified' %></span>
+                  <div class="promo-hoa-row">
+                    <div class="promo">
+                      <p id="promoText"><%= (competition.promotion && competition.promotion.trim())
+                        ? competition.promotion : 'No promotion recorded.' %></p>
                     </div>
-                    <div class="kv"><span class="k">PID</span>
-                    <span class="v">
-                      <% if (competition.pidFee) { %>
-                        $<%= competition.pidFee %><%= competition.pidFeeFrequency ? ' / ' + competition.pidFeeFrequency : '' %>
-                      <% } else { %>Not specified<% } %>
-                    </span>
+                    <div class="hoa-tax">
+                      <div class="kv"><span class="k">HOA</span><span class="v">
+                        <% if (competition.hoaFee && competition.hoaFrequency) { %>
+                          $<%= competition.hoaFee %> / <%= competition.hoaFrequency %>
+                        <% } else { %>Not specified<% } %>
+                      </span></div>
+                      <div class="kv"><span class="k">Tax Rate</span>
+                        <span class="v"><%= competition.tax ? competition.tax + '%' : 'Not specified' %></span>
+                      </div>
+                      <div class="kv"><span class="k">PID</span>
+                      <span class="v">
+                        <% if (competition.pidFee) { %>
+                          $<%= competition.pidFee %><%= competition.pidFeeFrequency ? ' / ' + competition.pidFeeFrequency : '' %>
+                        <% } else { %>Not specified<% } %>
+                      </span>
+                    </div>
+                    </div>
+                    
                   </div>
-                  </div>
-                  
                 </div>
-              </div>
 
-              <div class="section-block">
+                <div class="section-block">
+                  <div class="section-box__header">
+                    <h4>Pros & Cons</h4>
+                  </div>
+
+                  <div id="prosConsContent" class="proscons-grid">
+                    <div>
+                      <h5>Pros</h5>
+                      <% if (competition.pros && competition.pros.length) { %>
+                        <ul><% competition.pros.forEach(p => { %><li><%= p %></li><% }) %></ul>
+                      <% } else { %><p class="muted">N/A</p><% } %>
+                    </div>
+                    <div>
+                      <h5>Cons</h5>
+                      <% if (competition.cons && competition.cons.length) { %>
+                        <ul><% competition.cons.forEach(c => { %><li><%= c %></li><% }) %></ul>
+                      <% } else { %><p class="muted">N/A</p><% } %>
+                    </div>
+                  </div>
+                </div>
+              </section>
+            </section>
+
+            <section class="section-pane is-hidden" data-section-content="graphs">
+              <section class="section-box span-full card card--white" id="graphsSection">
+                <div class="section-box__header graphs-header">
+                  <h4 class="graphs-title">Performance Graphs</h4>
+
+                  <div class="tab-nav" role="tablist" aria-label="Graph selector">
+                    <button class="tab-btn is-active" data-tab="sales" role="tab" aria-selected="true">Sales</button>
+                    <button class="tab-btn" data-tab="sqft" role="tab" aria-selected="false">Sqft Comparison</button>
+                    <button class="tab-btn" data-tab="base" role="tab" aria-selected="false">Base Price</button>
+                    <button class="tab-btn" data-tab="qmi" role="tab" aria-selected="false">QMI / Solds</button>
+                  </div>
+                </div>
+
+                <div id="graphMount" class="graph-mount" role="region" aria-live="polite" aria-busy="false"></div>
+              </section>
+            </section>
+
+            <section class="section-pane is-hidden" data-section-content="qmi">
+              <section class="section-box span-full card card--white" id="qmiSoldSection">
                 <div class="section-box__header">
-                  <h4>Pros & Cons</h4>
+                  <h4>QMI vs Sold Tables</h4>
+                  <small class="text-muted">Recent recorded homes</small>
                 </div>
-
-                <div id="prosConsContent" class="proscons-grid">
-                  <div>
-                    <h5>Pros</h5>
-                    <% if (competition.pros && competition.pros.length) { %>
-                      <ul><% competition.pros.forEach(p => { %><li><%= p %></li><% }) %></ul>
-                    <% } else { %><p class="muted">—</p><% } %>
+                <div class="row g-3">
+                  <div class="col-md-6">
+                    <div class="card card--white p-3 h-100">
+                      <div class="d-flex align-items-center justify-content-between mb-2">
+                        <h5 class="mb-0">Quick Move-In Homes</h5>
+                      </div>
+                      <div class="table-responsive">
+                        <table class="table table-sm table-striped" id="qmiTable">
+                          <thead>
+                            <tr>
+                              <th scope="col">Month</th>
+                              <th scope="col">Address</th>
+                              <th scope="col">Plan</th>
+                              <th scope="col">Sqft</th>
+                              <th scope="col">List Price</th>
+                            </tr>
+                          </thead>
+                          <tbody id="qmiTableBody">
+                            <tr>
+                              <td colspan="5" class="text-muted">Loading quick move-in homes…</td>
+                            </tr>
+                          </tbody>
+                        </table>
+                      </div>
+                    </div>
                   </div>
-                  <div>
-                    <h5>Cons</h5>
-                    <% if (competition.cons && competition.cons.length) { %>
-                      <ul><% competition.cons.forEach(c => { %><li><%= c %></li><% }) %></ul>
-                    <% } else { %><p class="muted">—</p><% } %>
+                  <div class="col-md-6">
+                    <div class="card card--white p-3 h-100">
+                      <div class="d-flex align-items-center justify-content-between mb-2">
+                        <h5 class="mb-0">Sold Homes</h5>
+                      </div>
+                      <div class="table-responsive">
+                        <table class="table table-sm table-striped" id="soldTable">
+                          <thead>
+                            <tr>
+                              <th scope="col">Month</th>
+                              <th scope="col">Address</th>
+                              <th scope="col">Plan</th>
+                              <th scope="col">Sqft</th>
+                              <th scope="col">Sold Price</th>
+                            </tr>
+                          </thead>
+                          <tbody id="soldTableBody">
+                            <tr>
+                              <td colspan="5" class="text-muted">Loading sold homes…</td>
+                            </tr>
+                          </tbody>
+                        </table>
+                      </div>
+                    </div>
                   </div>
                 </div>
-              </div>
-            </div>
+              </section>
+            </section>
 
-            <div id="promoProsCollapsed" class="promo-pros-collapsed">
-              <span>Promotion & HOA, Pros & Cons hidden</span>
-              <button
-                class="toggle-btn"
-                data-target="#promoProsBody"
-                data-alt="#promoProsCollapsed"
-              >Show Sections</button>
-            </div>
-          </section>
+            <section class="section-pane is-hidden" data-section-content="competitors">
+              <section class="section-box span-full card card--white" id="linkedCompetitorsSection">
+                <div class="section-box__header">
+                  <h4>Linked Competitors</h4>
+                </div>
+                <% const linked = competition.linkedCompetitions || []; %>
+                <% if (linked.length) { %>
+                  <ul class="list-group">
+                    <% linked.forEach((c) => { %>
+                      <li class="list-group-item d-flex justify-content-between align-items-start">
+                        <div>
+                          <div class="fw-semibold"><%= c.builderName || 'Unknown builder' %></div>
+                          <div class="text-muted"><%= c.communityName || 'Unnamed community' %></div>
+                        </div>
+                        <span class="badge bg-secondary"><%= c.city || '' %></span>
+                      </li>
+                    <% }) %>
+                  </ul>
+                <% } else { %>
+                  <p class="text-muted mb-0">No competitors linked.</p>
+                <% } %>
+              </section>
+            </section>
+          </div>
 
-          <section class="section-box span-full card card--white mt-3" id="graphsSection">
-            <div class="section-box__header graphs-header">
-              <h4 class="graphs-title">Performance Graphs</h4>
-
-              <!-- Tabs -->
-              <div class="tab-nav" role="tablist" aria-label="Graph selector">
-                <button class="tab-btn is-active" data-tab="sales" role="tab" aria-selected="true">Sales</button>
-                <button class="tab-btn" data-tab="sqft" role="tab" aria-selected="false">Sqft Comparison</button>
-                <button class="tab-btn" data-tab="base" role="tab" aria-selected="false">Base Price</button>
-                <button class="tab-btn" data-tab="qmi" role="tab" aria-selected="false">QMI / Solds</button>
-              </div>
-            </div>
-
-            <!-- Graph mount point (JS fills this) -->
-            <div id="graphMount" class="graph-mount" role="region" aria-live="polite" aria-busy="false"></div>
-          </section>
         </div>
       </div>
       <div class="task-bar-outside">
@@ -423,7 +509,8 @@
   cons: competition.cons || [],
   promotion: competition.promotion || '',
   builderName: competition.builderName || '',
-  communityName: competition.communityName || ''
+  communityName: competition.communityName || '',
+  linkedCompetitions: competition.linkedCompetitions || []
 }).replace(/</g, '\\u003c') %>
 </script>
 

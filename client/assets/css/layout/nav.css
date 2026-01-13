@@ -113,6 +113,10 @@
   background-color: #3a3a55;
 }
 
+.nav-items-container li.logout-item:hover {
+  background-color: transparent;
+}
+
 .nav-items-container li.active,
 .nav-items-container li.active:hover {
   background-color: #55557a;
@@ -147,7 +151,7 @@
 .nav-items-container li.logout-item .nav-link:hover,
 .nav-items-container li.logout-item .nav-link:focus {
   background-color: rgba(255, 255, 255, 0.08);
-  border-color: rgba(255, 255, 255, 0.35);
+  border-color: rgba(255, 255, 255, 0.5);
 }
 
 .nav-items-container form {

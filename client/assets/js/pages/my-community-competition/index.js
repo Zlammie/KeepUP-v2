@@ -12,11 +12,7 @@ import {
   allCompetitionsSearch,
   internalCommunitiesList,
   internalCommunitiesEmpty,
-  competitorModeToggle,
-  overviewSections,
-  overviewCollapseToggle,
-  overviewCollapsedBar,
-  overviewExpandBtn
+  competitorModeToggle
 } from './dom.js';
 import { wireCommunitySelect, initialLoad } from './loader.js';
 import { wireTabs } from './ui.js';
@@ -45,41 +41,6 @@ let qmiTableEscListener = null;
 let listMode = 'external';
 let listSearchTerm = '';
 let taskPanelController = null;
-
-const OVERVIEW_COLLAPSE_KEY = 'mcc:overviewCollapsed';
-
-function setOverviewCollapsed(collapsed) {
-  const hidden = Boolean(collapsed);
-  overviewSections?.classList.toggle('is-hidden', hidden);
-
-  if (overviewCollapseToggle) {
-    overviewCollapseToggle.textContent = hidden ? 'Show' : 'Hide';
-    overviewCollapseToggle.setAttribute('aria-expanded', String(!hidden));
-    overviewCollapseToggle.setAttribute('aria-controls', 'overviewSections');
-    overviewCollapseToggle.classList.toggle('is-hidden', hidden);
-  }
-
-  overviewCollapsedBar?.classList.toggle('is-hidden', !hidden);
-
-  try {
-    localStorage.setItem(OVERVIEW_COLLAPSE_KEY, hidden ? 'hidden' : 'shown');
-  } catch (_) {}
-}
-
-function initOverviewCollapse() {
-  if (!overviewCollapseToggle || !overviewSections) return;
-
-  let saved = null;
-  try { saved = localStorage.getItem(OVERVIEW_COLLAPSE_KEY); } catch (_) {}
-  setOverviewCollapsed(saved === 'hidden');
-
-  overviewCollapseToggle.addEventListener('click', () => {
-    const isCurrentlyHidden = overviewSections.classList.contains('is-hidden');
-    setOverviewCollapsed(!isCurrentlyHidden);
-  });
-
-  overviewExpandBtn?.addEventListener('click', () => setOverviewCollapsed(false));
-}
 
 const toId = (value) => (value == null ? null : String(value));
 const cleanText = (value) => {
@@ -190,6 +151,53 @@ function collapseQmiTable(options = {}) {
   if (qmiTableEscListener) {
     document.removeEventListener('keydown', qmiTableEscListener);
     qmiTableEscListener = null;
+  }
+}
+
+function wireSectionNav() {
+  const nav = document.getElementById('sectionNav');
+  if (!nav) return;
+
+  const links = Array.from(nav.querySelectorAll('.nav-link[data-section]'));
+  const sections = Array.from(document.querySelectorAll('.section-pane[data-section-content]'));
+
+  const activate = (sectionKey) => {
+    if (!sectionKey) return;
+    links.forEach((link) => {
+      const isActive = link.dataset.section === sectionKey;
+      link.classList.toggle('active', isActive);
+      if (isActive) {
+        link.setAttribute('aria-current', 'page');
+      } else {
+        link.removeAttribute('aria-current');
+      }
+    });
+
+    sections.forEach((section) => {
+      const match = section.dataset.sectionContent === sectionKey;
+      section.classList.toggle('is-hidden', !match);
+      if (match) {
+        section.removeAttribute('hidden');
+      } else {
+        section.setAttribute('hidden', 'true');
+      }
+    });
+
+    if (sectionKey !== 'qmi') {
+      collapseQmiTable({ focusToggle: false });
+    }
+  };
+
+  links.forEach((link) => {
+    link.addEventListener('click', (event) => {
+      event.preventDefault();
+      activate(link.dataset.section);
+    });
+  });
+
+  const initial = nav.querySelector('.nav-link.active') || links[0];
+  if (initial) {
+    activate(initial.dataset.section || 'overview');
   }
 }
 
@@ -607,7 +615,7 @@ async function unlinkCompetition(competitionId) {
 
 function init() {
   setupSectionToggles();
-  initOverviewCollapse();
+  wireSectionNav();
   initAmenities();
   wireCommunitySelect();
   collapseQmiTable({ focusToggle: false });

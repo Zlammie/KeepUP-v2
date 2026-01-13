@@ -66,10 +66,6 @@ export const allCompetitionsSearch = document.getElementById('allCompetitionsSea
 export const internalCommunitiesList = document.getElementById('internalCommunitiesList');
 export const internalCommunitiesEmpty = document.getElementById('internalCommunitiesEmpty');
 export const competitorModeToggle = document.getElementById('competitorModeToggle');
-export const overviewSections = document.getElementById('overviewSections');
-export const overviewCollapseToggle = document.getElementById('overviewCollapseToggle');
-export const overviewCollapsedBar = document.getElementById('overviewCollapsedBar');
-export const overviewExpandBtn = document.getElementById('overviewExpandBtn');
 
 export const graphMount = document.getElementById('graphMount');
 export const sqftMonthFilter = document.getElementById('sqftMonthFilter');
