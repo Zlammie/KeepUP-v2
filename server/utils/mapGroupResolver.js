@@ -484,25 +484,16 @@ const fetchCommunityForLayer = async (communityId) => {
     .lean();
 };
 
-const buildMapGroupPackage = async (groupSlug) => {
-  let group = getMapGroupConfig(groupSlug);
-  if (!group) {
-    group = await buildAutoGroupConfig(groupSlug);
-  }
-  if (!group) return null;
-
+const buildPackageFromGroup = async (groupSlug, group, baseManifest) => {
   const baseCommunityId = group.baseMapCommunityId;
-  if (!baseCommunityId) return null;
-
-  const baseManifest = readMapManifest(baseCommunityId);
-  if (!baseManifest?.overlayFile) return { error: 'Map not found for base community' };
-
   const links = loadLinks(baseCommunityId, baseManifest);
   const usedRegions = new Set();
 
   const layers = [];
+  let resolvedLayerCount = 0;
   for (const layer of group.layers || []) {
     const layerCommunity = await fetchCommunityForLayer(layer.communityId);
+    if (layerCommunity) resolvedLayerCount += 1;
     const floorPlanMap = await buildFloorPlanMap(layerCommunity);
     const layerLots = buildLayerLots(
       links,
@@ -523,19 +514,66 @@ const buildMapGroupPackage = async (groupSlug) => {
   }
 
   return {
-    group: {
-      slug: slugify(groupSlug)
+    payload: {
+      group: {
+        slug: slugify(groupSlug)
+      },
+      baseMap: {
+        backgroundUrl: baseManifest.backgroundFile
+          ? `${baseManifest.basePath}/${baseManifest.backgroundFile}`
+          : null,
+        overlaySvgUrl: baseManifest.overlayFile
+          ? `${baseManifest.basePath}/${baseManifest.overlayFile}`
+          : null
+      },
+      layers
     },
-    baseMap: {
-      backgroundUrl: baseManifest.backgroundFile
-        ? `${baseManifest.basePath}/${baseManifest.backgroundFile}`
-        : null,
-      overlaySvgUrl: baseManifest.overlayFile
-        ? `${baseManifest.basePath}/${baseManifest.overlayFile}`
-        : null
-    },
-    layers
+    resolvedLayerCount
   };
+};
+
+const buildMapGroupPackage = async (groupSlug) => {
+  let group = getMapGroupConfig(groupSlug);
+  let usedAuto = false;
+  if (!group) {
+    group = await buildAutoGroupConfig(groupSlug);
+    usedAuto = true;
+  }
+  if (!group) return null;
+
+  if (!group.baseMapCommunityId && !usedAuto) {
+    group = await buildAutoGroupConfig(groupSlug);
+    usedAuto = true;
+  }
+  if (!group?.baseMapCommunityId) return null;
+
+  let baseManifest = readMapManifest(group.baseMapCommunityId);
+  if (!baseManifest?.overlayFile && !usedAuto) {
+    const autoGroup = await buildAutoGroupConfig(groupSlug);
+    if (autoGroup?.baseMapCommunityId) {
+      group = autoGroup;
+      usedAuto = true;
+      baseManifest = readMapManifest(group.baseMapCommunityId);
+    }
+  }
+  if (!baseManifest?.overlayFile) return { error: 'Map not found for base community' };
+
+  const { payload, resolvedLayerCount } = await buildPackageFromGroup(groupSlug, group, baseManifest);
+
+  if (!usedAuto && resolvedLayerCount === 0) {
+    const autoGroup = await buildAutoGroupConfig(groupSlug);
+    if (autoGroup?.baseMapCommunityId) {
+      const autoManifest = readMapManifest(autoGroup.baseMapCommunityId);
+      if (autoManifest?.overlayFile) {
+        const autoResult = await buildPackageFromGroup(groupSlug, autoGroup, autoManifest);
+        if (autoResult.resolvedLayerCount > 0) {
+          return autoResult.payload;
+        }
+      }
+    }
+  }
+
+  return payload;
 };
 
 module.exports = {
