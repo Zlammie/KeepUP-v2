@@ -103,6 +103,19 @@ const getMapGroupConfig = (groupSlug) => {
   return groups[slug] || null;
 };
 
+const buildSlugPrefixRegex = (slug) => {
+  const normalized = normalizeSlug(slug);
+  if (!normalized) return null;
+  return new RegExp(`^${escapeRegex(normalized)}`, 'i');
+};
+
+const buildNameContainsRegex = (slug) => {
+  const normalized = normalizeSlug(slug);
+  if (!normalized) return null;
+  const spaced = escapeRegex(normalized).replace(/-+/g, '\\s+');
+  return new RegExp(spaced, 'i');
+};
+
 const readMapManifest = (communityId) => {
   const dir = path.join(mapsBaseDir, String(communityId));
   const manifestPath = path.join(dir, 'manifest.json');
@@ -175,6 +188,84 @@ const matchLotForLink = (link, lookup) => {
   const lotKey = buildLotKey(link.lotNumber || link.lot, link.block, link.phase);
   if (lotKey && lookup.byKey.has(lotKey)) return lookup.byKey.get(lotKey);
   return null;
+};
+
+const findBaseCommunityForGroup = async (groupSlug) => {
+  const slugRegex = buildSlugRegex(groupSlug);
+  if (slugRegex) {
+    const exact = await Community.findOne({
+      $or: [
+        { slug: slugRegex },
+        { name: slugRegex },
+        { communityName: slugRegex }
+      ]
+    })
+      .select('name communityName slug company')
+      .lean();
+    if (exact && readMapManifest(exact._id)) return exact;
+  }
+
+  const prefixRegex = buildSlugPrefixRegex(groupSlug);
+  const nameRegex = buildNameContainsRegex(groupSlug);
+  if (!prefixRegex && !nameRegex) return null;
+
+  const candidates = await Community.find({
+    $or: [
+      ...(prefixRegex ? [{ slug: prefixRegex }] : []),
+      ...(nameRegex ? [{ name: nameRegex }, { communityName: nameRegex }] : [])
+    ]
+  })
+    .select('name communityName slug company')
+    .lean();
+
+  for (const candidate of candidates) {
+    if (readMapManifest(candidate._id)) return candidate;
+  }
+  return candidates[0] || null;
+};
+
+const buildAutoGroupConfig = async (groupSlug) => {
+  const baseCommunity = await findBaseCommunityForGroup(groupSlug);
+  if (!baseCommunity) return null;
+
+  const normalizedGroup = normalizeSlug(groupSlug) || slugify(baseCommunity.slug || baseCommunity.name);
+  const prefixRegex = buildSlugPrefixRegex(normalizedGroup);
+  const nameRegex = buildNameContainsRegex(normalizedGroup);
+
+  const siblings = await Community.find({
+    company: baseCommunity.company,
+    $or: [
+      ...(prefixRegex ? [{ slug: prefixRegex }] : []),
+      ...(nameRegex ? [{ name: nameRegex }, { communityName: nameRegex }] : [])
+    ]
+  })
+    .select('name communityName slug company')
+    .lean();
+
+  const communities = siblings.length ? siblings : [baseCommunity];
+  const usedKeys = new Set();
+  const layers = communities.map((community) => {
+    const label = community.name || community.communityName || community.slug || 'Community';
+    let keyBase = slugify(community.slug || community.name || community.communityName || String(community._id));
+    if (!keyBase) keyBase = `layer-${String(community._id).slice(-6)}`;
+    let key = keyBase;
+    let index = 1;
+    while (usedKeys.has(key)) {
+      key = `${keyBase}-${index}`;
+      index += 1;
+    }
+    usedKeys.add(key);
+    return {
+      key,
+      label,
+      communityId: String(community._id)
+    };
+  });
+
+  return {
+    baseMapCommunityId: String(baseCommunity._id),
+    layers
+  };
 };
 
 const extractStatus = (lot, link) => (
@@ -394,7 +485,10 @@ const fetchCommunityForLayer = async (communityId) => {
 };
 
 const buildMapGroupPackage = async (groupSlug) => {
-  const group = getMapGroupConfig(groupSlug);
+  let group = getMapGroupConfig(groupSlug);
+  if (!group) {
+    group = await buildAutoGroupConfig(groupSlug);
+  }
   if (!group) return null;
 
   const baseCommunityId = group.baseMapCommunityId;
