@@ -14,8 +14,13 @@ document.addEventListener('DOMContentLoaded', () => {
   const panelTools = document.getElementById('map-panel-tools');
   const panelTitle = document.getElementById('map-panel-title');
   const planToolsList = document.getElementById('plan-tools-list');
+  const salesScopeSelect = document.getElementById('lm-sales-scope');
 
   const paletteStyleId = 'plan-palette-style';
+  const paletteCache = new Map();
+  let paletteSaveTimer = null;
+  const PALETTE_SAVE_DELAY = 400;
+  const SALES_SCOPE_VALUES = new Set(['active', 'both', 'none']);
 
   const cssColorToHex = (color) => {
     if (!color) return '#cccccc';
@@ -30,25 +35,127 @@ document.addEventListener('DOMContentLoaded', () => {
     return '#cccccc';
   };
 
+  const normalizeSalesScope = (value) => {
+    const scope = String(value || '').trim().toLowerCase();
+    return SALES_SCOPE_VALUES.has(scope) ? scope : 'active';
+  };
+
+  const getSalesScopeKey = (communityId) => `lm-sales-scope:${communityId || 'default'}`;
+
+  const loadSalesScope = (communityId) => {
+    const key = getSalesScopeKey(communityId);
+    try {
+      const raw = localStorage.getItem(key);
+      return normalizeSalesScope(raw || 'active');
+    } catch (_) {
+      return 'active';
+    }
+  };
+
+  const saveSalesScope = (communityId, scope) => {
+    const key = getSalesScopeKey(communityId);
+    try {
+      localStorage.setItem(key, normalizeSalesScope(scope));
+    } catch (_) {
+      // ignore storage issues
+    }
+  };
+
+  const applySalesScope = (scope) => {
+    const normalized = normalizeSalesScope(scope);
+    if (mapRoot) mapRoot.dataset.salesInfoScope = normalized;
+    if (salesScopeSelect) salesScopeSelect.value = normalized;
+  };
+
   const loadPalette = (communityId) => {
     const key = `lm-plan-palette:${communityId || 'default'}`;
+    if (paletteCache.has(key)) return paletteCache.get(key);
     try {
       const raw = localStorage.getItem(key);
       if (!raw) return {};
       const parsed = JSON.parse(raw);
-      return parsed && typeof parsed === 'object' ? parsed : {};
+      const normalized = parsed && typeof parsed === 'object' ? parsed : {};
+      paletteCache.set(key, normalized);
+      return normalized;
     } catch (_) {
       return {};
     }
   };
 
-  const savePalette = (communityId, palette) => {
+  const savePalette = (communityId, palette, options = {}) => {
     const key = `lm-plan-palette:${communityId || 'default'}`;
+    const normalized = palette && typeof palette === 'object' ? palette : {};
     try {
-      localStorage.setItem(key, JSON.stringify(palette || {}));
+      paletteCache.set(key, normalized);
+      localStorage.setItem(key, JSON.stringify(normalized || {}));
     } catch (_) {
       // ignore storage issues
     }
+    if (options.persist !== false) schedulePaletteSave(communityId, normalized);
+  };
+
+  const isHexColor = (value) => /^#([0-9a-f]{3}|[0-9a-f]{6})$/i.test(String(value || '').trim());
+
+  const normalizePalette = (input) => {
+    const out = {};
+    if (!input || typeof input !== 'object') return out;
+    Object.entries(input).forEach(([key, value]) => {
+      const trimmedKey = String(key || '').trim();
+      if (!trimmedKey.startsWith('plan-')) return;
+      const trimmedValue = String(value || '').trim().toLowerCase();
+      if (!isHexColor(trimmedValue)) return;
+      out[trimmedKey] = trimmedValue;
+    });
+    return out;
+  };
+
+  const fetchPalette = async (communityId) => {
+    if (!communityId) return {};
+    try {
+      const res = await fetch(`/api/communities/${communityId}/plan-palette`);
+      if (!res.ok) return {};
+      const data = await res.json();
+      return normalizePalette(data?.planPalette || {});
+    } catch (err) {
+      console.warn('Failed to load plan palette', err);
+      return {};
+    }
+  };
+
+  const savePaletteToServer = async (communityId, palette) => {
+    if (!communityId) return;
+    try {
+      await fetch(`/api/communities/${communityId}/plan-palette`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ planPalette: normalizePalette(palette) })
+      });
+    } catch (err) {
+      console.warn('Failed to save plan palette', err);
+    }
+  };
+
+  const schedulePaletteSave = (communityId, palette) => {
+    if (!communityId) return;
+    if (paletteSaveTimer) clearTimeout(paletteSaveTimer);
+    paletteSaveTimer = setTimeout(() => {
+      savePaletteToServer(communityId, palette);
+    }, PALETTE_SAVE_DELAY);
+  };
+
+  const preloadPalette = async (communityId) => {
+    if (!communityId) return {};
+    const localPalette = loadPalette(communityId);
+    const remotePalette = await fetchPalette(communityId);
+    if (Object.keys(remotePalette).length) {
+      savePalette(communityId, remotePalette, { persist: false });
+      return remotePalette;
+    }
+    if (Object.keys(localPalette).length) {
+      schedulePaletteSave(communityId, localPalette);
+      return localPalette;
+    }
+    return {};
   };
 
   const applyPalette = (root, palette) => {
@@ -249,6 +356,9 @@ document.addEventListener('DOMContentLoaded', () => {
         mapRoot.dataset.combinedSrc = '';
         mapRoot.dataset.linksSrc = '';
         mapRoot.dataset.communityId = '';
+        mapRoot.dataset.activeProductId = '';
+        mapRoot.dataset.activeProductType = '';
+        applySalesScope(loadSalesScope(''));
       }
       return;
     }
@@ -261,6 +371,9 @@ document.addEventListener('DOMContentLoaded', () => {
           mapRoot.dataset.combinedSrc = '';
           mapRoot.dataset.linksSrc = '';
           mapRoot.dataset.communityId = communityId;
+          mapRoot.dataset.activeProductId = communityId;
+          mapRoot.dataset.activeProductType = 'community';
+          applySalesScope(loadSalesScope(communityId));
         }
         return;
       }
@@ -271,6 +384,10 @@ document.addEventListener('DOMContentLoaded', () => {
         mapRoot.dataset.combinedSrc = paths.combinedPath || paths.overlayPath || '';
         mapRoot.dataset.linksSrc = paths.linksPath || '';
         mapRoot.dataset.communityId = communityId;
+        mapRoot.dataset.activeProductId = communityId;
+        mapRoot.dataset.activeProductType = 'community';
+        applySalesScope(loadSalesScope(communityId));
+        await preloadPalette(communityId);
         window.renderLotMap && window.renderLotMap(mapRoot);
         setStatus('Map loaded');
       } else {
@@ -343,6 +460,14 @@ document.addEventListener('DOMContentLoaded', () => {
     applyZoom(current - 0.2);
   });
   zoomResetBtn?.addEventListener('click', () => applyZoom(1));
+
+  salesScopeSelect?.addEventListener('change', () => {
+    const communityId = mapRoot?.dataset?.communityId || '';
+    const scope = normalizeSalesScope(salesScopeSelect.value);
+    applySalesScope(scope);
+    saveSalesScope(communityId, scope);
+    window.renderLotMap && window.renderLotMap(mapRoot);
+  });
 
   mapRoot?.addEventListener('lotmap:ready', (evt) => {
     const meta = evt?.detail?.planMeta || [];

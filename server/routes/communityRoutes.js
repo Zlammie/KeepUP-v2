@@ -55,6 +55,25 @@ function normalizePlanKeys(raw) {
   return Array.from(new Set(keys));
 }
 
+function isHexColor(value) {
+  return /^#([0-9a-f]{3}|[0-9a-f]{6})$/i.test(String(value || '').trim());
+}
+
+function normalizePlanPalette(input) {
+  const out = {};
+  if (!input) return out;
+  const source = input instanceof Map ? Object.fromEntries(input) : input;
+  if (!source || typeof source !== 'object') return out;
+  Object.entries(source).forEach(([key, value]) => {
+    const trimmedKey = trimValue(key);
+    if (!trimmedKey || !trimmedKey.startsWith('plan-')) return;
+    const trimmedValue = trimValue(value).toLowerCase();
+    if (!isHexColor(trimmedValue)) return;
+    out[trimmedKey] = trimmedValue;
+  });
+  return out;
+}
+
 function buildPlanKeyMap(plans = []) {
   const map = new Map();
   const add = (key, id) => { if (key) map.set(key, id); };
@@ -712,6 +731,54 @@ router.get('/:communityId/map',
     } catch (err) {
       console.error('Get community map manifest failed:', err);
       res.status(500).json({ error: 'Failed to load community map' });
+    }
+  }
+);
+
+// Listing map plan palette (READONLY+)
+router.get('/:communityId/plan-palette',
+  requireRole(...READ_ROLES),
+  async (req, res) => {
+    try {
+      const { communityId } = req.params;
+      if (!isObjectId(communityId)) return res.status(400).json({ error: 'Invalid community id' });
+      if (!hasCommunityAccess(req.user, communityId)) return res.status(404).json({ error: 'Community not found' });
+      const doc = await Community.findOne({ _id: communityId, ...companyFilter(req) })
+        .select('planPalette')
+        .lean();
+      if (!doc) return res.status(404).json({ error: 'Community not found' });
+      const planPalette = normalizePlanPalette(doc.planPalette || {});
+      return res.json({ communityId, planPalette });
+    } catch (err) {
+      console.error('Get plan palette failed:', err);
+      return res.status(500).json({ error: 'Failed to load plan palette' });
+    }
+  }
+);
+
+// Listing map plan palette update (USER+)
+router.put('/:communityId/plan-palette',
+  requireRole(...WRITE_ROLES),
+  async (req, res) => {
+    try {
+      const { communityId } = req.params;
+      if (!isObjectId(communityId)) return res.status(400).json({ error: 'Invalid community id' });
+      if (!hasCommunityAccess(req.user, communityId)) return res.status(404).json({ error: 'Community not found' });
+      const payload = req.body?.planPalette ?? req.body?.palette ?? req.body ?? {};
+      const planPalette = normalizePlanPalette(payload);
+
+      const updated = await Community.findOneAndUpdate(
+        { _id: communityId, ...companyFilter(req) },
+        { $set: { planPalette } },
+        { new: true }
+      )
+        .select('planPalette')
+        .lean();
+      if (!updated) return res.status(404).json({ error: 'Community not found' });
+      return res.json({ communityId, planPalette: normalizePlanPalette(updated.planPalette || {}) });
+    } catch (err) {
+      console.error('Update plan palette failed:', err);
+      return res.status(500).json({ error: 'Failed to update plan palette' });
     }
   }
 );

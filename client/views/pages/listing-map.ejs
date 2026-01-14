@@ -75,7 +75,10 @@
               data-zoom="1"
               data-overlay-src=""
               data-links-src=""
-              data-combined-src="">
+              data-combined-src=""
+              data-sales-info-scope="active"
+              data-active-product-id=""
+              data-active-product-type="">
               <div class="map-canvas card shadow-sm">
                 <div class="map-frame">
                   <div id="overlay" class="map-overlay-layer" aria-hidden="true"></div>
@@ -106,8 +109,12 @@
 
                     <dl id="map-info-details" class="map-info-grid visually-hidden">
                       <div>
-                        <dt>Region ID</dt>
-                        <dd data-field="regionId">-</dd>
+                        <dt>Address</dt>
+                        <dd data-field="address">-</dd>
+                      </div>
+                      <div>
+                        <dt>Lot</dt>
+                        <dd data-field="lotSummary">-</dd>
                       </div>
                       <div>
                         <dt>Plan</dt>
@@ -117,26 +124,6 @@
                         <dt>Plan #</dt>
                         <dd data-field="planNumber">-</dd>
                       </div>
-                      <div>
-                        <dt>Lot ID</dt>
-                        <dd data-field="lotId">-</dd>
-                      </div>
-                      <div>
-                        <dt>Lot Number</dt>
-                        <dd data-field="lotNumber">-</dd>
-                      </div>
-                      <div>
-                        <dt>Block</dt>
-                        <dd data-field="block">-</dd>
-                      </div>
-                      <div>
-                        <dt>Phase</dt>
-                        <dd data-field="phase">-</dd>
-                      </div>
-                      <div>
-                        <dt>Address</dt>
-                        <dd data-field="address">-</dd>
-                      </div>
                     </dl>
                   </div>
 
@@ -144,6 +131,14 @@
                     <h3 class="visually-hidden">Plan tools</h3>
                     <div class="map-tools">
                       <p class="text-muted small mb-2">Adjust the colors used for each plan class.</p>
+                      <div class="map-tool-row map-tool-row--scope">
+                        <label class="map-tool-label" for="lm-sales-scope">Sales info</label>
+                        <select id="lm-sales-scope" class="form-select form-select-sm" aria-label="Sales info scope">
+                          <option value="active">Active product</option>
+                          <option value="both">Both products</option>
+                          <option value="none">None</option>
+                        </select>
+                      </div>
                       <div id="plan-tools-list" class="map-tools-list text-muted small">
                         No plan data yet.
                       </div>

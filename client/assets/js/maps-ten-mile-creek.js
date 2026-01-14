@@ -21,10 +21,75 @@
   };
   const DEFAULT_PLAN_CLASS = 'plan-unknown';
   const UNASSIGNED_CLASS = 'lot-unassigned';
+  const INACTIVE_CLASS = 'lot-inactive';
+  const DEFAULT_SALES_SCOPE = 'active';
+  const SALES_SCOPE_VALUES = new Set(['active', 'both', 'none']);
 
   const normalizePlanClass = (planName) => {
     const norm = (planName || '').trim().toLowerCase();
     return PLAN_CLASS_BY_NAME[norm] || null;
+  };
+
+  const normalizeSalesScope = (value) => {
+    const scope = String(value || '').trim().toLowerCase();
+    return SALES_SCOPE_VALUES.has(scope) ? scope : DEFAULT_SALES_SCOPE;
+  };
+
+  const normalizeProductKey = (value) => {
+    if (!value) return '';
+    return String(value).trim().toLowerCase();
+  };
+
+  const readActiveProduct = (root) => {
+    if (!root) return { id: '', type: '' };
+    return {
+      id: normalizeProductKey(root.dataset.activeProductId || root.dataset.activeProduct || ''),
+      type: normalizeProductKey(root.dataset.activeProductType || root.dataset.activeProductKind || '')
+    };
+  };
+
+  const matchesActiveProduct = (lot, activeProduct) => {
+    if (!lot || !activeProduct) return false;
+    const activeId = normalizeProductKey(activeProduct.id);
+    const activeType = normalizeProductKey(activeProduct.type);
+    const lotCommunityId = normalizeProductKey(
+      lot.communityId ||
+      lot.communityRef ||
+      lot.community ||
+      lot.community?._id ||
+      lot.community?._id?.toString?.() ||
+      ''
+    );
+    const lotId = normalizeProductKey(
+      lot.communityProductId ||
+      lot.productId ||
+      lot.communityProduct?._id ||
+      lot.product?._id ||
+      lot.productRef ||
+      ''
+    );
+    const lotType = normalizeProductKey(
+      lot.productType ||
+      lot.communityProductType ||
+      lot.productKind ||
+      lot.product?.type ||
+      lot.product?.kind ||
+      ''
+    );
+    if (activeType === 'community' && activeId && lotCommunityId && activeId === lotCommunityId) return true;
+    if (activeId && lotId && activeId === lotId) return true;
+    if (activeType && lotType && activeType === lotType) return true;
+    return false;
+  };
+
+  const shouldShowSalesInfoForLot = (lot, scope, activeProduct) => {
+    if (!lot) return false;
+    const normalizedScope = normalizeSalesScope(scope);
+    if (normalizedScope === 'none') return false;
+    if (normalizedScope === 'both') return true;
+    const hasActive = Boolean(activeProduct?.id || activeProduct?.type);
+    if (!hasActive) return true;
+    return matchesActiveProduct(lot, activeProduct);
   };
 
   const extractPlanInfo = (lot, link) => {
@@ -101,6 +166,12 @@
     return cleaned;
   };
 
+  const toPlanClass = (key) => {
+    if (!key) return '';
+    const safe = key.replace(/[^a-z0-9]+/gi, '-').replace(/^-+|-+$/g, '');
+    return safe ? `plan-${safe}` : '';
+  };
+
   const normalizeAddress = (value) => {
     if (!value) return '';
     return String(value).trim().replace(/\s+/g, ' ').toLowerCase();
@@ -138,6 +209,8 @@
       if (mapped) return mapped;
       const byName = normalizePlanClass(key);
       if (byName) return byName;
+      const fallback = toPlanClass(key);
+      if (fallback) return fallback;
     }
     return null;
   };
@@ -263,12 +336,15 @@
       return;
     }
 
-    fields.regionId && (fields.regionId.textContent = record.regionId || regionId || '-');
-    fields.lotId && (fields.lotId.textContent = record.lotId || '-');
-    fields.lotNumber && (fields.lotNumber.textContent = record.lotNumber || '-');
-    fields.block && (fields.block.textContent = record.block || '-');
-    fields.phase && (fields.phase.textContent = record.phase || '-');
     fields.address && (fields.address.textContent = record.address || '-');
+    if (fields.lotSummary) {
+      const lotSummary = [
+        record.lotNumber ? `Lot ${record.lotNumber}` : '',
+        record.block ? `Block ${record.block}` : '',
+        record.phase ? `Phase ${record.phase}` : ''
+      ].filter(Boolean).join(' | ');
+      fields.lotSummary.textContent = lotSummary || '-';
+    }
     fields.planName && (fields.planName.textContent = record.planName || record.plan || '-');
     fields.planNumber && (fields.planNumber.textContent = record.planNumber || '-');
   };
@@ -279,6 +355,12 @@
       ctx.setStatus('No path IDs found');
       return;
     }
+
+    const hasActiveProduct = Boolean(ctx.activeProduct?.id || ctx.activeProduct?.type);
+    const getSalesContext = () => ({
+      scope: normalizeSalesScope(ctx.root?.dataset?.salesInfoScope || ctx.salesInfoScope),
+      activeProduct: readActiveProduct(ctx.root) || ctx.activeProduct
+    });
 
     paths.forEach((path) => {
       const regionId = path.id;
@@ -298,16 +380,19 @@
       if (link) path.classList.add('linked');
 
       const hasLot = Boolean(lot);
+      const matchesActive = hasLot && matchesActiveProduct(lot, ctx.activeProduct);
+      const showSalesInfo = shouldShowSalesInfoForLot(lot, ctx.salesInfoScope, ctx.activeProduct);
       let planClass = null;
       if (hasLot) {
         planClass = derivePlanClass(lot, link);
         if (planClass) path.classList.add(planClass);
         else path.classList.add(DEFAULT_PLAN_CLASS);
+        if (hasActiveProduct && !matchesActive) path.classList.add(INACTIVE_CLASS);
       } else {
         path.classList.add(UNASSIGNED_CLASS);
       }
 
-      const isSold = isSoldLike(lot);
+      const isSold = showSalesInfo && isSoldLike(lot);
       if (isSold) path.classList.add('lot-sold');
 
       const planInfo = extractPlanInfo(lot, link);
@@ -325,6 +410,11 @@
       }
       path.addEventListener('mouseenter', (evt) => {
         path.classList.add('hovered');
+        const { scope, activeProduct } = getSalesContext();
+        if (!shouldShowSalesInfoForLot(lot, scope, activeProduct)) {
+          hideTooltip();
+          return;
+        }
         const addr = buildAddress(lot, link);
         const plan = (() => {
           if (planInfo.name && planInfo.number) return `${planInfo.name} (${planInfo.number})`;
@@ -357,6 +447,11 @@
         if (ctx.activePath && ctx.activePath !== path) ctx.activePath.classList.remove('selected');
         ctx.activePath = path;
         ctx.activePath.classList.add('selected');
+        const { scope, activeProduct } = getSalesContext();
+        if (!shouldShowSalesInfoForLot(lot, scope, activeProduct)) {
+          renderDetails(ctx, '', null);
+          return;
+        }
         const detail = link ? { ...link } : { regionId };
         detail.planName = detail.planName || planInfo.name || detail.plan;
         detail.planNumber = detail.planNumber || planInfo.number || detail.plan;
@@ -387,17 +482,16 @@
     const selectedTitle = root.querySelector('#map-selected-title');
     const statusEl = root.querySelector('#map-status');
     const fields = {
-      regionId: root.querySelector('[data-field="regionId"]'),
-      lotId: root.querySelector('[data-field="lotId"]'),
-      lotNumber: root.querySelector('[data-field="lotNumber"]'),
-      block: root.querySelector('[data-field="block"]'),
-      phase: root.querySelector('[data-field="phase"]'),
       address: root.querySelector('[data-field="address"]'),
+      lotSummary: root.querySelector('[data-field="lotSummary"]'),
       planName: root.querySelector('[data-field="planName"]'),
       planNumber: root.querySelector('[data-field="planNumber"]')
     };
+    const salesInfoScope = normalizeSalesScope(root.dataset.salesInfoScope || root.dataset.salesScope || '');
+    const activeProduct = readActiveProduct(root);
 
     const ctx = {
+      root,
       activePath: null,
       lotLookup: { byAddress: new Map(), byJob: new Map(), byId: new Map() },
       infoEmpty,
@@ -405,6 +499,8 @@
       selectedTitle,
       fields,
       planMetaMap: new Map(),
+      salesInfoScope,
+      activeProduct,
       setStatus: (text) => { if (statusEl) statusEl.textContent = text; }
     };
 

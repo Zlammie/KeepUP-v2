@@ -60,3 +60,11 @@
   font-size: 0.75rem;
   color: #6b7280;
 }
+
+.map-tool-row--scope {
+  margin-bottom: 0.5rem;
+}
+
+.map-tool-row--scope .form-select {
+  max-width: 200px;
+}

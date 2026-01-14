@@ -11,6 +11,12 @@ const toDateOrNull = v => {
   const d = v instanceof Date ? v : new Date(v);
   return Number.isNaN(d.getTime()) ? null : d;
 };
+const slugify = (value) =>
+  String(value || '')
+    .trim()
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, '-')
+    .replace(/^-+|-+$/g, '');
 
 const LotSchema = new Schema({
   jobNumber: { type: String, index: true },
@@ -122,6 +128,7 @@ const CommunitySchema = new Schema({
 
   // 📛 Identity
   name: { type: String, required: true, index: true },
+  slug: { type: String, default: '', index: true, lowercase: true, trim: true, set: slugify },
 
   // (optional but handy for filters/graphs)
   market: String,
@@ -146,6 +153,13 @@ const CommunitySchema = new Schema({
     }
   },
 
+  // Listing map plan colors (plan class -> hex color)
+  planPalette: {
+    type: Map,
+    of: String,
+    default: {}
+  },
+
   // Lots
   lots: [LotSchema]
 }, { timestamps: true });
@@ -154,10 +168,18 @@ const CommunitySchema = new Schema({
 // speed up list views & filters
 CommunitySchema.index({ company: 1, name: 1 }, { unique: false });
 CommunitySchema.index({ company: 1, city: 1, name: 1 });
+CommunitySchema.index({ company: 1, slug: 1 });
 CommunitySchema.index({ company: 1, 'lots.generalStatus': 1 });
 CommunitySchema.index({ company: 1, 'lots.releaseDate': -1 });
 
 // (Optional) text search on name/city/market
 // CommunitySchema.index({ name: 'text', city: 'text', market: 'text' });
+
+CommunitySchema.pre('validate', function setCommunitySlug(next) {
+  if (!this.slug && this.name) {
+    this.slug = slugify(this.name);
+  }
+  next();
+});
 
 module.exports = mongoose.model('Community', CommunitySchema);

@@ -1,0 +1,19 @@
+{
+  "groups": {
+    "willow-grove": {
+      "baseMapCommunityId": "6960686cb3c0c05ae4e73497",
+      "layers": [
+        {
+          "key": "townhomes",
+          "label": "Townhomes",
+          "communityId": "69606861b3c0c05ae4e733f7"
+        },
+        {
+          "key": "sf45",
+          "label": "45' Single Family",
+          "communityId": "6960686cb3c0c05ae4e73497"
+        }
+      ]
+    }
+  }
+}

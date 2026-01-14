@@ -1,0 +1,13 @@
+{
+  "mapId": "69606861b3c0c05ae4e733f7",
+  "versionId": "d188e666-a4c7-4d03-90f7-1ade78eb852f",
+  "exportedAt": "2026-01-14T01:56:25.704Z",
+  "files": {
+    "background": "background-1768355785696-ce54ab285ff2.png",
+    "overlays": [
+      "overlay-1768355785700-8d9dc0134dbf.svg"
+    ],
+    "overlay": "overlay-1768355785700-8d9dc0134dbf.svg",
+    "links": "links-1768355785704-248c1b381d8b.json"
+  }
+}

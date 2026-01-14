@@ -104,6 +104,41 @@ const formatRoleName = (role) => {
     .join(' ');
 };
 
+const EMBED_TRUE_SET = new Set(['1', 'true', 'yes', 'on']);
+const parseEmbedBoolean = (value, fallback = false) => {
+  if (value == null) return fallback;
+  const normalized = String(value).trim().toLowerCase();
+  if (EMBED_TRUE_SET.has(normalized)) return true;
+  return fallback;
+};
+
+const embedCspReportOnly = parseEmbedBoolean(process.env.CSP_REPORT_ONLY, false);
+const buildEmbedCsp = (nonce) => [
+  "default-src 'self'",
+  `script-src 'self' 'nonce-${nonce}'`,
+  `script-src-elem 'self' 'nonce-${nonce}'`,
+  `style-src 'self' 'nonce-${nonce}'`,
+  `style-src-elem 'self' 'nonce-${nonce}'`,
+  "style-src-attr 'none'",
+  "img-src 'self' data:",
+  "font-src 'self' data:",
+  "connect-src 'self'",
+  "object-src 'none'",
+  "base-uri 'none'",
+  'frame-ancestors *'
+].join('; ');
+
+const applyEmbedHeaders = (req, res, next) => {
+  res.removeHeader('X-Frame-Options');
+  res.removeHeader('Content-Security-Policy');
+  res.removeHeader('Content-Security-Policy-Report-Only');
+  const headerName = embedCspReportOnly
+    ? 'Content-Security-Policy-Report-Only'
+    : 'Content-Security-Policy';
+  res.setHeader(headerName, buildEmbedCsp(res.locals.cspNonce));
+  next();
+};
+
 const buildAutoFollowUpSchedules = () => {
   return [
     {
@@ -803,6 +838,26 @@ router.get(
     } catch (err) {
       next(err);
     }
+  }
+);
+
+router.get(
+  ['/embed/map', '/embed/map/:communitySlug'],
+  applyEmbedHeaders,
+  (req, res) => {
+    const slugParam = typeof req.params.communitySlug === 'string' ? req.params.communitySlug.trim() : '';
+    const queryParam = typeof req.query.community === 'string' ? req.query.community.trim() : '';
+    const communitySlug = slugParam || queryParam;
+    res.render('pages/embed-map', { communitySlug });
+  }
+);
+
+router.get(
+  '/embed/map-group/:groupSlug',
+  applyEmbedHeaders,
+  (req, res) => {
+    const groupSlug = typeof req.params.groupSlug === 'string' ? req.params.groupSlug.trim() : '';
+    res.render('pages/embed-map-group', { groupSlug });
   }
 );
 

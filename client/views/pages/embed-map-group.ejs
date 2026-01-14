@@ -1,0 +1,103 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>KeepUP Combined Map Viewer</title>
+  <link rel="stylesheet" href="/assets/css/main.css" />
+  <link rel="stylesheet" href="/assets/css/pages/embed-map.css" />
+</head>
+<body class="no-nav embed-map-page">
+  <div class="embed-map-shell" id="embed-group-root" data-group="<%= groupSlug || '' %>" data-csp-nonce="<%= cspNonce %>">
+    <header class="embed-map-header">
+      <div class="embed-map-heading">
+        <span class="embed-map-kicker">KeepUP Map Viewer</span>
+        <h1 class="embed-map-title" id="embed-community-name">Loading map...</h1>
+      </div>
+      <div class="embed-map-controls">
+        <div class="embed-map-style" id="map-style-toggle">
+          <button type="button" class="style-toggle is-active" data-style="status">Status</button>
+          <button type="button" class="style-toggle" data-style="plan">Plans</button>
+        </div>
+        <div class="embed-map-filters" id="layer-filters"></div>
+        <div class="embed-map-status" id="embed-status" aria-live="polite">Loading...</div>
+      </div>
+    </header>
+
+    <div class="embed-map-body">
+      <section class="embed-map-canvas">
+        <div class="embed-map-frame" id="map-frame">
+          <div class="embed-map-empty is-hidden" id="map-empty-message">
+            Turn on a product to view homesites.
+          </div>
+          <div class="embed-map-stage" id="map-stage">
+            <img id="map-bg" class="map-bg" alt="" />
+            <div id="map-overlay" class="map-overlay" aria-hidden="true"></div>
+          </div>
+        </div>
+      </section>
+
+      <aside class="embed-map-panel" id="lot-panel">
+        <div class="panel-header">
+          <div class="panel-title" id="lot-title">Select a lot</div>
+          <div class="panel-status" id="lot-status">Status: -</div>
+        </div>
+
+        <div class="panel-body">
+          <div class="panel-empty" id="lot-empty">
+            Tap a lot to view details.
+          </div>
+          <div class="panel-details" id="lot-details">
+            <div class="panel-field">
+              <div class="panel-label">Address</div>
+              <div class="panel-value" id="lot-address">-</div>
+            </div>
+            <div class="panel-field">
+              <div class="panel-label">Lot</div>
+              <div class="panel-value" id="lot-label">-</div>
+            </div>
+            <div class="panel-field">
+              <div class="panel-label">Floor Plan</div>
+              <div class="panel-value" id="lot-plan">-</div>
+            </div>
+            <div class="panel-field">
+              <div class="panel-label">Sq Ft</div>
+              <div class="panel-value" id="lot-sqft">-</div>
+            </div>
+            <div class="panel-field">
+              <div class="panel-label">Beds</div>
+              <div class="panel-value" id="lot-beds">-</div>
+            </div>
+            <div class="panel-field">
+              <div class="panel-label">Baths</div>
+              <div class="panel-value" id="lot-baths">-</div>
+            </div>
+            <div class="panel-field">
+              <div class="panel-label">Garage</div>
+              <div class="panel-value" id="lot-garage">-</div>
+            </div>
+            <div class="panel-field" id="lot-price-field">
+              <div class="panel-label">Price</div>
+              <div class="panel-value" id="lot-price">-</div>
+            </div>
+          </div>
+        </div>
+
+        <div class="panel-actions">
+          <a
+            id="lot-link"
+            class="embed-map-button"
+            href="#"
+            target="_blank"
+            rel="noopener noreferrer"
+          >
+            View Home
+          </a>
+        </div>
+      </aside>
+    </div>
+  </div>
+
+  <script type="module" src="/assets/js/pages/embed-map-group.js" nonce="<%= cspNonce %>"></script>
+</body>
+</html>

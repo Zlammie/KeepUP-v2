@@ -76,6 +76,7 @@
 .map-overlay-layer path.plan-2260 { fill: #C46B33; }
 .map-overlay-layer path.plan-2262 { fill: #E9A01F; }
 .map-overlay-layer path.lot-unassigned { fill: #e5e7eb !important; }
+.map-overlay-layer path.lot-inactive { fill: #e5e7eb !important; }
 
 .map-overlay-layer path.lot-sold {
   stroke: #c53030;
