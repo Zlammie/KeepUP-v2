@@ -6,7 +6,11 @@ export const getLot = (communityId, lotId) =>
 export const putLot = (communityId, lotId, payload) =>
   putJson(`/api/communities/${communityId}/lots/${lotId}`, payload).catch(() => ({})); // tolerate empty bodies
 
-export const getFloorPlans = () => getJson('/api/floorplans');
+export const getFloorPlans = (communityId) => (
+  communityId
+    ? getJson(`/api/communities/${encodeURIComponent(communityId)}/floorplans`)
+    : getJson('/api/floorplans')
+);
 
 export const getContact = (contactId) => getJson(`/api/contacts/${contactId}`);
 

@@ -8,16 +8,19 @@
   <link rel="stylesheet" href="/assets/css/pages/embed-map.css" />
 </head>
 <body class="no-nav embed-map-page">
-  <div class="embed-map-shell" id="embed-root" data-community="<%= communitySlug || '' %>" data-csp-nonce="<%= cspNonce %>">
+  <div class="embed-map-shell embed-style-plan" id="embed-root" data-community="<%= communitySlug || '' %>" data-csp-nonce="<%= cspNonce %>">
     <header class="embed-map-header">
       <div class="embed-map-heading">
         <span class="embed-map-kicker">KeepUP Map Viewer</span>
         <h1 class="embed-map-title" id="embed-community-name">Loading map...</h1>
       </div>
       <div class="embed-map-controls">
-        <div class="embed-map-style" id="map-style-toggle">
-          <button type="button" class="style-toggle is-active" data-style="status">Status</button>
-          <button type="button" class="style-toggle" data-style="plan">Plans</button>
+        <div class="embed-map-filter-group">
+          <div class="embed-map-filter-title">Category</div>
+          <div class="embed-map-style" id="map-style-toggle">
+            <button type="button" class="style-toggle" data-style="status">Status</button>
+            <button type="button" class="style-toggle is-active" data-style="plan">Plans</button>
+          </div>
         </div>
         <div class="embed-map-status" id="embed-status" aria-live="polite">Loading...</div>
       </div>
@@ -89,6 +92,40 @@
           >
             View Home
           </a>
+        </div>
+
+        <div class="panel-legend status-legend" aria-label="Status legend">
+          <div class="panel-legend-title">Status legend</div>
+          <div class="panel-legend-list">
+            <div class="legend-item">
+              <span class="legend-swatch legend-swatch--available" aria-hidden="true"></span>
+              <span class="legend-label">Available</span>
+            </div>
+            <div class="legend-item">
+              <span class="legend-swatch legend-swatch--spec" aria-hidden="true"></span>
+              <span class="legend-label">Spec</span>
+            </div>
+            <div class="legend-item">
+              <span class="legend-swatch legend-swatch--coming-soon" aria-hidden="true"></span>
+              <span class="legend-label">Coming Soon</span>
+            </div>
+            <div class="legend-item">
+              <span class="legend-swatch legend-swatch--hold" aria-hidden="true"></span>
+              <span class="legend-label">Hold</span>
+            </div>
+            <div class="legend-item">
+              <span class="legend-swatch legend-swatch--model" aria-hidden="true"></span>
+              <span class="legend-label">Model</span>
+            </div>
+            <div class="legend-item">
+              <span class="legend-swatch legend-swatch--sold" aria-hidden="true"></span>
+              <span class="legend-label">Sold</span>
+            </div>
+            <div class="legend-item">
+              <span class="legend-swatch legend-swatch--closed" aria-hidden="true"></span>
+              <span class="legend-label">Closed</span>
+            </div>
+          </div>
         </div>
       </aside>
     </div>

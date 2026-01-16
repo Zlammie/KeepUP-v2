@@ -75,8 +75,16 @@ export const hydrateAll = async ({ communityId, lotId, lot, purchaserContact, re
   if (els.floorPlanSelect) {
     els.floorPlanSelect.innerHTML = '<option value="" disabled selected>- Select Floor Plan -</option>';
     try {
-      const plans = await API.getFloorPlans();
-      for (const p of plans) {
+      const plans = await API.getFloorPlans(communityId);
+      const list = Array.isArray(plans) ? plans : [];
+      if (!list.length) {
+        const opt = document.createElement('option');
+        opt.value = '';
+        opt.textContent = 'No linked floor plans';
+        opt.disabled = true;
+        els.floorPlanSelect.appendChild(opt);
+      }
+      for (const p of list) {
         const opt = document.createElement('option');
         opt.value = p._id;
         opt.textContent = `${p.planNumber} - ${p.name}`;

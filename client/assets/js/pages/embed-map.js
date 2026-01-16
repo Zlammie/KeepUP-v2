@@ -23,8 +23,10 @@
   const lotDetails = document.getElementById('lot-details');
   const lotLink = document.getElementById('lot-link');
 
+  const MAX_ADDRESS_LABELS = 400;
+
   let activeShape = null;
-  let styleMode = 'status';
+  let styleMode = 'plan';
   const planClasses = new Set();
   const paletteStyleId = 'embed-plan-palette-style';
   let planPalette = {};
@@ -116,6 +118,13 @@
   const formatStatus = (value) => {
     const text = String(value || '').trim();
     return text || 'Unknown';
+  };
+
+  const getAddressNumber = (value) => {
+    const text = String(value || '').trim();
+    if (!text) return '';
+    const match = text.match(/^\s*(\d+)/);
+    return match ? match[1] : '';
   };
 
   const normalizePlanKey = (value) => {
@@ -310,6 +319,39 @@
     }
   };
 
+  const addAddressLabel = (svgEl, shape, labelText) => {
+    if (!svgEl || !shape || !labelText) return;
+    let bbox = null;
+    try {
+      bbox = shape.getBBox();
+    } catch (_) {
+      return;
+    }
+    if (!bbox || !Number.isFinite(bbox.width) || !Number.isFinite(bbox.height)) return;
+    const centerX = bbox.x + (bbox.width / 2);
+    const centerY = bbox.y + (bbox.height / 2);
+
+    const textEl = document.createElementNS('http://www.w3.org/2000/svg', 'text');
+    textEl.setAttribute('x', centerX);
+    textEl.setAttribute('y', centerY);
+    textEl.setAttribute('text-anchor', 'middle');
+    textEl.setAttribute('dominant-baseline', 'central');
+    textEl.textContent = labelText;
+    textEl.classList.add('lot-address-label');
+    if (bbox.height > bbox.width) {
+      textEl.classList.add('lot-address-label--vertical');
+      textEl.setAttribute('transform', `rotate(-90 ${centerX} ${centerY})`);
+    }
+
+    let labelLayer = svgEl.querySelector('.lot-address-layer');
+    if (!labelLayer) {
+      labelLayer = document.createElementNS('http://www.w3.org/2000/svg', 'g');
+      labelLayer.classList.add('lot-address-layer');
+      svgEl.appendChild(labelLayer);
+    }
+    labelLayer.appendChild(textEl);
+  };
+
   const bindOverlay = (svgText, lotsByRegion) => {
     if (!overlayEl) return;
     overlayEl.innerHTML = svgText;
@@ -318,6 +360,7 @@
     normalizeSvgViewport(svgEl);
 
     const shapes = svgEl.querySelectorAll('path[id], polygon[id], rect[id]');
+    const allowLabels = lotsByRegion.size > 0 && lotsByRegion.size <= MAX_ADDRESS_LABELS;
     shapes.forEach((shape) => {
       const regionId = shape.id;
       const lot = lotsByRegion.get(regionId) || null;
@@ -331,6 +374,11 @@
       if (planClass) {
         shape.classList.add(planClass);
         planClasses.add(planClass);
+      }
+
+      if (allowLabels && lot) {
+        const addressNumber = getAddressNumber(lot.address);
+        if (addressNumber) addAddressLabel(svgEl, shape, addressNumber);
       }
 
       shape.addEventListener('click', (event) => {
@@ -425,6 +473,6 @@
     applyStyleMode(mode);
   });
 
-  applyStyleMode('status');
+  applyStyleMode('plan');
   init();
 })();

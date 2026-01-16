@@ -68,3 +68,37 @@
 .map-tool-row--scope .form-select {
   max-width: 200px;
 }
+
+.lm-files-list {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  border: 1px solid #e5e7eb;
+  border-radius: 10px;
+  padding: 0.75rem;
+  background: #f9fafb;
+}
+
+.lm-file-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+}
+
+.lm-file-meta {
+  display: flex;
+  flex-direction: column;
+  gap: 0.1rem;
+}
+
+.lm-file-name {
+  font-weight: 600;
+  color: #111827;
+  word-break: break-all;
+}
+
+.lm-file-kind {
+  font-size: 0.75rem;
+  color: #6b7280;
+}

@@ -227,6 +227,50 @@ function readCommunityMapManifest(communityId) {
   };
 }
 
+function isSafeMapFilename(name) {
+  if (!name || typeof name !== 'string') return false;
+  if (name !== path.basename(name)) return false;
+  return !name.includes('..');
+}
+
+function removeMapFileFromManifest(manifest, fileName) {
+  const files = manifest?.files || {};
+  let changed = false;
+
+  if (files.background === fileName) {
+    delete files.background;
+    changed = true;
+  }
+
+  if (files.links === fileName) {
+    delete files.links;
+    changed = true;
+  }
+
+  if (Array.isArray(files.overlays)) {
+    const nextOverlays = files.overlays.filter((name) => name !== fileName);
+    if (nextOverlays.length !== files.overlays.length) {
+      files.overlays = nextOverlays;
+      changed = true;
+    }
+  }
+
+  if (files.overlay === fileName) {
+    if (Array.isArray(files.overlays) && files.overlays.length) {
+      files.overlay = files.overlays[0];
+    } else {
+      delete files.overlay;
+    }
+    changed = true;
+  } else if (!files.overlay && Array.isArray(files.overlays) && files.overlays.length) {
+    files.overlay = files.overlays[0];
+    changed = true;
+  }
+
+  manifest.files = files;
+  return changed;
+}
+
 async function buildLotsPayload(req, community, searchTerm = '') {
   const q = String(searchTerm || '').toLowerCase();
   const allLots = community.lots || [];
@@ -866,6 +910,39 @@ router.post('/:communityId/map',
     } catch (err) {
       console.error('Upload community map failed:', err);
       res.status(500).json({ error: err.message || 'Failed to upload map' });
+    }
+  }
+);
+
+// Delete a single map asset (MANAGER+)
+router.delete('/:communityId/map/files/:fileName',
+  requireRole(...ADMIN_ROLES),
+  async (req, res) => {
+    try {
+      const { communityId, fileName } = req.params;
+      if (!isObjectId(communityId)) return res.status(400).json({ error: 'Invalid community id' });
+      if (!hasCommunityAccess(req.user, communityId)) return res.status(404).json({ error: 'Community not found' });
+      if (!isSafeMapFilename(fileName)) return res.status(400).json({ error: 'Invalid file name' });
+
+      const dir = getMapDir(communityId);
+      const manifestPath = path.join(dir, 'manifest.json');
+      if (!fs.existsSync(manifestPath)) return res.status(404).json({ error: 'Map not found for community' });
+      const manifest = JSON.parse(fs.readFileSync(manifestPath, 'utf8'));
+      const didChange = removeMapFileFromManifest(manifest, fileName);
+      if (!didChange) return res.status(404).json({ error: 'File not found in manifest' });
+
+      const targetPath = path.join(dir, fileName);
+      if (fs.existsSync(targetPath)) {
+        fs.unlinkSync(targetPath);
+      }
+
+      manifest.exportedAt = new Date().toISOString();
+      fs.writeFileSync(manifestPath, JSON.stringify(manifest, null, 2));
+      const updated = readCommunityMapManifest(communityId);
+      return res.json(updated);
+    } catch (err) {
+      console.error('Delete community map file failed:', err);
+      return res.status(500).json({ error: err.message || 'Failed to delete map file' });
     }
   }
 );

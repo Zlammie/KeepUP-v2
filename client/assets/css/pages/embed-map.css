@@ -43,6 +43,19 @@
   justify-content: flex-end;
 }
 
+.embed-map-filter-group {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+}
+
+.embed-map-filter-title {
+  font-size: 0.6rem;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: var(--embed-muted);
+}
+
 .embed-map-style {
   display: flex;
   gap: 0.35rem;
@@ -211,6 +224,21 @@
   transition: fill 0.2s ease, filter 0.2s ease, stroke-width 0.2s ease;
 }
 
+.map-overlay .lot-address-layer {
+  pointer-events: none;
+}
+
+.map-overlay .lot-address-label {
+  font-size: 9px;
+  font-weight: 600;
+  fill: #1f2937;
+  stroke: none;
+}
+
+.map-overlay .lot-address-label--vertical {
+  letter-spacing: 0.04em;
+}
+
 .map-overlay .lot-linked {
   stroke: #f3f4f6;
 }
@@ -337,6 +365,55 @@
   display: flex;
   justify-content: flex-start;
 }
+
+.panel-legend {
+  display: grid;
+  gap: 0.45rem;
+  padding-top: 0.4rem;
+  border-top: 1px dashed var(--embed-border);
+}
+
+.embed-style-plan .status-legend {
+  display: none;
+}
+
+.panel-legend-title {
+  font-size: 0.6rem;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: var(--embed-muted);
+}
+
+.panel-legend-list {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 0.35rem 0.5rem;
+}
+
+.legend-item {
+  display: flex;
+  align-items: center;
+  gap: 0.35rem;
+  font-size: 0.7rem;
+  color: var(--embed-ink);
+}
+
+.legend-swatch {
+  width: 12px;
+  height: 12px;
+  border-radius: 4px;
+  border: 1px solid rgba(15, 23, 42, 0.12);
+  background: var(--lot-default);
+  flex-shrink: 0;
+}
+
+.legend-swatch--available { background: var(--lot-available); }
+.legend-swatch--spec { background: var(--lot-spec); }
+.legend-swatch--coming-soon { background: var(--lot-coming-soon); }
+.legend-swatch--hold { background: var(--lot-hold); }
+.legend-swatch--model { background: var(--lot-model); }
+.legend-swatch--sold { background: var(--lot-sold); }
+.legend-swatch--closed { background: var(--lot-closed); }
 
 .embed-map-button {
   display: inline-flex;

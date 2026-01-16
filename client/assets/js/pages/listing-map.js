@@ -15,12 +15,14 @@ document.addEventListener('DOMContentLoaded', () => {
   const panelTitle = document.getElementById('map-panel-title');
   const planToolsList = document.getElementById('plan-tools-list');
   const salesScopeSelect = document.getElementById('lm-sales-scope');
+  const filesListEl = document.getElementById('lm-files-list');
 
   const paletteStyleId = 'plan-palette-style';
   const paletteCache = new Map();
   let paletteSaveTimer = null;
   const PALETTE_SAVE_DELAY = 400;
   const SALES_SCOPE_VALUES = new Set(['active', 'both', 'none']);
+  let allowedPlanClasses = null;
 
   const cssColorToHex = (color) => {
     if (!color) return '#cccccc';
@@ -109,6 +111,48 @@ document.addEventListener('DOMContentLoaded', () => {
     return out;
   };
 
+  const normalizePlanKey = (value) => {
+    const raw = String(value || '').trim().toLowerCase();
+    if (!raw) return '';
+    return raw
+      .replace(/^floor\s*plan\s*/i, '')
+      .replace(/^plan\s*/i, '')
+      .replace(/^#/, '')
+      .trim();
+  };
+
+  const toPlanClass = (value) => {
+    const key = normalizePlanKey(value);
+    if (!key) return '';
+    const safe = key.replace(/[^a-z0-9]+/gi, '-').replace(/^-+|-+$/g, '');
+    return safe ? `plan-${safe}` : '';
+  };
+
+  const buildAllowedPlanClasses = (plans) => {
+    const set = new Set();
+    (plans || []).forEach((plan) => {
+      const nameClass = toPlanClass(plan?.name);
+      const numberClass = toPlanClass(plan?.planNumber);
+      if (nameClass) set.add(nameClass);
+      if (numberClass) set.add(numberClass);
+    });
+    return set;
+  };
+
+  const loadCommunityPlans = async (communityId) => {
+    if (!communityId) return new Set();
+    try {
+      const res = await fetch(`/api/communities/${communityId}/floorplans`);
+      if (!res.ok) return new Set();
+      const data = await res.json();
+      const plans = Array.isArray(data) ? data : [];
+      return buildAllowedPlanClasses(plans);
+    } catch (err) {
+      console.warn('Failed to load community floor plans', err);
+      return new Set();
+    }
+  };
+
   const fetchPalette = async (communityId) => {
     if (!communityId) return {};
     try {
@@ -177,6 +221,79 @@ document.addEventListener('DOMContentLoaded', () => {
     styleTag.textContent = css;
   };
 
+  const buildFileEntries = (manifest) => {
+    const files = manifest?.files || {};
+    const entries = [];
+    const overlays = Array.isArray(files.overlays) && files.overlays.length
+      ? files.overlays
+      : (files.overlay ? [files.overlay] : []);
+    overlays.forEach((file, index) => {
+      entries.push({
+        file,
+        kind: overlays.length > 1 ? `Overlay SVG ${index + 1}` : 'Overlay SVG'
+      });
+    });
+    if (files.links) entries.push({ file: files.links, kind: 'Links JSON' });
+    if (files.background) entries.push({ file: files.background, kind: 'Background Image' });
+    return entries;
+  };
+
+  const renderFilesList = (manifest, communityId) => {
+    if (!filesListEl) return;
+    const entries = buildFileEntries(manifest);
+    if (!entries.length) {
+      filesListEl.textContent = 'No files uploaded.';
+      return;
+    }
+    filesListEl.innerHTML = '';
+    entries.forEach((entry) => {
+      const row = document.createElement('div');
+      row.className = 'lm-file-row';
+
+      const meta = document.createElement('div');
+      meta.className = 'lm-file-meta';
+
+      const name = document.createElement('div');
+      name.className = 'lm-file-name';
+      name.textContent = entry.file;
+
+      const kind = document.createElement('div');
+      kind.className = 'lm-file-kind';
+      kind.textContent = entry.kind;
+
+      meta.appendChild(name);
+      meta.appendChild(kind);
+
+      const button = document.createElement('button');
+      button.type = 'button';
+      button.className = 'btn btn-outline-danger btn-sm';
+      button.textContent = 'Delete';
+      button.addEventListener('click', async () => {
+        if (!communityId) return;
+        const ok = window.confirm(`Delete ${entry.file}? This cannot be undone.`);
+        if (!ok) return;
+        button.disabled = true;
+        try {
+          const res = await fetch(`/api/communities/${communityId}/map/files/${encodeURIComponent(entry.file)}`, {
+            method: 'DELETE'
+          });
+          const text = await res.text();
+          if (!res.ok) throw new Error(text || 'Delete failed');
+          await loadManifest(communityId);
+        } catch (err) {
+          console.error(err);
+          alert(err.message || 'Delete failed');
+        } finally {
+          button.disabled = false;
+        }
+      });
+
+      row.appendChild(meta);
+      row.appendChild(button);
+      filesListEl.appendChild(row);
+    });
+  };
+
   const collectPlanClasses = (root) => {
     if (!root) return [];
     const overlay = root.querySelector('#overlay');
@@ -209,7 +326,7 @@ document.addEventListener('DOMContentLoaded', () => {
       planToolsList.textContent = 'No plan classes detected yet.';
       return;
     }
-    const combined = classes.map((entry) => {
+    let combined = classes.map((entry) => {
       const m = metaByClass.get(entry.className);
       return {
         ...entry,
@@ -217,6 +334,17 @@ document.addEventListener('DOMContentLoaded', () => {
         planNumber: m?.planNumber || ''
       };
     });
+    if (allowedPlanClasses instanceof Set) {
+      if (!allowedPlanClasses.size) {
+        planToolsList.textContent = 'No linked floor plans for this community.';
+        return;
+      }
+      combined = combined.filter((entry) => allowedPlanClasses.has(entry.className));
+    }
+    if (!combined.length) {
+      planToolsList.textContent = 'No linked floor plans detected on this map.';
+      return;
+    }
     planToolsList.innerHTML = '';
     combined.forEach((entry) => {
       const row = document.createElement('div');
@@ -351,6 +479,7 @@ document.addEventListener('DOMContentLoaded', () => {
   async function loadManifest(communityId) {
     if (!communityId) {
       setStatus('Select a community');
+      allowedPlanClasses = null;
       if (mapRoot) {
         mapRoot.dataset.overlaySrc = '';
         mapRoot.dataset.combinedSrc = '';
@@ -366,6 +495,8 @@ document.addEventListener('DOMContentLoaded', () => {
       const res = await fetch(`/api/communities/${communityId}/map`);
       if (!res.ok) {
         setStatus('No map uploaded');
+        renderFilesList(null, communityId);
+        allowedPlanClasses = await loadCommunityPlans(communityId);
         if (mapRoot) {
           mapRoot.dataset.overlaySrc = '';
           mapRoot.dataset.combinedSrc = '';
@@ -378,6 +509,8 @@ document.addEventListener('DOMContentLoaded', () => {
         return;
       }
       const data = await res.json();
+      renderFilesList(data, communityId);
+      allowedPlanClasses = await loadCommunityPlans(communityId);
       const paths = data?.paths || {};
       if (mapRoot && (paths.overlayPath || paths.combinedPath)) {
         mapRoot.dataset.overlaySrc = paths.overlayPath || '';
@@ -396,6 +529,8 @@ document.addEventListener('DOMContentLoaded', () => {
     } catch (err) {
       console.error(err);
       setStatus('Failed to load map');
+      allowedPlanClasses = null;
+      renderFilesList(null, communityId);
     }
   }
 
