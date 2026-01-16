@@ -44,6 +44,16 @@
             <label for="garage" class="form-label">Garage Spaces</label>
             <input id="garage" class="form-control" name="garage" type="number" min="0" required />
           </div>
+          <div class="col-md-3">
+            <label for="stories" class="form-label">Stories</label>
+            <select id="stories" class="form-select" name="stories">
+              <option value="">-- Select --</option>
+              <option value="1">1 Story</option>
+              <option value="1.5">1.5 Story</option>
+              <option value="2">2 Story</option>
+              <option value="3">3 Story</option>
+            </select>
+          </div>
         </div>
         <div class="mb-3 mt-3">
           <label for="planFile" class="form-label">Floor Plan File (PDF or image)</label>
@@ -86,7 +96,7 @@
   </div>
 
   <div id="editPlanModal" class="modal-overlay" style="display:none;">
-    <div class="modal-content" style="max-width: 520px; width: 100%;">
+    <div class="modal-content" style="max-width: 700px; width: 100%;">
       <div class="d-flex justify-content-between align-items-start mb-3">
         <div>
           <h5 class="mb-1">Edit Floor Plan</h5>
@@ -121,6 +131,16 @@
           <div class="col-md-3">
             <label for="editGarage" class="form-label">Garage Spaces</label>
             <input id="editGarage" class="form-control" name="garage" type="number" min="0" required />
+          </div>
+          <div class="col-md-3">
+            <label for="editStories" class="form-label">Stories</label>
+            <select id="editStories" class="form-select" name="stories">
+              <option value="">-- Select --</option>
+              <option value="1">1 Story</option>
+              <option value="1.5">1.5 Story</option>
+              <option value="2">2 Story</option>
+              <option value="3">3 Story</option>
+            </select>
           </div>
         </div>
         <div class="mb-3 mt-3">
@@ -163,6 +183,7 @@
       const form = document.getElementById('floorPlanForm');
       const statusEl = document.getElementById('statusMsg');
       const communitiesSelect = document.getElementById('communities');
+      const storiesSelect = document.getElementById('stories');
       const planFileInput = document.getElementById('planFile');
       const planFileStatus = document.getElementById('planFileStatus');
       const tabButtons = document.querySelectorAll('[data-tab-target]');
@@ -180,6 +201,7 @@
       const editBeds = document.getElementById('editBeds');
       const editBaths = document.getElementById('editBaths');
       const editGarage = document.getElementById('editGarage');
+      const editStoriesSelect = document.getElementById('editStories');
       const editPlanFileInput = document.getElementById('editPlanFile');
       const editPlanFileStatus = document.getElementById('editPlanFileStatus');
       const editPlanPreview = document.getElementById('editPlanPreview');
@@ -245,10 +267,31 @@
         return Number.isInteger(num) ? String(num) : num.toFixed(1).replace(/\.0$/, '');
       };
 
+      const parseStoriesValue = (value) => {
+        if (value == null) return null;
+        const trimmed = String(value).trim();
+        if (!trimmed) return null;
+        const num = Number(trimmed);
+        return Number.isNaN(num) ? null : num;
+      };
+
+      const formatStories = (value) => {
+        if (value == null || value === '') return null;
+        const num = Number(value);
+        const clean = Number.isFinite(num) ? num : null;
+        if (clean == null) return String(value);
+        const label = Number.isInteger(clean) ? String(clean) : clean.toFixed(1).replace(/\.0$/, '');
+        const suffix = clean === 1 ? 'story' : 'stories';
+        return `${label} ${suffix}`;
+      };
+
       const buildSpecBadges = (specs = {}) => {
         const badges = [];
         const sqft = formatInteger(specs.squareFeet);
         if (sqft) badges.push(`${sqft} sf`);
+
+        const stories = formatStories(specs.stories);
+        if (stories) badges.push(stories);
 
         const beds = formatCount(specs.beds);
         if (beds) badges.push(`${beds} bd`);
@@ -614,6 +657,10 @@
         if (editBeds) editBeds.value = plan.specs?.beds ?? '';
         if (editBaths) editBaths.value = plan.specs?.baths ?? '';
         if (editGarage) editGarage.value = plan.specs?.garage ?? '';
+        if (editStoriesSelect) {
+          const stories = plan.specs?.stories;
+          editStoriesSelect.value = stories == null ? '' : String(stories);
+        }
 
         if (editPlanPreview && editPlanPreviewContainer) {
           const previewSrc = normalizeAssetUrl(plan.asset?.previewUrl || '');
@@ -791,7 +838,8 @@
             squareFeet: Number(editSquareFeet?.value) || 0,
             beds: Number(editBeds?.value) || 0,
             baths: Number(editBaths?.value) || 0,
-            garage: Number(editGarage?.value) || 0
+            garage: Number(editGarage?.value) || 0,
+            stories: parseStoriesValue(editStoriesSelect?.value)
           },
           communities: selectedCommunities,
           elevations: (Array.isArray(editElevations) ? editElevations : []).map((el) => ({
@@ -843,7 +891,8 @@
             squareFeet: Number(document.getElementById('squareFeet').value) || 0,
             beds: Number(document.getElementById('beds').value) || 0,
             baths: Number(document.getElementById('baths').value) || 0,
-            garage: Number(document.getElementById('garage').value) || 0
+            garage: Number(document.getElementById('garage').value) || 0,
+            stories: parseStoriesValue(storiesSelect?.value)
           },
           communities: Array.from(communitiesSelect.selectedOptions, opt => opt.value),
           ...(uploadedAsset ? { asset: uploadedAsset } : {})

@@ -1,4 +1,4 @@
-import { getJson } from '../../core/http.js';
+import { getJson, putJson } from '../../core/http.js';
 import { state } from './state.js';
 
 const esc = (s) =>
@@ -71,3 +71,9 @@ export async function loadLots() {
     return [];
   }
 }
+
+export const updateLotGeneralStatus = (communityId, lotId, generalStatus) =>
+  putJson(
+    `/api/communities/${encodeURIComponent(communityId)}/lots/${encodeURIComponent(lotId)}`,
+    { generalStatus }
+  );

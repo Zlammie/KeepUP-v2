@@ -301,6 +301,19 @@
   background: rgba(0, 0, 0, 0.08);
   width: 100%;
 }
+.general-status-cell .general-status-badge {
+  cursor: pointer;
+}
+.general-status-cell .general-status-select {
+  display: none;
+  min-width: 160px;
+}
+.general-status-cell.is-editing .general-status-select {
+  display: inline-flex;
+}
+.general-status-cell.is-editing .general-status-badge {
+  display: none;
+}
 
 /* timeline */
 .timeline2-cell .timeline2-wrap {

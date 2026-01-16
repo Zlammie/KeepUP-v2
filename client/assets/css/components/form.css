@@ -41,6 +41,22 @@
   font-weight: 700;
 }
 
+/* Floor plan admin layout inside a card */
+.admin-floorplans-card {
+  max-width: 1200px;
+  width: 100%;
+  padding: 2.75rem 2.5rem;
+}
+
+.admin-floorplans-card .admin-floorplans-layout {
+  padding: 0;
+  gap: 1.5rem;
+}
+
+.admin-floorplans-card .admin-floorplans-table .table-responsive {
+  max-height: 65vh;
+}
+
 
 
 /* Realtor-details.ejs*/

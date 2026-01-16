@@ -3,6 +3,12 @@ const { Schema } = mongoose;
 
 // tiny coercers so old string inputs still work
 const toNum = v => (v === '' || v == null ? undefined : Number(v));
+const STORY_LEVELS = [1, 1.5, 2, 3];
+const toStoryCount = (v) => {
+  if (v === '' || v == null) return null;
+  const n = Number(v);
+  return Number.isFinite(n) ? n : null;
+};
 
 const FloorPlanSchema = new Schema({
   // 🔐 tenant
@@ -17,7 +23,8 @@ const FloorPlanSchema = new Schema({
     squareFeet: { type: Number, min: 0, set: toNum, required: true },
     beds:       { type: Number, min: 0, set: toNum, required: true },
     baths:      { type: Number, min: 0, set: toNum, required: true },
-    garage:     { type: Number, min: 0, set: toNum, required: true }
+    garage:     { type: Number, min: 0, set: toNum, required: true },
+    stories:    { type: Number, enum: STORY_LEVELS, set: toStoryCount, default: null }
   },
 
   // 3) relationships

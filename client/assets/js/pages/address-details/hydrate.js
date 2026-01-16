@@ -73,7 +73,7 @@ export const hydrateAll = async ({ communityId, lotId, lot, purchaserContact, re
 
   // 2) Floor plans
   if (els.floorPlanSelect) {
-    els.floorPlanSelect.innerHTML = '<option value="" disabled selected>- Select Floor Plan -</option>';
+    els.floorPlanSelect.innerHTML = '<option value="" selected>-- No floor plan --</option>';
     try {
       const plans = await API.getFloorPlans(communityId);
       const list = Array.isArray(plans) ? plans : [];

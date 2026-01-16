@@ -1,17 +1,83 @@
-.sideBarMange{
-    display: flex;
-    flex-direction: column;
+.cm-shell {
+  max-width: 1200px;
+  width: 100%;
 }
 
-#communitySelect{
-    width: 150px;
+.community-management-layout {
+  display: flex;
+  flex-direction: column;
+  gap: 1.75rem;
 }
 
-.lots-com-cont{
-    margin-left: 15px;
-    width: 45%;
+.cm-card {
+  background: var(--surface-card, #fff);
+  border: 1px solid var(--border-soft, #d1d7e3);
+  border-radius: 12px;
+  box-shadow: var(--shadow-card, 0 2px 8px rgba(0, 0, 0, 0.08));
+  padding: 1.4rem;
 }
 
+.cm-card h2 {
+  margin: 0 0 0.75rem;
+}
+
+.cm-form {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+}
+
+.cm-form .form-label {
+  font-weight: 600;
+  color: #444;
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+}
+
+.cm-field-pair {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.75rem;
+}
+
+.cm-field-pair .form-label {
+  flex: 1 1 150px;
+}
+
+.cm-table-card {
+  padding: 1.5rem;
+}
+
+.cm-toolbar input {
+  max-width: 280px;
+}
+
+.cm-toolbar select {
+  min-width: 180px;
+}
+
+#communitySelect {
+  min-width: 180px;
+}
+
+.cm-create {
+  display: flex;
+  flex-direction: column;
+  gap: 1.25rem;
+}
+
+.cm-divider {
+  margin: 0;
+  border: 0;
+  border-top: 1px solid #000;
+}
+
+.cm-split {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
+  gap: 1.25rem;
+}
 
 .dropzone {
   --dz-border: #cfd4da;

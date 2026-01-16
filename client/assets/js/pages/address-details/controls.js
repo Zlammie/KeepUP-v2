@@ -123,7 +123,9 @@ export const attachAllControls = ({ communityId, lotId, lot, purchaserContact, p
   generic.forEach(({ el, key, event }) => {
     if (!el) return;
     el.addEventListener(event, async (e) => {
-      await saveLotField(communityId, lotId, { [key]: e.target.value });
+      const raw = e.target.value;
+      const value = key === 'floorPlan' && raw === '' ? null : raw;
+      await saveLotField(communityId, lotId, { [key]: value });
     });
   });
 

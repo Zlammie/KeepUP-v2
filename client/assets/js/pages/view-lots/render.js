@@ -4,6 +4,8 @@ import { formatDateTime } from '../../core/datetime.js';
 import { formatPhoneDisplay } from '../../shared/phone.js';
 import { $, $$ } from '../../core/dom.js';
 import { debounce } from '../../core/async.js';
+import { state } from './state.js';
+import { updateLotGeneralStatus } from './api.js';
 
 // ---------- tiny DOM & format helpers ----------
 function el(tag, className, text) {
@@ -180,8 +182,30 @@ function statusBadge(statusRaw) {
   return span;
 }
 
+const statusBadgeMeta = (value) => {
+  const node = statusBadge(value);
+  return { className: node.className, label: node.textContent };
+};
+
+const GENERAL_STATUS_OPTIONS = [
+  { value: 'Available', label: 'Available' },
+  { value: 'SPEC', label: 'SPEC' },
+  { value: 'Sold', label: 'Sold' },
+  { value: 'Closed', label: 'Closed' },
+  { value: 'Coming Soon', label: 'Coming Soon' },
+  { value: 'Model', label: 'Model' },
+  { value: 'Hold', label: 'Hold' }
+];
+
+const normalizeGeneralStatus = (val) => {
+  const match = GENERAL_STATUS_OPTIONS.find(
+    (opt) => opt.value.toLowerCase() === String(val || '').trim().toLowerCase()
+  );
+  return match ? match.value : GENERAL_STATUS_OPTIONS[0].value;
+};
+
 function statusSplitCell(lot) {
-  const td = el('td', 'status-split-cell');
+  const td = el('td', 'status-split-cell general-status-cell');
   const wrap = el('div', 'status-split');
 
   const gen = lot.generalStatus || lot.general || lot.statusGeneral || lot.status || '';
@@ -189,7 +213,32 @@ function statusSplitCell(lot) {
 
   const top = el('div', 'status-split-row');
   top.appendChild(el('div', 'status-split-label', 'General'));
-  top.appendChild(statusBadge(gen));
+
+  const genBadge = statusBadge(gen);
+  genBadge.classList.add('general-status-badge');
+  genBadge.setAttribute('role', 'button');
+  genBadge.tabIndex = 0;
+  genBadge.title = 'Click to change general status';
+
+  const genSelect = document.createElement('select');
+  genSelect.className = 'form-select form-select-sm general-status-select';
+  GENERAL_STATUS_OPTIONS.forEach((opt) => {
+    const o = document.createElement('option');
+    o.value = opt.value;
+    o.textContent = opt.label;
+    genSelect.appendChild(o);
+  });
+  genBadge.dataset.current = normalizeGeneralStatus(gen);
+  genSelect.value = normalizeGeneralStatus(gen);
+
+  const setBadge = (val) => {
+    const meta = statusBadgeMeta(val);
+    genBadge.className = `${meta.className} general-status-badge`;
+    genBadge.textContent = meta.label;
+  };
+
+  top.appendChild(genBadge);
+  top.appendChild(genSelect);
   wrap.appendChild(top);
 
   wrap.appendChild(el('div', 'status-split-divider'));
@@ -200,6 +249,74 @@ function statusSplitCell(lot) {
   wrap.appendChild(bot);
 
   td.appendChild(wrap);
+
+  const lotId = lot._id || lot.id || '';
+  const communityId =
+    lot.communityId ||
+    (lot.community && (lot.community._id || lot.community.id)) ||
+    state.communityId ||
+    '';
+
+  if (lotId && communityId) {
+    const hideSelect = () => td.classList.remove('is-editing');
+    const showSelect = () => {
+      genSelect.value = normalizeGeneralStatus(genBadge.dataset.current || gen);
+      td.classList.add('is-editing');
+      genSelect.focus();
+    };
+
+    genBadge.addEventListener('click', showSelect);
+    genBadge.addEventListener('keydown', (evt) => {
+      if (evt.key === 'Enter' || evt.key === ' ') {
+        evt.preventDefault();
+        showSelect();
+      }
+    });
+
+    genSelect.addEventListener('change', async (event) => {
+      const previous = normalizeGeneralStatus(genBadge.dataset.current || gen);
+      const next = normalizeGeneralStatus(event.target.value);
+      if (next === previous) {
+        hideSelect();
+        genBadge.focus();
+        return;
+      }
+
+      genSelect.disabled = true;
+      try {
+        await updateLotGeneralStatus(communityId, lotId, next);
+        genBadge.dataset.current = next;
+        lot.generalStatus = next;
+        setBadge(next);
+        hideSelect();
+        genBadge.focus();
+      } catch (err) {
+        console.error('[view-lots] failed to update general status', err);
+        alert('Could not update general status. Please try again.');
+        genSelect.value = previous;
+        setBadge(previous);
+        hideSelect();
+        genBadge.focus();
+      } finally {
+        genSelect.disabled = false;
+      }
+    });
+
+    genSelect.addEventListener('blur', hideSelect);
+    genSelect.addEventListener('keydown', (evt) => {
+      if (evt.key === 'Escape') {
+        evt.preventDefault();
+        hideSelect();
+        genBadge.focus();
+      }
+    });
+  } else {
+    genBadge.removeAttribute('role');
+    genBadge.tabIndex = -1;
+    genBadge.title = '';
+    genSelect.remove();
+  }
+
   return td;
 }
 function walksDots(firstDone, finalDone) {
