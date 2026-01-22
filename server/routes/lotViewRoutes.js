@@ -28,6 +28,7 @@ const ALLOWED_LOT_FIELDS = new Set([
   'status', 'address', 'streetAddress', 'lot', 'block', 'phase', 'jobNumber',
   'listPrice', 'salesPrice', 'salesDate', 'releaseDate', 'listDate',
   'squareFeet', 'sqft', 'notes',
+  'hasViewHomeLink',
   'floorPlan',  // ObjectId -> FloorPlan (guarded)
   'purchaser'   // ObjectId -> Contact   (guarded)
 ]);

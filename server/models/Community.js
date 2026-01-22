@@ -104,6 +104,7 @@ const LotSchema = new Schema({
   salesPrice: { type: Number, set: toNumOrNull, default: null },
 
   // Listing content (scaffold + BuildRootz publish metadata)
+  hasViewHomeLink: { type: Boolean, default: false },
   isPublished:        { type: Boolean, default: false },
   isListed:           { type: Boolean, default: false },
   publishedAt:        { type: Date, default: null },

@@ -129,6 +129,13 @@ export const attachAllControls = ({ communityId, lotId, lot, purchaserContact, p
     });
   });
 
+  const lotHasLink = els.lotHasLink || document.getElementById('lotHasLink');
+  if (lotHasLink) {
+    lotHasLink.addEventListener('change', async (e) => {
+      await saveLotField(communityId, lotId, { hasViewHomeLink: e.target.checked });
+    });
+  }
+
   // 2) Building status: restyle + save + badge
   if (els.buildingStatusSelect) {
     const sel = els.buildingStatusSelect;

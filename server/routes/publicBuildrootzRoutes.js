@@ -398,6 +398,7 @@ router.get(['/maps/:communitySlug/package', '/maps/package'], async (req, res) =
       'lots.jobNumber',
       'lots.floorPlan',
       'lots.floorPlanName',
+      'lots.hasViewHomeLink',
       'lots.listPrice',
       'lots.salesPrice',
       'company'
@@ -468,6 +469,7 @@ router.get(['/maps/:communitySlug/package', '/maps/package'], async (req, res) =
           status,
           address,
           listingUrl,
+          hasViewHomeLink: Boolean(matched?.hasViewHomeLink),
           floorPlanName: planInfo.floorPlanName,
           floorPlanNumber: planInfo.floorPlanNumber,
           squareFeet: planInfo.squareFeet,

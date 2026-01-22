@@ -1188,6 +1188,7 @@ router.post('/:id/lots',
         thirdParty: null, firstWalk: null, finalSignOff: null,
         lender: '',
         closeDateTime: null,
+        hasViewHomeLink: false,
         listPrice: null, salesPrice: null
       };
 

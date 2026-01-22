@@ -45,6 +45,14 @@ export const hasLinkedHomeRecord = (entry) => {
   );
 };
 
+export const hasViewHomeLink = (entry) => {
+  if (!entry) return false;
+  if (entry.hasViewHomeLink === true) return true;
+  if (entry.hasLink === true) return true;
+  if (entry.viewHomeEnabled === true) return true;
+  return false;
+};
+
 export const isSpecHome = (entry) => {
   if (!entry) return false;
   if (entry.isSpec === true) return true;
@@ -74,6 +82,6 @@ if (shouldShowWpUrlHint()) {
 }
 
 // Manual checks:
-// - Select SPEC lot with address "510 Sherwood Drive" => "View Home" visible + opens correct WP URL.
-// - Select SOLD/AVAILABLE lot => "View Home" hidden.
-// - Select SPEC lot with punctuation => slug looks correct.
+// - Select lot with "Has link" checked + address "510 Sherwood Drive" => "View Home" visible + opens correct WP URL.
+// - Select lot without "Has link" => "View Home" hidden.
+// - Select lot with punctuation => slug looks correct.

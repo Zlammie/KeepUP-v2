@@ -259,6 +259,7 @@ export const setInitialFormValues = (lot, primaryEntry) => {
   if (els.releaseDateInput) els.releaseDateInput.value = toDateInputValue(lot.releaseDate);
   if (els.expectedCompletionInput) els.expectedCompletionInput.value = toDateInputValue(lot.expectedCompletionDate);
   if (els.closeMonthInput) els.closeMonthInput.value = lot.closeMonth ?? '';
+  if (els.lotHasLink) els.lotHasLink.checked = Boolean(lot?.hasViewHomeLink);
 
   // ----- Walks (existing)
   if (els.thirdPartyInput) els.thirdPartyInput.value = lot.thirdParty ? toLocalInputDateTime(lot.thirdParty) : '';

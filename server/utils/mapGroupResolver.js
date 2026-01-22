@@ -429,6 +429,7 @@ const buildLayerLots = (links, community, usedRegions, groupSlug, layerKey, floo
       label: lotLabel ? String(lotLabel) : '',
       address,
       listingUrl,
+      hasViewHomeLink: Boolean(matched?.hasViewHomeLink),
       floorPlanName: planInfo.floorPlanName,
       floorPlanNumber: planInfo.floorPlanNumber,
       squareFeet: planInfo.squareFeet,
@@ -462,6 +463,7 @@ const fetchCommunityForLayer = async (communityId) => {
     'lots.jobNumber',
     'lots.floorPlan',
     'lots.floorPlanName',
+    'lots.hasViewHomeLink',
     'lots.listPrice',
     'lots.salesPrice',
     'company'

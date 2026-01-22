@@ -1,7 +1,6 @@
 import {
   buildWpInventoryUrl,
-  hasLinkedHomeRecord,
-  isSpecHome,
+  hasViewHomeLink,
   resolveWpCommunitySlug,
   shouldShowWpUrlHint
 } from '../shared/wpInventory.js';
@@ -566,8 +565,8 @@ import {
   const updateWpLink = (lot) => {
     if (!lotWpLink) return;
     const address = String(lot?.address || '').trim();
-    const hasRecord = hasLinkedHomeRecord(lot);
-    if (!wpCommunitySlug || !address || !hasRecord || !isSpecHome(lot)) {
+    const hasLink = hasViewHomeLink(lot);
+    if (!wpCommunitySlug || !address || !hasLink) {
       lotWpLink.classList.add('is-hidden');
       lotWpLink.dataset.url = '';
       if (lotWpUrl) lotWpUrl.classList.add('is-hidden');
