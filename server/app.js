@@ -280,6 +280,7 @@ app.get('/favicon.ico', (req, res) =>
 app.use('/assets', express.static(path.join(__dirname, '../client/assets')));
 app.use('/uploads', express.static(uploadsDir));
 app.use('/public', express.static(publicDir));
+app.use('/demo', express.static(path.join(publicDir, 'demo')));
 app.set('views', path.join(__dirname, '../client/views'));
 app.set('view engine', 'ejs');
 
