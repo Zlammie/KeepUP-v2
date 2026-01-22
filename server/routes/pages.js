@@ -1085,15 +1085,39 @@ router.get('/address-details', ensureAuth, requireRole('READONLY','USER','MANAGE
 router.get('/listing-details', ensureAuth, requireRole('READONLY','USER','MANAGER','COMPANY_ADMIN','SUPER_ADMIN'),
   async (req, res, next) => {
     try {
-      const { communityId, lotId } = req.query;
-      if (!isId(communityId) || !isId(lotId)) return res.status(400).send('Invalid ID');
-      if (!hasCommunityAccess(req.user, communityId)) return res.status(404).send('Community not found');
+      const rawCommunityId = req.query.communityId;
+      const rawLotId = req.query.lotId;
+      const communityId = isId(rawCommunityId) ? String(rawCommunityId) : null;
+      const lotId = isId(rawLotId) ? String(rawLotId) : null;
+      if (!lotId) return res.status(400).send('Invalid lot ID');
 
-      const community = await Community.findOne({ _id: communityId, ...base(req) })
-        .select('name city state lots buildrootz')
-        .populate('lots.floorPlan', 'name planNumber specs.squareFeet specs.beds specs.baths specs.garage asset elevations')
-        .lean();
-      if (!community) return res.status(404).send('Community not found');
+      const findCommunityById = async (id) => (
+        Community.findOne({ _id: id, ...base(req) })
+          .select('name city state lots buildrootz')
+          .populate('lots.floorPlan', 'name planNumber specs.squareFeet specs.beds specs.baths specs.garage asset elevations')
+          .lean()
+      );
+      const findCommunityByLot = async (id) => (
+        Community.findOne({ ...base(req), 'lots._id': id })
+          .select('name city state lots buildrootz')
+          .populate('lots.floorPlan', 'name planNumber specs.squareFeet specs.beds specs.baths specs.garage asset elevations')
+          .lean()
+      );
+
+      let community = null;
+      if (communityId) {
+        if (!hasCommunityAccess(req.user, communityId)) {
+          return res.status(404).send('Community not found');
+        }
+        community = await findCommunityById(communityId);
+      }
+      if (!community) {
+        community = await findCommunityByLot(lotId);
+        if (!community) return res.status(404).send('Lot not found');
+        if (!hasCommunityAccess(req.user, community._id)) {
+          return res.status(404).send('Community not found');
+        }
+      }
 
       const lot = (community.lots || []).find((l) => l && String(l._id) === String(lotId));
       if (!lot) return res.status(404).send('Lot not found');

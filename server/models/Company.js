@@ -27,6 +27,31 @@ const BuildrootzProfileSchema = new Schema({
   publishedAt: { type: Date, default: null }
 }, { _id: false });
 
+const FeatureStatusEnum = ['inactive', 'pending', 'trial', 'active'];
+
+const BuildrootzFeatureSchema = new Schema({
+  enabled: { type: Boolean, default: false },
+  status: { type: String, enum: FeatureStatusEnum, default: 'inactive' }
+}, { _id: false });
+
+const WebsiteMapFeatureSchema = new Schema({
+  enabled: { type: Boolean, default: false }
+}, { _id: false });
+
+const WebsiteMapEntitlementSchema = new Schema({
+  freeCommunitySetups: { type: Number, default: 0 },
+  trialDaysOverride: { type: Number, default: null }
+}, { _id: false });
+
+const EntitlementsSchema = new Schema({
+  websiteMap: { type: WebsiteMapEntitlementSchema, default: () => ({}) }
+}, { _id: false });
+
+const FeatureSchema = new Schema({
+  buildrootz: { type: BuildrootzFeatureSchema, default: () => ({}) },
+  websiteMap: { type: WebsiteMapFeatureSchema, default: () => ({}) }
+}, { _id: false });
+
 const SettingsSchema = new Schema({
   timezone: { type: String, default: 'America/Chicago' },
   locale:   { type: String, default: 'en-US' },
@@ -51,6 +76,8 @@ const CompanySchema = new Schema({
 
   // Billing hooks (fill in when/if you adopt a provider)
   billingCustomerId: { type: String, default: null },
+  features: { type: FeatureSchema, default: () => ({}) },
+  entitlements: { type: EntitlementsSchema, default: () => ({}) },
 
   // Company profile + admin-only notes
   address: { type: AddressSchema, default: () => ({}) },

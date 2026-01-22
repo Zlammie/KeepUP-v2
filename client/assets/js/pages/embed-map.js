@@ -1,3 +1,11 @@
+import {
+  buildWpInventoryUrl,
+  hasLinkedHomeRecord,
+  isSpecHome,
+  resolveWpCommunitySlug,
+  shouldShowWpUrlHint
+} from '../shared/wpInventory.js';
+
 (() => {
   const root = document.getElementById('embed-root');
   const statusEl = document.getElementById('embed-status');
@@ -5,8 +13,13 @@
   const overlayEl = document.getElementById('map-overlay');
   const bgImg = document.getElementById('map-bg');
   const stageEl = document.getElementById('map-stage');
+  const frameEl = document.getElementById('map-frame');
   const styleToggleEl = document.getElementById('map-style-toggle');
   const styleNonce = root?.dataset?.cspNonce || '';
+  const zoomInBtn = frameEl?.querySelector('[data-zoom="in"]');
+  const zoomOutBtn = frameEl?.querySelector('[data-zoom="out"]');
+  const zoomResetBtn = frameEl?.querySelector('[data-zoom="reset"]');
+  const zoomLabel = frameEl?.querySelector('[data-zoom="label"]');
 
   const lotTitle = document.getElementById('lot-title');
   const lotStatus = document.getElementById('lot-status');
@@ -22,14 +35,45 @@
   const lotEmpty = document.getElementById('lot-empty');
   const lotDetails = document.getElementById('lot-details');
   const lotLink = document.getElementById('lot-link');
+  const lotWpLink = document.getElementById('lot-wp-link');
+  const lotWpUrl = document.getElementById('lot-wp-url');
 
   const MAX_ADDRESS_LABELS = 400;
+  const MIN_SCALE = 0.5;
+  const MAX_SCALE = 3;
+  const ZOOM_STEP = 0.2;
+  const DRAG_THRESHOLD = 6;
 
   let activeShape = null;
   let styleMode = 'plan';
   const planClasses = new Set();
   const paletteStyleId = 'embed-plan-palette-style';
   let planPalette = {};
+  const viewState = {
+    scale: 1,
+    translateX: 0,
+    translateY: 0,
+    baseWidth: 0,
+    baseHeight: 0,
+    fitScale: 1,
+    hasInitialView: false,
+    isDragging: false,
+    dragStart: null,
+    dragOrigin: null,
+    suppressClick: false,
+    pointers: new Map(),
+    pinchStart: null,
+    frame: {
+      left: 0,
+      top: 0,
+      width: 0,
+      height: 0,
+      paddingLeft: 0,
+      paddingTop: 0,
+      paddingRight: 0,
+      paddingBottom: 0
+    }
+  };
 
   const PLAN_PALETTE = [
     '#2f9e44',
@@ -91,6 +135,10 @@
     if (mapIndex > -1 && parts[mapIndex + 1]) return parts[mapIndex + 1];
     return '';
   };
+
+  // wpCommunitySlug priority: ?wpCommunitySlug= override, otherwise community slug.
+  const wpCommunitySlug = resolveWpCommunitySlug(getCommunitySlug());
+  const showWpUrlHint = shouldShowWpUrlHint();
 
   const normalizeStatus = (value) => {
     const raw = String(value || '').trim().toLowerCase();
@@ -226,6 +274,266 @@
       btn.classList.toggle('is-active', isActive);
     });
   };
+
+  const updateZoomLabel = () => {
+    if (!zoomLabel) return;
+    zoomLabel.textContent = `${Math.round(viewState.scale * 100)}%`;
+  };
+
+  const updateFrameMetrics = () => {
+    if (!frameEl) return;
+    const rect = frameEl.getBoundingClientRect();
+    const styles = window.getComputedStyle(frameEl);
+    const paddingLeft = Number.parseFloat(styles.paddingLeft) || 0;
+    const paddingTop = Number.parseFloat(styles.paddingTop) || 0;
+    const paddingRight = Number.parseFloat(styles.paddingRight) || 0;
+    const paddingBottom = Number.parseFloat(styles.paddingBottom) || 0;
+    viewState.frame.left = rect.left;
+    viewState.frame.top = rect.top;
+    viewState.frame.width = rect.width - paddingLeft - paddingRight;
+    viewState.frame.height = rect.height - paddingTop - paddingBottom;
+    viewState.frame.paddingLeft = paddingLeft;
+    viewState.frame.paddingTop = paddingTop;
+    viewState.frame.paddingRight = paddingRight;
+    viewState.frame.paddingBottom = paddingBottom;
+  };
+
+  const clampScale = (value) => Math.min(MAX_SCALE, Math.max(MIN_SCALE, value));
+
+  const clampTranslate = () => {
+    if (!frameEl || !viewState.baseWidth || !viewState.baseHeight) return;
+    const frameWidth = viewState.frame.width;
+    const frameHeight = viewState.frame.height;
+    const scaledWidth = viewState.baseWidth * viewState.scale;
+    const scaledHeight = viewState.baseHeight * viewState.scale;
+
+    if (scaledWidth <= frameWidth) {
+      viewState.translateX = (frameWidth - scaledWidth) / 2;
+    } else {
+      const minX = frameWidth - scaledWidth;
+      viewState.translateX = Math.min(0, Math.max(minX, viewState.translateX));
+    }
+
+    if (scaledHeight <= frameHeight) {
+      viewState.translateY = (frameHeight - scaledHeight) / 2;
+    } else {
+      const minY = frameHeight - scaledHeight;
+      viewState.translateY = Math.min(0, Math.max(minY, viewState.translateY));
+    }
+  };
+
+  const applyTransform = () => {
+    if (!stageEl) return;
+    const scale = Number.isFinite(viewState.scale) ? viewState.scale : 1;
+    const translateX = Number.isFinite(viewState.translateX) ? viewState.translateX : 0;
+    const translateY = Number.isFinite(viewState.translateY) ? viewState.translateY : 0;
+    stageEl.style.setProperty('--map-scale', scale.toFixed(3));
+    stageEl.style.setProperty('--map-translate-x', `${Math.round(translateX)}px`);
+    stageEl.style.setProperty('--map-translate-y', `${Math.round(translateY)}px`);
+    updateZoomLabel();
+  };
+
+  const sharpenMap = () => {
+    if (!stageEl) return;
+    stageEl.style.transform = 'translateZ(0)';
+    window.requestAnimationFrame(() => {
+      stageEl.style.transform = '';
+    });
+  };
+
+  const updateBounds = () => {
+    if (!stageEl || !frameEl) return false;
+    updateFrameMetrics();
+    const baseWidth = stageEl.offsetWidth;
+    const baseHeight = stageEl.offsetHeight;
+    if (!baseWidth || !baseHeight) return false;
+    viewState.baseWidth = baseWidth;
+    viewState.baseHeight = baseHeight;
+    const fitScale = Math.min(
+      viewState.frame.width / baseWidth,
+      viewState.frame.height / baseHeight,
+      1
+    );
+    viewState.fitScale = Number.isFinite(fitScale) && fitScale > 0 ? fitScale : 1;
+    return true;
+  };
+
+  const getFrameCenter = () => ({
+    x: viewState.frame.width / 2,
+    y: viewState.frame.height / 2
+  });
+
+  const getFramePoint = (event) => ({
+    x: event.clientX - viewState.frame.left - viewState.frame.paddingLeft,
+    y: event.clientY - viewState.frame.top - viewState.frame.paddingTop
+  });
+
+  const zoomToPoint = (nextScale, center, baseScale = viewState.scale, baseX = viewState.translateX, baseY = viewState.translateY) => {
+    const scale = clampScale(nextScale);
+    const worldX = (center.x - baseX) / baseScale;
+    const worldY = (center.y - baseY) / baseScale;
+    viewState.scale = scale;
+    viewState.translateX = center.x - (worldX * scale);
+    viewState.translateY = center.y - (worldY * scale);
+    clampTranslate();
+    applyTransform();
+  };
+
+  const resetView = (force = false) => {
+    if (!updateBounds()) return;
+    if (!force && viewState.hasInitialView) {
+      clampTranslate();
+      applyTransform();
+      return;
+    }
+    viewState.scale = viewState.fitScale;
+    viewState.translateX = 0;
+    viewState.translateY = 0;
+    clampTranslate();
+    applyTransform();
+    viewState.hasInitialView = true;
+  };
+
+  const initPanZoom = () => {
+    if (!frameEl || !stageEl) return;
+    if (updateBounds()) {
+      clampTranslate();
+      applyTransform();
+    }
+
+    const handlePointerDown = (event) => {
+      if (event.button && event.button !== 0) return;
+      if (event.target.closest('.embed-map-zoom')) return;
+      updateFrameMetrics();
+      const point = getFramePoint(event);
+      viewState.pointers.set(event.pointerId, point);
+
+      if (viewState.pointers.size === 1) {
+        viewState.isDragging = false;
+        viewState.dragStart = point;
+        viewState.dragOrigin = {
+          x: viewState.translateX,
+          y: viewState.translateY
+        };
+      }
+
+      if (viewState.pointers.size === 2) {
+        const points = Array.from(viewState.pointers.values());
+        const [p1, p2] = points;
+        const distance = Math.hypot(p2.x - p1.x, p2.y - p1.y);
+        const center = { x: (p1.x + p2.x) / 2, y: (p1.y + p2.y) / 2 };
+        viewState.pinchStart = {
+          distance,
+          center,
+          scale: viewState.scale,
+          translateX: viewState.translateX,
+          translateY: viewState.translateY
+        };
+      }
+    };
+
+    const handlePointerMove = (event) => {
+      if (!viewState.pointers.has(event.pointerId)) return;
+      const point = getFramePoint(event);
+      viewState.pointers.set(event.pointerId, point);
+
+      if (viewState.pointers.size === 2 && viewState.pinchStart) {
+        event.preventDefault();
+        const points = Array.from(viewState.pointers.values());
+        const [p1, p2] = points;
+        const distance = Math.hypot(p2.x - p1.x, p2.y - p1.y);
+        if (viewState.pinchStart.distance > 0) {
+          const scale = viewState.pinchStart.scale * (distance / viewState.pinchStart.distance);
+          const center = { x: (p1.x + p2.x) / 2, y: (p1.y + p2.y) / 2 };
+          zoomToPoint(
+            scale,
+            center,
+            viewState.pinchStart.scale,
+            viewState.pinchStart.translateX,
+            viewState.pinchStart.translateY
+          );
+        }
+        return;
+      }
+
+      if (!viewState.dragStart || !viewState.dragOrigin) return;
+      const dx = point.x - viewState.dragStart.x;
+      const dy = point.y - viewState.dragStart.y;
+      if (!viewState.isDragging && Math.hypot(dx, dy) > DRAG_THRESHOLD) {
+        viewState.isDragging = true;
+        viewState.suppressClick = true;
+        frameEl.classList.add('is-dragging');
+      }
+
+      if (viewState.isDragging) {
+        event.preventDefault();
+        viewState.translateX = viewState.dragOrigin.x + dx;
+        viewState.translateY = viewState.dragOrigin.y + dy;
+        clampTranslate();
+        applyTransform();
+      }
+    };
+
+    const handlePointerUp = (event) => {
+      if (viewState.pointers.has(event.pointerId)) {
+        viewState.pointers.delete(event.pointerId);
+      }
+      if (viewState.pointers.size < 2) {
+        viewState.pinchStart = null;
+      }
+      if (viewState.pointers.size === 1) {
+        const remaining = Array.from(viewState.pointers.values())[0];
+        viewState.isDragging = false;
+        viewState.dragStart = remaining;
+        viewState.dragOrigin = {
+          x: viewState.translateX,
+          y: viewState.translateY
+        };
+        frameEl.classList.remove('is-dragging');
+      }
+      if (viewState.pointers.size === 0) {
+        viewState.isDragging = false;
+        viewState.dragStart = null;
+        viewState.dragOrigin = null;
+        frameEl.classList.remove('is-dragging');
+        sharpenMap();
+      }
+    };
+
+    frameEl.addEventListener('pointerdown', handlePointerDown);
+    frameEl.addEventListener('pointermove', handlePointerMove);
+    frameEl.addEventListener('pointerup', handlePointerUp);
+    frameEl.addEventListener('pointercancel', handlePointerUp);
+    frameEl.addEventListener('pointerleave', handlePointerUp);
+    frameEl.addEventListener('click', (event) => {
+      if (!viewState.suppressClick) return;
+      if (event.target.closest('.embed-map-zoom')) {
+        viewState.suppressClick = false;
+        return;
+      }
+      event.preventDefault();
+      event.stopPropagation();
+      viewState.suppressClick = false;
+    });
+
+    zoomInBtn?.addEventListener('click', () => {
+      if (!updateBounds()) return;
+      zoomToPoint(viewState.scale + ZOOM_STEP, getFrameCenter());
+      sharpenMap();
+    });
+    zoomOutBtn?.addEventListener('click', () => {
+      if (!updateBounds()) return;
+      zoomToPoint(viewState.scale - ZOOM_STEP, getFrameCenter());
+      sharpenMap();
+    });
+    zoomResetBtn?.addEventListener('click', () => resetView(true));
+
+    window.addEventListener('resize', () => {
+      if (!updateBounds()) return;
+      clampTranslate();
+      applyTransform();
+    });
+  };
   const formatNumber = (value) => (
     Number.isFinite(value) ? new Intl.NumberFormat('en-US').format(value) : '-'
   );
@@ -251,6 +559,37 @@
     if (lotEmpty) lotEmpty.classList.remove('is-hidden');
     if (lotDetails) lotDetails.classList.add('is-hidden');
     if (lotLink) lotLink.classList.add('is-hidden');
+    if (lotWpLink) lotWpLink.classList.add('is-hidden');
+    if (lotWpUrl) lotWpUrl.classList.add('is-hidden');
+  };
+
+  const updateWpLink = (lot) => {
+    if (!lotWpLink) return;
+    const address = String(lot?.address || '').trim();
+    const hasRecord = hasLinkedHomeRecord(lot);
+    if (!wpCommunitySlug || !address || !hasRecord || !isSpecHome(lot)) {
+      lotWpLink.classList.add('is-hidden');
+      lotWpLink.dataset.url = '';
+      if (lotWpUrl) lotWpUrl.classList.add('is-hidden');
+      return;
+    }
+    const url = buildWpInventoryUrl({ wpCommunitySlug, address });
+    if (!url) {
+      lotWpLink.classList.add('is-hidden');
+      lotWpLink.dataset.url = '';
+      if (lotWpUrl) lotWpUrl.classList.add('is-hidden');
+      return;
+    }
+    lotWpLink.dataset.url = url;
+    lotWpLink.classList.remove('is-hidden');
+    if (lotWpUrl) {
+      if (showWpUrlHint) {
+        lotWpUrl.textContent = url;
+        lotWpUrl.classList.remove('is-hidden');
+      } else {
+        lotWpUrl.classList.add('is-hidden');
+      }
+    }
   };
 
   const renderLotPanel = (lot) => {
@@ -287,6 +626,8 @@
         lotLink.classList.add('is-hidden');
       }
     }
+
+    updateWpLink(lot);
   };
 
   const normalizeSvgViewport = (svgEl) => {
@@ -383,6 +724,10 @@
 
       shape.addEventListener('click', (event) => {
         event.preventDefault();
+        if (viewState.suppressClick) {
+          viewState.suppressClick = false;
+          return;
+        }
         if (activeShape && activeShape !== shape) activeShape.classList.remove('lot-selected');
         activeShape = shape;
         shape.classList.add('lot-selected');
@@ -438,6 +783,7 @@
           bgImg.src = backgroundUrl;
           bgImg.classList.remove('is-hidden');
           stageEl?.classList.remove('no-bg');
+          bgImg.addEventListener('load', () => resetView(), { once: true });
         } else {
           bgImg.classList.add('is-hidden');
           stageEl?.classList.add('no-bg');
@@ -456,6 +802,7 @@
       );
       const svgText = await loadOverlay(overlayUrl);
       bindOverlay(svgText, lotsByRegion);
+      resetView();
       setStatus('Ready');
       showEmptyPanel('Select a lot');
     } catch (err) {
@@ -473,6 +820,14 @@
     applyStyleMode(mode);
   });
 
+  lotWpLink?.addEventListener('click', (event) => {
+    const url = lotWpLink.dataset.url;
+    if (!url) return;
+    event.preventDefault();
+    window.open(url, '_blank', 'noopener,noreferrer');
+  });
+
   applyStyleMode('plan');
+  initPanZoom();
   init();
 })();

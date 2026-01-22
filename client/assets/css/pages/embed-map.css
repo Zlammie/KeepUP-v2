@@ -8,21 +8,30 @@
   --lot-default: #e5e7eb;
   --lot-available: #22c55e;
   --lot-sold: #9ca3af;
-  --lot-closed: #6b7280;
-  --lot-hold: #f97316;
+  --lot-closed: #9ca3af;
+  --lot-hold: #7c3aed;
   --lot-model: #0ea5e9;
-  --lot-spec: #a855f7;
-  --lot-coming-soon: #eab308;
+  --lot-spec: #f4c430;
+  --lot-coming-soon: #d1d5db;
+}
+
+html,
+body {
+  height: 100%;
 }
 
 .embed-map-page {
   color: var(--embed-ink);
+  height: 100%;
+  overflow: hidden;
 }
 
 .embed-map-shell {
-  min-height: 100vh;
+  min-height: 100%;
+  height: 100%;
   display: flex;
   flex-direction: column;
+  overflow: hidden;
 }
 
 .embed-map-header {
@@ -144,6 +153,7 @@
 .embed-map-canvas {
   flex: 1;
   min-width: 0;
+  min-height: 0;
   border: 1px solid var(--embed-border);
   border-radius: 14px;
   background: var(--embed-canvas-bg);
@@ -156,6 +166,7 @@
   overflow: auto;
   padding: 0.5rem;
   position: relative;
+  min-height: 0;
 }
 
 .embed-map-empty {
@@ -184,6 +195,77 @@
   overflow: hidden;
   box-shadow: 0 12px 24px rgba(15, 23, 42, 0.08);
   background: #fff;
+}
+
+.embed-map-interactive .embed-map-frame {
+  overflow: hidden;
+  touch-action: none;
+}
+
+.embed-map-interactive .embed-map-stage {
+  transform: translate(var(--map-translate-x, 0px), var(--map-translate-y, 0px)) scale(var(--map-scale, 1));
+  transform-origin: 0 0;
+  touch-action: none;
+  cursor: grab;
+  user-select: none;
+}
+
+.embed-map-interactive .embed-map-frame.is-dragging .embed-map-stage {
+  cursor: grabbing;
+}
+
+.embed-map-interactive .embed-map-zoom {
+  position: absolute;
+  top: 0.75rem;
+  right: 0.75rem;
+  display: grid;
+  gap: 0.35rem;
+  padding: 0.4rem;
+  border-radius: 12px;
+  border: 1px solid var(--embed-border);
+  background: rgba(255, 255, 255, 0.9);
+  z-index: 5;
+  box-shadow: 0 10px 20px rgba(15, 23, 42, 0.12);
+}
+
+.embed-map-interactive .zoom-btn {
+  border: 1px solid var(--embed-border);
+  background: #fff;
+  color: var(--embed-ink);
+  border-radius: 10px;
+  padding: 0.3rem 0.6rem;
+  font-size: 0.8rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background 0.2s ease, border-color 0.2s ease;
+}
+
+.embed-map-interactive .zoom-btn:hover {
+  background: #f3f4f6;
+}
+
+.embed-map-interactive .zoom-reset {
+  font-size: 0.7rem;
+}
+
+.embed-map-interactive .zoom-label {
+  font-size: 0.7rem;
+  text-align: center;
+  color: var(--embed-muted);
+}
+
+.embed-map-interactive .embed-map-gesture {
+  position: absolute;
+  left: 0.9rem;
+  bottom: 0.8rem;
+  font-size: 0.7rem;
+  color: var(--embed-muted);
+  background: rgba(255, 255, 255, 0.8);
+  padding: 0.2rem 0.5rem;
+  border-radius: 999px;
+  border: 1px solid var(--embed-border);
+  pointer-events: none;
+  z-index: 4;
 }
 
 .map-bg {
@@ -235,6 +317,10 @@
   stroke: none;
 }
 
+.map-overlay .lot-address-label.is-hidden {
+  display: none;
+}
+
 .map-overlay .lot-address-label--vertical {
   letter-spacing: 0.04em;
 }
@@ -282,8 +368,8 @@
 }
 
 .embed-map-panel {
-  width: 230px;
-  min-width: 200px;
+  width: 180px;
+  min-width: 150px;
   border: 1px solid var(--embed-border);
   border-radius: 14px;
   background: var(--embed-panel-bg);
@@ -291,6 +377,8 @@
   flex-direction: column;
   padding: 0.75rem;
   gap: 0.75rem;
+  max-height: 100%;
+  overflow: hidden;
 }
 
 .panel-header {
@@ -415,6 +503,10 @@
 .legend-swatch--sold { background: var(--lot-sold); }
 .legend-swatch--closed { background: var(--lot-closed); }
 
+.legend-item--closed {
+  display: none;
+}
+
 .embed-map-button {
   display: inline-flex;
   align-items: center;
@@ -429,6 +521,10 @@
   transition: transform 0.2s ease, box-shadow 0.2s ease;
 }
 
+.embed-map-button--wp {
+  background: #5aaa3c;
+}
+
 .embed-map-button.is-hidden {
   display: none;
 }
@@ -438,7 +534,13 @@
   box-shadow: 0 10px 20px rgba(15, 23, 42, 0.2);
 }
 
-@media (max-width: 900px) {
+.embed-map-url-hint {
+  font-size: 0.7rem;
+  color: var(--embed-muted);
+  word-break: break-all;
+}
+
+@media (max-width: 720px) {
   .embed-map-body {
     flex-direction: column;
   }
@@ -452,7 +554,7 @@
   }
 }
 
-@media (max-width: 600px) {
+@media (max-width: 520px) {
   .embed-map-header {
     flex-direction: column;
     align-items: flex-start;

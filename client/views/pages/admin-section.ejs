@@ -447,11 +447,11 @@
 
             <div class="col-12">
               <h3 class="h6 text-uppercase text-muted mb-2">Seats</h3>
-              <div class="row g-3 align-items-end">
+              <div class="row g-3 align-items-start">
                 <div class="col-md-3">
                   <label for="seatsPurchased" class="form-label">Seats Purchased</label>
-                  <input type="number" id="seatsPurchased" name="seatsPurchased" class="form-control" min="1" value="10" />
-                  <div class="form-text">Adjust to request more seats for your team.</div>
+                  <input type="number" id="seatsPurchased" name="seatsPurchased" class="form-control" min="1" value="10" readonly />
+                  <div class="form-text">Managed by the KeepUp team.</div>
                 </div>
                 <div class="col-md-3">
                   <label for="seatsUsed" class="form-label">Seats Used</label>
@@ -461,28 +461,119 @@
             </div>
 
             <div class="col-12">
-              <h3 class="h6 text-uppercase text-muted mb-2">Extra Services</h3>
+              <h3 class="h6 text-uppercase text-muted mb-2">Current Usage &amp; Estimated Cost</h3>
+              <div class="card shadow-sm billing-summary-card">
+                <div class="card-body p-3">
+                  <div class="table-responsive">
+                    <table class="table table-sm align-middle mb-2" id="billing-summary-table">
+                      <thead class="table-light">
+                        <tr>
+                          <th scope="col">Product</th>
+                          <th scope="col">Scope</th>
+                          <th scope="col">Quantity</th>
+                          <th scope="col" class="text-end">Estimated Monthly</th>
+                        </tr>
+                      </thead>
+                      <tbody id="billing-summary-body">
+                        <tr>
+                          <td colspan="4" class="text-center text-muted">Loading usage...</td>
+                        </tr>
+                      </tbody>
+                    </table>
+                  </div>
+                  <div class="d-flex align-items-center justify-content-between flex-wrap gap-2">
+                    <span class="fw-semibold">Estimated Monthly Total: <span id="billing-summary-total">$0</span></span>
+                    <span class="small text-muted">Billing is managed by the KeepUp team.</span>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <div class="col-12">
+              <h3 class="h6 text-uppercase text-muted mb-2">Products &amp; Add-Ons</h3>
               <div class="row g-3">
                 <div class="col-md-4">
-                  <div class="form-check form-switch">
-                    <input class="form-check-input" type="checkbox" id="serviceAnalytics" name="services[analytics]" />
-                    <label class="form-check-label" for="serviceAnalytics">Advanced Analytics</label>
+                  <div class="product-card h-100">
+                    <div class="d-flex align-items-start justify-content-between gap-3">
+                      <div>
+                        <div class="fw-semibold">Buildrootz</div>
+                        <div class="form-text">Publish listings and updates to Buildrootz.</div>
+                        <div class="small text-muted">Scope: Company</div>
+                      </div>
+                      <div class="form-check form-switch status-toggle" title="Managed by the KeepUp team">
+                        <input class="form-check-input" type="checkbox" id="buildrootzStatusToggle" disabled aria-label="Buildrootz status" title="Managed by the KeepUp team" />
+                      </div>
+                    </div>
+                    <div class="d-flex align-items-center justify-content-between flex-wrap gap-2 mt-3">
+                      <span class="fw-semibold">$99 / month</span>
+                      <span class="badge bg-secondary" id="buildrootzStatusBadge">Not enabled</span>
+                    </div>
+                    <div class="service-detail">
+                      <p class="mb-2 small text-muted">Buildrootz listings keep your communities visible in their buyer network.</p>
+                      <div class="d-flex align-items-center justify-content-between gap-2 flex-wrap">
+                        <button type="button" class="btn btn-sm btn-outline-primary" id="buildrootzRequestButton">Request activation</button>
+                        <span class="small text-muted" id="buildrootzRequestStatus"></span>
+                      </div>
+                    </div>
                   </div>
-                  <div class="form-text">Deeper reporting across communities.</div>
                 </div>
                 <div class="col-md-4">
-                  <div class="form-check form-switch">
-                    <input class="form-check-input" type="checkbox" id="serviceOnboarding" name="services[onboarding]" checked />
-                    <label class="form-check-label" for="serviceOnboarding">Onboarding Support</label>
+                  <div class="product-card h-100">
+                    <div class="d-flex align-items-start justify-content-between gap-3">
+                      <div>
+                        <div class="fw-semibold">Website Map</div>
+                        <div class="form-text">Generate a sitemap and navigation update bundle. Licensed per community.</div>
+                        <div class="small text-muted">Scope: Per community</div>
+                      </div>
+                      <div class="form-check form-switch status-toggle" title="Managed by the KeepUp team">
+                        <input class="form-check-input" type="checkbox" id="websiteMapStatusToggle" disabled aria-label="Website Map status" title="Managed by the KeepUp team" />
+                      </div>
+                    </div>
+                    <div class="d-flex align-items-center justify-content-between flex-wrap gap-2 mt-3">
+                      <span class="fw-semibold">$125 / community / month</span>
+                      <span class="badge bg-secondary" id="websiteMapStatusBadge">Not enabled</span>
+                    </div>
+                    <div class="service-detail">
+                      <p class="mb-2 small text-muted">Website Map keeps your customer-facing pages and layouts in sync.</p>
+                      <div class="d-flex align-items-center justify-content-between gap-2 flex-wrap">
+                        <button type="button" class="btn btn-sm btn-outline-primary" id="websiteMapRequestButton">Request activation</button>
+                        <span class="small text-muted" id="websiteMapRequestStatus"></span>
+                      </div>
+                    </div>
                   </div>
-                  <div class="form-text">Dedicated launch assistance for new hires.</div>
                 </div>
-                <div class="col-md-4">
-                  <div class="form-check form-switch">
-                    <input class="form-check-input" type="checkbox" id="serviceIntegrations" name="services[integrations]" />
-                    <label class="form-check-label" for="serviceIntegrations">CRM Integrations</label>
+                <div class="col-12 d-none" id="websiteMapPanel">
+                  <div class="card shadow-sm">
+                    <div class="card-body">
+                      <div class="d-flex align-items-start justify-content-between gap-3">
+                        <div>
+                          <h4 class="h6 mb-1">Website Map Activation</h4>
+                          <p class="text-muted mb-0">
+                            Select communities to start trials or request activation. Managed by the KeepUp team.
+                          </p>
+                        </div>
+                        <button type="button" class="btn-close" id="websiteMapPanelClose" aria-label="Close"></button>
+                      </div>
+                      <div class="small text-muted mt-2" id="websiteMapPanelStatus"></div>
+                      <div class="table-responsive mt-3">
+                        <table class="table table-sm align-middle mb-0">
+                          <thead class="table-light">
+                            <tr>
+                              <th scope="col">Community</th>
+                              <th scope="col">Status</th>
+                              <th scope="col">Trial Remaining</th>
+                              <th scope="col" class="text-end">Action</th>
+                            </tr>
+                          </thead>
+                          <tbody id="websiteMapCommunityTable">
+                            <tr>
+                              <td colspan="4" class="text-center text-muted">Loading communities...</td>
+                            </tr>
+                          </tbody>
+                        </table>
+                      </div>
+                    </div>
                   </div>
-                  <div class="form-text">Sync KeepUP with your CRM stack.</div>
                 </div>
               </div>
             </div>
@@ -563,6 +654,7 @@
       const permissions = <%- JSON.stringify(permissions || {}) %>;
       const canEditCompany = !!(permissions && permissions.canEditCompany);
       const canManageUsers = !!(permissions && permissions.canManageUsers);
+      const canManageBilling = canEditCompany;
 
       const state = {
         loadedPanels: new Set(),
@@ -574,6 +666,10 @@
         buildrootz: {
           loading: false,
           saving: false,
+          data: null
+        },
+        billing: {
+          loading: false,
           data: null
         },
         users: {
@@ -652,6 +748,8 @@
       };
       const companyViewOnlyMessage =
         'Company settings are view-only for Manager accounts. Contact a Company Admin to make changes.';
+      const billingViewOnlyMessage =
+        'Billing access is view-only for Manager accounts. Contact a Company Admin to request activation.';
 
       const buildrootzEls = {
         form: document.getElementById('buildrootz-form'),
@@ -664,6 +762,23 @@
         discard: document.getElementById('buildrootz-discard'),
         logoPreview: document.getElementById('buildrootzLogoPreview'),
         logoPreviewWrapper: document.getElementById('buildrootzLogoPreviewWrapper')
+      };
+
+      const billingEls = {
+        summaryBody: document.getElementById('billing-summary-body'),
+        summaryTotal: document.getElementById('billing-summary-total'),
+        buildrootzStatusBadge: document.getElementById('buildrootzStatusBadge'),
+        buildrootzToggle: document.getElementById('buildrootzStatusToggle'),
+        buildrootzRequestButton: document.getElementById('buildrootzRequestButton'),
+        buildrootzRequestStatus: document.getElementById('buildrootzRequestStatus'),
+        websiteMapStatusBadge: document.getElementById('websiteMapStatusBadge'),
+        websiteMapToggle: document.getElementById('websiteMapStatusToggle'),
+        websiteMapRequestButton: document.getElementById('websiteMapRequestButton'),
+        websiteMapRequestStatus: document.getElementById('websiteMapRequestStatus'),
+        websiteMapPanel: document.getElementById('websiteMapPanel'),
+        websiteMapPanelClose: document.getElementById('websiteMapPanelClose'),
+        websiteMapPanelStatus: document.getElementById('websiteMapPanelStatus'),
+        websiteMapCommunityTable: document.getElementById('websiteMapCommunityTable')
       };
 
       if (companyForm && !canEditCompany) {
@@ -717,6 +832,26 @@
         }
         return raw;
       };
+
+      const PRICING = {
+        buildrootzMonthly: 99,
+        websiteMapMonthlyPerCommunity: 125
+      };
+
+      const statusMeta = {
+        inactive: { label: 'Not enabled', badgeClass: 'bg-secondary' },
+        pending: { label: 'Pending activation', badgeClass: 'bg-warning text-dark' },
+        trial: { label: 'Trial', badgeClass: 'bg-info text-dark' },
+        active: { label: 'Active', badgeClass: 'bg-success' }
+      };
+
+      const currencyFormatter = new Intl.NumberFormat('en-US', {
+        style: 'currency',
+        currency: 'USD',
+        maximumFractionDigits: 0
+      });
+
+      const formatCurrency = (value) => currencyFormatter.format(Number(value || 0));
 
       const setCompanyStatus = (message, tone = 'muted') => {
         if (!companyStatusEl) return;
@@ -827,6 +962,438 @@
           throw new Error(message);
         }
         return data;
+      };
+
+      const fetchBillingOverview = async () => {
+        const response = await fetch('/api/admin/billing/overview', {
+          headers: { Accept: 'application/json' },
+          credentials: 'same-origin'
+        });
+        const data = await readJsonResponse(response);
+        if (!response.ok) {
+          const message = data?.error || `Request failed (${response.status})`;
+          throw new Error(message);
+        }
+        return data;
+      };
+
+      const setStatusBadge = (element, status) => {
+        if (!element) return;
+        const meta = statusMeta[status] || statusMeta.inactive;
+        element.textContent = meta.label;
+        element.className = `badge ${meta.badgeClass}`;
+      };
+
+      const setStatusToggle = (element, status) => {
+        if (!element) return;
+        element.checked = status === 'active' || status === 'trial';
+      };
+
+      const setBillingStatusMessage = (element, message, tone = 'muted') => {
+        if (!element) return;
+        element.textContent = message || '';
+        element.classList.remove('text-muted', 'text-success', 'text-danger');
+        element.classList.add('small');
+        if (!message) {
+          element.classList.add('text-muted');
+          return;
+        }
+        const toneClass = tone === 'success' ? 'text-success' : tone === 'danger' ? 'text-danger' : 'text-muted';
+        element.classList.add(toneClass);
+      };
+
+      const getWebsiteMapCardStatus = (payload) => {
+        const communities = Array.isArray(payload?.communities) ? payload.communities : [];
+        const hasActive = communities.some((community) => community.websiteMap?.status === 'active');
+        if (hasActive) return 'active';
+        const hasTrial = communities.some((community) => community.websiteMap?.status === 'trial');
+        if (hasTrial) return 'trial';
+        const hasPending = communities.some((community) => community.pendingRequest);
+        if (hasPending) return 'pending';
+        return 'inactive';
+      };
+
+      const getTrialDaysRemaining = (trialEndsAt, now) => {
+        if (!trialEndsAt) return null;
+        const end = new Date(trialEndsAt);
+        if (Number.isNaN(end.getTime())) return null;
+        const diffMs = end.getTime() - now.getTime();
+        return Math.ceil(diffMs / (24 * 60 * 60 * 1000));
+      };
+
+      const renderBillingSummary = () => {
+        if (!billingEls.summaryBody || !billingEls.summaryTotal) return;
+        if (!state.billing.data) {
+          billingEls.summaryBody.innerHTML = `
+            <tr>
+              <td colspan="4" class="text-center text-muted">Loading usage...</td>
+            </tr>
+          `;
+          billingEls.summaryTotal.textContent = formatCurrency(0);
+          return;
+        }
+
+        const payload = state.billing.data;
+        const rows = [];
+        let total = 0;
+
+        const buildrootzStatus = payload.features?.buildrootz?.status || 'inactive';
+        if (buildrootzStatus === 'active' || buildrootzStatus === 'trial') {
+          total += PRICING.buildrootzMonthly;
+          rows.push(`
+            <tr>
+              <td>${escapeHtml('Buildrootz')}</td>
+              <td>${escapeHtml('Company')}</td>
+              <td>1</td>
+              <td class="text-end">${escapeHtml(formatCurrency(PRICING.buildrootzMonthly))}</td>
+            </tr>
+          `);
+        }
+
+        const communities = Array.isArray(payload.communities) ? payload.communities : [];
+        const activeWebsiteMap = communities.filter((community) =>
+          ['active', 'trial'].includes(community.websiteMap?.status)
+        );
+        if (activeWebsiteMap.length) {
+          const freeSetups = payload.entitlements?.websiteMap?.freeCommunitySetups || 0;
+          const billableCount = Math.max(0, activeWebsiteMap.length - freeSetups);
+          const websiteMapCost = billableCount * PRICING.websiteMapMonthlyPerCommunity;
+          total += websiteMapCost;
+          rows.push(`
+            <tr>
+              <td>${escapeHtml('Website Map')}</td>
+              <td>${escapeHtml('Per community')}</td>
+              <td>${escapeHtml(String(activeWebsiteMap.length))}</td>
+              <td class="text-end">${escapeHtml(formatCurrency(websiteMapCost))}</td>
+            </tr>
+          `);
+        }
+
+        if (!rows.length) {
+          billingEls.summaryBody.innerHTML = `
+            <tr>
+              <td colspan="4" class="text-center text-muted">No active or trial products yet.</td>
+            </tr>
+          `;
+        } else {
+          billingEls.summaryBody.innerHTML = rows.join('');
+        }
+
+        billingEls.summaryTotal.textContent = formatCurrency(total);
+      };
+
+      const renderWebsiteMapPanel = () => {
+        if (!billingEls.websiteMapPanel || !billingEls.websiteMapCommunityTable) return;
+        if (!state.billing.data) return;
+
+        const payload = state.billing.data;
+        const now = new Date(payload.serverTime || Date.now());
+        const communities = Array.isArray(payload.communities) ? payload.communities : [];
+
+        if (!communities.length) {
+          billingEls.websiteMapCommunityTable.innerHTML = `
+            <tr>
+              <td colspan="4" class="text-center text-muted">No communities found.</td>
+            </tr>
+          `;
+          return;
+        }
+
+        const rows = communities
+          .map((community) => {
+            const communityId = community.id;
+            const rawStatus = community.websiteMap?.status || 'inactive';
+            const status = community.pendingRequest ? 'pending' : rawStatus;
+            const meta = statusMeta[status] || statusMeta.inactive;
+            const daysRemaining = rawStatus === 'trial'
+              ? getTrialDaysRemaining(community.websiteMap?.trialEndsAt, now)
+              : null;
+            const trialLabel = rawStatus === 'trial'
+              ? daysRemaining == null
+                ? '—'
+                : daysRemaining <= 0
+                  ? 'Expired'
+                  : `${daysRemaining} day${daysRemaining === 1 ? '' : 's'} left`
+              : '—';
+
+            const trialEligible =
+              rawStatus === 'inactive' && !community.pendingRequest && !community.websiteMap?.trialEndsAt;
+
+            let actionMarkup = '<span class="text-muted small">—</span>';
+            if (!canManageBilling) {
+              actionMarkup = '<span class="text-muted small">View only</span>';
+            } else if (status === 'pending') {
+              actionMarkup = '<button type="button" class="btn btn-sm btn-outline-secondary" disabled>Pending</button>';
+            } else if (rawStatus === 'active') {
+              actionMarkup = '<span class="text-muted small">Active</span>';
+            } else if (rawStatus === 'trial') {
+              actionMarkup = '<span class="text-muted small">In trial</span>';
+            } else if (trialEligible) {
+              actionMarkup = `
+                <button
+                  type="button"
+                  class="btn btn-sm btn-outline-primary"
+                  data-action="website-map-trial"
+                  data-community-id="${escapeHtml(communityId)}"
+                >
+                  Start trial
+                </button>
+              `;
+            } else if (rawStatus === 'inactive') {
+              actionMarkup = `
+                <button
+                  type="button"
+                  class="btn btn-sm btn-outline-primary"
+                  data-action="website-map-request"
+                  data-community-id="${escapeHtml(communityId)}"
+                >
+                  Request activation
+                </button>
+              `;
+            }
+
+            return `
+              <tr data-community-id="${escapeHtml(communityId)}">
+                <td>${escapeHtml(community.name || 'Unnamed Community')}</td>
+                <td><span class="badge ${escapeHtml(meta.badgeClass)}">${escapeHtml(meta.label)}</span></td>
+                <td>${escapeHtml(trialLabel)}</td>
+                <td class="text-end">${actionMarkup}</td>
+              </tr>
+            `;
+          })
+          .join('');
+
+        billingEls.websiteMapCommunityTable.innerHTML = rows;
+      };
+
+      const renderBillingCards = () => {
+        if (!state.billing.data) return;
+        const payload = state.billing.data;
+
+        const buildrootzStatus = payload.features?.buildrootz?.status || 'inactive';
+        setStatusBadge(billingEls.buildrootzStatusBadge, buildrootzStatus);
+        setStatusToggle(billingEls.buildrootzToggle, buildrootzStatus);
+
+        if (billingEls.buildrootzRequestButton) {
+          const disableButton =
+            !canManageBilling || ['active', 'trial', 'pending'].includes(buildrootzStatus);
+          billingEls.buildrootzRequestButton.disabled = disableButton;
+        }
+
+        const websiteMapStatus = getWebsiteMapCardStatus(payload);
+        setStatusBadge(billingEls.websiteMapStatusBadge, websiteMapStatus);
+        setStatusToggle(billingEls.websiteMapToggle, websiteMapStatus);
+      };
+
+      const renderBillingPanel = () => {
+        renderBillingCards();
+        renderBillingSummary();
+        if (billingEls.websiteMapPanel && !billingEls.websiteMapPanel.classList.contains('d-none')) {
+          renderWebsiteMapPanel();
+        }
+      };
+
+      const loadBillingPanel = async ({ force = false } = {}) => {
+        if (state.billing.loading) return;
+        if (!force && state.loadedPanels.has('billing') && state.billing.data) {
+          renderBillingPanel();
+          return;
+        }
+
+        state.billing.loading = true;
+        if (billingEls.summaryBody) {
+          billingEls.summaryBody.innerHTML = `
+            <tr>
+              <td colspan="4" class="text-center text-muted">Loading usage...</td>
+            </tr>
+          `;
+        }
+
+        try {
+          const payload = await fetchBillingOverview();
+          state.billing.data = payload;
+          state.loadedPanels.add('billing');
+          renderBillingPanel();
+          if (!canManageBilling) {
+            setBillingStatusMessage(billingEls.buildrootzRequestStatus, billingViewOnlyMessage, 'muted');
+            setBillingStatusMessage(billingEls.websiteMapRequestStatus, billingViewOnlyMessage, 'muted');
+            if (billingEls.websiteMapPanelStatus) {
+              setBillingStatusMessage(billingEls.websiteMapPanelStatus, billingViewOnlyMessage, 'muted');
+            }
+          }
+        } catch (err) {
+          console.error('Failed to load billing overview', err);
+          if (billingEls.summaryBody) {
+            billingEls.summaryBody.innerHTML = `
+              <tr>
+                <td colspan="4" class="text-center text-danger">Unable to load billing overview.</td>
+              </tr>
+            `;
+          }
+        } finally {
+          state.billing.loading = false;
+        }
+      };
+
+      const requestBuildrootzActivation = async () => {
+        if (!canManageBilling || !billingEls.buildrootzRequestButton) return;
+        if (state.billing.requestingBuildrootz) return;
+
+        state.billing.requestingBuildrootz = true;
+        billingEls.buildrootzRequestButton.disabled = true;
+        setBillingStatusMessage(billingEls.buildrootzRequestStatus, 'Sending request...', 'muted');
+
+        try {
+          const response = await fetch('/api/admin/billing/feature-requests', {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+              Accept: 'application/json'
+            },
+            credentials: 'same-origin',
+            body: JSON.stringify({ feature: 'buildrootz' })
+          });
+          const data = await readJsonResponse(response);
+          if (!response.ok) {
+            const message = data?.error || `Request failed (${response.status})`;
+            throw new Error(message);
+          }
+
+          if (state.billing.data?.features?.buildrootz) {
+            state.billing.data.features.buildrootz.status = 'pending';
+          }
+          if (state.billing.data?.pendingRequests) {
+            state.billing.data.pendingRequests.buildrootz = true;
+          }
+          setBillingStatusMessage(billingEls.buildrootzRequestStatus, 'Request sent. Pending activation.', 'success');
+          renderBillingPanel();
+        } catch (err) {
+          console.error('Buildrootz request failed', err);
+          setBillingStatusMessage(
+            billingEls.buildrootzRequestStatus,
+            err.message || 'Unable to request activation.',
+            'danger'
+          );
+        } finally {
+          state.billing.requestingBuildrootz = false;
+          renderBillingPanel();
+        }
+      };
+
+      const openWebsiteMapPanel = async () => {
+        if (!billingEls.websiteMapPanel) return;
+        billingEls.websiteMapPanel.classList.remove('d-none');
+        setBillingStatusMessage(
+          billingEls.websiteMapRequestStatus,
+          canManageBilling ? 'Select communities below to start a trial or request activation.' : billingViewOnlyMessage,
+          'muted'
+        );
+        await loadBillingPanel();
+        renderWebsiteMapPanel();
+      };
+
+      const closeWebsiteMapPanel = () => {
+        billingEls.websiteMapPanel?.classList.add('d-none');
+      };
+
+      const requestWebsiteMapActivation = async (communityId) => {
+        if (!canManageBilling) return;
+        if (!communityId) return;
+
+        setBillingStatusMessage(billingEls.websiteMapPanelStatus, 'Sending request...', 'muted');
+
+        try {
+          const response = await fetch('/api/admin/billing/feature-requests', {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+              Accept: 'application/json'
+            },
+            credentials: 'same-origin',
+            body: JSON.stringify({ feature: 'websiteMap', communityId })
+          });
+          const data = await readJsonResponse(response);
+          if (!response.ok) {
+            const message = data?.error || `Request failed (${response.status})`;
+            throw new Error(message);
+          }
+
+          if (state.billing.data?.communities) {
+            const match = state.billing.data.communities.find((community) => community.id === communityId);
+            if (match) {
+              match.pendingRequest = true;
+            }
+          }
+          setBillingStatusMessage(billingEls.websiteMapPanelStatus, 'Request sent. Pending activation.', 'success');
+          renderBillingPanel();
+        } catch (err) {
+          console.error('Website Map request failed', err);
+          setBillingStatusMessage(
+            billingEls.websiteMapPanelStatus,
+            err.message || 'Unable to request activation.',
+            'danger'
+          );
+        }
+      };
+
+      const startWebsiteMapTrial = async (communityId) => {
+        if (!canManageBilling) return;
+        if (!communityId) return;
+
+        setBillingStatusMessage(billingEls.websiteMapPanelStatus, 'Starting trial...', 'muted');
+
+        try {
+          const response = await fetch('/api/admin/billing/website-map/trial', {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+              Accept: 'application/json'
+            },
+            credentials: 'same-origin',
+            body: JSON.stringify({ communityId })
+          });
+          const data = await readJsonResponse(response);
+          if (!response.ok) {
+            const message = data?.error || `Request failed (${response.status})`;
+            throw new Error(message);
+          }
+
+          if (state.billing.data?.communities) {
+            const match = state.billing.data.communities.find((community) => community.id === communityId);
+            if (match) {
+              match.websiteMap = match.websiteMap || {};
+              match.websiteMap.status = 'trial';
+              match.websiteMap.trialEndsAt = data?.trialEndsAt || null;
+              match.pendingRequest = false;
+            }
+          }
+          setBillingStatusMessage(billingEls.websiteMapPanelStatus, 'Trial started.', 'success');
+          renderBillingPanel();
+        } catch (err) {
+          console.error('Website Map trial failed', err);
+          setBillingStatusMessage(
+            billingEls.websiteMapPanelStatus,
+            err.message || 'Unable to start trial.',
+            'danger'
+          );
+        }
+      };
+
+      const handleWebsiteMapTableClick = async (event) => {
+        const actionButton = event.target.closest('button[data-action]');
+        if (!actionButton) return;
+        const action = actionButton.dataset.action;
+        const communityId = actionButton.dataset.communityId;
+        if (!communityId) return;
+
+        if (action === 'website-map-trial') {
+          await startWebsiteMapTrial(communityId);
+          return;
+        }
+
+        if (action === 'website-map-request') {
+          await requestWebsiteMapActivation(communityId);
+        }
       };
 
       const populateCompanyForm = (payload) => {
@@ -1697,6 +2264,7 @@
       const panelLoaders = {
         company: loadCompanyPanel,
         users: loadUsersPanel,
+        billing: loadBillingPanel,
         buildrootz: loadBuildrootzPanel
       };
       if (permissions && permissions.canUseImpersonation) {
@@ -2000,6 +2568,31 @@
             updateBuildrootzLogoPreview(getInputValue(buildrootzEls.logo));
           });
         }
+      }
+
+      if (billingEls.buildrootzRequestButton) {
+        billingEls.buildrootzRequestButton.addEventListener('click', (event) => {
+          event.preventDefault();
+          requestBuildrootzActivation();
+        });
+      }
+
+      if (billingEls.websiteMapRequestButton) {
+        billingEls.websiteMapRequestButton.addEventListener('click', (event) => {
+          event.preventDefault();
+          openWebsiteMapPanel();
+        });
+      }
+
+      if (billingEls.websiteMapPanelClose) {
+        billingEls.websiteMapPanelClose.addEventListener('click', (event) => {
+          event.preventDefault();
+          closeWebsiteMapPanel();
+        });
+      }
+
+      if (billingEls.websiteMapCommunityTable) {
+        billingEls.websiteMapCommunityTable.addEventListener('click', handleWebsiteMapTableClick);
       }
 
       if (permissions && permissions.canUseImpersonation) {

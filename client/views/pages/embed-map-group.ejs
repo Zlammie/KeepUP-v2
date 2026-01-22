@@ -7,7 +7,7 @@
   <link rel="stylesheet" href="/assets/css/main.css" />
   <link rel="stylesheet" href="/assets/css/pages/embed-map.css" />
 </head>
-<body class="no-nav embed-map-page">
+<body class="no-nav embed-map-page embed-map-group embed-map-interactive">
   <div class="embed-map-shell embed-style-plan" id="embed-group-root" data-group="<%= groupSlug || '' %>" data-csp-nonce="<%= cspNonce %>">
     <header class="embed-map-header">
       <div class="embed-map-heading">
@@ -33,6 +33,15 @@
     <div class="embed-map-body">
       <section class="embed-map-canvas">
         <div class="embed-map-frame" id="map-frame">
+          <div class="embed-map-zoom" role="group" aria-label="Map zoom controls">
+            <button type="button" class="zoom-btn" data-zoom="in" aria-label="Zoom in">+</button>
+            <button type="button" class="zoom-btn" data-zoom="out" aria-label="Zoom out">-</button>
+            <button type="button" class="zoom-btn zoom-reset" data-zoom="reset" aria-label="Reset view">Reset</button>
+            <div class="zoom-label" data-zoom="label" aria-live="polite">100%</div>
+          </div>
+          <div class="embed-map-gesture" aria-hidden="true">
+            Drag to move. Use + / - to zoom.
+          </div>
           <div class="embed-map-empty is-hidden" id="map-empty-message">
             Turn on a product to view homesites.
           </div>
@@ -97,8 +106,18 @@
             target="_blank"
             rel="noopener noreferrer"
           >
+            View Listing
+          </a>
+          <a
+            id="lot-wp-link"
+            class="embed-map-button embed-map-button--wp is-hidden"
+            href="#"
+            target="_blank"
+            rel="noopener noreferrer"
+          >
             View Home
           </a>
+          <div id="lot-wp-url" class="embed-map-url-hint is-hidden"></div>
         </div>
 
         <div class="panel-legend status-legend" aria-label="Status legend">
@@ -128,7 +147,7 @@
               <span class="legend-swatch legend-swatch--sold" aria-hidden="true"></span>
               <span class="legend-label">Sold</span>
             </div>
-            <div class="legend-item">
+            <div class="legend-item legend-item--closed">
               <span class="legend-swatch legend-swatch--closed" aria-hidden="true"></span>
               <span class="legend-label">Closed</span>
             </div>

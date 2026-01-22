@@ -64,6 +64,37 @@
   max-width: 200px;
 }
 
+.service-detail {
+  margin-top: 0.75rem;
+  padding: 0.75rem;
+  border-radius: 0.75rem;
+  background: #f9fafb;
+  border: 1px solid rgba(0, 0, 0, 0.05);
+}
+
+.product-card {
+  padding: 1rem;
+  border-radius: 0.85rem;
+  border: 1px solid rgba(0, 0, 0, 0.06);
+  background: #ffffff;
+  box-shadow: 0 6px 14px rgba(15, 23, 42, 0.04);
+}
+
+.billing-summary-card {
+  border-radius: 0.85rem;
+  border: 1px solid rgba(0, 0, 0, 0.06);
+  background: #f8fafc;
+}
+
+.status-toggle .form-check-input {
+  pointer-events: none;
+  cursor: default;
+}
+
+#websiteMapPanel .table {
+  margin-bottom: 0;
+}
+
 .admin-floorplans-layout {
   width: 100%;
   margin: 0 auto;

@@ -18,6 +18,12 @@ const slugify = (value) =>
     .replace(/[^a-z0-9]+/g, '-')
     .replace(/^-+|-+$/g, '');
 
+const WebsiteMapSchema = new Schema({
+  status: { type: String, enum: ['inactive', 'trial', 'active'], default: 'inactive' },
+  trialEndsAt: { type: Date, set: toDateOrNull, default: null },
+  setupFeeApplied: { type: Boolean, default: false }
+}, { _id: false });
+
 const LotSchema = new Schema({
   jobNumber: { type: String, index: true },
   lot: String,
@@ -152,6 +158,7 @@ const CommunitySchema = new Schema({
       rejectedReason:   { type: String, default: '' }
     }
   },
+  websiteMap: { type: WebsiteMapSchema, default: () => ({}) },
 
   // Listing map plan colors (plan class -> hex color)
   planPalette: {
