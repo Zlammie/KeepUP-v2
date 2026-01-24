@@ -2,6 +2,7 @@ const fs = require('fs');
 const path = require('path');
 const mongoose = require('mongoose');
 const Community = require('../models/Community');
+const Company = require('../models/Company');
 const FloorPlan = require('../models/FloorPlan');
 
 const mapGroupsPath = path.join(__dirname, '..', 'config', 'mapGroups.json');
@@ -69,6 +70,40 @@ const normalizePlanPalette = (input) => {
     const trimmedValue = String(value || '').trim().toLowerCase();
     if (!isHexColor(trimmedValue)) return;
     out[trimmedKey] = trimmedValue;
+  });
+  return out;
+};
+
+const STATUS_PALETTE_KEYS = new Set([
+  'default',
+  'available',
+  'spec',
+  'coming-soon',
+  'hold',
+  'model',
+  'sold',
+  'closed'
+]);
+
+const normalizeStatusKey = (value) => {
+  const raw = String(value || '').trim().toLowerCase();
+  if (!raw) return '';
+  const slug = raw.replace(/[_\s]+/g, '-');
+  if (slug === 'comingsoon') return 'coming-soon';
+  return slug;
+};
+
+const normalizeStatusPalette = (input) => {
+  const out = {};
+  if (!input) return out;
+  const source = input instanceof Map ? Object.fromEntries(input) : input;
+  if (!source || typeof source !== 'object') return out;
+  Object.entries(source).forEach(([key, value]) => {
+    const normalizedKey = normalizeStatusKey(key);
+    if (!STATUS_PALETTE_KEYS.has(normalizedKey)) return;
+    const trimmedValue = String(value || '').trim().toLowerCase();
+    if (!isHexColor(trimmedValue)) return;
+    out[normalizedKey] = trimmedValue;
   });
   return out;
 };
@@ -393,6 +428,14 @@ const resolvePlanInfo = (lot, floorPlanMap) => {
   };
 };
 
+const resolveStatusPalette = async (communityId) => {
+  if (!communityId) return {};
+  const community = await Community.findById(communityId).select('company').lean();
+  if (!community?.company) return {};
+  const company = await Company.findById(community.company).select('mapStatusPalette').lean();
+  return normalizeStatusPalette(company?.mapStatusPalette || {});
+};
+
 const buildLayerLots = (links, community, usedRegions, groupSlug, layerKey, floorPlanMap) => {
   const lots = Array.isArray(community?.lots) ? community.lots : [];
   const lookup = buildLotLookup(lots);
@@ -490,6 +533,7 @@ const buildPackageFromGroup = async (groupSlug, group, baseManifest) => {
   const baseCommunityId = group.baseMapCommunityId;
   const links = loadLinks(baseCommunityId, baseManifest);
   const usedRegions = new Set();
+  const statusPalette = await resolveStatusPalette(baseCommunityId);
 
   const layers = [];
   let resolvedLayerCount = 0;
@@ -528,7 +572,8 @@ const buildPackageFromGroup = async (groupSlug, group, baseManifest) => {
           ? `${baseManifest.basePath}/${baseManifest.overlayFile}`
           : null
       },
-      layers
+      layers,
+      statusPalette
     },
     resolvedLayerCount
   };

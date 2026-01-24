@@ -102,6 +102,61 @@ import {
 
   const isHexColor = (value) => /^#([0-9a-f]{3}|[0-9a-f]{6})$/i.test(String(value || '').trim());
 
+  const STATUS_PALETTE_KEYS = new Set([
+    'default',
+    'available',
+    'spec',
+    'coming-soon',
+    'hold',
+    'model',
+    'sold',
+    'closed'
+  ]);
+
+  const STATUS_VARIABLES = {
+    default: '--lot-default',
+    available: '--lot-available',
+    spec: '--lot-spec',
+    'coming-soon': '--lot-coming-soon',
+    hold: '--lot-hold',
+    model: '--lot-model',
+    sold: '--lot-sold',
+    closed: '--lot-closed'
+  };
+
+  const normalizeStatusKey = (value) => {
+    const raw = String(value || '').trim().toLowerCase();
+    if (!raw) return '';
+    const slug = raw.replace(/[_\s]+/g, '-');
+    if (slug === 'comingsoon') return 'coming-soon';
+    return slug;
+  };
+
+  const normalizeStatusPalette = (input) => {
+    const out = {};
+    if (!input || typeof input !== 'object') return out;
+    Object.entries(input).forEach(([key, value]) => {
+      const normalizedKey = normalizeStatusKey(key);
+      if (!STATUS_PALETTE_KEYS.has(normalizedKey)) return;
+      const trimmedValue = String(value || '').trim().toLowerCase();
+      if (!isHexColor(trimmedValue)) return;
+      out[normalizedKey] = trimmedValue;
+    });
+    return out;
+  };
+
+  const applyStatusPalette = (palette) => {
+    if (!root) return;
+    Object.entries(STATUS_VARIABLES).forEach(([key, cssVar]) => {
+      const value = palette?.[key];
+      if (isHexColor(value)) {
+        root.style.setProperty(cssVar, value);
+      } else {
+        root.style.removeProperty(cssVar);
+      }
+    });
+  };
+
   const normalizePalette = (input) => {
     const out = {};
     if (!input || typeof input !== 'object') return out;
@@ -182,6 +237,17 @@ import {
 
   const formatStatus = (value) => {
     const text = String(value || '').trim();
+    const normalized = normalizeStatus(text);
+    const labels = {
+      available: 'Available',
+      sold: 'Sold',
+      closed: 'Closed',
+      hold: 'Future Homesite',
+      model: 'Model',
+      spec: 'SPEC',
+      'coming-soon': 'Coming Soon'
+    };
+    if (normalized && labels[normalized]) return labels[normalized];
     return text || 'Unknown';
   };
 
@@ -576,7 +642,10 @@ import {
     if (lotBeds) lotBeds.textContent = '-';
     if (lotBaths) lotBaths.textContent = '-';
     if (lotGarage) lotGarage.textContent = '-';
-    if (lotPrice) lotPrice.textContent = '-';
+    if (lotPrice) {
+      lotPrice.textContent = '-';
+      lotPrice.classList.remove('price-none');
+    }
     if (lotPriceField) lotPriceField.classList.remove('is-hidden');
     if (lotEmpty) lotEmpty.classList.remove('is-hidden');
     if (lotDetails) lotDetails.classList.add('is-hidden');
@@ -634,7 +703,12 @@ import {
     if (lotBeds) lotBeds.textContent = formatNumber(entry.beds);
     if (lotBaths) lotBaths.textContent = formatNumber(entry.baths);
     if (lotGarage) lotGarage.textContent = formatNumber(entry.garage);
-    if (lotPrice) lotPrice.textContent = formatCurrency(entry.price);
+    if (lotPrice) {
+      const priceVal = Number(entry.price);
+      const hasPrice = Number.isFinite(priceVal) && priceVal > 0;
+      lotPrice.textContent = hasPrice ? formatCurrency(priceVal) : 'None Available';
+      lotPrice.classList.toggle('price-none', !hasPrice);
+    }
     if (lotPriceField) {
       const showPrice = shouldShowPrice(entry.status);
       lotPriceField.classList.toggle('is-hidden', !showPrice);
@@ -882,6 +956,8 @@ import {
       const pkg = await loadPackage(slug);
       const title = formatTitle(pkg?.group?.slug || slug);
       if (communityNameEl) communityNameEl.textContent = title;
+      const statusPalette = normalizeStatusPalette(pkg?.statusPalette || {});
+      applyStatusPalette(statusPalette);
 
       const layers = Array.isArray(pkg?.layers) ? pkg.layers : [];
       planPalette = {};

@@ -4,6 +4,7 @@ const express = require('express');
 const mongoose = require('mongoose');
 const PublicHome = require('../models/buildrootz/PublicHome');
 const Community = require('../models/Community');
+const Company = require('../models/Company');
 const FloorPlan = require('../models/FloorPlan');
 const { buildMapGroupPackage } = require('../utils/mapGroupResolver');
 
@@ -97,6 +98,40 @@ const normalizePlanPalette = (input) => {
     const trimmedValue = String(value || '').trim().toLowerCase();
     if (!isHexColor(trimmedValue)) return;
     out[trimmedKey] = trimmedValue;
+  });
+  return out;
+};
+
+const STATUS_PALETTE_KEYS = new Set([
+  'default',
+  'available',
+  'spec',
+  'coming-soon',
+  'hold',
+  'model',
+  'sold',
+  'closed'
+]);
+
+const normalizeStatusKey = (value) => {
+  const raw = String(value || '').trim().toLowerCase();
+  if (!raw) return '';
+  const slug = raw.replace(/[_\s]+/g, '-');
+  if (slug === 'comingsoon') return 'coming-soon';
+  return slug;
+};
+
+const normalizeStatusPalette = (input) => {
+  const out = {};
+  if (!input) return out;
+  const source = input instanceof Map ? Object.fromEntries(input) : input;
+  if (!source || typeof source !== 'object') return out;
+  Object.entries(source).forEach(([key, value]) => {
+    const normalizedKey = normalizeStatusKey(key);
+    if (!STATUS_PALETTE_KEYS.has(normalizedKey)) return;
+    const trimmedValue = String(value || '').trim().toLowerCase();
+    if (!isHexColor(trimmedValue)) return;
+    out[normalizedKey] = trimmedValue;
   });
   return out;
 };
@@ -484,6 +519,11 @@ router.get(['/maps/:communitySlug/package', '/maps/package'], async (req, res) =
     const communityName = community.name || community.communityName || '';
     const communitySlug = community.slug || slugify(communityName);
     const planPalette = normalizePlanPalette(community.planPalette || {});
+    let statusPalette = {};
+    if (community.company && isId(community.company)) {
+      const company = await Company.findById(community.company).select('mapStatusPalette').lean();
+      statusPalette = normalizeStatusPalette(company?.mapStatusPalette || {});
+    }
     const response = {
       community: {
         id: community._id ? String(community._id) : '',
@@ -495,7 +535,8 @@ router.get(['/maps/:communitySlug/package', '/maps/package'], async (req, res) =
         backgroundUrl: manifest.backgroundFile ? `${manifest.basePath}/${manifest.backgroundFile}` : null,
         overlaySvgUrl: manifest.overlayFile ? `${manifest.basePath}/${manifest.overlayFile}` : null
       },
-      lots
+      lots,
+      statusPalette
     };
 
     return res.json(response);

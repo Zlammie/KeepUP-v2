@@ -214,17 +214,23 @@ body {
   cursor: grabbing;
 }
 
-.embed-map-interactive .embed-map-zoom {
+.embed-map-interactive .embed-map-zoom-wrap {
   position: absolute;
   top: 0.75rem;
   right: 0.75rem;
+  display: flex;
+  align-items: stretch;
+  gap: 0.5rem;
+  z-index: 5;
+}
+
+.embed-map-interactive .embed-map-zoom {
   display: grid;
   gap: 0.35rem;
   padding: 0.4rem;
   border-radius: 12px;
   border: 1px solid var(--embed-border);
   background: rgba(255, 255, 255, 0.9);
-  z-index: 5;
   box-shadow: 0 10px 20px rgba(15, 23, 42, 0.12);
 }
 
@@ -266,6 +272,28 @@ body {
   border: 1px solid var(--embed-border);
   pointer-events: none;
   z-index: 4;
+}
+
+.embed-map-legend-mini {
+  border: 1px solid var(--embed-border);
+  background: rgba(255, 255, 255, 0.9);
+  padding: 0.4rem 0.6rem;
+  border-radius: 12px;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  gap: 0.35rem;
+  box-shadow: 0 10px 20px rgba(15, 23, 42, 0.12);
+}
+
+.embed-map-legend-mini .legend-item {
+  font-size: 0.65rem;
+}
+
+.embed-map-legend-mini .legend-swatch {
+  width: 10px;
+  height: 10px;
+  border-radius: 3px;
 }
 
 .map-bg {
@@ -447,6 +475,14 @@ body {
 .panel-value {
   font-size: 0.85rem;
   color: var(--embed-ink);
+}
+
+.panel-value.price-none {
+  font-size: 0.7rem;
+  color: var(--embed-muted);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
 .panel-actions {

@@ -41,6 +41,10 @@
   background: #f9fafb;
 }
 
+.map-tools + .map-tools {
+  margin-top: 1rem;
+}
+
 .map-tool-row {
   display: flex;
   align-items: center;

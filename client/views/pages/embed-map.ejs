@@ -29,11 +29,43 @@
     <div class="embed-map-body">
       <section class="embed-map-canvas">
         <div class="embed-map-frame" id="map-frame">
-          <div class="embed-map-zoom" role="group" aria-label="Map zoom controls">
-            <button type="button" class="zoom-btn" data-zoom="in" aria-label="Zoom in">+</button>
-            <button type="button" class="zoom-btn" data-zoom="out" aria-label="Zoom out">-</button>
-            <button type="button" class="zoom-btn zoom-reset" data-zoom="reset" aria-label="Reset view">Reset</button>
-            <div class="zoom-label" data-zoom="label" aria-live="polite">100%</div>
+          <div class="embed-map-zoom-wrap">
+            <div class="embed-map-zoom" role="group" aria-label="Map zoom controls">
+              <button type="button" class="zoom-btn" data-zoom="in" aria-label="Zoom in">+</button>
+              <button type="button" class="zoom-btn" data-zoom="out" aria-label="Zoom out">-</button>
+              <button type="button" class="zoom-btn zoom-reset" data-zoom="reset" aria-label="Reset view">Reset</button>
+              <div class="zoom-label" data-zoom="label" aria-live="polite">100%</div>
+            </div>
+            <div class="embed-map-legend-mini status-legend" aria-label="Status legend">
+              <div class="legend-item">
+                <span class="legend-swatch legend-swatch--available" aria-hidden="true"></span>
+                <span class="legend-label">Available</span>
+              </div>
+              <div class="legend-item">
+                <span class="legend-swatch legend-swatch--spec" aria-hidden="true"></span>
+                <span class="legend-label">Spec</span>
+              </div>
+              <div class="legend-item">
+                <span class="legend-swatch legend-swatch--coming-soon" aria-hidden="true"></span>
+                <span class="legend-label">Coming Soon</span>
+              </div>
+              <div class="legend-item">
+                <span class="legend-swatch legend-swatch--hold" aria-hidden="true"></span>
+                <span class="legend-label">Future Homesite</span>
+              </div>
+              <div class="legend-item">
+                <span class="legend-swatch legend-swatch--model" aria-hidden="true"></span>
+                <span class="legend-label">Model</span>
+              </div>
+              <div class="legend-item">
+                <span class="legend-swatch legend-swatch--sold" aria-hidden="true"></span>
+                <span class="legend-label">Sold</span>
+              </div>
+              <div class="legend-item legend-item--closed">
+                <span class="legend-swatch legend-swatch--closed" aria-hidden="true"></span>
+                <span class="legend-label">Closed</span>
+              </div>
+            </div>
           </div>
           <div class="embed-map-gesture" aria-hidden="true">
             Drag to move. Use + / - to zoom.
@@ -113,39 +145,6 @@
           <div id="lot-wp-url" class="embed-map-url-hint is-hidden"></div>
         </div>
 
-        <div class="panel-legend status-legend" aria-label="Status legend">
-          <div class="panel-legend-title">Status legend</div>
-          <div class="panel-legend-list">
-            <div class="legend-item">
-              <span class="legend-swatch legend-swatch--available" aria-hidden="true"></span>
-              <span class="legend-label">Available</span>
-            </div>
-            <div class="legend-item">
-              <span class="legend-swatch legend-swatch--spec" aria-hidden="true"></span>
-              <span class="legend-label">Spec</span>
-            </div>
-            <div class="legend-item">
-              <span class="legend-swatch legend-swatch--coming-soon" aria-hidden="true"></span>
-              <span class="legend-label">Coming Soon</span>
-            </div>
-            <div class="legend-item">
-              <span class="legend-swatch legend-swatch--hold" aria-hidden="true"></span>
-              <span class="legend-label">Hold</span>
-            </div>
-            <div class="legend-item">
-              <span class="legend-swatch legend-swatch--model" aria-hidden="true"></span>
-              <span class="legend-label">Model</span>
-            </div>
-            <div class="legend-item">
-              <span class="legend-swatch legend-swatch--sold" aria-hidden="true"></span>
-              <span class="legend-label">Sold</span>
-            </div>
-            <div class="legend-item legend-item--closed">
-              <span class="legend-swatch legend-swatch--closed" aria-hidden="true"></span>
-              <span class="legend-label">Closed</span>
-            </div>
-          </div>
-        </div>
       </aside>
     </div>
   </div>

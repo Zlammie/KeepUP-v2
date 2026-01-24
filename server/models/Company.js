@@ -74,6 +74,13 @@ const CompanySchema = new Schema({
   settings: { type: SettingsSchema, default: () => ({}) },
   branding: { type: BrandingSchema, default: () => ({}) },
 
+  // Listing map status colors (status key -> hex color)
+  mapStatusPalette: {
+    type: Map,
+    of: String,
+    default: {}
+  },
+
   // Billing hooks (fill in when/if you adopt a provider)
   billingCustomerId: { type: String, default: null },
   features: { type: FeatureSchema, default: () => ({}) },

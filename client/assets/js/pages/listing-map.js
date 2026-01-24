@@ -14,8 +14,10 @@ document.addEventListener('DOMContentLoaded', () => {
   const panelTools = document.getElementById('map-panel-tools');
   const panelTitle = document.getElementById('map-panel-title');
   const planToolsList = document.getElementById('plan-tools-list');
+  const statusToolsList = document.getElementById('status-tools-list');
   const salesScopeSelect = document.getElementById('lm-sales-scope');
   const filesListEl = document.getElementById('lm-files-list');
+  const cleanupBtn = document.getElementById('lm-delete-unused');
 
   const paletteStyleId = 'plan-palette-style';
   const paletteCache = new Map();
@@ -23,6 +25,30 @@ document.addEventListener('DOMContentLoaded', () => {
   const PALETTE_SAVE_DELAY = 400;
   const SALES_SCOPE_VALUES = new Set(['active', 'both', 'none']);
   let allowedPlanClasses = null;
+  let statusPalette = {};
+  let statusPaletteSaveTimer = null;
+  const STATUS_PALETTE_STORAGE_KEY = 'lm-status-palette';
+  const STATUS_PALETTE_SAVE_DELAY = 400;
+  const STATUS_PALETTE_KEYS = [
+    { key: 'available', label: 'Available', cssVar: '--lot-available' },
+    { key: 'spec', label: 'SPEC', cssVar: '--lot-spec' },
+    { key: 'coming-soon', label: 'Coming Soon', cssVar: '--lot-coming-soon' },
+    { key: 'hold', label: 'Future Homesite', cssVar: '--lot-hold' },
+    { key: 'model', label: 'Model', cssVar: '--lot-model' },
+    { key: 'sold', label: 'Sold', cssVar: '--lot-sold' },
+    { key: 'closed', label: 'Closed', cssVar: '--lot-closed' },
+    { key: 'default', label: 'Default / Unassigned', cssVar: '--lot-default' }
+  ];
+  const STATUS_PALETTE_DEFAULTS = {
+    default: '#e5e7eb',
+    available: '#22c55e',
+    sold: '#9ca3af',
+    closed: '#9ca3af',
+    hold: '#7c3aed',
+    model: '#0ea5e9',
+    spec: '#f4c430',
+    'coming-soon': '#d1d5db'
+  };
 
   const cssColorToHex = (color) => {
     if (!color) return '#cccccc';
@@ -109,6 +135,152 @@ document.addEventListener('DOMContentLoaded', () => {
       out[trimmedKey] = trimmedValue;
     });
     return out;
+  };
+
+  const normalizeStatusKey = (value) => {
+    const raw = String(value || '').trim().toLowerCase();
+    if (!raw) return '';
+    const slug = raw.replace(/[_\s]+/g, '-');
+    if (slug === 'comingsoon') return 'coming-soon';
+    return slug;
+  };
+
+  const normalizeStatusPalette = (input) => {
+    const out = {};
+    if (!input || typeof input !== 'object') return out;
+    Object.entries(input).forEach(([key, value]) => {
+      const normalizedKey = normalizeStatusKey(key);
+      if (!STATUS_PALETTE_KEYS.some((entry) => entry.key === normalizedKey)) return;
+      const trimmedValue = String(value || '').trim().toLowerCase();
+      if (!isHexColor(trimmedValue)) return;
+      out[normalizedKey] = trimmedValue;
+    });
+    return out;
+  };
+
+  const getRootVarColor = (cssVar, key) => {
+    const root = document.documentElement;
+    if (!root) return STATUS_PALETTE_DEFAULTS[key] || '#cccccc';
+    const value = window.getComputedStyle(root).getPropertyValue(cssVar);
+    if (!value || !value.trim()) return STATUS_PALETTE_DEFAULTS[key] || '#cccccc';
+    return cssColorToHex(value);
+  };
+
+  const applyStatusPalette = (palette) => {
+    const root = document.documentElement;
+    if (!root) return;
+    STATUS_PALETTE_KEYS.forEach(({ key, cssVar }) => {
+      const value = palette?.[key];
+      if (isHexColor(value)) {
+        root.style.setProperty(cssVar, value);
+      } else {
+        root.style.removeProperty(cssVar);
+      }
+    });
+  };
+
+  const loadStatusPaletteLocal = () => {
+    try {
+      const raw = localStorage.getItem(STATUS_PALETTE_STORAGE_KEY);
+      if (!raw) return {};
+      return normalizeStatusPalette(JSON.parse(raw));
+    } catch (_) {
+      return {};
+    }
+  };
+
+  const saveStatusPaletteLocal = (palette) => {
+    try {
+      localStorage.setItem(STATUS_PALETTE_STORAGE_KEY, JSON.stringify(palette || {}));
+    } catch (_) {
+      // ignore storage issues
+    }
+  };
+
+  const fetchStatusPalette = async () => {
+    try {
+      const res = await fetch('/api/communities/map-status-palette');
+      if (!res.ok) return {};
+      const data = await res.json();
+      return normalizeStatusPalette(data?.statusPalette || data?.palette || {});
+    } catch (err) {
+      console.warn('Failed to load status palette', err);
+      return {};
+    }
+  };
+
+  const saveStatusPaletteToServer = async (palette) => {
+    try {
+      await fetch('/api/communities/map-status-palette', {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ statusPalette: normalizeStatusPalette(palette) })
+      });
+    } catch (err) {
+      console.warn('Failed to save status palette', err);
+    }
+  };
+
+  const scheduleStatusPaletteSave = (palette) => {
+    if (statusPaletteSaveTimer) clearTimeout(statusPaletteSaveTimer);
+    statusPaletteSaveTimer = setTimeout(() => {
+      saveStatusPaletteToServer(palette);
+    }, STATUS_PALETTE_SAVE_DELAY);
+  };
+
+  const saveStatusPalette = (palette, options = {}) => {
+    const normalized = normalizeStatusPalette(palette);
+    statusPalette = normalized;
+    saveStatusPaletteLocal(normalized);
+    if (options.persist !== false) scheduleStatusPaletteSave(normalized);
+  };
+
+  const preloadStatusPalette = async () => {
+    const localPalette = loadStatusPaletteLocal();
+    const remotePalette = await fetchStatusPalette();
+    if (Object.keys(remotePalette).length) {
+      saveStatusPalette(remotePalette, { persist: false });
+      return remotePalette;
+    }
+    if (Object.keys(localPalette).length) {
+      scheduleStatusPaletteSave(localPalette);
+      statusPalette = localPalette;
+      return localPalette;
+    }
+    statusPalette = {};
+    return {};
+  };
+
+  const renderStatusTools = (paletteInput = {}) => {
+    if (!statusToolsList) return;
+    statusPalette = normalizeStatusPalette(paletteInput);
+    statusToolsList.innerHTML = '';
+    STATUS_PALETTE_KEYS.forEach(({ key, label, cssVar }) => {
+      const row = document.createElement('div');
+      row.className = 'map-tool-row';
+
+      const labelEl = document.createElement('div');
+      labelEl.className = 'map-tool-label';
+      labelEl.textContent = label;
+
+      const colorInput = document.createElement('input');
+      colorInput.type = 'color';
+      colorInput.className = 'form-control form-control-color form-control-sm';
+      colorInput.value = statusPalette[key] || getRootVarColor(cssVar, key) || '#cccccc';
+      colorInput.setAttribute('aria-label', `Color for ${label}`);
+
+      colorInput.addEventListener('input', () => {
+        statusPalette[key] = colorInput.value;
+        applyStatusPalette(statusPalette);
+        saveStatusPalette(statusPalette);
+      });
+
+      row.appendChild(labelEl);
+      row.appendChild(colorInput);
+      statusToolsList.appendChild(row);
+    });
+
+    applyStatusPalette(statusPalette);
   };
 
   const normalizePlanKey = (value) => {
@@ -395,6 +567,12 @@ document.addEventListener('DOMContentLoaded', () => {
     if (statusEl) statusEl.textContent = text;
   };
 
+  const setCleanupEnabled = (enabled) => {
+    if (!cleanupBtn) return;
+    cleanupBtn.disabled = !enabled;
+  };
+  setCleanupEnabled(false);
+
   const setFile = (fileOrFiles) => {
     const files = Array.isArray(fileOrFiles)
       ? fileOrFiles
@@ -480,6 +658,7 @@ document.addEventListener('DOMContentLoaded', () => {
     if (!communityId) {
       setStatus('Select a community');
       allowedPlanClasses = null;
+      setCleanupEnabled(false);
       if (mapRoot) {
         mapRoot.dataset.overlaySrc = '';
         mapRoot.dataset.combinedSrc = '';
@@ -497,6 +676,7 @@ document.addEventListener('DOMContentLoaded', () => {
         setStatus('No map uploaded');
         renderFilesList(null, communityId);
         allowedPlanClasses = await loadCommunityPlans(communityId);
+        setCleanupEnabled(false);
         if (mapRoot) {
           mapRoot.dataset.overlaySrc = '';
           mapRoot.dataset.combinedSrc = '';
@@ -511,6 +691,7 @@ document.addEventListener('DOMContentLoaded', () => {
       const data = await res.json();
       renderFilesList(data, communityId);
       allowedPlanClasses = await loadCommunityPlans(communityId);
+      setCleanupEnabled(true);
       const paths = data?.paths || {};
       if (mapRoot && (paths.overlayPath || paths.combinedPath)) {
         mapRoot.dataset.overlaySrc = paths.overlayPath || '';
@@ -531,6 +712,7 @@ document.addEventListener('DOMContentLoaded', () => {
       setStatus('Failed to load map');
       allowedPlanClasses = null;
       renderFilesList(null, communityId);
+      setCleanupEnabled(false);
     }
   }
 
@@ -580,6 +762,32 @@ document.addEventListener('DOMContentLoaded', () => {
     }
   });
 
+  cleanupBtn?.addEventListener('click', async () => {
+    const communityId = communitySelect?.value || '';
+    if (!communityId) {
+      alert('Select a community first.');
+      return;
+    }
+    const ok = window.confirm('Delete all unused map files for this community?');
+    if (!ok) return;
+    cleanupBtn.disabled = true;
+    const prevText = cleanupBtn.textContent;
+    cleanupBtn.textContent = 'Cleaning...';
+    try {
+      const res = await fetch(`/api/communities/${communityId}/map/cleanup`, { method: 'POST' });
+      const text = await res.text();
+      if (!res.ok) throw new Error(text || `Cleanup failed (${res.status})`);
+      await loadManifest(communityId);
+      setStatus('Unused files deleted');
+    } catch (err) {
+      console.error(err);
+      alert(err.message || 'Cleanup failed');
+    } finally {
+      cleanupBtn.disabled = false;
+      cleanupBtn.textContent = prevText;
+    }
+  });
+
   const applyZoom = (val) => {
     if (!mapRoot || !window.applyLotMapZoom) return;
     window.applyLotMapZoom(mapRoot, val);
@@ -610,5 +818,6 @@ document.addEventListener('DOMContentLoaded', () => {
     showPanel('details');
   });
 
+  preloadStatusPalette().then((palette) => renderStatusTools(palette));
   loadCommunities();
 });

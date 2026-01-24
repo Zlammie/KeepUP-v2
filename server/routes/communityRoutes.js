@@ -10,6 +10,7 @@ const multer = require('multer');
 const router = express.Router();
 
 const Community = require('../models/Community');
+const Company = require('../models/Company');
 const FloorPlan = require('../models/FloorPlan');
 const Contact = require('../models/Contact');
 const CommunityCompetitionProfile = require('../models/communityCompetitionProfile');
@@ -70,6 +71,40 @@ function normalizePlanPalette(input) {
     const trimmedValue = trimValue(value).toLowerCase();
     if (!isHexColor(trimmedValue)) return;
     out[trimmedKey] = trimmedValue;
+  });
+  return out;
+}
+
+const STATUS_PALETTE_KEYS = new Set([
+  'default',
+  'available',
+  'spec',
+  'coming-soon',
+  'hold',
+  'model',
+  'sold',
+  'closed'
+]);
+
+function normalizeStatusKey(value) {
+  const raw = trimValue(value).toLowerCase();
+  if (!raw) return '';
+  const slug = raw.replace(/[_\s]+/g, '-');
+  if (slug === 'comingsoon') return 'coming-soon';
+  return slug;
+}
+
+function normalizeStatusPalette(input) {
+  const out = {};
+  if (!input) return out;
+  const source = input instanceof Map ? Object.fromEntries(input) : input;
+  if (!source || typeof source !== 'object') return out;
+  Object.entries(source).forEach(([key, value]) => {
+    const normalizedKey = normalizeStatusKey(key);
+    if (!STATUS_PALETTE_KEYS.has(normalizedKey)) return;
+    const trimmedValue = trimValue(value).toLowerCase();
+    if (!isHexColor(trimmedValue)) return;
+    out[normalizedKey] = trimmedValue;
   });
   return out;
 }
@@ -269,6 +304,39 @@ function removeMapFileFromManifest(manifest, fileName) {
 
   manifest.files = files;
   return changed;
+}
+
+function getManifestFiles(manifest) {
+  const files = manifest?.files || {};
+  const keep = new Set();
+  if (files.background) keep.add(files.background);
+  if (files.links) keep.add(files.links);
+  if (files.overlay) keep.add(files.overlay);
+  if (Array.isArray(files.overlays)) {
+    files.overlays.forEach((name) => {
+      if (name) keep.add(name);
+    });
+  }
+  return keep;
+}
+
+function removeUnusedMapFiles(dir, manifest) {
+  const removed = [];
+  if (!fs.existsSync(dir)) return removed;
+  const keep = getManifestFiles(manifest);
+  const entries = fs.readdirSync(dir, { withFileTypes: true });
+  entries.forEach((entry) => {
+    if (!entry.isFile()) return;
+    if (entry.name === 'manifest.json') return;
+    if (keep.has(entry.name)) return;
+    try {
+      fs.unlinkSync(path.join(dir, entry.name));
+      removed.push(entry.name);
+    } catch (err) {
+      console.warn('Failed to delete unused map file', entry.name, err);
+    }
+  });
+  return removed;
 }
 
 async function buildLotsPayload(req, community, searchTerm = '') {
@@ -761,6 +829,66 @@ router.get('/',
   }
 );
 
+// Listing map status palette (READONLY+)
+router.get('/map-status-palette',
+  requireRole(...READ_ROLES),
+  async (req, res) => {
+    try {
+      const companyId = req.user?.company;
+      if (!isObjectId(companyId)) {
+        return res.status(400).json({ error: 'Invalid company context' });
+      }
+
+      const company = await Company.findById(companyId)
+        .select('mapStatusPalette')
+        .lean();
+      if (!company) return res.status(404).json({ error: 'Company not found' });
+
+      return res.json({
+        companyId,
+        statusPalette: normalizeStatusPalette(company.mapStatusPalette || {})
+      });
+    } catch (err) {
+      console.error('Get status palette failed:', err);
+      return res.status(500).json({ error: 'Failed to load status palette' });
+    }
+  }
+);
+
+// Listing map status palette update (USER+)
+router.put('/map-status-palette',
+  requireRole(...WRITE_ROLES),
+  async (req, res) => {
+    try {
+      const companyId = req.user?.company;
+      if (!isObjectId(companyId)) {
+        return res.status(400).json({ error: 'Invalid company context' });
+      }
+
+      const payload = req.body?.statusPalette ?? req.body?.palette ?? req.body ?? {};
+      const statusPalette = normalizeStatusPalette(payload);
+
+      const updated = await Company.findOneAndUpdate(
+        { _id: companyId },
+        { $set: { mapStatusPalette: statusPalette } },
+        { new: true }
+      )
+        .select('mapStatusPalette')
+        .lean();
+
+      if (!updated) return res.status(404).json({ error: 'Company not found' });
+
+      return res.json({
+        companyId,
+        statusPalette: normalizeStatusPalette(updated.mapStatusPalette || {})
+      });
+    } catch (err) {
+      console.error('Update status palette failed:', err);
+      return res.status(500).json({ error: 'Failed to update status palette' });
+    }
+  }
+);
+
 // Map manifest (READONLY+)
 router.get('/:communityId/map',
   requireRole(...READ_ROLES),
@@ -904,6 +1032,7 @@ router.post('/:communityId/map',
       manifest.exportedAt = new Date().toISOString();
       ensureDirSync(dir);
       fs.writeFileSync(path.join(dir, 'manifest.json'), JSON.stringify(manifest, null, 2));
+      removeUnusedMapFiles(dir, manifest);
 
       const full = readCommunityMapManifest(communityId);
       res.json(full);
@@ -938,11 +1067,35 @@ router.delete('/:communityId/map/files/:fileName',
 
       manifest.exportedAt = new Date().toISOString();
       fs.writeFileSync(manifestPath, JSON.stringify(manifest, null, 2));
+      removeUnusedMapFiles(dir, manifest);
       const updated = readCommunityMapManifest(communityId);
       return res.json(updated);
     } catch (err) {
       console.error('Delete community map file failed:', err);
       return res.status(500).json({ error: err.message || 'Failed to delete map file' });
+    }
+  }
+);
+
+// Delete unused map assets (MANAGER+)
+router.post('/:communityId/map/cleanup',
+  requireRole(...ADMIN_ROLES),
+  async (req, res) => {
+    try {
+      const { communityId } = req.params;
+      if (!isObjectId(communityId)) return res.status(400).json({ error: 'Invalid community id' });
+      if (!hasCommunityAccess(req.user, communityId)) return res.status(404).json({ error: 'Community not found' });
+
+      const dir = getMapDir(communityId);
+      const manifestPath = path.join(dir, 'manifest.json');
+      if (!fs.existsSync(manifestPath)) return res.status(404).json({ error: 'Map not found for community' });
+      const manifest = JSON.parse(fs.readFileSync(manifestPath, 'utf8'));
+      const removed = removeUnusedMapFiles(dir, manifest);
+      const updated = readCommunityMapManifest(communityId);
+      return res.json({ removed, manifest: updated });
+    } catch (err) {
+      console.error('Cleanup community map files failed:', err);
+      return res.status(500).json({ error: err.message || 'Failed to cleanup map files' });
     }
   }
 );
