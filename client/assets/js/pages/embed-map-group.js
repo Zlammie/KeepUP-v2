@@ -47,7 +47,7 @@ import {
   const DRAG_THRESHOLD = 6;
 
   let activeShape = null;
-  let styleMode = 'plan';
+  let styleMode = 'status';
   const layerShapes = new Map();
   const layerMeta = new Map();
   const activeLayers = new Set();

@@ -528,6 +528,7 @@ body {
 .panel-feature-icon {
   width: 22px;
   height: 22px;
+  flex: 0 0 22px;
   color: var(--embed-muted);
   display: flex;
   align-items: center;
@@ -537,6 +538,9 @@ body {
 .panel-feature-icon svg {
   width: 20px;
   height: 20px;
+  max-width: 20px;
+  max-height: 20px;
+  flex: 0 0 20px;
   display: block;
 }
 

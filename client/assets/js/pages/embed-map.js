@@ -45,7 +45,7 @@ import {
   const DRAG_THRESHOLD = 6;
 
   let activeShape = null;
-  let styleMode = 'plan';
+  let styleMode = 'status';
   const planClasses = new Set();
   const paletteStyleId = 'embed-plan-palette-style';
   let planPalette = {};

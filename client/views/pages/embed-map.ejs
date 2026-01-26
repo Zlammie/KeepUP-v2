@@ -8,7 +8,7 @@
   <link rel="stylesheet" href="/assets/css/pages/embed-map.css" />
 </head>
 <body class="no-nav embed-map-page embed-map-interactive">
-  <div class="embed-map-shell embed-style-plan" id="embed-root" data-community="<%= communitySlug || '' %>" data-csp-nonce="<%= cspNonce %>">
+  <div class="embed-map-shell embed-style-status" id="embed-root" data-community="<%= communitySlug || '' %>" data-csp-nonce="<%= cspNonce %>">
     <header class="embed-map-header">
       <div class="embed-map-heading">
         <span class="embed-map-kicker">KeepUP Map Viewer</span>
@@ -18,8 +18,8 @@
         <div class="embed-map-filter-group">
           <div class="embed-map-filter-title">Category</div>
           <div class="embed-map-style" id="map-style-toggle">
-            <button type="button" class="style-toggle" data-style="status">Status</button>
-            <button type="button" class="style-toggle is-active" data-style="plan">Plans</button>
+            <button type="button" class="style-toggle is-active" data-style="status">Status</button>
+            <button type="button" class="style-toggle" data-style="plan">Plans</button>
           </div>
         </div>
         <div class="embed-map-status" id="embed-status" aria-live="polite">Loading...</div>
@@ -110,7 +110,7 @@
             <div class="panel-feature-grid">
               <div class="panel-feature">
                 <div class="panel-feature-icon" aria-hidden="true">
-                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round">
+                  <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round">
                     <path d="M3 12h18"></path>
                     <path d="M4 12V8a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v4"></path>
                     <path d="M12 12V8"></path>
@@ -124,7 +124,7 @@
               </div>
               <div class="panel-feature">
                 <div class="panel-feature-icon" aria-hidden="true">
-                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round">
+                  <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round">
                     <path d="M4 12h16"></path>
                     <path d="M6 12v4a2 2 0 0 0 2 2h8a2 2 0 0 0 2-2v-4"></path>
                     <path d="M8 6v2"></path>
@@ -136,7 +136,7 @@
               </div>
               <div class="panel-feature">
                 <div class="panel-feature-icon" aria-hidden="true">
-                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round">
+                  <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round">
                     <path d="M3 11l9-6 9 6"></path>
                     <path d="M5 11v8h14v-8"></path>
                     <path d="M8 19v-4h8v4"></path>
@@ -147,7 +147,7 @@
               </div>
               <div class="panel-feature">
                 <div class="panel-feature-icon" aria-hidden="true">
-                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round">
+                  <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round">
                     <rect x="6" y="4" width="12" height="6" rx="1"></rect>
                     <rect x="6" y="14" width="12" height="6" rx="1"></rect>
                     <path d="M9 7h6"></path>
