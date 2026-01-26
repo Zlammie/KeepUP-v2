@@ -57,6 +57,31 @@ const normalizePlanKey = (value) => {
     .trim();
 };
 
+const normalizePlanSlug = (value) => {
+  const raw = String(value || '').trim();
+  if (!raw) return '';
+  let slug = raw;
+  try {
+    const url = new URL(raw);
+    slug = url.pathname || '';
+  } catch (_) {
+    // not a URL
+  }
+  slug = slug.replace(/\\/g, '/');
+  if (slug.includes('/')) {
+    const parts = slug.split('/').filter(Boolean);
+    slug = parts[parts.length - 1] || '';
+  }
+  slug = slug
+    .toLowerCase()
+    .replace(/&/g, ' and ')
+    .replace(/[^a-z0-9\s-]/g, '')
+    .replace(/\s+/g, '-')
+    .replace(/-+/g, '-')
+    .replace(/^-+|-+$/g, '');
+  return slug;
+};
+
 const isHexColor = (value) => /^#([0-9a-f]{3}|[0-9a-f]{6})$/i.test(String(value || '').trim());
 
 const normalizePlanPalette = (input) => {
@@ -117,6 +142,13 @@ const sanitizeListingUrl = (value) => {
     return null;
   }
   return null;
+};
+
+const buildFloorPlanUrl = (communitySlug, planSlug) => {
+  const community = String(communitySlug || '').trim();
+  const plan = String(planSlug || '').trim();
+  if (!community || !plan) return '';
+  return `https://grenadierhomes.com/communities/${community}/${plan}/`;
 };
 
 const loadMapGroupConfig = () => {
@@ -355,7 +387,7 @@ const buildFloorPlanMap = async (community) => {
     company: community.company,
     $or: orFilters
   })
-    .select('name planNumber specs.squareFeet specs.beds specs.baths specs.garage')
+    .select('name planNumber websiteSlug websiteUrl specs.squareFeet specs.beds specs.baths specs.garage specs.stories')
     .lean();
 
   const byId = new Map();
@@ -417,14 +449,19 @@ const resolvePlanInfo = (lot, floorPlanMap) => {
   ) || '';
   const planNumber = pickFirst(planDoc?.planNumber, planObj?.planNumber, lot.floorPlanNumber) || '';
   const specs = planDoc?.specs || {};
+  const websiteSlug = normalizePlanSlug(
+    pickFirst(planDoc?.websiteSlug, planDoc?.websiteUrl, planObj?.websiteSlug, planObj?.websiteUrl)
+  );
 
   return {
     floorPlanName: planName ? String(planName) : '',
     floorPlanNumber: planNumber ? String(planNumber) : '',
+    websiteSlug: websiteSlug ? String(websiteSlug) : '',
     squareFeet: toNumber(specs.squareFeet),
     beds: toNumber(specs.beds),
     baths: toNumber(specs.baths),
-    garage: toNumber(specs.garage)
+    garage: toNumber(specs.garage),
+    stories: toNumber(specs.stories)
   };
 };
 
@@ -441,6 +478,7 @@ const buildLayerLots = (links, community, usedRegions, groupSlug, layerKey, floo
   const lookup = buildLotLookup(lots);
   const lotIds = [];
   const lotsById = {};
+  const communitySlug = slugify(community?.slug || community?.name || community?.communityName || '');
 
   links.forEach((link) => {
     if (!link) return;
@@ -475,10 +513,12 @@ const buildLayerLots = (links, community, usedRegions, groupSlug, layerKey, floo
       hasViewHomeLink: Boolean(matched?.hasViewHomeLink),
       floorPlanName: planInfo.floorPlanName,
       floorPlanNumber: planInfo.floorPlanNumber,
+      floorPlanUrl: sanitizeListingUrl(buildFloorPlanUrl(communitySlug, planInfo.websiteSlug)),
       squareFeet: planInfo.squareFeet,
       beds: planInfo.beds,
       baths: planInfo.baths,
       garage: planInfo.garage,
+      stories: planInfo.stories,
       price
     };
     lotIds.push(regionId);

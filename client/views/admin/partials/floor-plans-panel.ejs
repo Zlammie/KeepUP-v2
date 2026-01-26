@@ -27,6 +27,10 @@
           <label for="name" class="form-label">Floor Plan Name</label>
           <input id="name" class="form-control" name="name" required />
         </div>
+        <div class="mb-3">
+          <label for="planSlug" class="form-label">Website Slug</label>
+          <input id="planSlug" class="form-control" name="websiteSlug" placeholder="sequoia-veranda" />
+        </div>
         <div class="row g-3">
           <div class="col-md-3">
             <label for="squareFeet" class="form-label">Square Feet</label>
@@ -116,6 +120,12 @@
           </div>
         </div>
         <div class="row g-3 mt-2">
+          <div class="col-md-12">
+            <label for="editPlanSlug" class="form-label">Website Slug</label>
+            <input id="editPlanSlug" class="form-control" name="websiteSlug" placeholder="sequoia-veranda" />
+          </div>
+        </div>
+        <div class="row g-3 mt-2">
           <div class="col-md-3">
             <label for="editSquareFeet" class="form-label">Square Feet</label>
             <input id="editSquareFeet" class="form-control" name="squareFeet" type="number" min="0" required />
@@ -184,6 +194,7 @@
       const statusEl = document.getElementById('statusMsg');
       const communitiesSelect = document.getElementById('communities');
       const storiesSelect = document.getElementById('stories');
+      const planSlugInput = document.getElementById('planSlug');
       const planFileInput = document.getElementById('planFile');
       const planFileStatus = document.getElementById('planFileStatus');
       const tabButtons = document.querySelectorAll('[data-tab-target]');
@@ -197,6 +208,7 @@
       const cancelEditPlanBtn = document.getElementById('cancelEditPlan');
       const editPlanNumber = document.getElementById('editPlanNumber');
       const editPlanName = document.getElementById('editPlanName');
+      const editPlanSlug = document.getElementById('editPlanSlug');
       const editSquareFeet = document.getElementById('editSquareFeet');
       const editBeds = document.getElementById('editBeds');
       const editBaths = document.getElementById('editBaths');
@@ -653,6 +665,7 @@
 
         if (editPlanNumber) editPlanNumber.value = plan.planNumber || '';
         if (editPlanName) editPlanName.value = plan.name || '';
+        if (editPlanSlug) editPlanSlug.value = plan.websiteSlug || plan.websiteUrl || '';
         if (editSquareFeet) editSquareFeet.value = plan.specs?.squareFeet ?? '';
         if (editBeds) editBeds.value = plan.specs?.beds ?? '';
         if (editBaths) editBaths.value = plan.specs?.baths ?? '';
@@ -834,6 +847,7 @@
         const payload = {
           planNumber: editPlanNumber?.value?.trim() || '',
           name: editPlanName?.value?.trim() || '',
+          websiteSlug: editPlanSlug?.value?.trim() || '',
           specs: {
             squareFeet: Number(editSquareFeet?.value) || 0,
             beds: Number(editBeds?.value) || 0,
@@ -887,6 +901,7 @@
         const payload = {
           planNumber: document.getElementById('planNumber').value.trim(),
           name: document.getElementById('name').value.trim(),
+          websiteSlug: planSlugInput?.value?.trim() || '',
           specs: {
             squareFeet: Number(document.getElementById('squareFeet').value) || 0,
             beds: Number(document.getElementById('beds').value) || 0,

@@ -17,6 +17,8 @@ const FloorPlanSchema = new Schema({
   // 1) human/system identifiers
   planNumber: { type: String, required: true, trim: true },
   name:       { type: String, required: true, trim: true },
+  websiteSlug: { type: String, default: '' },
+  websiteUrl: { type: String, default: '' },
 
   // 2) specs — coerce strings -> numbers without exploding
   specs: {

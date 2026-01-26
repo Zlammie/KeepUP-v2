@@ -23,11 +23,12 @@ import {
   const lotTitle = document.getElementById('lot-title');
   const lotStatus = document.getElementById('lot-status');
   const lotAddress = document.getElementById('lot-address');
-  const lotLabel = document.getElementById('lot-label');
   const lotPlan = document.getElementById('lot-plan');
+  const lotPlanLink = document.getElementById('lot-plan-link');
   const lotSqft = document.getElementById('lot-sqft');
   const lotBeds = document.getElementById('lot-beds');
   const lotBaths = document.getElementById('lot-baths');
+  const lotStories = document.getElementById('lot-stories');
   const lotGarage = document.getElementById('lot-garage');
   const lotPrice = document.getElementById('lot-price');
   const lotPriceField = document.getElementById('lot-price-field');
@@ -214,7 +215,7 @@ import {
 
   const shouldShowPrice = (value) => {
     const norm = normalizeStatus(value);
-    return norm === 'available' || norm === 'spec';
+    return norm === 'available' || norm === 'spec' || norm === 'coming-soon';
   };
 
   const formatStatus = (value) => {
@@ -611,13 +612,20 @@ import {
 
   const showEmptyPanel = (title = 'Select a lot') => {
     if (lotTitle) lotTitle.textContent = title;
-    if (lotStatus) lotStatus.textContent = 'Status: -';
+    if (lotStatus) {
+      lotStatus.textContent = '-';
+      delete lotStatus.dataset.status;
+    }
     if (lotAddress) lotAddress.textContent = '-';
-    if (lotLabel) lotLabel.textContent = '-';
     if (lotPlan) lotPlan.textContent = '-';
+    if (lotPlanLink) {
+      lotPlanLink.href = '#';
+      lotPlanLink.classList.add('is-hidden');
+    }
     if (lotSqft) lotSqft.textContent = '-';
     if (lotBeds) lotBeds.textContent = '-';
     if (lotBaths) lotBaths.textContent = '-';
+    if (lotStories) lotStories.textContent = '-';
     if (lotGarage) lotGarage.textContent = '-';
     if (lotPrice) {
       lotPrice.textContent = '-';
@@ -665,23 +673,38 @@ import {
       showEmptyPanel('No lot selected');
       return;
     }
-    const label = lot.label ? `Lot ${lot.label}` : (lot.address || 'Selected lot');
-    if (lotTitle) lotTitle.textContent = label;
-    if (lotStatus) lotStatus.textContent = `Status: ${formatStatus(lot.status)}`;
+    const titleText = lot.address || 'Selected lot';
+    if (lotTitle) lotTitle.textContent = titleText;
+    if (lotStatus) {
+      const statusKey = normalizeStatus(lot.status);
+      lotStatus.textContent = formatStatus(lot.status) || '-';
+      if (statusKey) lotStatus.dataset.status = statusKey;
+      else delete lotStatus.dataset.status;
+    }
     if (lotAddress) lotAddress.textContent = lot.address || '-';
-    if (lotLabel) lotLabel.textContent = lot.label ? `Lot ${lot.label}` : '-';
     if (lotPlan) {
       const plan = lot.floorPlanName || lot.floorPlanNumber || '';
       lotPlan.textContent = plan || '-';
     }
+    if (lotPlanLink) {
+      const planUrl = lot.floorPlanUrl || '';
+      if (planUrl) {
+        lotPlanLink.href = planUrl;
+        lotPlanLink.classList.remove('is-hidden');
+      } else {
+        lotPlanLink.href = '#';
+        lotPlanLink.classList.add('is-hidden');
+      }
+    }
     if (lotSqft) lotSqft.textContent = formatNumber(lot.squareFeet);
     if (lotBeds) lotBeds.textContent = formatNumber(lot.beds);
     if (lotBaths) lotBaths.textContent = formatNumber(lot.baths);
+    if (lotStories) lotStories.textContent = formatNumber(lot.stories);
     if (lotGarage) lotGarage.textContent = formatNumber(lot.garage);
     if (lotPrice) {
       const priceVal = Number(lot.price);
       const hasPrice = Number.isFinite(priceVal) && priceVal > 0;
-      lotPrice.textContent = hasPrice ? formatCurrency(priceVal) : 'None Available';
+      lotPrice.textContent = hasPrice ? formatCurrency(priceVal) : 'Contact for Pricing';
       lotPrice.classList.toggle('price-none', !hasPrice);
     }
     if (lotPriceField) {

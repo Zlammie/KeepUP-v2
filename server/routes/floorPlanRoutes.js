@@ -25,6 +25,31 @@ const uploadsDir = process.env.UPLOADS_DIR
   ? path.resolve(process.env.UPLOADS_DIR)
   : path.join(process.cwd(), 'uploads');
 
+const normalizeWebsiteSlug = (value) => {
+  const raw = String(value || '').trim();
+  if (!raw) return '';
+  let slug = raw;
+  try {
+    const url = new URL(raw);
+    slug = url.pathname || '';
+  } catch (_) {
+    // not a URL, treat as slug/path
+  }
+  slug = slug.replace(/\\/g, '/');
+  if (slug.includes('/')) {
+    const parts = slug.split('/').filter(Boolean);
+    slug = parts[parts.length - 1] || '';
+  }
+  slug = slug
+    .toLowerCase()
+    .replace(/&/g, ' and ')
+    .replace(/[^a-z0-9\s-]/g, '')
+    .replace(/\s+/g, '-')
+    .replace(/-+/g, '-')
+    .replace(/^-+|-+$/g, '');
+  return slug;
+};
+
 const toPublicPath = (absPath) => {
   if (!absPath) return '';
   const rel = path.relative(uploadsDir, absPath).replace(/\\/g, '/');
@@ -237,6 +262,12 @@ router.post('/',
         company: isSuper(req) ? (req.body.company || req.user.company) : req.user.company
       };
 
+      if (Object.prototype.hasOwnProperty.call(req.body, 'websiteSlug')) {
+        body.websiteSlug = normalizeWebsiteSlug(req.body.websiteSlug);
+      } else if (Object.prototype.hasOwnProperty.call(req.body, 'websiteUrl')) {
+        body.websiteSlug = normalizeWebsiteSlug(req.body.websiteUrl);
+      }
+
       const normalizedAsset = sanitizeAsset(asset);
       if (normalizedAsset) body.asset = normalizedAsset;
       const normalizedElevations = sanitizeElevations(elevations);
@@ -273,6 +304,13 @@ router.put('/:id',
         await assertCommunitiesInTenant(req, communityIds);
         updates.communities = communityIds;
       }
+
+      if (Object.prototype.hasOwnProperty.call(updates, 'websiteSlug')) {
+        updates.websiteSlug = normalizeWebsiteSlug(updates.websiteSlug);
+      } else if (Object.prototype.hasOwnProperty.call(updates, 'websiteUrl')) {
+        updates.websiteSlug = normalizeWebsiteSlug(updates.websiteUrl);
+      }
+      delete updates.websiteUrl;
 
       const removeAsset = String(updates.removeAsset || '').toLowerCase();
       const shouldRemoveAsset = ['true', '1', 'yes', 'on'].includes(removeAsset);

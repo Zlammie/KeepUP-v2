@@ -102,6 +102,31 @@ const normalizePlanPalette = (input) => {
   return out;
 };
 
+const normalizePlanSlug = (value) => {
+  const raw = String(value || '').trim();
+  if (!raw) return '';
+  let slug = raw;
+  try {
+    const url = new URL(raw);
+    slug = url.pathname || '';
+  } catch (_) {
+    // not a URL
+  }
+  slug = slug.replace(/\\/g, '/');
+  if (slug.includes('/')) {
+    const parts = slug.split('/').filter(Boolean);
+    slug = parts[parts.length - 1] || '';
+  }
+  slug = slug
+    .toLowerCase()
+    .replace(/&/g, ' and ')
+    .replace(/[^a-z0-9\s-]/g, '')
+    .replace(/\s+/g, '-')
+    .replace(/-+/g, '-')
+    .replace(/^-+|-+$/g, '');
+  return slug;
+};
+
 const STATUS_PALETTE_KEYS = new Set([
   'default',
   'available',
@@ -145,6 +170,13 @@ const sanitizeListingUrl = (value) => {
     return null;
   }
   return null;
+};
+
+const buildFloorPlanUrl = (communitySlug, planSlug) => {
+  const community = String(communitySlug || '').trim();
+  const plan = String(planSlug || '').trim();
+  if (!community || !plan) return '';
+  return `https://grenadierhomes.com/communities/${community}/${plan}/`;
 };
 
 const buildLotLookup = (lots) => {
@@ -234,7 +266,7 @@ const buildFloorPlanMap = async (community) => {
     company: community.company,
     $or: orFilters
   })
-    .select('name planNumber specs.squareFeet specs.beds specs.baths specs.garage')
+    .select('name planNumber websiteSlug websiteUrl specs.squareFeet specs.beds specs.baths specs.garage specs.stories')
     .lean();
 
   const byId = new Map();
@@ -296,14 +328,19 @@ const resolvePlanInfo = (lot, floorPlanMap) => {
   ) || '';
   const planNumber = pickFirst(planDoc?.planNumber, planObj?.planNumber, lot.floorPlanNumber) || '';
   const specs = planDoc?.specs || {};
+  const websiteSlug = normalizePlanSlug(
+    pickFirst(planDoc?.websiteSlug, planDoc?.websiteUrl, planObj?.websiteSlug, planObj?.websiteUrl)
+  );
 
   return {
     floorPlanName: planName ? String(planName) : '',
     floorPlanNumber: planNumber ? String(planNumber) : '',
+    websiteSlug: websiteSlug ? String(websiteSlug) : '',
     squareFeet: toNumber(specs.squareFeet),
     beds: toNumber(specs.beds),
     baths: toNumber(specs.baths),
-    garage: toNumber(specs.garage)
+    garage: toNumber(specs.garage),
+    stories: toNumber(specs.stories)
   };
 };
 
@@ -467,6 +504,8 @@ router.get(['/maps/:communitySlug/package', '/maps/package'], async (req, res) =
       return res.status(404).json({ error: 'Map not found for community' });
     }
 
+    const communityName = community.name || community.communityName || '';
+    const communitySlug = community.slug || slugify(communityName);
     const floorPlanMap = await buildFloorPlanMap(community);
     const links = (() => {
       if (!manifest.linksFile) return [];
@@ -507,17 +546,17 @@ router.get(['/maps/:communitySlug/package', '/maps/package'], async (req, res) =
           hasViewHomeLink: Boolean(matched?.hasViewHomeLink),
           floorPlanName: planInfo.floorPlanName,
           floorPlanNumber: planInfo.floorPlanNumber,
+          floorPlanUrl: sanitizeListingUrl(buildFloorPlanUrl(communitySlug, planInfo.websiteSlug)),
           squareFeet: planInfo.squareFeet,
           beds: planInfo.beds,
           baths: planInfo.baths,
           garage: planInfo.garage,
+          stories: planInfo.stories,
           price
         };
       })
       .filter(Boolean);
 
-    const communityName = community.name || community.communityName || '';
-    const communitySlug = community.slug || slugify(communityName);
     const planPalette = normalizePlanPalette(community.planPalette || {});
     let statusPalette = {};
     if (community.company && isId(community.company)) {
