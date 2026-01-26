@@ -224,7 +224,7 @@ import {
     const labels = {
       available: 'Available',
       sold: 'Sold',
-      closed: 'Closed',
+      closed: 'Sold',
       hold: 'Future Homesite',
       model: 'Model',
       spec: 'SPEC',
