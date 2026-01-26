@@ -1038,7 +1038,7 @@ import {
     window.open(url, '_blank', 'noopener,noreferrer');
   });
 
-  applyStyleMode('plan');
+  applyStyleMode('status');
   initPanZoom();
   init();
 })();
