@@ -52,6 +52,22 @@ const FeatureSchema = new Schema({
   websiteMap: { type: WebsiteMapFeatureSchema, default: () => ({}) }
 }, { _id: false });
 
+const BillingSchema = new Schema({
+  seatsPurchased: { type: Number }
+}, { _id: false });
+
+const BillingPolicySchema = new Schema({
+  seats: {
+    mode: { type: String, enum: ['normal', 'waived', 'internal'], default: 'normal' },
+    minBilledOverride: { type: Number, default: null }
+  },
+  addons: {
+    buildrootz: { type: String, enum: ['normal', 'comped'], default: 'normal' },
+    websiteMap: { type: String, enum: ['normal', 'comped'], default: 'normal' }
+  },
+  notes: { type: String, trim: true, default: '' }
+}, { _id: false });
+
 const SettingsSchema = new Schema({
   timezone: { type: String, default: 'America/Chicago' },
   locale:   { type: String, default: 'en-US' },
@@ -83,6 +99,8 @@ const CompanySchema = new Schema({
 
   // Billing hooks (fill in when/if you adopt a provider)
   billingCustomerId: { type: String, default: null },
+  billing: { type: BillingSchema, default: () => ({}) },
+  billingPolicy: { type: BillingPolicySchema, default: () => ({}) },
   features: { type: FeatureSchema, default: () => ({}) },
   entitlements: { type: EntitlementsSchema, default: () => ({}) },
 
@@ -90,6 +108,7 @@ const CompanySchema = new Schema({
   address: { type: AddressSchema, default: () => ({}) },
   primaryContact: { type: PrimaryContactSchema, default: () => ({}) },
   notes: { type: String, trim: true, default: '' },
+  updatedByUserId: { type: Schema.Types.ObjectId, default: null },
 
   // BuildRootz profile content (builder-facing)
   buildrootzProfile: { type: BuildrootzProfileSchema, default: () => ({}) }

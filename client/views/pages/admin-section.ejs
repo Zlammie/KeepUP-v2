@@ -23,6 +23,7 @@
     <div class="card shadow-sm">
       <div class="card-body">
         <% const showImpersonationTab = permissions && permissions.canUseImpersonation; %>
+        <% const showPlatformBillingTab = permissions && permissions.isPlatformAdmin; %>
         <nav class="admin-tabs mb-4" aria-label="Admin tabs">
           <ul class="nav nav-pills flex-wrap gap-2" role="tablist">
             <li class="nav-item" role="presentation">
@@ -47,6 +48,13 @@
                 Billing
               </button>
             </li>
+            <% if (showPlatformBillingTab) { %>
+              <li class="nav-item" role="presentation">
+                <button class="nav-link" id="admin-tab-platform-billing" data-admin-target="platform-billing" type="button" role="tab" aria-controls="admin-panel-platform-billing" aria-selected="false">
+                  Platform Billing
+                </button>
+              </li>
+            <% } %>
             <li class="nav-item" role="presentation">
               <button class="nav-link" id="admin-tab-settings" data-admin-target="settings" type="button" role="tab" aria-controls="admin-panel-settings" aria-selected="false">
                 Settings
@@ -182,6 +190,7 @@
               </button>
             </div>
           </div>
+          <div class="alert alert-light border small mb-3 d-none" id="admin-users-seat-banner"></div>
 
           <div id="admin-users-invite-card" class="card mb-3 d-none">
             <div class="card-body">
@@ -449,13 +458,27 @@
               <h3 class="h6 text-uppercase text-muted mb-2">Seats</h3>
               <div class="row g-3 align-items-start">
                 <div class="col-md-3">
-                  <label for="seatsPurchased" class="form-label">Seats Purchased</label>
-                  <input type="number" id="seatsPurchased" name="seatsPurchased" class="form-control" min="1" value="10" readonly />
-                  <div class="form-text">Managed by the KeepUp team.</div>
+                  <label for="seatsUsed" class="form-label">Seats Used</label>
+                  <input type="number" id="seatsUsed" name="seatsUsed" class="form-control" value="0" readonly />
+                  <div class="form-text">Active users with login access.</div>
                 </div>
                 <div class="col-md-3">
-                  <label for="seatsUsed" class="form-label">Seats Used</label>
-                  <input type="number" id="seatsUsed" name="seatsUsed" class="form-control" value="8" readonly />
+                  <label for="seatsInvited" class="form-label">Pending Invites</label>
+                  <input type="number" id="seatsInvited" name="seatsInvited" class="form-control" value="0" readonly />
+                  <div class="form-text">Invited users who have not accepted yet.</div>
+                </div>
+                <div class="col-md-3">
+                  <label for="seatsMinimumBilled" class="form-label">Minimum billed seats</label>
+                  <input type="number" id="seatsMinimumBilled" name="seatsMinimumBilled" class="form-control" value="0" readonly />
+                  <div class="form-text" id="seatsMinimumBilledHelper">Baseline billed seats.</div>
+                </div>
+                <div class="col-md-3">
+                  <label for="seatsBilled" class="form-label">Billable seats</label>
+                  <input type="number" id="seatsBilled" name="seatsBilled" class="form-control" value="0" readonly />
+                  <div class="form-text">Calculated from active users.</div>
+                </div>
+                <div class="col-12">
+                  <div class="form-text">Billing is based on active users with a minimum billed seat count. Add as many team members as needed.</div>
                 </div>
               </div>
             </div>
@@ -464,6 +487,7 @@
               <h3 class="h6 text-uppercase text-muted mb-2">Current Usage &amp; Estimated Cost</h3>
               <div class="card shadow-sm billing-summary-card">
                 <div class="card-body p-3">
+                  <div class="alert alert-info small py-2 mb-2 d-none" id="billing-policy-banner"></div>
                   <div class="table-responsive">
                     <table class="table table-sm align-middle mb-2" id="billing-summary-table">
                       <thead class="table-light">
@@ -482,7 +506,7 @@
                     </table>
                   </div>
                   <div class="d-flex align-items-center justify-content-between flex-wrap gap-2">
-                    <span class="fw-semibold">Estimated Monthly Total: <span id="billing-summary-total">$0</span></span>
+                    <span class="fw-semibold">Estimated Monthly Total: <span id="billing-summary-total">--</span></span>
                     <span class="small text-muted">Billing is managed by the KeepUp team.</span>
                   </div>
                 </div>
@@ -505,15 +529,17 @@
                       </div>
                     </div>
                     <div class="d-flex align-items-center justify-content-between flex-wrap gap-2 mt-3">
-                      <span class="fw-semibold">$99 / month</span>
+                      <span class="fw-semibold" id="buildrootzPriceLabel">Pricing</span>
                       <span class="badge bg-secondary" id="buildrootzStatusBadge">Not enabled</span>
                     </div>
                     <div class="service-detail">
                       <p class="mb-2 small text-muted">Buildrootz listings keep your communities visible in their buyer network.</p>
                       <div class="d-flex align-items-center justify-content-between gap-2 flex-wrap">
                         <button type="button" class="btn btn-sm btn-outline-primary" id="buildrootzRequestButton">Request activation</button>
-                        <span class="small text-muted" id="buildrootzRequestStatus"></span>
+                        <button type="button" class="btn btn-sm btn-outline-danger" id="buildrootzCancelButton">Request cancellation</button>
                       </div>
+                      <div class="small text-muted mt-2" id="buildrootzRequestStatus"></div>
+                      <div class="small text-muted" id="buildrootzCancelStatus"></div>
                     </div>
                   </div>
                 </div>
@@ -530,15 +556,17 @@
                       </div>
                     </div>
                     <div class="d-flex align-items-center justify-content-between flex-wrap gap-2 mt-3">
-                      <span class="fw-semibold">$125 / community / month</span>
+                      <span class="fw-semibold" id="websiteMapPriceLabel">Pricing</span>
                       <span class="badge bg-secondary" id="websiteMapStatusBadge">Not enabled</span>
                     </div>
                     <div class="service-detail">
                       <p class="mb-2 small text-muted">Website Map keeps your customer-facing pages and layouts in sync.</p>
                       <div class="d-flex align-items-center justify-content-between gap-2 flex-wrap">
                         <button type="button" class="btn btn-sm btn-outline-primary" id="websiteMapRequestButton">Request activation</button>
-                        <span class="small text-muted" id="websiteMapRequestStatus"></span>
+                        <button type="button" class="btn btn-sm btn-outline-danger" id="websiteMapCancelButton">Request cancellation</button>
                       </div>
+                      <div class="small text-muted mt-2" id="websiteMapRequestStatus"></div>
+                      <div class="small text-muted" id="websiteMapCancelStatus"></div>
                     </div>
                   </div>
                 </div>
@@ -547,12 +575,17 @@
                     <div class="card-body">
                       <div class="d-flex align-items-start justify-content-between gap-3">
                         <div>
-                          <h4 class="h6 mb-1">Website Map Activation</h4>
-                          <p class="text-muted mb-0">
+                          <h4 class="h6 mb-1" id="websiteMapPanelTitle">Website Map Activation</h4>
+                          <p class="text-muted mb-0" id="websiteMapPanelSubtitle">
                             Select communities to start trials or request activation. Managed by the KeepUp team.
                           </p>
                         </div>
-                        <button type="button" class="btn-close" id="websiteMapPanelClose" aria-label="Close"></button>
+                        <div class="d-flex align-items-center gap-2">
+                          <button type="button" class="btn btn-sm btn-outline-danger d-none" id="websiteMapCancelAllButton">
+                            Cancel all maps
+                          </button>
+                          <button type="button" class="btn-close" id="websiteMapPanelClose" aria-label="Close"></button>
+                        </div>
                       </div>
                       <div class="small text-muted mt-2" id="websiteMapPanelStatus"></div>
                       <div class="table-responsive mt-3">
@@ -584,6 +617,268 @@
             </div>
           </form>
         </section>
+
+        <% if (showPlatformBillingTab) { %>
+        <section id="admin-panel-platform-billing" class="admin-panel d-none" role="tabpanel" aria-labelledby="admin-tab-platform-billing">
+          <div class="d-flex flex-wrap justify-content-between align-items-center gap-3 mb-3">
+            <div>
+              <h2 class="h4 mb-1">Platform Billing</h2>
+              <p class="text-muted mb-0">
+                Super Admin controls for seats, entitlements, and activation requests.
+              </p>
+            </div>
+            <% if (permissions && permissions.platformAccessLabel) { %>
+              <div class="small text-muted">Platform Access: <strong><%= permissions.platformAccessLabel %></strong></div>
+            <% } %>
+          </div>
+
+          <div class="row g-4">
+            <div class="col-lg-4">
+              <div class="card shadow-sm h-100">
+                <div class="card-body">
+                  <div class="d-flex gap-2 mb-3">
+                    <input type="search" class="form-control" id="platform-company-search" placeholder="Search companies" />
+                    <button type="button" class="btn btn-outline-secondary" id="platform-company-refresh">Refresh</button>
+                  </div>
+                  <div class="small text-muted mb-2" id="platform-company-status"></div>
+                  <div class="table-responsive">
+                    <table class="table table-sm align-middle mb-0" id="platform-company-table">
+                      <thead class="table-light">
+                        <tr>
+                          <th scope="col">Company</th>
+                          <th scope="col">Seats</th>
+                          <th scope="col">Buildrootz</th>
+                          <th scope="col">Map</th>
+                        </tr>
+                      </thead>
+                      <tbody id="platform-company-table-body">
+                        <tr>
+                          <td colspan="4" class="text-center text-muted">Loading companies...</td>
+                        </tr>
+                      </tbody>
+                    </table>
+                  </div>
+                </div>
+              </div>
+            </div>
+            <div class="col-lg-8">
+              <div class="card shadow-sm mb-3">
+                <div class="card-body">
+                  <div id="platform-company-empty" class="text-muted">
+                    Select a company to manage billing controls.
+                  </div>
+                  <div id="platform-company-detail" class="d-none">
+                    <div class="d-flex align-items-start justify-content-between flex-wrap gap-3 mb-3">
+                      <div>
+                        <h3 class="h5 mb-1" id="platform-company-name">Company</h3>
+                        <div class="text-muted small" id="platform-company-updated"></div>
+                      </div>
+                      <button type="button" class="btn btn-outline-secondary btn-sm" id="platform-company-reload">
+                        Reload
+                      </button>
+                    </div>
+
+                    <div class="row g-3 mb-3">
+                      <div class="col-md-6">
+                        <h4 class="h6 text-uppercase text-muted">Billing Contact</h4>
+                        <div class="small text-muted" id="platform-billing-contact"></div>
+                      </div>
+                      <div class="col-md-6">
+                        <h4 class="h6 text-uppercase text-muted">Primary Contact</h4>
+                        <div class="small text-muted" id="platform-primary-contact"></div>
+                      </div>
+                    </div>
+
+                    <div class="row g-3 align-items-end mb-3">
+                      <div class="col-md-3">
+                        <label class="form-label" for="platform-seats-used">Seats Used</label>
+                        <input type="number" class="form-control" id="platform-seats-used" readonly />
+                      </div>
+                      <div class="col-md-3">
+                        <label class="form-label" for="platform-seats-invited">Pending Invites</label>
+                        <input type="number" class="form-control" id="platform-seats-invited" readonly />
+                      </div>
+                      <div class="col-md-3">
+                        <label class="form-label" for="platform-seats-minimum">Minimum billed seats</label>
+                        <input type="number" class="form-control" id="platform-seats-minimum" readonly />
+                        <div class="form-text" id="platform-seats-minimum-helper">Minimum billed seats: --</div>
+                      </div>
+                      <div class="col-md-3">
+                        <label class="form-label" for="platform-seats-billed">Billable seats</label>
+                        <input type="number" class="form-control" id="platform-seats-billed" readonly />
+                      </div>
+                      <div class="col-12">
+                        <div class="small text-muted">Billing is based on active users with a minimum billed seat count.</div>
+                      </div>
+                    </div>
+
+                    <div class="border-top pt-3">
+                      <h4 class="h6 text-uppercase text-muted mb-2">Company Products</h4>
+                      <div class="row g-3 align-items-center">
+                        <div class="col-md-6">
+                          <label class="form-label" for="platform-buildrootz-status">Buildrootz Status</label>
+                          <select class="form-select" id="platform-buildrootz-status">
+                            <option value="inactive">Inactive</option>
+                            <option value="active">Active</option>
+                            <option value="pending">Pending</option>
+                            <option value="trial">Trial</option>
+                          </select>
+                        </div>
+                        <div class="col-md-6">
+                          <label class="form-label" for="platform-website-map-enabled">Website Map Enabled</label>
+                          <div class="form-check form-switch">
+                            <input class="form-check-input" type="checkbox" id="platform-website-map-enabled" />
+                            <label class="form-check-label" for="platform-website-map-enabled">Enabled for company</label>
+                          </div>
+                        </div>
+                        <div class="col-12 d-flex justify-content-between align-items-center flex-wrap gap-2">
+                          <div class="small text-muted" id="platform-features-status"></div>
+                          <button type="button" class="btn btn-primary btn-sm" id="platform-features-save">Save Products</button>
+                        </div>
+                      </div>
+                    </div>
+
+                    <div class="border-top pt-3 mt-3">
+                      <h4 class="h6 text-uppercase text-muted mb-2">Preset Plans</h4>
+                      <div class="row g-3 align-items-end">
+                        <div class="col-md-6">
+                          <label class="form-label" for="platform-policy-preset">Choose a preset</label>
+                          <select class="form-select" id="platform-policy-preset">
+                            <option value="">Select preset...</option>
+                            <option value="standard">Standard Plan</option>
+                            <option value="grenadier">Grenadier Internal Plan</option>
+                            <option value="pilot">Pilot Plan</option>
+                          </select>
+                        </div>
+                        <div class="col-12 d-flex justify-content-between align-items-center flex-wrap gap-2">
+                          <div class="small text-muted" id="platform-policy-preset-status"></div>
+                          <button type="button" class="btn btn-outline-primary btn-sm" id="platform-policy-apply-preset">
+                            Apply Preset
+                          </button>
+                        </div>
+                      </div>
+                    </div>
+
+                    <div class="border-top pt-3 mt-3">
+                      <h4 class="h6 text-uppercase text-muted mb-2">Billing Policy</h4>
+                      <div class="row g-3 align-items-end">
+                        <div class="col-md-4">
+                          <label class="form-label" for="platform-policy-seats-mode">Seats mode</label>
+                          <select class="form-select" id="platform-policy-seats-mode">
+                            <option value="normal">Normal</option>
+                            <option value="waived">Waived</option>
+                            <option value="internal">Internal</option>
+                          </select>
+                        </div>
+                        <div class="col-md-4">
+                          <label class="form-label" for="platform-policy-min-seats">Minimum billed seats override</label>
+                          <input type="number" min="0" step="1" class="form-control" id="platform-policy-min-seats" placeholder="(default)" />
+                          <div class="form-text">Leave blank to use the standard minimum (3). Set to 0 for no minimum.</div>
+                        </div>
+                        <div class="col-md-4">
+                          <label class="form-label" for="platform-policy-buildrootz">Buildrootz billing</label>
+                          <select class="form-select" id="platform-policy-buildrootz">
+                            <option value="normal">Normal</option>
+                            <option value="comped">Comped</option>
+                          </select>
+                        </div>
+                        <div class="col-md-4">
+                          <label class="form-label" for="platform-policy-website-map">Website Map billing</label>
+                          <select class="form-select" id="platform-policy-website-map">
+                            <option value="normal">Normal</option>
+                            <option value="comped">Comped</option>
+                          </select>
+                        </div>
+                        <div class="col-12">
+                          <label class="form-label" for="platform-policy-notes">Notes (internal)</label>
+                          <textarea class="form-control" id="platform-policy-notes" rows="2" placeholder="Optional internal note..."></textarea>
+                        </div>
+                        <div class="col-12 d-flex justify-content-between align-items-center flex-wrap gap-2">
+                          <div class="small text-muted" id="platform-policy-status"></div>
+                          <button type="button" class="btn btn-primary btn-sm" id="platform-policy-save">Save Policy</button>
+                        </div>
+                      </div>
+                    </div>
+
+                    <div class="border-top pt-3 mt-3">
+                      <h4 class="h6 text-uppercase text-muted mb-2">Recent Billing Changes</h4>
+                      <div class="small text-muted mb-2" id="platform-policy-audit-status"></div>
+                      <ul class="list-group list-group-flush" id="platform-policy-audit-list">
+                        <li class="list-group-item text-muted">Select a company to view audit history.</li>
+                      </ul>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              <div class="card shadow-sm">
+                <div class="card-body">
+                  <div class="d-flex justify-content-between align-items-start flex-wrap gap-2 mb-2">
+                    <div>
+                      <h4 class="h6 text-uppercase text-muted mb-1">Website Map Communities</h4>
+                      <div class="small text-muted" id="platform-website-map-summary"></div>
+                    </div>
+                    <button type="button" class="btn btn-sm btn-outline-danger" id="platform-website-map-cancel-all">
+                      Cancel all Website Maps
+                    </button>
+                  </div>
+                  <div class="table-responsive">
+                    <table class="table table-sm align-middle mb-0" id="platform-communities-table">
+                      <thead class="table-light">
+                        <tr>
+                          <th scope="col">Community</th>
+                          <th scope="col">Status</th>
+                          <th scope="col">Trial Ends</th>
+                          <th scope="col" class="text-end">Action</th>
+                        </tr>
+                      </thead>
+                      <tbody id="platform-communities-body">
+                        <tr>
+                          <td colspan="4" class="text-center text-muted">Select a company to view communities.</td>
+                        </tr>
+                      </tbody>
+                    </table>
+                  </div>
+                  <div class="small text-muted mt-2" id="platform-communities-status"></div>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <div class="card shadow-sm mt-4">
+            <div class="card-body">
+              <div class="d-flex justify-content-between align-items-center flex-wrap gap-2 mb-3">
+                <div>
+                  <h3 class="h5 mb-1">Feature Requests</h3>
+                  <p class="text-muted mb-0">Pending activation requests across all companies.</p>
+                </div>
+                <button type="button" class="btn btn-outline-secondary btn-sm" id="platform-requests-refresh">Refresh</button>
+              </div>
+              <div class="table-responsive">
+                <table class="table table-sm align-middle mb-0" id="platform-requests-table">
+                  <thead class="table-light">
+                    <tr>
+                      <th scope="col">Company</th>
+                      <th scope="col">Feature</th>
+                      <th scope="col">Type</th>
+                      <th scope="col">Community</th>
+                      <th scope="col">Requested By</th>
+                      <th scope="col">Created</th>
+                      <th scope="col" class="text-end">Action</th>
+                    </tr>
+                  </thead>
+                  <tbody id="platform-requests-body">
+                    <tr>
+                      <td colspan="7" class="text-center text-muted">Loading requests...</td>
+                    </tr>
+                  </tbody>
+                </table>
+              </div>
+              <div class="small text-muted mt-2" id="platform-requests-status"></div>
+            </div>
+          </div>
+        </section>
+        <% } %>
 
         <section id="admin-panel-settings" class="admin-panel d-none" role="tabpanel" aria-labelledby="admin-tab-settings">
           <div class="text-muted">
@@ -670,7 +965,19 @@
         },
         billing: {
           loading: false,
-          data: null
+          data: null,
+          websiteMapPanelMode: 'enable'
+        },
+        platformBilling: {
+          loading: false,
+          companyLoading: false,
+          requestLoading: false,
+          companies: [],
+          selectedCompanyId: null,
+          selectedCompany: null,
+          requests: [],
+          audits: [],
+          selectedPresetKey: ''
         },
         users: {
           loading: false,
@@ -692,7 +999,8 @@
         tableWrapper: document.getElementById('admin-users-list'),
         table: document.getElementById('admin-users-table'),
         tableBody: document.querySelector('#admin-users-table tbody'),
-        actionsHeader: document.getElementById('admin-users-actions-header')
+        actionsHeader: document.getElementById('admin-users-actions-header'),
+        seatBanner: document.getElementById('admin-users-seat-banner')
       };
 
       const usersControls = {
@@ -767,18 +1075,76 @@
       const billingEls = {
         summaryBody: document.getElementById('billing-summary-body'),
         summaryTotal: document.getElementById('billing-summary-total'),
+        policyBanner: document.getElementById('billing-policy-banner'),
+        seatsUsed: document.getElementById('seatsUsed'),
+        seatsInvited: document.getElementById('seatsInvited'),
+        seatsMinimumBilled: document.getElementById('seatsMinimumBilled'),
+        seatsMinimumBilledHelper: document.getElementById('seatsMinimumBilledHelper'),
+        seatsBilled: document.getElementById('seatsBilled'),
+        buildrootzPriceLabel: document.getElementById('buildrootzPriceLabel'),
         buildrootzStatusBadge: document.getElementById('buildrootzStatusBadge'),
         buildrootzToggle: document.getElementById('buildrootzStatusToggle'),
         buildrootzRequestButton: document.getElementById('buildrootzRequestButton'),
         buildrootzRequestStatus: document.getElementById('buildrootzRequestStatus'),
+        buildrootzCancelButton: document.getElementById('buildrootzCancelButton'),
+        buildrootzCancelStatus: document.getElementById('buildrootzCancelStatus'),
+        websiteMapPriceLabel: document.getElementById('websiteMapPriceLabel'),
         websiteMapStatusBadge: document.getElementById('websiteMapStatusBadge'),
         websiteMapToggle: document.getElementById('websiteMapStatusToggle'),
         websiteMapRequestButton: document.getElementById('websiteMapRequestButton'),
         websiteMapRequestStatus: document.getElementById('websiteMapRequestStatus'),
+        websiteMapCancelButton: document.getElementById('websiteMapCancelButton'),
+        websiteMapCancelStatus: document.getElementById('websiteMapCancelStatus'),
         websiteMapPanel: document.getElementById('websiteMapPanel'),
         websiteMapPanelClose: document.getElementById('websiteMapPanelClose'),
         websiteMapPanelStatus: document.getElementById('websiteMapPanelStatus'),
-        websiteMapCommunityTable: document.getElementById('websiteMapCommunityTable')
+        websiteMapCommunityTable: document.getElementById('websiteMapCommunityTable'),
+        websiteMapPanelTitle: document.getElementById('websiteMapPanelTitle'),
+        websiteMapPanelSubtitle: document.getElementById('websiteMapPanelSubtitle'),
+        websiteMapCancelAllButton: document.getElementById('websiteMapCancelAllButton')
+      };
+
+      const platformBillingEls = {
+        panel: document.getElementById('admin-panel-platform-billing'),
+        companySearch: document.getElementById('platform-company-search'),
+        companyRefresh: document.getElementById('platform-company-refresh'),
+        companyStatus: document.getElementById('platform-company-status'),
+        companyTableBody: document.getElementById('platform-company-table-body'),
+        companyDetail: document.getElementById('platform-company-detail'),
+        companyEmpty: document.getElementById('platform-company-empty'),
+        companyName: document.getElementById('platform-company-name'),
+        companyUpdated: document.getElementById('platform-company-updated'),
+        companyReload: document.getElementById('platform-company-reload'),
+        billingContact: document.getElementById('platform-billing-contact'),
+        primaryContact: document.getElementById('platform-primary-contact'),
+        seatsUsed: document.getElementById('platform-seats-used'),
+        seatsInvited: document.getElementById('platform-seats-invited'),
+        seatsMinimum: document.getElementById('platform-seats-minimum'),
+        seatsMinimumHelper: document.getElementById('platform-seats-minimum-helper'),
+        seatsBilled: document.getElementById('platform-seats-billed'),
+        buildrootzStatus: document.getElementById('platform-buildrootz-status'),
+        websiteMapEnabled: document.getElementById('platform-website-map-enabled'),
+        featuresStatus: document.getElementById('platform-features-status'),
+        featuresSave: document.getElementById('platform-features-save'),
+        websiteMapSummary: document.getElementById('platform-website-map-summary'),
+        websiteMapCancelAll: document.getElementById('platform-website-map-cancel-all'),
+        presetSelect: document.getElementById('platform-policy-preset'),
+        presetApply: document.getElementById('platform-policy-apply-preset'),
+        presetStatus: document.getElementById('platform-policy-preset-status'),
+        policySeatsMode: document.getElementById('platform-policy-seats-mode'),
+        policyMinSeats: document.getElementById('platform-policy-min-seats'),
+        policyBuildrootz: document.getElementById('platform-policy-buildrootz'),
+        policyWebsiteMap: document.getElementById('platform-policy-website-map'),
+        policyNotes: document.getElementById('platform-policy-notes'),
+        policyStatus: document.getElementById('platform-policy-status'),
+        policySave: document.getElementById('platform-policy-save'),
+        policyAuditList: document.getElementById('platform-policy-audit-list'),
+        policyAuditStatus: document.getElementById('platform-policy-audit-status'),
+        communitiesBody: document.getElementById('platform-communities-body'),
+        communitiesStatus: document.getElementById('platform-communities-status'),
+        requestsRefresh: document.getElementById('platform-requests-refresh'),
+        requestsBody: document.getElementById('platform-requests-body'),
+        requestsStatus: document.getElementById('platform-requests-status')
       };
 
       if (companyForm && !canEditCompany) {
@@ -833,25 +1199,15 @@
         return raw;
       };
 
-      const PRICING = {
-        buildrootzMonthly: 99,
-        websiteMapMonthlyPerCommunity: 125
-      };
-
       const statusMeta = {
         inactive: { label: 'Not enabled', badgeClass: 'bg-secondary' },
         pending: { label: 'Pending activation', badgeClass: 'bg-warning text-dark' },
+        pending_enable: { label: 'Activation pending', badgeClass: 'bg-warning text-dark' },
+        pending_cancel: { label: 'Cancellation pending', badgeClass: 'bg-warning text-dark' },
         trial: { label: 'Trial', badgeClass: 'bg-info text-dark' },
+        trial_expired: { label: 'Trial expired', badgeClass: 'bg-secondary' },
         active: { label: 'Active', badgeClass: 'bg-success' }
       };
-
-      const currencyFormatter = new Intl.NumberFormat('en-US', {
-        style: 'currency',
-        currency: 'USD',
-        maximumFractionDigits: 0
-      });
-
-      const formatCurrency = (value) => currencyFormatter.format(Number(value || 0));
 
       const setCompanyStatus = (message, tone = 'muted') => {
         if (!companyStatusEl) return;
@@ -933,6 +1289,22 @@
         }
       };
 
+      const renderUserSeatBanner = (payload) => {
+        if (!usersEls.seatBanner) return;
+        const seats = payload?.seats;
+        if (!seats) {
+          usersEls.seatBanner.classList.add('d-none');
+          return;
+        }
+        const used = Number(seats.used ?? 0);
+        const invited = Number(seats.invited ?? 0);
+        const minimum = Number(seats.minimumBilled ?? 0);
+        const billed = Number(seats.billed ?? 0);
+        usersEls.seatBanner.textContent =
+          `Seats Used: ${used} - Pending Invites: ${invited} - Billed Seats: ${billed} (min ${minimum})`;
+        usersEls.seatBanner.classList.remove('d-none');
+      };
+
       const fetchCompanyPayload = async () => {
         const response = await fetch('/api/admin/company', {
           headers: { Accept: 'application/json' },
@@ -1003,22 +1375,21 @@
       };
 
       const getWebsiteMapCardStatus = (payload) => {
-        const communities = Array.isArray(payload?.communities) ? payload.communities : [];
-        const hasActive = communities.some((community) => community.websiteMap?.status === 'active');
-        if (hasActive) return 'active';
-        const hasTrial = communities.some((community) => community.websiteMap?.status === 'trial');
-        if (hasTrial) return 'trial';
-        const hasPending = communities.some((community) => community.pendingRequest);
-        if (hasPending) return 'pending';
-        return 'inactive';
+        return payload?.features?.websiteMap?.displayStatus || 'inactive';
       };
 
-      const getTrialDaysRemaining = (trialEndsAt, now) => {
-        if (!trialEndsAt) return null;
-        const end = new Date(trialEndsAt);
-        if (Number.isNaN(end.getTime())) return null;
-        const diffMs = end.getTime() - now.getTime();
-        return Math.ceil(diffMs / (24 * 60 * 60 * 1000));
+      
+      const renderPricingLabels = () => {
+        if (!state.billing.data) return;
+        const pricing = state.billing.data.pricingDisplay || {};
+        if (billingEls.buildrootzPriceLabel) {
+          const brz = pricing.buildrootz?.monthlyFormatted || 'Pricing';
+          billingEls.buildrootzPriceLabel.textContent = `${brz} / month`;
+        }
+        if (billingEls.websiteMapPriceLabel) {
+          const map = pricing.websiteMap?.monthlyFormatted || 'Pricing';
+          billingEls.websiteMapPriceLabel.textContent = `${map} / community / month`;
+        }
       };
 
       const renderBillingSummary = () => {
@@ -1029,57 +1400,97 @@
               <td colspan="4" class="text-center text-muted">Loading usage...</td>
             </tr>
           `;
-          billingEls.summaryTotal.textContent = formatCurrency(0);
+          billingEls.summaryTotal.textContent = '--';
+          if (billingEls.policyBanner) {
+            billingEls.policyBanner.classList.add('d-none');
+            billingEls.policyBanner.textContent = '';
+          }
           return;
         }
 
         const payload = state.billing.data;
-        const rows = [];
-        let total = 0;
-
-        const buildrootzStatus = payload.features?.buildrootz?.status || 'inactive';
-        if (buildrootzStatus === 'active' || buildrootzStatus === 'trial') {
-          total += PRICING.buildrootzMonthly;
-          rows.push(`
-            <tr>
-              <td>${escapeHtml('Buildrootz')}</td>
-              <td>${escapeHtml('Company')}</td>
-              <td>1</td>
-              <td class="text-end">${escapeHtml(formatCurrency(PRICING.buildrootzMonthly))}</td>
-            </tr>
-          `);
+        const estimated = payload.estimated;
+        const hasPolicyOverrides = !!payload.billingPolicy?.hasOverrides;
+        if (billingEls.policyBanner) {
+          if (hasPolicyOverrides) {
+            billingEls.policyBanner.innerHTML = `
+              <strong>Special billing terms applied</strong>
+              <div>Your account has special billing terms configured by KeepUp. For changes, contact support.</div>
+            `;
+            billingEls.policyBanner.classList.remove('d-none');
+          } else {
+            billingEls.policyBanner.classList.add('d-none');
+            billingEls.policyBanner.textContent = '';
+          }
         }
-
-        const communities = Array.isArray(payload.communities) ? payload.communities : [];
-        const activeWebsiteMap = communities.filter((community) =>
-          ['active', 'trial'].includes(community.websiteMap?.status)
-        );
-        if (activeWebsiteMap.length) {
-          const freeSetups = payload.entitlements?.websiteMap?.freeCommunitySetups || 0;
-          const billableCount = Math.max(0, activeWebsiteMap.length - freeSetups);
-          const websiteMapCost = billableCount * PRICING.websiteMapMonthlyPerCommunity;
-          total += websiteMapCost;
-          rows.push(`
-            <tr>
-              <td>${escapeHtml('Website Map')}</td>
-              <td>${escapeHtml('Per community')}</td>
-              <td>${escapeHtml(String(activeWebsiteMap.length))}</td>
-              <td class="text-end">${escapeHtml(formatCurrency(websiteMapCost))}</td>
-            </tr>
-          `);
-        }
-
-        if (!rows.length) {
-          billingEls.summaryBody.innerHTML = `
+        if (estimated && Array.isArray(estimated.lineItems)) {
+          const rowsMarkup = estimated.lineItems
+            .map((row) => {
+              const badges = Array.isArray(row.badges) ? row.badges : [];
+              const badgesMarkup = badges.length
+                ? badges
+                  .map((badge) => `
+                    <span class="badge rounded-pill bg-secondary text-uppercase">${escapeHtml(badge)}</span>
+                  `)
+                  .join('')
+                : '';
+              const labelMarkup = badgesMarkup
+                ? `
+                    <div class="d-flex align-items-center flex-wrap gap-2">
+                      <span>${escapeHtml(row.label || '')}</span>
+                      ${badgesMarkup}
+                    </div>
+                  `
+                : escapeHtml(row.label || '');
+              return `
+              <tr>
+                <td>${labelMarkup}</td>
+                <td>${escapeHtml(row.scope || '')}</td>
+                <td>${escapeHtml(row.quantityText || '')}</td>
+                <td class="text-end">${escapeHtml(row.monthlyFormatted || '--')}</td>
+              </tr>
+            `;
+            })
+            .join('');
+          billingEls.summaryBody.innerHTML = rowsMarkup || `
             <tr>
               <td colspan="4" class="text-center text-muted">No active or trial products yet.</td>
             </tr>
           `;
-        } else {
-          billingEls.summaryBody.innerHTML = rows.join('');
+          billingEls.summaryTotal.textContent = estimated.totalMonthlyFormatted || '--';
+          return;
         }
 
-        billingEls.summaryTotal.textContent = formatCurrency(total);
+        billingEls.summaryBody.innerHTML = `
+          <tr>
+            <td colspan="4" class="text-center text-muted">No active or trial products yet.</td>
+          </tr>
+        `;
+        billingEls.summaryTotal.textContent = '--';
+      };
+
+      const renderSeatCounts = () => {
+        if (!state.billing.data) return;
+        const seats = state.billing.data.seats || {};
+        const used = Number(seats.used ?? 0);
+        const invited = Number(seats.invited ?? 0);
+        const minimum = Number(seats.minimumBilled ?? 0);
+        const billed = Number(seats.billed ?? 0);
+        const minOverride = state.billing.data.billingPolicy?.seats?.minBilledOverride;
+
+        if (billingEls.seatsUsed) billingEls.seatsUsed.value = Number.isFinite(used) ? used : 0;
+        if (billingEls.seatsInvited) billingEls.seatsInvited.value = Number.isFinite(invited) ? invited : 0;
+        if (billingEls.seatsMinimumBilled) {
+          billingEls.seatsMinimumBilled.value = Number.isFinite(minimum) ? minimum : 0;
+        }
+        if (billingEls.seatsMinimumBilledHelper) {
+          const isCustom = Number.isFinite(minOverride);
+          const labelValue = Number.isFinite(minimum) ? minimum : 0;
+          billingEls.seatsMinimumBilledHelper.textContent = isCustom
+            ? `Minimum billed seats: ${labelValue} (custom)`
+            : `Minimum billed seats: ${labelValue}`;
+        }
+        if (billingEls.seatsBilled) billingEls.seatsBilled.value = Number.isFinite(billed) ? billed : 0;
       };
 
       const renderWebsiteMapPanel = () => {
@@ -1087,8 +1498,8 @@
         if (!state.billing.data) return;
 
         const payload = state.billing.data;
-        const now = new Date(payload.serverTime || Date.now());
         const communities = Array.isArray(payload.communities) ? payload.communities : [];
+        const mode = state.billing.websiteMapPanelMode || 'enable';
 
         if (!communities.length) {
           billingEls.websiteMapCommunityTable.innerHTML = `
@@ -1099,57 +1510,101 @@
           return;
         }
 
+        if (billingEls.websiteMapPanelTitle) {
+          billingEls.websiteMapPanelTitle.textContent =
+            mode === 'cancel' ? 'Website Map Cancellation' : 'Website Map Activation';
+        }
+        if (billingEls.websiteMapPanelSubtitle) {
+          billingEls.websiteMapPanelSubtitle.textContent =
+            mode === 'cancel'
+              ? 'Select communities to request cancellations. Managed by the KeepUp team.'
+              : 'Select communities to start trials or request activation. Managed by the KeepUp team.';
+        }
+        if (billingEls.websiteMapCancelAllButton) {
+          const cancelPending = payload.features?.websiteMap?.pendingCancel;
+          const canShow = mode === 'cancel';
+          billingEls.websiteMapCancelAllButton.classList.toggle('d-none', !canShow);
+          billingEls.websiteMapCancelAllButton.disabled = !canManageBilling || !!cancelPending;
+        }
+
         const rows = communities
           .map((community) => {
             const communityId = community.id;
-            const rawStatus = community.websiteMap?.status || 'inactive';
-            const status = community.pendingRequest ? 'pending' : rawStatus;
-            const meta = statusMeta[status] || statusMeta.inactive;
-            const daysRemaining = rawStatus === 'trial'
-              ? getTrialDaysRemaining(community.websiteMap?.trialEndsAt, now)
-              : null;
-            const trialLabel = rawStatus === 'trial'
-              ? daysRemaining == null
-                ? '—'
-                : daysRemaining <= 0
-                  ? 'Expired'
-                  : `${daysRemaining} day${daysRemaining === 1 ? '' : 's'} left`
-              : '—';
+            const map = community.websiteMap || {};
+            const displayStatus = map.displayStatus || map.status || 'inactive';
+            const meta = statusMeta[displayStatus] || statusMeta.inactive;
+            const pendingEnable = !!map.pendingEnable || displayStatus === 'pending_enable';
+            const pendingCancel = !!map.pendingCancel || displayStatus === 'pending_cancel';
+            const trialExpired = !!map.trialExpired || displayStatus === 'trial_expired';
+            const trialEligible = displayStatus === 'inactive' && !pendingEnable && !map.trialEndsAt && !trialExpired;
 
-            const trialEligible =
-              rawStatus === 'inactive' && !community.pendingRequest && !community.websiteMap?.trialEndsAt;
+            let trialLabel = '-';
+            if (displayStatus === 'trial') {
+              const daysRemaining = Number.isFinite(map.trialEndsInDays) ? map.trialEndsInDays : null;
+              const endsFormatted = map.trialEndsAtFormatted || null;
+              if (daysRemaining !== null) {
+                const dayLabel = daysRemaining === 1 ? 'day' : 'days';
+                trialLabel = `Ends in ${daysRemaining} ${dayLabel}`;
+                if (endsFormatted) {
+                  trialLabel += ` (${endsFormatted})`;
+                }
+              } else if (endsFormatted) {
+                trialLabel = endsFormatted;
+              }
+            } else if (displayStatus === 'trial_expired') {
+              trialLabel = 'Expired';
+            }
 
-            let actionMarkup = '<span class="text-muted small">—</span>';
+            let actionMarkup = '<span class="text-muted small">?</span>';
             if (!canManageBilling) {
               actionMarkup = '<span class="text-muted small">View only</span>';
-            } else if (status === 'pending') {
-              actionMarkup = '<button type="button" class="btn btn-sm btn-outline-secondary" disabled>Pending</button>';
-            } else if (rawStatus === 'active') {
-              actionMarkup = '<span class="text-muted small">Active</span>';
-            } else if (rawStatus === 'trial') {
-              actionMarkup = '<span class="text-muted small">In trial</span>';
-            } else if (trialEligible) {
-              actionMarkup = `
-                <button
-                  type="button"
-                  class="btn btn-sm btn-outline-primary"
-                  data-action="website-map-trial"
-                  data-community-id="${escapeHtml(communityId)}"
-                >
-                  Start trial
-                </button>
-              `;
-            } else if (rawStatus === 'inactive') {
-              actionMarkup = `
-                <button
-                  type="button"
-                  class="btn btn-sm btn-outline-primary"
-                  data-action="website-map-request"
-                  data-community-id="${escapeHtml(communityId)}"
-                >
-                  Request activation
-                </button>
-              `;
+            } else if (mode === 'cancel') {
+              if (pendingCancel) {
+                actionMarkup = '<button type="button" class="btn btn-sm btn-outline-secondary" disabled>Cancel pending</button>';
+              } else if (displayStatus === 'active' || displayStatus === 'trial') {
+                actionMarkup = `
+                  <button
+                    type="button"
+                    class="btn btn-sm btn-outline-danger"
+                    data-action="website-map-cancel"
+                    data-community-id="${escapeHtml(communityId)}"
+                  >
+                    Request cancellation
+                  </button>
+                `;
+              } else {
+                actionMarkup = '<span class="text-muted small">Inactive</span>';
+              }
+            } else {
+              if (pendingEnable) {
+                actionMarkup = '<button type="button" class="btn btn-sm btn-outline-secondary" disabled>Activation pending</button>';
+              } else if (displayStatus === 'active' || displayStatus === 'trial') {
+                actionMarkup = '<span class="text-muted small">Active</span>';
+              } else if (trialExpired) {
+                actionMarkup = '<span class="text-muted small">Trial expired</span>';
+              } else if (trialEligible) {
+                actionMarkup = `
+                  <button
+                    type="button"
+                    class="btn btn-sm btn-outline-primary"
+                    data-action="website-map-trial"
+                    data-community-id="${escapeHtml(communityId)}"
+                  >
+                    Start trial
+                  </button>
+                `;
+              } else if (displayStatus === 'inactive') {
+                actionMarkup = `
+                  <button
+                    type="button"
+                    class="btn btn-sm btn-outline-primary"
+                    data-action="website-map-request"
+                    data-community-id="${escapeHtml(communityId)}"
+                  >
+                    Request activation
+                  </button>
+                `;
+              }
             }
 
             return `
@@ -1170,23 +1625,78 @@
         if (!state.billing.data) return;
         const payload = state.billing.data;
 
-        const buildrootzStatus = payload.features?.buildrootz?.status || 'inactive';
-        setStatusBadge(billingEls.buildrootzStatusBadge, buildrootzStatus);
-        setStatusToggle(billingEls.buildrootzToggle, buildrootzStatus);
+        const buildrootzStatusRaw = payload.features?.buildrootz?.status || 'inactive';
+        const buildrootzDisplayStatus = payload.features?.buildrootz?.displayStatus || buildrootzStatusRaw;
+        const buildrootzPendingEnable = !!payload.features?.buildrootz?.pendingEnable
+          || buildrootzDisplayStatus === 'pending_enable';
+        const buildrootzPendingCancel = !!payload.features?.buildrootz?.pendingCancel
+          || buildrootzDisplayStatus === 'pending_cancel';
+
+        setStatusBadge(billingEls.buildrootzStatusBadge, buildrootzDisplayStatus);
+        setStatusToggle(billingEls.buildrootzToggle, buildrootzStatusRaw);
 
         if (billingEls.buildrootzRequestButton) {
           const disableButton =
-            !canManageBilling || ['active', 'trial', 'pending'].includes(buildrootzStatus);
+            !canManageBilling
+            || buildrootzPendingCancel
+            || ['active', 'trial'].includes(buildrootzStatusRaw)
+            || buildrootzPendingEnable;
           billingEls.buildrootzRequestButton.disabled = disableButton;
+          if (buildrootzPendingEnable) {
+            setBillingStatusMessage(billingEls.buildrootzRequestStatus, 'Activation pending.', 'muted');
+          } else {
+            setBillingStatusMessage(billingEls.buildrootzRequestStatus, '', 'muted');
+          }
+        }
+        if (billingEls.buildrootzCancelButton) {
+          const canCancel = ['active', 'trial'].includes(buildrootzStatusRaw) || buildrootzPendingCancel;
+          billingEls.buildrootzCancelButton.classList.toggle('d-none', !canCancel);
+          billingEls.buildrootzCancelButton.disabled = !canManageBilling || !canCancel || buildrootzPendingCancel;
+          if (buildrootzPendingCancel) {
+            setBillingStatusMessage(billingEls.buildrootzCancelStatus, 'Cancellation pending.', 'muted');
+          } else {
+            setBillingStatusMessage(billingEls.buildrootzCancelStatus, '', 'muted');
+          }
         }
 
         const websiteMapStatus = getWebsiteMapCardStatus(payload);
+        const websiteMapPendingEnable = !!payload.features?.websiteMap?.pendingEnable
+          || websiteMapStatus === 'pending_enable';
+        const websiteMapPendingCancel = !!payload.features?.websiteMap?.pendingCancel
+          || websiteMapStatus === 'pending_cancel';
+
         setStatusBadge(billingEls.websiteMapStatusBadge, websiteMapStatus);
         setStatusToggle(billingEls.websiteMapToggle, websiteMapStatus);
+
+        if (billingEls.websiteMapRequestButton) {
+          billingEls.websiteMapRequestButton.disabled =
+            !canManageBilling || websiteMapPendingEnable || websiteMapPendingCancel;
+          if (websiteMapPendingEnable) {
+            setBillingStatusMessage(billingEls.websiteMapRequestStatus, 'Activation pending.', 'muted');
+          } else {
+            setBillingStatusMessage(billingEls.websiteMapRequestStatus, '', 'muted');
+          }
+        }
+        if (billingEls.websiteMapCancelButton) {
+          const canCancel = websiteMapStatus === 'active' || websiteMapPendingCancel;
+          billingEls.websiteMapCancelButton.classList.toggle('d-none', !canCancel);
+          billingEls.websiteMapCancelButton.disabled = !canManageBilling || !canCancel || websiteMapPendingCancel;
+          if (websiteMapPendingCancel) {
+            setBillingStatusMessage(billingEls.websiteMapCancelStatus, 'Cancellation pending.', 'muted');
+          } else {
+            setBillingStatusMessage(billingEls.websiteMapCancelStatus, '', 'muted');
+          }
+        }
+
+        if (billingEls.websiteMapPanel && !billingEls.websiteMapPanel.classList.contains('d-none')) {
+          renderWebsiteMapPanel();
+        }
       };
 
       const renderBillingPanel = () => {
         renderBillingCards();
+        renderSeatCounts();
+        renderPricingLabels();
         renderBillingSummary();
         if (billingEls.websiteMapPanel && !billingEls.websiteMapPanel.classList.contains('d-none')) {
           renderWebsiteMapPanel();
@@ -1216,7 +1726,9 @@
           renderBillingPanel();
           if (!canManageBilling) {
             setBillingStatusMessage(billingEls.buildrootzRequestStatus, billingViewOnlyMessage, 'muted');
+            setBillingStatusMessage(billingEls.buildrootzCancelStatus, billingViewOnlyMessage, 'muted');
             setBillingStatusMessage(billingEls.websiteMapRequestStatus, billingViewOnlyMessage, 'muted');
+            setBillingStatusMessage(billingEls.websiteMapCancelStatus, billingViewOnlyMessage, 'muted');
             if (billingEls.websiteMapPanelStatus) {
               setBillingStatusMessage(billingEls.websiteMapPanelStatus, billingViewOnlyMessage, 'muted');
             }
@@ -1251,7 +1763,7 @@
               Accept: 'application/json'
             },
             credentials: 'same-origin',
-            body: JSON.stringify({ feature: 'buildrootz' })
+            body: JSON.stringify({ feature: 'buildrootz', action: 'enable' })
           });
           const data = await readJsonResponse(response);
           if (!response.ok) {
@@ -1259,14 +1771,9 @@
             throw new Error(message);
           }
 
-          if (state.billing.data?.features?.buildrootz) {
-            state.billing.data.features.buildrootz.status = 'pending';
-          }
-          if (state.billing.data?.pendingRequests) {
-            state.billing.data.pendingRequests.buildrootz = true;
-          }
           setBillingStatusMessage(billingEls.buildrootzRequestStatus, 'Request sent. Pending activation.', 'success');
           renderBillingPanel();
+          await loadBillingPanel({ force: true });
         } catch (err) {
           console.error('Buildrootz request failed', err);
           setBillingStatusMessage(
@@ -1280,20 +1787,67 @@
         }
       };
 
-      const openWebsiteMapPanel = async () => {
+      const requestBuildrootzCancellation = async () => {
+        if (!canManageBilling || !billingEls.buildrootzCancelButton) return;
+        if (state.billing.requestingBuildrootzCancel) return;
+
+        state.billing.requestingBuildrootzCancel = true;
+        billingEls.buildrootzCancelButton.disabled = true;
+        setBillingStatusMessage(billingEls.buildrootzCancelStatus, 'Sending cancellation request...', 'muted');
+
+        try {
+          const response = await fetch('/api/admin/billing/feature-requests', {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+              Accept: 'application/json'
+            },
+            credentials: 'same-origin',
+            body: JSON.stringify({ feature: 'buildrootz', action: 'cancel' })
+          });
+          const data = await readJsonResponse(response);
+          if (!response.ok) {
+            const message = data?.error || `Request failed (${response.status})`;
+            throw new Error(message);
+          }
+          setBillingStatusMessage(billingEls.buildrootzCancelStatus, 'Cancellation pending.', 'success');
+          renderBillingPanel();
+          await loadBillingPanel({ force: true });
+        } catch (err) {
+          console.error('Buildrootz cancellation failed', err);
+          setBillingStatusMessage(
+            billingEls.buildrootzCancelStatus,
+            err.message || 'Unable to request cancellation.',
+            'danger'
+          );
+        } finally {
+          state.billing.requestingBuildrootzCancel = false;
+        }
+      };
+
+      const openWebsiteMapPanel = async (mode = 'enable') => {
         if (!billingEls.websiteMapPanel) return;
+        state.billing.websiteMapPanelMode = mode;
         billingEls.websiteMapPanel.classList.remove('d-none');
         setBillingStatusMessage(
           billingEls.websiteMapRequestStatus,
-          canManageBilling ? 'Select communities below to start a trial or request activation.' : billingViewOnlyMessage,
+          canManageBilling
+            ? mode === 'cancel'
+              ? 'Select communities below to request cancellation.'
+              : 'Select communities below to start a trial or request activation.'
+            : billingViewOnlyMessage,
           'muted'
         );
+        if (billingEls.websiteMapPanelStatus) {
+          setBillingStatusMessage(billingEls.websiteMapPanelStatus, '', 'muted');
+        }
         await loadBillingPanel();
         renderWebsiteMapPanel();
       };
 
       const closeWebsiteMapPanel = () => {
         billingEls.websiteMapPanel?.classList.add('d-none');
+        state.billing.websiteMapPanelMode = 'enable';
       };
 
       const requestWebsiteMapActivation = async (communityId) => {
@@ -1310,7 +1864,7 @@
               Accept: 'application/json'
             },
             credentials: 'same-origin',
-            body: JSON.stringify({ feature: 'websiteMap', communityId })
+            body: JSON.stringify({ feature: 'websiteMap', communityId, action: 'enable' })
           });
           const data = await readJsonResponse(response);
           if (!response.ok) {
@@ -1318,14 +1872,9 @@
             throw new Error(message);
           }
 
-          if (state.billing.data?.communities) {
-            const match = state.billing.data.communities.find((community) => community.id === communityId);
-            if (match) {
-              match.pendingRequest = true;
-            }
-          }
           setBillingStatusMessage(billingEls.websiteMapPanelStatus, 'Request sent. Pending activation.', 'success');
           renderBillingPanel();
+          await loadBillingPanel({ force: true });
         } catch (err) {
           console.error('Website Map request failed', err);
           setBillingStatusMessage(
@@ -1358,17 +1907,9 @@
             throw new Error(message);
           }
 
-          if (state.billing.data?.communities) {
-            const match = state.billing.data.communities.find((community) => community.id === communityId);
-            if (match) {
-              match.websiteMap = match.websiteMap || {};
-              match.websiteMap.status = 'trial';
-              match.websiteMap.trialEndsAt = data?.trialEndsAt || null;
-              match.pendingRequest = false;
-            }
-          }
           setBillingStatusMessage(billingEls.websiteMapPanelStatus, 'Trial started.', 'success');
           renderBillingPanel();
+          await loadBillingPanel({ force: true });
         } catch (err) {
           console.error('Website Map trial failed', err);
           setBillingStatusMessage(
@@ -1394,6 +1935,811 @@
         if (action === 'website-map-request') {
           await requestWebsiteMapActivation(communityId);
         }
+        if (action === 'website-map-cancel') {
+          await requestWebsiteMapCancellation({ communityId });
+        }
+      };
+
+      const requestWebsiteMapCancellation = async ({ communityId = null, cancelAll = false } = {}) => {
+        if (!canManageBilling) return;
+
+        setBillingStatusMessage(billingEls.websiteMapPanelStatus, 'Sending cancellation request...', 'muted');
+
+        try {
+          const response = await fetch('/api/admin/billing/feature-requests', {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+              Accept: 'application/json'
+            },
+            credentials: 'same-origin',
+            body: JSON.stringify({
+              feature: 'websiteMap',
+              action: 'cancel',
+              communityId: cancelAll ? null : communityId
+            })
+          });
+          const data = await readJsonResponse(response);
+          if (!response.ok) {
+            const message = data?.error || `Request failed (${response.status})`;
+            throw new Error(message);
+          }
+          setBillingStatusMessage(billingEls.websiteMapPanelStatus, 'Cancellation pending.', 'success');
+          renderBillingPanel();
+          await loadBillingPanel({ force: true });
+        } catch (err) {
+          console.error('Website Map cancellation failed', err);
+          setBillingStatusMessage(
+            billingEls.websiteMapPanelStatus,
+            err.message || 'Unable to request cancellation.',
+            'danger'
+          );
+        }
+      };
+
+      const fetchPlatformCompanies = async (query = '') => {
+        const url = new URL('/api/platform/billing/companies', window.location.origin);
+        if (query) url.searchParams.set('q', query);
+        const response = await fetch(url.toString(), {
+          headers: { Accept: 'application/json' },
+          credentials: 'same-origin'
+        });
+        const data = await readJsonResponse(response);
+        if (!response.ok) {
+          const message = data?.error || `Request failed (${response.status})`;
+          throw new Error(message);
+        }
+        return data;
+      };
+
+      const fetchPlatformCompanyDetail = async (companyId) => {
+        const response = await fetch(`/api/platform/billing/company/${encodeURIComponent(companyId)}`, {
+          headers: { Accept: 'application/json' },
+          credentials: 'same-origin'
+        });
+        const data = await readJsonResponse(response);
+        if (!response.ok) {
+          const message = data?.error || `Request failed (${response.status})`;
+          throw new Error(message);
+        }
+        return data;
+      };
+
+      const fetchPlatformRequests = async () => {
+        const response = await fetch('/api/platform/billing/requests?status=pending', {
+          headers: { Accept: 'application/json' },
+          credentials: 'same-origin'
+        });
+        const data = await readJsonResponse(response);
+        if (!response.ok) {
+          const message = data?.error || `Request failed (${response.status})`;
+          throw new Error(message);
+        }
+        return data;
+      };
+
+      const renderPlatformCompanies = () => {
+        if (!platformBillingEls.companyTableBody) return;
+        const companies = state.platformBilling.companies || [];
+        if (!companies.length) {
+          platformBillingEls.companyTableBody.innerHTML = `
+            <tr>
+              <td colspan="4" class="text-center text-muted">No companies found.</td>
+            </tr>
+          `;
+          return;
+        }
+
+        const rows = companies
+          .map((company) => {
+            const selected = company.id === state.platformBilling.selectedCompanyId;
+            const used = Number(company.seatsUsed ?? 0);
+            const minimum = Number(company.seatsMinimum ?? 0);
+            const billed = Number(company.seatsBilled ?? 0);
+            const seatLabel = `Used ${used} - Billed ${billed} (min ${minimum})`;
+            const buildrootzStatus = company.buildrootzDisplayStatus || company.buildrootzStatus || 'inactive';
+            const mapStatus = company.websiteMapDisplayStatus || (company.websiteMapEnabled ? 'active' : 'inactive');
+            const formatStatusLabel = (status) => {
+              if (status === 'pending') return 'Pending';
+              if (status === 'inactive') return 'Inactive';
+              return statusMeta[status]?.label || status || 'Inactive';
+            };
+            const brzLabel = formatStatusLabel(buildrootzStatus);
+            const mapLabel = formatStatusLabel(mapStatus);
+            const mapCount = Number(company.mapsActiveCount ?? 0);
+            const mapCountLabel = `Maps Active: ${mapCount} ${mapCount === 1 ? 'community' : 'communities'}`;
+            const updatedAt = company.updatedAt ? new Date(company.updatedAt).toLocaleDateString() : '';
+            return `
+              <tr data-company-id="${escapeHtml(company.id)}" class="${selected ? 'table-active' : ''}">
+                <td>
+                  <button type="button" class="btn btn-link p-0 text-start" data-action="select-company">
+                    ${escapeHtml(company.name)}
+                  </button>
+                  <div class="small text-muted">${escapeHtml(updatedAt ? `Updated ${updatedAt}` : '')}</div>
+                </td>
+                <td>${escapeHtml(seatLabel)}</td>
+                <td><span class="badge ${escapeHtml(statusMeta[buildrootzStatus]?.badgeClass || 'bg-secondary')}">
+                  ${escapeHtml(brzLabel)}
+                </span></td>
+                <td>
+                  <span class="badge ${escapeHtml(statusMeta[mapStatus]?.badgeClass || 'bg-secondary')}">
+                    ${escapeHtml(mapLabel)}
+                  </span>
+                  <div class="small text-muted mt-1">${escapeHtml(mapCountLabel)}</div>
+                </td>
+              </tr>
+            `;
+          })
+          .join('');
+
+        platformBillingEls.companyTableBody.innerHTML = rows;
+      };
+
+      const renderPlatformCompanyDetail = () => {
+        if (!platformBillingEls.companyDetail || !platformBillingEls.companyEmpty) return;
+        const detail = state.platformBilling.selectedCompany;
+        if (!detail) {
+          platformBillingEls.companyDetail.classList.add('d-none');
+          platformBillingEls.companyEmpty.classList.remove('d-none');
+          if (platformBillingEls.websiteMapCancelAll) {
+            platformBillingEls.websiteMapCancelAll.disabled = true;
+          }
+          return;
+        }
+
+        platformBillingEls.companyDetail.classList.remove('d-none');
+        platformBillingEls.companyEmpty.classList.add('d-none');
+        platformBillingEls.companyName.textContent = detail.company?.name || 'Company';
+        platformBillingEls.companyUpdated.textContent = detail.company?.updatedAt
+          ? `Last updated ${new Date(detail.company.updatedAt).toLocaleString()}`
+          : '';
+
+        const address = detail.company?.address || {};
+        const billingParts = [address.street, address.city, address.state, address.zip].filter(Boolean);
+        platformBillingEls.billingContact.textContent = billingParts.length ? billingParts.join(', ') : 'Not set';
+
+        const primary = detail.company?.primaryContact || {};
+        const primaryParts = [primary.name, primary.email, primary.phone].filter(Boolean);
+        platformBillingEls.primaryContact.textContent = primaryParts.length ? primaryParts.join(' • ') : 'Not set';
+
+        const seatsUsed = Number(detail.seats?.used ?? 0);
+        const seatsInvited = Number(detail.seats?.invited ?? 0);
+        const seatsMinimum = Number(detail.seats?.minimumBilled ?? 0);
+        const seatsBilled = Number(detail.seats?.billed ?? 0);
+
+        if (platformBillingEls.seatsUsed) {
+          platformBillingEls.seatsUsed.value = seatsUsed;
+        }
+        if (platformBillingEls.seatsInvited) {
+          platformBillingEls.seatsInvited.value = seatsInvited;
+        }
+        if (platformBillingEls.seatsMinimum) {
+          platformBillingEls.seatsMinimum.value = seatsMinimum;
+        }
+        if (platformBillingEls.seatsMinimumHelper) {
+          const minOverride = detail.company?.billingPolicy?.seats?.minBilledOverride;
+          const isCustom = Number.isFinite(minOverride);
+          platformBillingEls.seatsMinimumHelper.textContent = isCustom
+            ? `Minimum billed seats: ${seatsMinimum} (custom)`
+            : `Minimum billed seats: ${seatsMinimum}`;
+        }
+        if (platformBillingEls.seatsBilled) {
+          platformBillingEls.seatsBilled.value = seatsBilled;
+        }
+
+        const buildrootzStatus = detail.company?.features?.buildrootz?.status
+          || (detail.company?.features?.buildrootz?.enabled ? 'active' : 'inactive');
+        if (platformBillingEls.buildrootzStatus) {
+          platformBillingEls.buildrootzStatus.value = buildrootzStatus;
+        }
+        if (platformBillingEls.websiteMapEnabled) {
+          platformBillingEls.websiteMapEnabled.checked = !!detail.company?.features?.websiteMap?.enabled;
+        }
+
+        if (platformBillingEls.websiteMapSummary) {
+          const summary = detail.websiteMapSummary || {};
+          platformBillingEls.websiteMapSummary.textContent =
+            `Free setups remaining: ${summary.freeCommunitySetupsRemaining ?? 0} • Trial days: ${summary.trialDays ?? 30}`;
+        }
+        if (platformBillingEls.websiteMapCancelAll) {
+          platformBillingEls.websiteMapCancelAll.disabled = false;
+        }
+
+        const policy = detail.company?.billingPolicy || {};
+        if (platformBillingEls.policySeatsMode) {
+          platformBillingEls.policySeatsMode.value = policy.seats?.mode || 'normal';
+        }
+        if (platformBillingEls.policyMinSeats) {
+          const override = policy.seats?.minBilledOverride;
+          platformBillingEls.policyMinSeats.value = Number.isFinite(override) ? override : '';
+        }
+        if (platformBillingEls.policyBuildrootz) {
+          platformBillingEls.policyBuildrootz.value = policy.addons?.buildrootz || 'normal';
+        }
+        if (platformBillingEls.policyWebsiteMap) {
+          platformBillingEls.policyWebsiteMap.value = policy.addons?.websiteMap || 'normal';
+        }
+        if (platformBillingEls.policyNotes) {
+          platformBillingEls.policyNotes.value = policy.notes || '';
+        }
+        if (platformBillingEls.policyStatus) {
+          platformBillingEls.policyStatus.textContent = '';
+        }
+        if (platformBillingEls.presetSelect) {
+          platformBillingEls.presetSelect.value = '';
+        }
+        state.platformBilling.selectedPresetKey = '';
+        if (platformBillingEls.presetStatus) {
+          platformBillingEls.presetStatus.textContent = '';
+        }
+        if (platformBillingEls.policyAuditStatus) {
+          platformBillingEls.policyAuditStatus.textContent = '';
+        }
+
+        renderPlatformCommunities();
+        renderPlatformPolicyAudit();
+      };
+
+      const policyPresets = {
+        standard: {
+          label: 'Standard Plan',
+          values: {
+            seatsMode: 'normal',
+            minBilledOverride: null,
+            buildrootzBilling: 'normal',
+            websiteMapBilling: 'normal',
+            notes: ''
+          }
+        },
+        grenadier: {
+          label: 'Grenadier Internal Plan',
+          values: {
+            seatsMode: 'internal',
+            minBilledOverride: null,
+            buildrootzBilling: 'comped',
+            websiteMapBilling: 'comped',
+            notes: 'Grenadier internal'
+          }
+        },
+        pilot: {
+          label: 'Pilot Plan',
+          values: {
+            seatsMode: 'waived',
+            minBilledOverride: null,
+            buildrootzBilling: 'comped',
+            websiteMapBilling: 'normal',
+            notes: 'Pilot'
+          }
+        }
+      };
+
+      const applyPresetToForm = (presetKey) => {
+        const preset = policyPresets[presetKey];
+        if (!preset) return;
+        const values = preset.values || {};
+        if (platformBillingEls.policySeatsMode) {
+          platformBillingEls.policySeatsMode.value = values.seatsMode || 'normal';
+        }
+        if (platformBillingEls.policyMinSeats) {
+          platformBillingEls.policyMinSeats.value =
+            values.minBilledOverride === null || values.minBilledOverride === undefined
+              ? ''
+              : values.minBilledOverride;
+        }
+        if (platformBillingEls.policyBuildrootz) {
+          platformBillingEls.policyBuildrootz.value = values.buildrootzBilling || 'normal';
+        }
+        if (platformBillingEls.policyWebsiteMap) {
+          platformBillingEls.policyWebsiteMap.value = values.websiteMapBilling || 'normal';
+        }
+        if (platformBillingEls.policyNotes) {
+          platformBillingEls.policyNotes.value = values.notes || '';
+        }
+        if (platformBillingEls.presetStatus) {
+          platformBillingEls.presetStatus.textContent = 'Preset loaded. Click Apply Preset to save.';
+        }
+      };
+
+      const buildPolicyPayloadFromForm = () => ({
+        seatsMode: platformBillingEls.policySeatsMode?.value,
+        minBilledOverride: platformBillingEls.policyMinSeats?.value === '' ? null : platformBillingEls.policyMinSeats?.value,
+        buildrootzBilling: platformBillingEls.policyBuildrootz?.value,
+        websiteMapBilling: platformBillingEls.policyWebsiteMap?.value,
+        notes: platformBillingEls.policyNotes?.value
+      });
+
+      const submitPolicyUpdate = async (payload, { presetName = null, statusEl = null } = {}) => {
+        if (!state.platformBilling.selectedCompanyId) return;
+        if (statusEl) statusEl.textContent = 'Saving policy...';
+        try {
+          const body = { ...payload };
+          if (presetName) body.presetName = presetName;
+          const response = await fetch(
+            `/api/platform/billing/company/${encodeURIComponent(state.platformBilling.selectedCompanyId)}/policy`,
+            {
+              method: 'PATCH',
+              headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
+              credentials: 'same-origin',
+              body: JSON.stringify(body)
+            }
+          );
+
+          const data = await readJsonResponse(response);
+          if (!response.ok) {
+            const message = data?.error || `Save failed (${response.status})`;
+            throw new Error(message);
+          }
+
+          if (statusEl) statusEl.textContent = 'Policy updated.';
+          await loadPlatformCompanyDetail(state.platformBilling.selectedCompanyId);
+          await loadPlatformCompanies({ force: true });
+          await loadPlatformPolicyAudit(state.platformBilling.selectedCompanyId);
+        } catch (err) {
+          console.error('Failed to update billing policy', err);
+          if (statusEl) {
+            statusEl.textContent = err.message || 'Unable to update policy.';
+          }
+        }
+      };
+
+      const savePlatformPolicy = async () => {
+        const payload = buildPolicyPayloadFromForm();
+        await submitPolicyUpdate(payload, { statusEl: platformBillingEls.policyStatus });
+      };
+
+      const applyPolicyPreset = async () => {
+        const presetKey = platformBillingEls.presetSelect?.value || '';
+        const preset = policyPresets[presetKey];
+        if (!preset) {
+          if (platformBillingEls.presetStatus) {
+            platformBillingEls.presetStatus.textContent = 'Select a preset first.';
+          }
+          return;
+        }
+        const confirmed = window.confirm(`Apply preset: ${preset.label}? This only changes billing policy.`);
+        if (!confirmed) return;
+        applyPresetToForm(presetKey);
+        await submitPolicyUpdate(preset.values, {
+          presetName: preset.label,
+          statusEl: platformBillingEls.presetStatus
+        });
+      };
+
+      const renderPlatformPolicyAudit = () => {
+        if (!platformBillingEls.policyAuditList) return;
+        const detail = state.platformBilling.selectedCompany;
+        if (!detail) {
+          platformBillingEls.policyAuditList.innerHTML =
+            '<li class="list-group-item text-muted">Select a company to view audit history.</li>';
+          return;
+        }
+        const audits = state.platformBilling.audits || [];
+        if (!audits.length) {
+          platformBillingEls.policyAuditList.innerHTML =
+            '<li class="list-group-item text-muted">No billing policy changes yet.</li>';
+          return;
+        }
+        platformBillingEls.policyAuditList.innerHTML = audits
+          .map((audit) => {
+            const timestamp = audit.createdAt ? new Date(audit.createdAt).toLocaleString() : '';
+            const actor = audit.actorName || audit.actorEmail || 'Unknown';
+            return `
+              <li class="list-group-item">
+                <div class="d-flex justify-content-between flex-wrap gap-2">
+                  <div>
+                    <div class="fw-semibold">${escapeHtml(audit.summary || 'Policy updated')}</div>
+                    <div class="small text-muted">${escapeHtml(actor)}</div>
+                  </div>
+                  <div class="small text-muted">${escapeHtml(timestamp)}</div>
+                </div>
+              </li>
+            `;
+          })
+          .join('');
+      };
+
+      const loadPlatformPolicyAudit = async (companyId) => {
+        if (!platformBillingEls.policyAuditStatus) return;
+        platformBillingEls.policyAuditStatus.textContent = 'Loading recent changes...';
+        try {
+          const response = await fetch(
+            `/api/platform/billing/company/${encodeURIComponent(companyId)}/audit?limit=20`,
+            { headers: { Accept: 'application/json' }, credentials: 'same-origin' }
+          );
+          const data = await readJsonResponse(response);
+          if (!response.ok) {
+            const message = data?.error || `Request failed (${response.status})`;
+            throw new Error(message);
+          }
+          state.platformBilling.audits = data.audits || [];
+          platformBillingEls.policyAuditStatus.textContent = '';
+          renderPlatformPolicyAudit();
+        } catch (err) {
+          console.error('Failed to load billing audit', err);
+          platformBillingEls.policyAuditStatus.textContent = err.message || 'Unable to load audit history.';
+        }
+      };
+
+      const renderPlatformCommunities = () => {
+        if (!platformBillingEls.communitiesBody) return;
+        const detail = state.platformBilling.selectedCompany;
+        const communities = detail?.communities || [];
+
+        if (!detail) {
+          platformBillingEls.communitiesBody.innerHTML = `
+            <tr>
+              <td colspan="4" class="text-center text-muted">Select a company to view communities.</td>
+            </tr>
+          `;
+          return;
+        }
+
+        if (!communities.length) {
+          platformBillingEls.communitiesBody.innerHTML = `
+            <tr>
+              <td colspan="4" class="text-center text-muted">No communities available.</td>
+            </tr>
+          `;
+          return;
+        }
+
+        const rows = communities
+          .map((community) => {
+            const displayStatus = community.websiteMap?.displayStatus || community.websiteMap?.status || 'inactive';
+            const meta = statusMeta[displayStatus] || statusMeta.inactive;
+            const daysRemaining = Number.isFinite(community.websiteMap?.trialEndsInDays)
+              ? community.websiteMap.trialEndsInDays
+              : null;
+            const endsFormatted = community.websiteMap?.trialEndsAtFormatted || null;
+            let trialEndsLabel = '-';
+            if (displayStatus === 'trial') {
+              if (daysRemaining !== null) {
+                const dayLabel = daysRemaining === 1 ? 'day' : 'days';
+                trialEndsLabel = `Ends in ${daysRemaining} ${dayLabel}`;
+                if (endsFormatted) {
+                  trialEndsLabel += ` (${endsFormatted})`;
+                }
+              } else if (endsFormatted) {
+                trialEndsLabel = endsFormatted;
+              }
+            } else if (displayStatus === 'trial_expired') {
+              trialEndsLabel = 'Expired';
+            } else if (endsFormatted) {
+              trialEndsLabel = endsFormatted;
+            }
+
+            let actions = '';
+            if (displayStatus === 'active' || displayStatus === 'trial') {
+              actions = `
+                <button type="button" class="btn btn-sm btn-outline-danger" data-action="website-map-deactivate" data-community-id="${escapeHtml(community.id)}">
+                  Cancel Map
+                </button>
+              `;
+            }
+            if (displayStatus === 'inactive') {
+              actions += `
+                <button type="button" class="btn btn-sm btn-outline-primary" data-action="website-map-trial" data-community-id="${escapeHtml(community.id)}">
+                  Start Trial
+                </button>
+                <button type="button" class="btn btn-sm btn-outline-primary ms-2" data-action="website-map-activate" data-community-id="${escapeHtml(community.id)}">
+                  Activate
+                </button>
+              `;
+            }
+            if (displayStatus === 'trial') {
+              actions += `
+                <button type="button" class="btn btn-sm btn-outline-primary ms-2" data-action="website-map-activate" data-community-id="${escapeHtml(community.id)}">
+                  Activate
+                </button>
+              `;
+            }
+            if (displayStatus === 'trial_expired') {
+              actions = `
+                <button type="button" class="btn btn-sm btn-outline-primary" data-action="website-map-activate" data-community-id="${escapeHtml(community.id)}">
+                  Activate
+                </button>
+              `;
+            }
+            if (!actions) {
+              actions = '<span class="text-muted small">?</span>';
+            }
+
+            return `
+              <tr data-community-id="${escapeHtml(community.id)}">
+                <td>${escapeHtml(community.name || 'Unnamed Community')}</td>
+                <td><span class="badge ${escapeHtml(meta.badgeClass)}">${escapeHtml(meta.label)}</span></td>
+                <td>${escapeHtml(trialEndsLabel)}</td>
+                <td class="text-end">${actions}</td>
+              </tr>
+            `;
+          })
+          .join('');
+
+        platformBillingEls.communitiesBody.innerHTML = rows;
+      };
+
+      const renderPlatformRequests = () => {
+        if (!platformBillingEls.requestsBody) return;
+        const requests = state.platformBilling.requests || [];
+        if (!requests.length) {
+          platformBillingEls.requestsBody.innerHTML = `
+            <tr>
+              <td colspan="7" class="text-center text-muted">No pending requests.</td>
+            </tr>
+          `;
+          return;
+        }
+
+        const rows = requests
+          .map((request) => {
+            const featureLabel = request.feature === 'buildrootz' ? 'Buildrootz' : 'Website Map';
+            const actionLabel = request.action === 'cancel' ? 'Cancel' : 'Enable';
+            const createdAt = request.createdAt ? new Date(request.createdAt).toLocaleString() : '—';
+            return `
+              <tr data-request-id="${escapeHtml(request.id)}">
+                <td>${escapeHtml(request.companyName || 'Company')}</td>
+                <td>${escapeHtml(featureLabel)}</td>
+                <td>${escapeHtml(actionLabel)}</td>
+                <td>${escapeHtml(request.communityName || '—')}</td>
+                <td>${escapeHtml(request.requestedBy || '—')}</td>
+                <td>${escapeHtml(createdAt)}</td>
+                <td class="text-end">
+                  <button type="button" class="btn btn-sm btn-primary" data-action="approve-request">Approve</button>
+                  <button type="button" class="btn btn-sm btn-outline-secondary ms-2" data-action="deny-request">Deny</button>
+                </td>
+              </tr>
+            `;
+          })
+          .join('');
+
+        platformBillingEls.requestsBody.innerHTML = rows;
+      };
+
+      const loadPlatformCompanies = async ({ force = false } = {}) => {
+        if (!platformBillingEls.panel) return;
+        if (state.platformBilling.loading) return;
+        if (!force && state.platformBilling.companies.length) {
+          renderPlatformCompanies();
+          return;
+        }
+
+        state.platformBilling.loading = true;
+        if (platformBillingEls.companyStatus) {
+          platformBillingEls.companyStatus.textContent = 'Loading companies...';
+        }
+        const query = platformBillingEls.companySearch?.value?.trim() || '';
+
+        try {
+          const data = await fetchPlatformCompanies(query);
+          state.platformBilling.companies = data.companies || [];
+          renderPlatformCompanies();
+          if (platformBillingEls.companyStatus) {
+            platformBillingEls.companyStatus.textContent = state.platformBilling.companies.length
+              ? `${state.platformBilling.companies.length} companies`
+              : 'No companies found.';
+          }
+        } catch (err) {
+          console.error('Failed to load platform companies', err);
+          if (platformBillingEls.companyStatus) {
+            platformBillingEls.companyStatus.textContent = err.message || 'Unable to load companies.';
+          }
+        } finally {
+          state.platformBilling.loading = false;
+        }
+      };
+
+      const loadPlatformCompanyDetail = async (companyId) => {
+        if (!companyId) return;
+        state.platformBilling.companyLoading = true;
+        if (platformBillingEls.companyStatus) {
+          platformBillingEls.companyStatus.textContent = 'Loading company...';
+        }
+
+        try {
+          const detail = await fetchPlatformCompanyDetail(companyId);
+          state.platformBilling.selectedCompany = detail;
+          state.platformBilling.selectedCompanyId = companyId;
+          renderPlatformCompanyDetail();
+          renderPlatformCompanies();
+          await loadPlatformPolicyAudit(companyId);
+          if (platformBillingEls.companyStatus) platformBillingEls.companyStatus.textContent = '';
+        } catch (err) {
+          console.error('Failed to load platform company detail', err);
+          if (platformBillingEls.companyStatus) {
+            platformBillingEls.companyStatus.textContent = err.message || 'Unable to load company.';
+          }
+        } finally {
+          state.platformBilling.companyLoading = false;
+        }
+      };
+
+      const loadPlatformRequests = async () => {
+        if (!platformBillingEls.requestsBody) return;
+        if (state.platformBilling.requestLoading) return;
+        state.platformBilling.requestLoading = true;
+        if (platformBillingEls.requestsStatus) platformBillingEls.requestsStatus.textContent = 'Loading requests...';
+
+        try {
+          const data = await fetchPlatformRequests();
+          state.platformBilling.requests = data.requests || [];
+          renderPlatformRequests();
+          if (platformBillingEls.requestsStatus) {
+            platformBillingEls.requestsStatus.textContent = '';
+          }
+        } catch (err) {
+          console.error('Failed to load platform requests', err);
+          if (platformBillingEls.requestsStatus) {
+            platformBillingEls.requestsStatus.textContent = err.message || 'Unable to load requests.';
+          }
+        } finally {
+          state.platformBilling.requestLoading = false;
+        }
+      };
+
+      const savePlatformFeatures = async () => {
+        if (!state.platformBilling.selectedCompanyId) return;
+        if (platformBillingEls.featuresStatus) platformBillingEls.featuresStatus.textContent = 'Saving products...';
+        try {
+          const response = await fetch(`/api/platform/billing/company/${encodeURIComponent(state.platformBilling.selectedCompanyId)}/features`, {
+            method: 'PATCH',
+            headers: {
+              'Content-Type': 'application/json',
+              Accept: 'application/json'
+            },
+            credentials: 'same-origin',
+            body: JSON.stringify({
+              buildrootzStatus: platformBillingEls.buildrootzStatus?.value,
+              websiteMapEnabled: !!platformBillingEls.websiteMapEnabled?.checked
+            })
+          });
+          const data = await readJsonResponse(response);
+          if (!response.ok) {
+            const message = data?.error || `Request failed (${response.status})`;
+            throw new Error(message);
+          }
+          if (platformBillingEls.featuresStatus) platformBillingEls.featuresStatus.textContent = 'Products updated.';
+          await loadPlatformCompanyDetail(state.platformBilling.selectedCompanyId);
+          await loadPlatformCompanies({ force: true });
+        } catch (err) {
+          console.error('Failed to update features', err);
+          if (platformBillingEls.featuresStatus) platformBillingEls.featuresStatus.textContent = err.message || 'Unable to update products.';
+        }
+      };
+
+      const updatePlatformCommunityStatus = async (communityId, status) => {
+        if (!communityId) return;
+        if (platformBillingEls.communitiesStatus) platformBillingEls.communitiesStatus.textContent = 'Updating community...';
+        try {
+          const response = await fetch(`/api/platform/billing/community/${encodeURIComponent(communityId)}/website-map`, {
+            method: 'PATCH',
+            headers: {
+              'Content-Type': 'application/json',
+              Accept: 'application/json'
+            },
+            credentials: 'same-origin',
+            body: JSON.stringify({ status })
+          });
+          const data = await readJsonResponse(response);
+          if (!response.ok) {
+            const message = data?.error || `Request failed (${response.status})`;
+            throw new Error(message);
+          }
+          if (platformBillingEls.communitiesStatus) platformBillingEls.communitiesStatus.textContent = 'Community updated.';
+          await loadPlatformCompanyDetail(state.platformBilling.selectedCompanyId);
+          await loadPlatformCompanies({ force: true });
+        } catch (err) {
+          console.error('Failed to update community', err);
+          if (platformBillingEls.communitiesStatus) platformBillingEls.communitiesStatus.textContent = err.message || 'Unable to update community.';
+        }
+      };
+
+      const cancelAllWebsiteMaps = async () => {
+        if (!state.platformBilling.selectedCompanyId) return;
+        const confirmed = window.confirm('Cancel Website Map for all communities in this company?');
+        if (!confirmed) return;
+
+        if (platformBillingEls.communitiesStatus) platformBillingEls.communitiesStatus.textContent = 'Cancelling all maps...';
+        try {
+          const response = await fetch(
+            `/api/platform/billing/company/${encodeURIComponent(state.platformBilling.selectedCompanyId)}/website-map/cancel-all`,
+            {
+              method: 'POST',
+              headers: { Accept: 'application/json' },
+              credentials: 'same-origin'
+            }
+          );
+          const data = await readJsonResponse(response);
+          if (!response.ok) {
+            const message = data?.error || `Request failed (${response.status})`;
+            throw new Error(message);
+          }
+          if (platformBillingEls.communitiesStatus) platformBillingEls.communitiesStatus.textContent = 'All maps cancelled.';
+          await loadPlatformCompanyDetail(state.platformBilling.selectedCompanyId);
+          await loadPlatformCompanies({ force: true });
+        } catch (err) {
+          console.error('Failed to cancel all maps', err);
+          if (platformBillingEls.communitiesStatus) {
+            platformBillingEls.communitiesStatus.textContent = err.message || 'Unable to cancel all maps.';
+          }
+        }
+      };
+
+      const handlePlatformCompanyTableClick = (event) => {
+        const button = event.target.closest('button[data-action="select-company"]');
+        if (!button) return;
+        const row = button.closest('tr[data-company-id]');
+        const companyId = row?.dataset?.companyId;
+        if (companyId) {
+          loadPlatformCompanyDetail(companyId);
+        }
+      };
+
+      const handlePlatformCommunitiesClick = (event) => {
+        const button = event.target.closest('button[data-action]');
+        if (!button) return;
+        const action = button.dataset.action;
+        const communityId = button.dataset.communityId;
+        if (!communityId) return;
+        if (action === 'website-map-trial') {
+          updatePlatformCommunityStatus(communityId, 'trial');
+        }
+        if (action === 'website-map-activate') {
+          updatePlatformCommunityStatus(communityId, 'active');
+        }
+        if (action === 'website-map-deactivate') {
+          updatePlatformCommunityStatus(communityId, 'inactive');
+        }
+      };
+
+      const handlePlatformRequestsClick = async (event) => {
+        const button = event.target.closest('button[data-action]');
+        if (!button) return;
+        const action = button.dataset.action;
+        const row = button.closest('tr[data-request-id]');
+        const requestId = row?.dataset?.requestId;
+        if (!requestId) return;
+
+        if (platformBillingEls.requestsStatus) platformBillingEls.requestsStatus.textContent = 'Updating request...';
+        try {
+          const endpoint = action === 'approve-request' ? 'approve' : 'deny';
+          const response = await fetch(`/api/platform/billing/requests/${encodeURIComponent(requestId)}/${endpoint}`, {
+            method: 'POST',
+            headers: { Accept: 'application/json' },
+            credentials: 'same-origin'
+          });
+          const data = await readJsonResponse(response);
+          if (!response.ok) {
+            const message = data?.error || `Request failed (${response.status})`;
+            throw new Error(message);
+          }
+          if (platformBillingEls.requestsStatus) platformBillingEls.requestsStatus.textContent = 'Request updated.';
+          await loadPlatformRequests();
+          if (state.platformBilling.selectedCompanyId) {
+            await loadPlatformCompanyDetail(state.platformBilling.selectedCompanyId);
+          }
+          await loadPlatformCompanies({ force: true });
+        } catch (err) {
+          console.error('Failed to update request', err);
+          if (platformBillingEls.requestsStatus) platformBillingEls.requestsStatus.textContent = err.message || 'Unable to update request.';
+        }
+      };
+
+      const loadPlatformBillingPanel = async () => {
+        if (!platformBillingEls.panel) return;
+        if (state.loadedPanels.has('platform-billing') && state.platformBilling.companies.length) {
+          renderPlatformCompanies();
+          renderPlatformRequests();
+          if (state.platformBilling.selectedCompanyId) {
+            renderPlatformCompanyDetail();
+          }
+          return;
+        }
+        await loadPlatformCompanies();
+        await loadPlatformRequests();
+        if (state.platformBilling.selectedCompanyId) {
+          await loadPlatformCompanyDetail(state.platformBilling.selectedCompanyId);
+        }
+        state.loadedPanels.add('platform-billing');
       };
 
       const populateCompanyForm = (payload) => {
@@ -1909,6 +3255,7 @@
           state.users.payload = payload;
           state.users.currentUserId = payload.currentUserId || null;
           state.loadedPanels.add('users');
+          renderUserSeatBanner(payload);
           renderUsers();
           updateEditToggleVisual();
           showUsersTable();
@@ -2265,6 +3612,7 @@
         company: loadCompanyPanel,
         users: loadUsersPanel,
         billing: loadBillingPanel,
+        'platform-billing': loadPlatformBillingPanel,
         buildrootz: loadBuildrootzPanel
       };
       if (permissions && permissions.canUseImpersonation) {
@@ -2577,10 +3925,24 @@
         });
       }
 
+      if (billingEls.buildrootzCancelButton) {
+        billingEls.buildrootzCancelButton.addEventListener('click', (event) => {
+          event.preventDefault();
+          requestBuildrootzCancellation();
+        });
+      }
+
       if (billingEls.websiteMapRequestButton) {
         billingEls.websiteMapRequestButton.addEventListener('click', (event) => {
           event.preventDefault();
-          openWebsiteMapPanel();
+          openWebsiteMapPanel('enable');
+        });
+      }
+
+      if (billingEls.websiteMapCancelButton) {
+        billingEls.websiteMapCancelButton.addEventListener('click', (event) => {
+          event.preventDefault();
+          openWebsiteMapPanel('cancel');
         });
       }
 
@@ -2591,8 +3953,93 @@
         });
       }
 
+      if (billingEls.websiteMapCancelAllButton) {
+        billingEls.websiteMapCancelAllButton.addEventListener('click', (event) => {
+          event.preventDefault();
+          if (!canManageBilling) return;
+          const confirmed = window.confirm('Cancel Website Map for all communities?');
+          if (!confirmed) return;
+          requestWebsiteMapCancellation({ cancelAll: true });
+        });
+      }
+
       if (billingEls.websiteMapCommunityTable) {
         billingEls.websiteMapCommunityTable.addEventListener('click', handleWebsiteMapTableClick);
+      }
+
+      if (platformBillingEls.panel) {
+        if (platformBillingEls.companyRefresh) {
+          platformBillingEls.companyRefresh.addEventListener('click', (event) => {
+            event.preventDefault();
+            loadPlatformCompanies({ force: true });
+          });
+        }
+        if (platformBillingEls.companySearch) {
+          platformBillingEls.companySearch.addEventListener('keydown', (event) => {
+            if (event.key === 'Enter') {
+              event.preventDefault();
+              loadPlatformCompanies({ force: true });
+            }
+          });
+        }
+        if (platformBillingEls.companyTableBody) {
+          platformBillingEls.companyTableBody.addEventListener('click', handlePlatformCompanyTableClick);
+        }
+        if (platformBillingEls.companyReload) {
+          platformBillingEls.companyReload.addEventListener('click', (event) => {
+            event.preventDefault();
+            if (state.platformBilling.selectedCompanyId) {
+              loadPlatformCompanyDetail(state.platformBilling.selectedCompanyId);
+            }
+          });
+        }
+        if (platformBillingEls.featuresSave) {
+          platformBillingEls.featuresSave.addEventListener('click', (event) => {
+            event.preventDefault();
+            savePlatformFeatures();
+          });
+        }
+        if (platformBillingEls.presetSelect) {
+          platformBillingEls.presetSelect.addEventListener('change', () => {
+            const key = platformBillingEls.presetSelect?.value || '';
+            state.platformBilling.selectedPresetKey = key;
+            if (key) {
+              applyPresetToForm(key);
+            } else if (platformBillingEls.presetStatus) {
+              platformBillingEls.presetStatus.textContent = '';
+            }
+          });
+        }
+        if (platformBillingEls.presetApply) {
+          platformBillingEls.presetApply.addEventListener('click', (event) => {
+            event.preventDefault();
+            applyPolicyPreset();
+          });
+        }
+        if (platformBillingEls.policySave) {
+          platformBillingEls.policySave.addEventListener('click', (event) => {
+            event.preventDefault();
+            savePlatformPolicy();
+          });
+        }
+        if (platformBillingEls.communitiesBody) {
+          platformBillingEls.communitiesBody.addEventListener('click', handlePlatformCommunitiesClick);
+        }
+        if (platformBillingEls.websiteMapCancelAll) {
+          platformBillingEls.websiteMapCancelAll.addEventListener('click', (event) => {
+            event.preventDefault();
+            cancelAllWebsiteMaps();
+          });
+        }
+        if (platformBillingEls.requestsRefresh) {
+          platformBillingEls.requestsRefresh.addEventListener('click', (event) => {
+            event.preventDefault();
+            loadPlatformRequests();
+          });
+        }
+        if (platformBillingEls.requestsBody) {
+          platformBillingEls.requestsBody.addEventListener('click', handlePlatformRequestsClick);
+        }
       }
 
       if (permissions && permissions.canUseImpersonation) {

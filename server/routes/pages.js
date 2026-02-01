@@ -1821,7 +1821,7 @@ router.get('/toolbar/help', ensureAuth, requireRole('READONLY','USER','MANAGER',
 
 router.get('/admin-section',
   ensureAuth,
-  requireRole('MANAGER','COMPANY_ADMIN','SUPER_ADMIN'),
+  requireRole('MANAGER','COMPANY_ADMIN','SUPER_ADMIN','KEEPUP_ADMIN'),
   (req, res) => res.render('pages/admin-section', { active: 'admin-section' })
 );
 

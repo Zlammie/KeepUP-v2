@@ -160,6 +160,7 @@ const CommunitySchema = new Schema({
     }
   },
   websiteMap: { type: WebsiteMapSchema, default: () => ({}) },
+  updatedByUserId: { type: Schema.Types.ObjectId, default: null },
 
   // Listing map plan colors (plan class -> hex color)
   planPalette: {

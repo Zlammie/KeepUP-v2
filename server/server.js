@@ -2,6 +2,7 @@ const mongoose = require('mongoose');
 const { loadedFrom: envFile } = require('./bootstrap/env');
 const app = require('./app');
 const connectDB = require('./config/db');
+const ensureKeepupAdmin = require('./bootstrap/ensureKeepupAdmin');
 
 const PORT = Number(process.env.PORT) || 3000;
 const MONGO_URI = process.env.MONGO_URI;
@@ -60,6 +61,7 @@ async function start() {
 
   try {
     await connectDB(MONGO_URI);
+    await ensureKeepupAdmin();
     const server = app.listen(PORT, () => console.log(`Server listening on port ${PORT}`));
     setupShutdown(server);
     return server;

@@ -9,6 +9,8 @@ const Community = require('../../models/Community');
 const Company = require('../../models/Company');
 const { formatPhoneForDisplay, formatPhoneForStorage } = require('../../utils/phone');
 const { issuePasswordToken, sendInviteEmail } = require('../../services/passwordReset');
+const { getSeatCounts } = require('../../utils/seatCounts');
+const { computeSeatBilling } = require('../../utils/billingMath');
 
 const router = express.Router();
 
@@ -37,6 +39,9 @@ router.get(
           .select('name')
           .lean()
       ]);
+
+      const seatCounts = await getSeatCounts(scopedCompanyId);
+      const seatBilling = computeSeatBilling(seatCounts.active);
 
       const userMap = new Map(users.map((user) => [String(user._id), user]));
 
@@ -100,6 +105,14 @@ router.get(
       return res.json({
         companyId: String(scopedCompanyId),
         currentUserId: String(req.user?._id || ''),
+        seats: {
+          used: seatCounts.active,
+          invited: seatCounts.invited,
+          minimumBilled: seatBilling.minimum,
+          billed: seatBilling.billed,
+          monthlyCents: seatBilling.monthlyCents,
+          monthlyFormatted: seatBilling.monthlyFormatted
+        },
         users: formattedUsers,
         managers: managerOptions,
         communities: communityOptions,
