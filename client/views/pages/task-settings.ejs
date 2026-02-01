@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Task Automation Settings</title>
+  <title>Automations</title>
   <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet" />
   <link rel="stylesheet" href="/assets/css/main.css" />
   <style>
@@ -69,6 +69,43 @@
       border: 2px solid #0f62fe;
       background: #fff;
     }
+
+    .task-settings-page .nav-tabs {
+      border-bottom: 1px solid rgba(15, 26, 58, 0.12);
+      background: #e9edf7;
+      padding: 0.35rem;
+      border-radius: 0.75rem;
+      gap: 0.35rem;
+    }
+
+    .task-settings-page .nav-tabs .nav-link {
+      border: 1px solid rgba(15, 26, 58, 0.12);
+      border-radius: 0.6rem;
+      color: #0f1a3a;
+      background: #f7f9ff;
+      font-weight: 600;
+      padding: 0.45rem 0.9rem;
+    }
+
+    .task-settings-page .nav-tabs .nav-link:hover {
+      border-color: rgba(15, 26, 58, 0.18);
+      background: #eef2ff;
+      color: #0f1a3a;
+    }
+
+    .task-settings-page .nav-tabs .nav-link.active {
+      background: #0f62fe;
+      color: #ffffff;
+      border-color: #0f62fe;
+      box-shadow: 0 8px 18px rgba(15, 98, 254, 0.18);
+    }
+
+    .task-settings-page .common-automation-card {
+      border: 1px solid rgba(15, 26, 58, 0.12);
+      border-radius: 0.9rem;
+      padding: 1rem;
+      background: #ffffff;
+    }
   </style>
 </head>
 <body>
@@ -84,22 +121,69 @@
     <% const stageOptions = Array.isArray(builder.stageOptions) ? builder.stageOptions : []; %>
     <% const ownerOptions = Array.isArray(builder.ownerOptions) ? builder.ownerOptions : []; %>
     <% const channelOptions = Array.isArray(builder.channelOptions) ? builder.channelOptions : ['SMS', 'Email', 'Call', 'Reminder']; %>
+    <% const statusOptions = Array.isArray(typeof automationStatusOptions !== 'undefined' ? automationStatusOptions : null)
+      ? automationStatusOptions
+      : ['New','Target','Possible','Hot','Negotiation','Be-Back','Cold','Purchased','Closed','Not-Interested','Deal-Lost','Bust'];
+    %>
+    <% const stopStatuses = Array.isArray(builder.stopOnStatuses) ? builder.stopOnStatuses : []; %>
+    <% const canManageAutomations =
+      (typeof taskSettingsData === 'object' && taskSettingsData && taskSettingsData.canManageAutomations) || false; %>
 
     <div class="d-flex flex-wrap align-items-start justify-content-between gap-3 mb-4">
       <div>
-        <p class="text-uppercase text-muted fw-semibold mb-1 small">Task Automation</p>
-        <h1 class="h3 mb-2">Auto Follow-Up Schedules</h1>
+        <p class="text-uppercase text-muted fw-semibold mb-1 small">Automations</p>
+        <h1 class="h3 mb-2">Email Automation Hub</h1>
         <p class="text-muted mb-0">
-          Design multi-touch cadences that KeepUP can run automatically and then assign them to your team with one click.
+          Build nurture schedules, status triggers, and the email templates that power them in one place.
         </p>
       </div>
       <div class="d-flex gap-2">
-        <button type="button" class="btn btn-outline-secondary btn-sm">Import Template</button>
+        <button type="button" class="btn btn-outline-secondary btn-sm" data-refresh-automation>Refresh Data</button>
         <button type="button" class="btn btn-primary btn-sm" data-new-schedule>New Draft Schedule</button>
       </div>
     </div>
 
-    <section class="mb-5">
+    <section class="mb-4" data-common-automation-section>
+      <div class="card shadow-sm">
+        <div class="card-body">
+          <div class="d-flex flex-wrap align-items-start justify-content-between gap-2">
+            <div>
+              <p class="text-uppercase text-muted fw-semibold small mb-1">Common Automations</p>
+              <h2 class="h5 mb-2">One-Click Setup</h2>
+              <p class="text-muted mb-0">Enable a prebuilt automation and customize it later.</p>
+            </div>
+            <button type="button" class="btn btn-outline-secondary btn-sm" data-common-refresh>Refresh</button>
+          </div>
+          <div class="vstack gap-3 mt-3" data-common-automation-list>
+            <div class="text-muted small">Loading common automations...</div>
+          </div>
+        </div>
+      </div>
+      <div class="visually-hidden" aria-live="polite" data-common-automation-toast></div>
+    </section>
+
+    <ul class="nav nav-tabs mb-4" role="tablist" data-automation-tabs>
+      <li class="nav-item" role="presentation">
+        <button class="nav-link active" type="button" data-automation-tab="schedules" role="tab">Follow Up Schedules</button>
+      </li>
+      <li class="nav-item" role="presentation">
+        <button class="nav-link" type="button" data-automation-tab="templates" role="tab">Templates</button>
+      </li>
+      <li class="nav-item" role="presentation">
+        <button class="nav-link" type="button" data-automation-tab="rules" role="tab">Status Triggers</button>
+      </li>
+      <li class="nav-item" role="presentation">
+        <button class="nav-link" type="button" data-automation-tab="queue" role="tab">Queue</button>
+      </li>
+      <li class="nav-item" role="presentation">
+        <button class="nav-link" type="button" data-automation-tab="blasts" role="tab">Blasts</button>
+      </li>
+      <li class="nav-item" role="presentation">
+        <button class="nav-link" type="button" data-automation-tab="settings" role="tab">Settings</button>
+      </li>
+    </ul>
+
+    <section class="mb-5" data-automation-panel="schedules">
       <div class="row g-3">
         <div class="col-md-3 col-sm-6">
           <div class="schedule-stat-card">
@@ -134,7 +218,7 @@
       </div>
     </section>
 
-    <section class="mb-5">
+    <section class="mb-5" data-automation-panel="schedules">
       <div class="row g-4">
         <div class="col-lg-7">
           <div class="card shadow-sm h-100">
@@ -186,6 +270,15 @@
                   <label class="form-label">Internal Description</label>
                   <textarea class="form-control" rows="3" name="description" placeholder="Explain when this cadence should be used."><%= builder.description || '' %></textarea>
                 </div>
+                <div class="mb-4">
+                  <label class="form-label">Stop Conditions</label>
+                  <select class="form-select" name="stopOnStatuses" multiple>
+                    <% statusOptions.forEach((status) => { %>
+                      <option value="<%= status %>" <%= stopStatuses.includes(status) ? 'selected' : '' %>><%= status %></option>
+                    <% }) %>
+                  </select>
+                  <div class="form-text">Stop the cadence if the contact moves into any of these statuses.</div>
+                </div>
 
                 <div>
                   <div class="d-flex align-items-center justify-content-between">
@@ -218,6 +311,12 @@
                           <div class="col-12 col-md-7">
                             <label class="form-label text-muted text-uppercase small fw-semibold">Touchpoint summary</label>
                             <input type="text" class="form-control" value="<%= step.title || '' %>" placeholder="What happens during this touch?" data-step-field="title" />
+                          </div>
+                          <div class="col-12 col-md-6">
+                            <label class="form-label text-muted text-uppercase small fw-semibold">Template</label>
+                            <select class="form-select" data-step-field="template">
+                              <option value="">Select template (email only)</option>
+                            </select>
                           </div>
                           <div class="col-12 col-md-6">
                             <label class="form-label text-muted text-uppercase small fw-semibold">Owner</label>
@@ -343,7 +442,7 @@
       </div>
     </section>
 
-    <section class="mb-5">
+    <section class="mb-5" data-automation-panel="schedules">
       <div class="card shadow-sm">
         <div class="card-body">
           <div class="d-flex flex-wrap align-items-center justify-content-between gap-3">
@@ -413,6 +512,499 @@
       </div>
       <div class="visually-hidden" aria-live="polite" data-apply-toast></div>
     </section>
+
+    <section class="mb-5" data-automation-panel="templates" hidden>
+      <div class="row g-4">
+        <div class="col-lg-6">
+          <div class="card shadow-sm h-100">
+            <div class="card-body">
+              <p class="text-uppercase text-muted fw-semibold small mb-1">Templates</p>
+              <h2 class="h5 mb-3">Create or Edit Template</h2>
+              <form data-template-form>
+                <input type="hidden" name="templateId" />
+                <div class="mb-3">
+                  <label class="form-label">Template Name</label>
+                  <input type="text" class="form-control" name="name" placeholder="e.g. Hot Lead Intro" required />
+                </div>
+                <div class="mb-3">
+                  <label class="form-label">Type</label>
+                  <select class="form-select" name="type">
+                    <option value="automation">Automation</option>
+                    <option value="blast">Blast</option>
+                  </select>
+                </div>
+                <div class="mb-3">
+                  <label class="form-label">Subject</label>
+                  <input type="text" class="form-control" name="subject" placeholder="Subject line" />
+                </div>
+                <div class="mb-3">
+                  <label class="form-label">HTML</label>
+                  <textarea class="form-control" rows="6" name="html" placeholder="Paste HTML or write inline content."></textarea>
+                </div>
+                <div class="mb-3">
+                  <label class="form-label">Plain Text</label>
+                  <textarea class="form-control" rows="4" name="text" placeholder="Optional plain text fallback."></textarea>
+                </div>
+                <div class="form-check form-switch mb-3">
+                  <input class="form-check-input" type="checkbox" role="switch" name="isActive" checked />
+                  <label class="form-check-label">Active Template</label>
+                </div>
+                <div class="d-flex gap-2">
+                  <button type="submit" class="btn btn-primary" data-template-save>Save Template</button>
+                  <button type="button" class="btn btn-outline-secondary" data-template-reset>Clear</button>
+                </div>
+              </form>
+            </div>
+          </div>
+        </div>
+        <div class="col-lg-6">
+          <div class="card shadow-sm mb-4">
+            <div class="card-body">
+              <p class="text-uppercase text-muted fw-semibold small mb-1">Preview</p>
+              <h2 class="h6 mb-3">Render Test</h2>
+              <div class="mb-3">
+                <label class="form-label">Contact Search</label>
+                <div class="d-flex gap-2">
+                  <input type="text" class="form-control" name="previewSearch" placeholder="Search contacts by name or email" data-template-preview-search />
+                  <button class="btn btn-outline-secondary" type="button" data-template-preview-search-btn>Search</button>
+                </div>
+              </div>
+              <div class="mb-3">
+                <label class="form-label">Select Contact</label>
+                <select class="form-select" data-template-preview-contact>
+                  <option value="">Choose a contact</option>
+                </select>
+              </div>
+              <button type="button" class="btn btn-outline-primary btn-sm" data-template-preview-run>Preview Render</button>
+              <div class="border rounded-3 p-3 mt-3 bg-light">
+                <div class="fw-semibold mb-2">Subject</div>
+                <div class="small text-muted" data-template-preview-subject>—</div>
+                <div class="fw-semibold mt-3 mb-2">Text</div>
+                <div class="small text-muted" data-template-preview-text>—</div>
+              </div>
+            </div>
+          </div>
+          <div class="card shadow-sm">
+            <div class="card-body">
+              <p class="text-uppercase text-muted fw-semibold small mb-1">Library</p>
+              <h2 class="h6 mb-3">Saved Templates</h2>
+              <div class="vstack gap-3" data-template-list>
+                <div class="text-muted small">Loading templates...</div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+      <div class="visually-hidden" aria-live="polite" data-template-toast></div>
+    </section>
+
+    <section class="mb-5" data-automation-panel="rules" hidden>
+      <div class="row g-4">
+        <div class="col-lg-6">
+          <div class="card shadow-sm h-100">
+            <div class="card-body">
+              <p class="text-uppercase text-muted fw-semibold small mb-1">Status Triggers</p>
+              <h2 class="h5 mb-3">Create Status Rule</h2>
+              <form data-rule-form>
+                <input type="hidden" name="ruleId" />
+                <div class="mb-3">
+                  <label class="form-label">Rule Name</label>
+                  <input type="text" class="form-control" name="name" placeholder="e.g. Hot lead outreach" required />
+                </div>
+                <div class="row g-3">
+                  <div class="col-md-6">
+                    <label class="form-label">From Status (optional)</label>
+                    <select class="form-select" name="fromStatus">
+                      <option value="">Any</option>
+                      <% statusOptions.forEach((status) => { %>
+                        <option value="<%= status %>"><%= status %></option>
+                      <% }) %>
+                    </select>
+                  </div>
+                  <div class="col-md-6">
+                    <label class="form-label">To Status</label>
+                    <select class="form-select" name="toStatus" required>
+                      <% statusOptions.forEach((status) => { %>
+                        <option value="<%= status %>"><%= status %></option>
+                      <% }) %>
+                    </select>
+                  </div>
+                </div>
+                <div class="mb-3 mt-3">
+                  <label class="form-label">Community ID (optional)</label>
+                  <input type="text" class="form-control" name="communityId" placeholder="Limit to a community ID" />
+                </div>
+                <div class="mb-3">
+                  <label class="form-label">Template</label>
+                  <select class="form-select" name="templateId" data-rule-template>
+                    <option value="">Select a template</option>
+                  </select>
+                </div>
+                <div class="row g-3">
+                  <div class="col-md-4">
+                    <label class="form-label">Delay (mins)</label>
+                    <input type="number" min="0" class="form-control" name="delayMinutes" value="0" />
+                  </div>
+                  <div class="col-md-4">
+                    <label class="form-label">Cooldown (mins)</label>
+                    <input type="number" min="0" class="form-control" name="cooldownMinutes" value="0" />
+                  </div>
+                  <div class="col-md-4">
+                    <label class="form-label">Enabled</label>
+                    <select class="form-select" name="isEnabled">
+                      <option value="true">Yes</option>
+                      <option value="false">No</option>
+                    </select>
+                  </div>
+                </div>
+                <div class="form-check form-switch mt-3">
+                  <input class="form-check-input" type="checkbox" role="switch" name="mustStillMatchAtSend" checked />
+                  <label class="form-check-label">Verify status before sending</label>
+                </div>
+                <div class="d-flex gap-2 mt-3">
+                  <button type="submit" class="btn btn-primary" data-rule-save>Save Rule</button>
+                  <button type="button" class="btn btn-outline-secondary" data-rule-reset>Clear</button>
+                </div>
+              </form>
+            </div>
+          </div>
+        </div>
+        <div class="col-lg-6">
+          <div class="card shadow-sm h-100">
+            <div class="card-body">
+              <p class="text-uppercase text-muted fw-semibold small mb-1">Active Rules</p>
+              <h2 class="h6 mb-3">Status Change Automations</h2>
+              <div class="vstack gap-3" data-rule-list>
+                <div class="text-muted small">Loading rules...</div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+      <div class="visually-hidden" aria-live="polite" data-rule-toast></div>
+    </section>
+
+    <section class="mb-5" data-automation-panel="queue" hidden>
+      <% if (canManageAutomations) { %>
+        <div class="card shadow-sm mb-4">
+          <div class="card-body">
+            <div class="d-flex flex-wrap align-items-start justify-content-between gap-2">
+              <div>
+                <p class="text-uppercase text-muted fw-semibold small mb-1">Processor Health</p>
+                <h2 class="h6 mb-0">Email Job Processor</h2>
+              </div>
+              <button type="button" class="btn btn-outline-secondary btn-sm" data-health-refresh>Refresh</button>
+            </div>
+            <div class="d-flex flex-wrap gap-3 mt-3">
+              <div class="small text-muted">Processor</div>
+              <span class="badge bg-secondary-subtle text-secondary" data-health-enabled>--</span>
+              <div class="small text-muted">Poll</div>
+              <span class="fw-semibold" data-health-poll>--</span>
+              <div class="small text-muted">Stale</div>
+              <span class="fw-semibold" data-health-stale>--</span>
+              <div class="small text-muted">Max jobs/tick</div>
+              <span class="fw-semibold" data-health-maxjobs>--</span>
+              <div class="small text-muted">Max attempts</div>
+              <span class="fw-semibold" data-health-maxattempts>--</span>
+              <div class="small text-muted">Log level</div>
+              <span class="fw-semibold text-capitalize" data-health-loglevel>--</span>
+            </div>
+            <div class="d-flex flex-wrap gap-2 mt-3" data-health-counts></div>
+            <div class="alert alert-warning d-none mt-3" role="alert" data-health-stuck-alert>
+              <span data-health-stuck-message>Stuck jobs detected.</span>
+              <a href="#" data-health-stuck-link>View stuck jobs</a>
+            </div>
+            <div class="row g-3 mt-2">
+              <div class="col-lg-6">
+                <div class="border rounded-3 p-3 h-100">
+                  <div class="fw-semibold mb-2">Recent failures (48h)</div>
+                  <div class="small text-muted" data-health-failures>Loading...</div>
+                </div>
+              </div>
+              <div class="col-lg-6">
+                <div class="border rounded-3 p-3 h-100" data-health-stuck-section>
+                  <div class="fw-semibold mb-2">Stuck processing</div>
+                  <div class="small text-muted" data-health-stuck>Loading...</div>
+                </div>
+              </div>
+            </div>
+            <div class="visually-hidden" aria-live="polite" data-health-toast></div>
+          </div>
+        </div>
+      <% } %>
+      <div class="card shadow-sm">
+        <div class="card-body">
+          <div class="d-flex flex-wrap align-items-center justify-content-between gap-3 mb-3">
+            <div>
+              <p class="text-uppercase text-muted fw-semibold small mb-1">Queue</p>
+              <h2 class="h5 mb-0">Email Sending Timeline</h2>
+            </div>
+            <div class="btn-group" role="group" aria-label="Queue filters" data-queue-filters>
+              <button type="button" class="btn btn-outline-primary btn-sm" data-queue-filter="today">Today</button>
+              <button type="button" class="btn btn-outline-primary btn-sm" data-queue-filter="tomorrow">Tomorrow</button>
+              <button type="button" class="btn btn-outline-primary btn-sm" data-queue-filter="week">This Week</button>
+              <button type="button" class="btn btn-outline-primary btn-sm" data-queue-filter="later">Later</button>
+              <button type="button" class="btn btn-outline-primary btn-sm" data-queue-filter="sent">Sent</button>
+            </div>
+          </div>
+          <div class="table-responsive">
+            <table class="table align-middle">
+              <thead>
+                <tr>
+                  <th scope="col">Recipient</th>
+                  <th scope="col">Template</th>
+                  <th scope="col">Why</th>
+                  <th scope="col">Scheduled</th>
+                  <th scope="col">Status</th>
+                  <th scope="col" class="text-end">Actions</th>
+                </tr>
+              </thead>
+              <tbody data-queue-list>
+                <tr>
+                  <td colspan="6" class="text-muted small">Loading queue...</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+      <div class="visually-hidden" aria-live="polite" data-queue-toast></div>
+    </section>
+
+    <section class="mb-5" data-automation-panel="blasts" hidden>
+      <% if (!canManageAutomations) { %>
+        <div class="alert alert-info">Company admin access is required to send blasts.</div>
+      <% } %>
+      <% if (canManageAutomations) { %>
+      <div class="row g-4">
+        <div class="col-lg-7">
+          <div class="card shadow-sm h-100">
+            <div class="card-body">
+              <p class="text-uppercase text-muted fw-semibold small mb-1">Create Blast</p>
+              <h2 class="h5 mb-3">Send to a filtered audience</h2>
+              <form data-blast-form>
+                <div class="mb-3">
+                  <label class="form-label">Blast Name</label>
+                  <input type="text" class="form-control" name="name" placeholder="e.g. Spring Update" required />
+                </div>
+                <div class="mb-3">
+                  <label class="form-label">Template</label>
+                  <select class="form-select" name="templateId" data-blast-template>
+                    <option value="">Select a template</option>
+                  </select>
+                </div>
+                <div class="border rounded-3 p-3 mb-3 bg-light">
+                  <div class="fw-semibold mb-2">Audience Filters</div>
+                  <div class="mb-2">
+                    <label class="form-label">Community IDs (comma-separated)</label>
+                    <input type="text" class="form-control" name="communityIds" placeholder="e.g. 65f... , 65a..." />
+                  </div>
+                  <div class="mb-2">
+                    <label class="form-label">Statuses (comma-separated)</label>
+                    <input type="text" class="form-control" name="statuses" placeholder="e.g. Hot, Possible" />
+                  </div>
+                  <div class="mb-2">
+                    <label class="form-label">Owner IDs (comma-separated)</label>
+                    <input type="text" class="form-control" name="ownerIds" placeholder="Manager user IDs" />
+                  </div>
+                  <div class="mb-2">
+                    <label class="form-label">Lender IDs (comma-separated)</label>
+                    <input type="text" class="form-control" name="lenderIds" placeholder="Lender IDs" />
+                  </div>
+                  <div class="mb-2">
+                    <label class="form-label">Tags (comma-separated)</label>
+                    <input type="text" class="form-control" name="tags" placeholder="Unsubscribed, VIP" />
+                  </div>
+                  <div class="form-check form-switch">
+                    <input class="form-check-input" type="checkbox" role="switch" name="linkedLot" />
+                    <label class="form-check-label">Only contacts with linked lot</label>
+                  </div>
+                  <button type="button" class="btn btn-outline-primary btn-sm mt-3" data-blast-preview>
+                    Preview Audience
+                  </button>
+                </div>
+                <div class="border rounded-3 p-3 mb-3">
+                  <div class="fw-semibold mb-2">Preview</div>
+                  <div class="d-flex justify-content-between">
+                    <span class="text-muted small">Matched</span>
+                    <span class="fw-semibold" data-blast-preview-total>—</span>
+                  </div>
+                  <div class="d-flex justify-content-between">
+                    <span class="text-muted small">Excluded</span>
+                    <span class="fw-semibold" data-blast-preview-excluded>—</span>
+                  </div>
+                  <div class="d-flex justify-content-between">
+                    <span class="text-muted small">Final to send</span>
+                    <span class="fw-semibold" data-blast-preview-final>—</span>
+                  </div>
+                  <div class="small text-muted mt-2" data-blast-preview-sample>—</div>
+                </div>
+                <div class="border rounded-3 p-3 mb-3 bg-light">
+                  <div class="fw-semibold mb-2">Send Options</div>
+                  <div class="form-check">
+                    <input class="form-check-input" type="radio" name="sendMode" value="now" checked />
+                    <label class="form-check-label">Send now</label>
+                  </div>
+                  <div class="form-check mb-2">
+                    <input class="form-check-input" type="radio" name="sendMode" value="scheduled" />
+                    <label class="form-check-label">Schedule for later</label>
+                  </div>
+                  <input type="datetime-local" class="form-control" name="scheduledFor" />
+                </div>
+                <div class="mb-3 d-none" data-blast-confirmation>
+                  <label class="form-label">Confirmation</label>
+                  <input type="text" class="form-control" name="confirmationText" placeholder="Type: SEND 0" />
+                  <div class="form-text">Required for large sends.</div>
+                </div>
+                <div class="d-flex gap-2">
+                  <button type="submit" class="btn btn-primary" data-blast-create>Create & Queue</button>
+                  <button type="button" class="btn btn-outline-secondary" data-blast-reset>Clear</button>
+                </div>
+              </form>
+            </div>
+          </div>
+          <div class="visually-hidden" aria-live="polite" data-blast-toast></div>
+        </div>
+        <div class="col-lg-5">
+          <div class="card shadow-sm h-100">
+            <div class="card-body">
+              <p class="text-uppercase text-muted fw-semibold small mb-1">Past Blasts</p>
+              <h2 class="h6 mb-3">Recent Sends</h2>
+              <div class="vstack gap-3" data-blast-list>
+                <div class="text-muted small">Loading blasts...</div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+      <% } %>
+    </section>
+
+    <section class="mb-5" data-automation-panel="settings" hidden>
+      <div class="row g-4">
+        <div class="col-lg-6">
+          <div class="card shadow-sm h-100">
+            <div class="card-body">
+              <p class="text-uppercase text-muted fw-semibold small mb-1">Settings</p>
+              <h2 class="h5 mb-3">Send Window & Guardrails</h2>
+              <form data-email-settings-form>
+                <div class="mb-3">
+                  <label class="form-label">Timezone</label>
+                  <input type="text" class="form-control" name="timezone" placeholder="America/Chicago" />
+                </div>
+                <div class="mb-3">
+                  <label class="form-label d-block">Allowed Days</label>
+                  <div class="d-flex flex-wrap gap-2">
+                    <% ['Sun','Mon','Tue','Wed','Thu','Fri','Sat'].forEach((day, index) => { %>
+                      <label class="form-check form-check-inline">
+                        <input class="form-check-input" type="checkbox" name="allowedDays" value="<%= index %>">
+                        <span class="form-check-label"><%= day %></span>
+                      </label>
+                    <% }) %>
+                  </div>
+                </div>
+                <div class="row g-3">
+                  <div class="col-md-6">
+                    <label class="form-label">Start Time</label>
+                    <input type="time" class="form-control" name="allowedStartTime" value="09:00" />
+                  </div>
+                  <div class="col-md-6">
+                    <label class="form-label">End Time</label>
+                    <input type="time" class="form-control" name="allowedEndTime" value="17:00" />
+                  </div>
+                </div>
+                <div class="form-check form-switch mt-3">
+                  <input class="form-check-input" type="checkbox" role="switch" name="quietHoursEnabled" checked />
+                  <label class="form-check-label">Enforce quiet hours</label>
+                </div>
+                <div class="row g-3 mt-2">
+                  <div class="col-md-6">
+                    <label class="form-label">Daily Cap</label>
+                    <input type="number" min="1" class="form-control" name="dailyCap" value="200" />
+                  </div>
+                  <div class="col-md-6">
+                    <label class="form-label">Rate Limit / Minute</label>
+                    <input type="number" min="1" class="form-control" name="rateLimitPerMinute" value="30" />
+                  </div>
+                </div>
+                <div class="mt-3">
+                  <label class="form-label">Unsubscribe Behavior</label>
+                  <select class="form-select" name="unsubscribeBehavior">
+                    <option value="do_not_email">Mark Do Not Email</option>
+                    <option value="set_not_interested">Set Status = Not Interested</option>
+                    <option value="tag_unsubscribed">Tag "Unsubscribed"</option>
+                  </select>
+                </div>
+                <div class="d-flex gap-2 mt-3">
+                  <button type="submit" class="btn btn-primary" data-email-settings-save>Save Settings</button>
+                  <button type="button" class="btn btn-outline-secondary" data-email-settings-refresh>Reload</button>
+                </div>
+              </form>
+            </div>
+          </div>
+        </div>
+        <div class="col-lg-6">
+          <div class="card shadow-sm mb-4">
+            <div class="card-body">
+              <p class="text-uppercase text-muted fw-semibold small mb-1">Suppression</p>
+              <h2 class="h6 mb-3">Add to Suppression List</h2>
+              <div class="d-flex gap-2">
+                <input type="email" class="form-control" placeholder="email@example.com" data-suppression-email />
+                <button class="btn btn-outline-primary" type="button" data-suppression-add>Add</button>
+              </div>
+              <div class="vstack gap-2 mt-3" data-suppression-list>
+                <div class="text-muted small">No suppressions loaded yet.</div>
+              </div>
+            </div>
+          </div>
+          <div class="card shadow-sm">
+            <div class="card-body">
+              <p class="text-uppercase text-muted fw-semibold small mb-1">Audience Builder</p>
+              <h2 class="h6 mb-3">Preview Audience</h2>
+              <form data-audience-form>
+                <div class="mb-2">
+                  <label class="form-label">Community IDs (comma-separated)</label>
+                  <input type="text" class="form-control" name="communityIds" placeholder="e.g. 65f... , 65a..." />
+                </div>
+                <div class="mb-2">
+                  <label class="form-label">Statuses (comma-separated)</label>
+                  <input type="text" class="form-control" name="statuses" placeholder="e.g. Hot, Possible" />
+                </div>
+                <div class="mb-2">
+                  <label class="form-label">Owner IDs (comma-separated)</label>
+                  <input type="text" class="form-control" name="ownerIds" placeholder="Manager user IDs" />
+                </div>
+                <div class="mb-2">
+                  <label class="form-label">Lender IDs (comma-separated)</label>
+                  <input type="text" class="form-control" name="lenderIds" placeholder="Lender IDs" />
+                </div>
+                <div class="mb-2">
+                  <label class="form-label">Tags (comma-separated)</label>
+                  <input type="text" class="form-control" name="tags" placeholder="Unsubscribed, VIP" />
+                </div>
+                <div class="form-check form-switch mb-3">
+                  <input class="form-check-input" type="checkbox" role="switch" name="linkedLot" />
+                  <label class="form-check-label">Only contacts with linked lot</label>
+                </div>
+                <button type="submit" class="btn btn-outline-primary btn-sm">Preview Audience</button>
+              </form>
+              <div class="border rounded-3 p-3 mt-3 bg-light">
+                <div class="d-flex justify-content-between">
+                  <span class="text-muted small">Total</span>
+                  <span class="fw-semibold" data-audience-total>—</span>
+                </div>
+                <div class="d-flex justify-content-between">
+                  <span class="text-muted small">Excluded</span>
+                  <span class="fw-semibold" data-audience-excluded>—</span>
+                </div>
+                <div class="mt-2 small text-muted" data-audience-sample>—</div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+      <div class="visually-hidden" aria-live="polite" data-settings-toast></div>
+    </section>
   </main>
 
   <% const taskSettingsJson = typeof taskSettingsData === 'object' && taskSettingsData
@@ -422,9 +1014,23 @@
           builderPreset: builder,
           stats,
           teamAssignments,
+          canManageAutomations: false,
           endpoints: {
             schedules: '/api/task-schedules',
             assignments: '/api/task-schedules/assignments'
+          },
+          emailEndpoints: {
+            templates: '/api/email/templates',
+            rules: '/api/email/rules',
+            queue: '/api/email/queue',
+            settings: '/api/email/settings',
+            audiencePreview: '/api/email/audience/preview',
+            schedulesApply: '/api/email/schedules/apply',
+            suppressions: '/api/email/suppressions',
+            contacts: '/api/contacts',
+            commonAutomations: '/api/email/common-automations',
+            health: '/api/email/health',
+            blasts: '/api/email/blasts'
           }
         };
   %>

@@ -2,6 +2,7 @@ const mongoose = require('mongoose');
 const { loadedFrom: envFile } = require('./bootstrap/env');
 const app = require('./app');
 const connectDB = require('./config/db');
+const { processDueEmailJobs } = require('./services/email/scheduler');
 
 const PORT = Number(process.env.PORT) || 3000;
 const MONGO_URI = process.env.MONGO_URI;
@@ -62,6 +63,21 @@ async function start() {
     await connectDB(MONGO_URI);
     const server = app.listen(PORT, () => console.log(`Server listening on port ${PORT}`));
     setupShutdown(server);
+
+    const enableEmailProcessor =
+      process.env.EMAIL_JOB_PROCESSOR === 'true' || process.env.NODE_ENV !== 'production';
+    if (enableEmailProcessor) {
+      const intervalMs = Number(process.env.EMAIL_JOB_POLL_MS) || 60000;
+      const maxJobsPerTick = Number(process.env.MAX_JOBS_PER_TICK) || 25;
+      const timer = setInterval(() => {
+        processDueEmailJobs({ limit: maxJobsPerTick }).catch((err) => {
+          console.error('[email] job processor failed', err);
+        });
+      }, intervalMs);
+      timer.unref();
+      console.log('[email] job processor enabled', { intervalMs, maxJobsPerTick });
+    }
+
     return server;
   } catch (err) {
     console.error('[startup] Failed to start:', err);

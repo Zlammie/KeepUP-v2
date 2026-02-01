@@ -48,8 +48,9 @@ const FollowUpStepSchema = new Schema(
     },
     templateRef: {
       type: Schema.Types.ObjectId,
-      ref: 'ContentTemplate',
-      default: null
+      ref: 'EmailTemplate',
+      default: null,
+      alias: 'templateId'
     },
     metadata: {
       type: Schema.Types.Mixed,
@@ -80,6 +81,7 @@ const AutoFollowUpScheduleSchema = new Schema(
     createdBy: { type: Schema.Types.ObjectId, ref: 'User', required: true },
     updatedBy: { type: Schema.Types.ObjectId, ref: 'User', required: true },
     publishedBy: { type: Schema.Types.ObjectId, ref: 'User', default: null },
+    stopOnStatuses: [{ type: String, trim: true }],
     steps: {
       type: [FollowUpStepSchema],
       default: [],

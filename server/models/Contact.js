@@ -55,6 +55,8 @@ const ContactSchema = new Schema(
     buyMonth:   { type: String, trim: true },
     facing:     [{ type: String, trim: true }],
     living:     [{ type: String, trim: true }],
+    tags:       [{ type: String, trim: true }],
+    doNotEmail: { type: Boolean, default: false },
 
     emailNorm: { type: String, index: true },
     phoneNorm: { type: String, index: true },
@@ -86,7 +88,7 @@ const ContactSchema = new Schema(
       type: String,
       enum: [
         '',
-        'New','Target','Possible','Negotiation','Be-Back','Cold',
+        'New','Target','Possible','Hot','Negotiation','Be-Back','Cold',
         'Purchased','Closed','Not-Interested','Deal-Lost','Bust'
       ],
       default: 'New'

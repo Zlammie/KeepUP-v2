@@ -70,6 +70,13 @@ export async function unassignFollowUpSchedule(contactId, options = {}) {
   return deleteJson(endpoint);
 }
 
+export async function enqueueFollowUpEmails(contactId, scheduleId) {
+  if (!contactId || !scheduleId) {
+    throw new Error('enqueueFollowUpEmails requires contactId and scheduleId');
+  }
+  return postJson('/api/email/schedules/apply', { contactId, scheduleId });
+}
+
 // Add other endpoints here (status update, autosave fields, etc.)
 export const createTask = (payload) => postJson('/api/tasks', payload);
 

@@ -2,6 +2,7 @@ import { getContact, setContact } from './state.js';
 import {
   assignFollowUpSchedule,
   createTask,
+  enqueueFollowUpEmails,
   fetchFollowUpSchedules,
   fetchTasks,
   unassignFollowUpSchedule,
@@ -927,6 +928,7 @@ function createTaskPanel({
     setComposerError('');
     setComposerLoading(true);
 
+    let emailQueueFailed = false;
     try {
       const res = await fetch('/api/comments', {
         method: 'POST',
@@ -1489,9 +1491,24 @@ function createTaskPanel({
         replaceTask(normalized);
       }
 
+      if (contextContactId) {
+        try {
+          await enqueueFollowUpEmails(contextContactId, scheduleKey);
+        } catch (emailErr) {
+          console.error('[tasks] failed to enqueue follow-up emails', emailErr);
+          emailQueueFailed = true;
+          setAutomationStatus(
+            'Tasks were created, but automated emails could not be queued.',
+            'error'
+          );
+        }
+      }
+
       refresh();
       followupAutomation.select.value = '';
-      setAutomationStatus(`Applied "${schedule.name}". Tasks were added below.`, 'success');
+      if (!emailQueueFailed) {
+        setAutomationStatus(`Applied "${schedule.name}". Tasks were added below.`, 'success');
+      }
       if (contextContactId) {
         try {
           const response = await assignFollowUpSchedule(contextContactId, scheduleKey, {

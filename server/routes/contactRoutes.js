@@ -11,6 +11,7 @@ const Realtor   = require('../models/Realtor');
 const Task      = require('../models/Task');
 const AutoFollowUpSchedule = require('../models/AutoFollowUpSchedule');
 const { applyTaskAttentionFlags } = require('../utils/taskAttention');
+const { handleContactStatusChange } = require('../services/email/triggers');
 
 const ensureAuth  = require('../middleware/ensureAuth');
 const requireRole = require('../middleware/requireRole');
@@ -435,7 +436,7 @@ router.get('/:id',
       if (!isObjectId(id)) return res.status(400).json({ error: 'Invalid id' });
 
       const contact = await Contact.findOne(contactQuery(req, { _id: new mongoose.Types.ObjectId(id) }))
-        .select('firstName lastName email phone status notes source communityIds floorplans realtorId lenderId lotId ownerId visitDate lotLineUp buyTime buyMonth facing living investor renting ownSelling ownNotSelling lenderStatus lenderInviteDate lenderApprovedDate lenders updatedAt followUpSchedule beBackDate statusHistory financeType fundsVerified fundsVerifiedDate')
+        .select('firstName lastName email phone status notes source communityIds floorplans realtorId lenderId lotId ownerId visitDate lotLineUp buyTime buyMonth facing living investor renting ownSelling ownNotSelling lenderStatus lenderInviteDate lenderApprovedDate lenders updatedAt followUpSchedule beBackDate statusHistory financeType fundsVerified fundsVerifiedDate doNotEmail tags')
         .populate('communityIds', 'name')
         .populate('floorplans', 'name planNumber')                                       // ✅ array of communities
         .populate('realtorId', 'firstName lastName brokerage email phone')      // ✅ real field
@@ -484,6 +485,7 @@ router.put('/:id',
 
       const historyEntries = [];
       const previousStatus = existing.status || '';
+      let statusChangeForAutomation = null;
       let beBackDateValue = null;
       const previousCommunityIds = Array.isArray(existing.communityIds)
         ? existing.communityIds.map((id) => id.toString())
@@ -758,6 +760,9 @@ router.put('/:id',
           const normalizedNext = String(statusValue || '').trim().toLowerCase();
           const normalizedPrev = String(previousStatus || '').trim().toLowerCase();
           const statusChanged = normalizedNext !== normalizedPrev;
+          if (statusChanged) {
+            statusChangeForAutomation = { previousStatus, nextStatus: statusValue };
+          }
 
           if (normalizedNext === 'be-back' && !beBackDateValue) {
             beBackDateValue = new Date();
@@ -786,6 +791,9 @@ router.put('/:id',
           (typeof rawStatus === 'string' && rawStatus.trim() === '')
         ) {
           $set.status = '';
+          if (String(previousStatus || '').trim()) {
+            statusChangeForAutomation = { previousStatus, nextStatus: '' };
+          }
         }
       }
 
@@ -833,6 +841,11 @@ router.put('/:id',
           $set.fundsVerifiedDate = parsed;
           if (Object.prototype.hasOwnProperty.call($unset, 'fundsVerifiedDate')) delete $unset.fundsVerifiedDate;
         }
+      }
+
+      if (Object.prototype.hasOwnProperty.call(b, 'doNotEmail')) {
+        $set.doNotEmail = !!b.doNotEmail;
+        if (Object.prototype.hasOwnProperty.call($unset, 'doNotEmail')) delete $unset.doNotEmail;
       }
 
       // --- Build update doc
@@ -887,6 +900,20 @@ router.put('/:id',
       }
 
       if (!updated) return res.status(404).json({ error: 'Contact not found' });
+
+      if (statusChangeForAutomation && updated?._id) {
+        try {
+          // Status-change automation trigger lives here (MVP: contact.status.changed).
+          await handleContactStatusChange({
+            companyId: updated.company,
+            contactId: updated._id,
+            previousStatus: statusChangeForAutomation.previousStatus,
+            nextStatus: statusChangeForAutomation.nextStatus
+          });
+        } catch (triggerErr) {
+          console.error('[contacts] status trigger enqueue failed', triggerErr);
+        }
+      }
 
       return res.json({
         ...updated,
