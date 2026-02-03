@@ -9,6 +9,7 @@ const Contact = require('../../models/Contact');
 const Company = require('../../models/Company');
 const { renderTemplate } = require('./renderTemplate');
 const provider = require('./provider');
+const { normalizeEmail } = require('../../utils/normalizeEmail');
 
 const DAY_MS = 24 * 60 * 60 * 1000;
 const STALE_PROCESSING_MS = Number(process.env.STALE_PROCESSING_MS) || 10 * 60 * 1000;
@@ -257,12 +258,13 @@ function buildContactMergeData(contact) {
 }
 
 async function isSuppressed(companyId, email, contact = null) {
-  if (!email) return { suppressed: true, reason: 'missing_email' };
+  const normalized = normalizeEmail(email);
+  if (!normalized) return { suppressed: true, reason: 'missing_email' };
   if (contact?.doNotEmail) return { suppressed: true, reason: 'do_not_email' };
 
   const suppression = await Suppression.findOne({
     companyId,
-    email: String(email).toLowerCase().trim()
+    email: normalized
   }).lean();
 
   if (suppression) return { suppressed: true, reason: suppression.reason || 'suppressed' };
@@ -315,13 +317,16 @@ async function enqueueEmailJob({
   targetDate = adjustToAllowedWindow(targetDate, settings);
   targetDate = await enforceDailyCap(companyId, settings, targetDate);
 
-  const email = String(to || '').trim().toLowerCase();
+  const email = normalizeEmail(to);
+  if (email) {
+    to = email;
+  }
   if (!email && contactId) {
     const contact = await Contact.findOne({ _id: contactId, company: companyId })
-      .select('email doNotEmail')
+      .select('email doNotEmail emailPaused')
       .lean();
     if (contact?.email) {
-      to = contact.email;
+      to = normalizeEmail(contact.email);
     }
     const suppressionCheck = await isSuppressed(companyId, contact?.email, contact);
     if (suppressionCheck.suppressed) {
@@ -514,6 +519,88 @@ async function processDueEmailJobs({
       settingsCache.set(companyKey, settings);
     }
 
+    let contact = null;
+    if (job.contactId) {
+      contact = await Contact.findOne({ _id: job.contactId, company: job.companyId })
+        .select('firstName lastName email phone status doNotEmail emailPaused communityIds')
+        .lean();
+    }
+
+    const recipient = normalizeEmail(job.to || contact?.email);
+    if (!recipient) {
+      await markJobFailed(job._id, workerId, 'Missing recipient');
+      logJobEvent('warn', '[email] job failed (missing recipient)', { jobId: job._id });
+      continue;
+    }
+
+    const suppressionKey = `${companyKey}:${recipient}`;
+    let suppressionResult = suppressionCache.get(suppressionKey);
+    if (!suppressionResult) {
+      suppressionResult = await isSuppressed(job.companyId, recipient, contact);
+      suppressionCache.set(suppressionKey, suppressionResult);
+    }
+    if (suppressionResult.suppressed) {
+      await markJobSkipped(job._id, workerId, 'SUPPRESSED');
+      logJobEvent('info', '[email] job skipped', { jobId: job._id, reason: 'SUPPRESSED' });
+      continue;
+    }
+
+    if (contact?.emailPaused) {
+      await markJobSkipped(job._id, workerId, 'CONTACT_PAUSED');
+      logJobEvent('info', '[email] job skipped', { jobId: job._id, reason: 'CONTACT_PAUSED' });
+      continue;
+    }
+
+    if (job.meta?.stopOnStatuses && contact?.status) {
+      const stopStatuses = Array.isArray(job.meta.stopOnStatuses)
+        ? job.meta.stopOnStatuses.map((s) => String(s).toLowerCase().trim())
+        : [];
+      const currentStatus = String(contact.status || '').toLowerCase().trim();
+      if (stopStatuses.includes(currentStatus)) {
+        await markJobSkipped(job._id, workerId, 'STOPPED_BY_SCHEDULE');
+        logJobEvent('info', '[email] job skipped', { jobId: job._id, reason: 'STOPPED_BY_SCHEDULE' });
+        continue;
+      }
+    }
+
+    let rule = null;
+    if (job.ruleId) {
+      rule = await AutomationRule.findOne({ _id: job.ruleId, companyId: job.companyId }).lean();
+      if (!rule || rule.isEnabled === false) {
+        await markJobCanceled(job._id, workerId, 'RULE_DISABLED');
+        logJobEvent('info', '[email] job canceled', { jobId: job._id, reason: 'RULE_DISABLED' });
+        continue;
+      }
+      if (rule.action?.mustStillMatchAtSend) {
+        const toStatus = String(rule.trigger?.config?.toStatus || '').toLowerCase().trim();
+        const currentStatus = String(contact?.status || '').toLowerCase().trim();
+        if (toStatus && currentStatus !== toStatus) {
+          await markJobSkipped(job._id, workerId, 'STALE_STATUS');
+          logJobEvent('info', '[email] job skipped', { jobId: job._id, reason: 'STALE_STATUS' });
+          continue;
+        }
+      }
+    }
+
+    const template = await EmailTemplate.findOne({
+      _id: job.templateId,
+      companyId: job.companyId
+    }).lean();
+    if (!template || template.isActive === false) {
+      await markJobFailed(job._id, workerId, 'Template inactive or missing');
+      logJobEvent('warn', '[email] job failed (template missing)', { jobId: job._id });
+      continue;
+    }
+
+    const mergeData = {
+      ...buildContactMergeData(contact),
+      ...(job.data || {})
+    };
+    const rendered = renderTemplate(
+      { subject: template.subject, html: template.html, text: template.text },
+      mergeData
+    );
+
     const jobNow = new Date();
 
     if (!isWithinAllowedWindow(jobNow, settings)) {
@@ -576,82 +663,6 @@ async function processDueEmailJobs({
         continue;
       }
     }
-
-    let contact = null;
-    if (job.contactId) {
-      contact = await Contact.findOne({ _id: job.contactId, company: job.companyId })
-        .select('firstName lastName email phone status doNotEmail communityIds')
-        .lean();
-    }
-
-    const recipient = String(job.to || contact?.email || '').trim().toLowerCase();
-    if (!recipient) {
-      await markJobFailed(job._id, workerId, 'Missing recipient');
-      logJobEvent('warn', '[email] job failed (missing recipient)', { jobId: job._id });
-      continue;
-    }
-
-    const suppressionKey = `${companyKey}:${recipient}`;
-    let suppressionResult = suppressionCache.get(suppressionKey);
-    if (!suppressionResult) {
-      suppressionResult = await isSuppressed(job.companyId, recipient, contact);
-      suppressionCache.set(suppressionKey, suppressionResult);
-    }
-    if (suppressionResult.suppressed) {
-      await markJobSkipped(job._id, workerId, 'SUPPRESSED');
-      logJobEvent('info', '[email] job skipped', { jobId: job._id, reason: 'SUPPRESSED' });
-      continue;
-    }
-
-    if (job.meta?.stopOnStatuses && contact?.status) {
-      const stopStatuses = Array.isArray(job.meta.stopOnStatuses)
-        ? job.meta.stopOnStatuses.map((s) => String(s).toLowerCase().trim())
-        : [];
-      const currentStatus = String(contact.status || '').toLowerCase().trim();
-      if (stopStatuses.includes(currentStatus)) {
-        await markJobSkipped(job._id, workerId, 'STOPPED_BY_SCHEDULE');
-        logJobEvent('info', '[email] job skipped', { jobId: job._id, reason: 'STOPPED_BY_SCHEDULE' });
-        continue;
-      }
-    }
-
-    let rule = null;
-    if (job.ruleId) {
-      rule = await AutomationRule.findOne({ _id: job.ruleId, companyId: job.companyId }).lean();
-      if (!rule || rule.isEnabled === false) {
-        await markJobCanceled(job._id, workerId, 'RULE_DISABLED');
-        logJobEvent('info', '[email] job canceled', { jobId: job._id, reason: 'RULE_DISABLED' });
-        continue;
-      }
-      if (rule.action?.mustStillMatchAtSend) {
-        const toStatus = String(rule.trigger?.config?.toStatus || '').toLowerCase().trim();
-        const currentStatus = String(contact?.status || '').toLowerCase().trim();
-        if (toStatus && currentStatus !== toStatus) {
-          await markJobSkipped(job._id, workerId, 'STALE_STATUS');
-          logJobEvent('info', '[email] job skipped', { jobId: job._id, reason: 'STALE_STATUS' });
-          continue;
-        }
-      }
-    }
-
-    const template = await EmailTemplate.findOne({
-      _id: job.templateId,
-      companyId: job.companyId
-    }).lean();
-    if (!template || template.isActive === false) {
-      await markJobFailed(job._id, workerId, 'Template inactive or missing');
-      logJobEvent('warn', '[email] job failed (template missing)', { jobId: job._id });
-      continue;
-    }
-
-    const mergeData = {
-      ...buildContactMergeData(contact),
-      ...(job.data || {})
-    };
-    const rendered = renderTemplate(
-      { subject: template.subject, html: template.html, text: template.text },
-      mergeData
-    );
 
     try {
       const result = await provider.sendEmail(

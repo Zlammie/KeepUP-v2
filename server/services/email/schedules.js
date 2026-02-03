@@ -1,5 +1,6 @@
 const AutoFollowUpSchedule = require('../../models/AutoFollowUpSchedule');
 const Contact = require('../../models/Contact');
+const EmailJob = require('../../models/EmailJob');
 const { enqueueEmailJob, buildContactMergeData } = require('./scheduler');
 
 function isEmailChannel(channel) {
@@ -18,22 +19,43 @@ async function enqueueScheduleEmailsForContact({ companyId, contactId, scheduleI
   const [schedule, contact] = await Promise.all([
     AutoFollowUpSchedule.findOne({ _id: scheduleId, company: companyId }).lean(),
     Contact.findOne({ _id: contactId, company: companyId })
-      .select('firstName lastName email phone status doNotEmail')
+      .select('firstName lastName email phone status doNotEmail followUpSchedule')
       .lean()
   ]);
 
   if (!schedule) {
-    return { enqueued: 0, reason: 'schedule_missing' };
+    return { enqueued: 0, canceledCount: 0, reason: 'schedule_missing' };
   }
   if (!contact) {
-    return { enqueued: 0, reason: 'contact_missing' };
+    return { enqueued: 0, canceledCount: 0, reason: 'contact_missing' };
   }
+
+  const previousScheduleId = contact.followUpSchedule?.scheduleId || null;
+  const cancelReason =
+    previousScheduleId && String(previousScheduleId) === String(scheduleId)
+      ? 'SCHEDULE_REAPPLIED'
+      : 'SCHEDULE_REPLACED';
+  const cancellation = await EmailJob.updateMany(
+    {
+      companyId,
+      contactId,
+      scheduleId: { $ne: null },
+      status: EmailJob.STATUS.QUEUED
+    },
+    {
+      $set: {
+        status: EmailJob.STATUS.CANCELED,
+        lastError: cancelReason
+      }
+    }
+  );
+  const canceledCount = cancellation?.modifiedCount ?? cancellation?.nModified ?? 0;
 
   const stopStatuses = Array.isArray(schedule.stopOnStatuses)
     ? schedule.stopOnStatuses.map((s) => normalizeStatus(s))
     : [];
   if (stopStatuses.length && stopStatuses.includes(normalizeStatus(contact.status))) {
-    return { enqueued: 0, reason: 'stopped_by_status' };
+    return { enqueued: 0, canceledCount, reason: 'stopped_by_status' };
   }
 
   const steps = Array.isArray(schedule.steps) ? schedule.steps.slice() : [];
@@ -73,7 +95,7 @@ async function enqueueScheduleEmailsForContact({ companyId, contactId, scheduleI
     if (result?.job) enqueued += 1;
   }
 
-  return { enqueued };
+  return { enqueued, canceledCount };
 }
 
 module.exports = { enqueueScheduleEmailsForContact };

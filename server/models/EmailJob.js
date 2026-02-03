@@ -48,7 +48,9 @@ const EmailJobSchema = new Schema(
 EmailJobSchema.index({ companyId: 1, status: 1, scheduledFor: 1 });
 EmailJobSchema.index({ companyId: 1, status: 1, processingAt: 1 });
 EmailJobSchema.index({ companyId: 1, ruleId: 1, contactId: 1, createdAt: -1 });
+EmailJobSchema.index({ companyId: 1, contactId: 1, ruleId: 1, status: 1, scheduledFor: 1 });
 EmailJobSchema.index({ companyId: 1, blastId: 1, createdAt: -1 });
+EmailJobSchema.index({ companyId: 1, contactId: 1, scheduleId: 1, status: 1, scheduledFor: 1 });
 
 const EmailJob = mongoose.model('EmailJob', EmailJobSchema);
 

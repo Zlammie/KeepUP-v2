@@ -1591,8 +1591,8 @@ router.get('/contact-details', ensureAuth, requireRole('READONLY','USER','MANAGE
       const id = req.query.id;
       if (!isId(id)) return res.status(400).send('Invalid contact ID');
 
-      const contact = await Contact.findOne({ _id: id, ...base(req) })
-        .select('firstName lastName email phone visitDate status notes source communityIds realtorId lenderId lenderStatus lenderInviteDate lenderApprovedDate linkedLot lotLineUp buyTime buyMonth facing living investor renting ownSelling ownNotSelling financeType fundsVerified fundsVerifiedDate')
+        const contact = await Contact.findOne({ _id: id, ...base(req) })
+          .select('firstName lastName email phone visitDate status notes source communityIds realtorId lenderId lenderStatus lenderInviteDate lenderApprovedDate linkedLot lotLineUp buyTime buyMonth facing living investor renting ownSelling ownNotSelling financeType fundsVerified fundsVerifiedDate emailPaused emailPausedAt')
         .populate('realtorId', 'firstName lastName brokerage')
         .populate('lenderId',  'firstName lastName lenderBrokerage')
         .lean();
@@ -1921,6 +1921,19 @@ router.post('/admin/companies',
       }
       next(err);
     }
+  }
+);
+
+router.get(
+  '/email/blasts/:id',
+  ensureAuth,
+  requireRole('COMPANY_ADMIN', 'SUPER_ADMIN'),
+  async (req, res) => {
+    const blastId = req.params.id;
+    res.render('pages/email-blast-details', {
+      active: 'task',
+      blastId
+    });
   }
 );
 

@@ -70,6 +70,20 @@ export async function unassignFollowUpSchedule(contactId, options = {}) {
   return deleteJson(endpoint);
 }
 
+export async function unenrollFollowUpSchedule(contactId, options = {}) {
+  if (!contactId) {
+    throw new Error('unenrollFollowUpSchedule requires contactId');
+  }
+  const search = new URLSearchParams();
+  if (options.cleanup) search.set('cleanup', '1');
+  const query = search.toString();
+  const endpoint = query
+    ? `/api/contacts/${encodeURIComponent(contactId)}/followup-schedule/unenroll?${query}`
+    : `/api/contacts/${encodeURIComponent(contactId)}/followup-schedule/unenroll`;
+
+  return postJson(endpoint, {});
+}
+
 export async function enqueueFollowUpEmails(contactId, scheduleId) {
   if (!contactId || !scheduleId) {
     throw new Error('enqueueFollowUpEmails requires contactId and scheduleId');

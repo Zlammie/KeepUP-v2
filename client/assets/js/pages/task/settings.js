@@ -25,6 +25,10 @@
     ON_REPLY: 'reply',
     AFTER_DUE: 'after_due'
   };
+  const getEmailErrorLabel =
+    typeof window !== 'undefined' && typeof window.getEmailErrorLabel === 'function'
+      ? window.getEmailErrorLabel
+      : (value) => (value ? String(value) : null);
 
   function parseInitialData() {
     const node = document.getElementById(DATA_NODE_ID);
@@ -130,7 +134,7 @@
     const initialData = parseInitialData();
     const builderForm = document.querySelector('[data-task-settings-form]');
     const stepList = document.querySelector('[data-step-list]');
-    const addStepButton = document.querySelector('[data-add-step]');
+    const addStepButtons = document.querySelectorAll('[data-add-step]');
     const saveButton = document.querySelector('[data-save-schedule]');
     const newScheduleButton = document.querySelector('[data-new-schedule]');
     const builderTitle = document.querySelector('[data-builder-title]');
@@ -174,12 +178,18 @@
     const queueList = document.querySelector('[data-queue-list]');
     const queueFilters = document.querySelectorAll('[data-queue-filter]');
     const queueToast = document.querySelector('[data-queue-toast]');
+    const queueBlastFilter = document.querySelector('[data-queue-blast-filter]');
+    const queueBlastLabel = document.querySelector('[data-queue-blast-label]');
+    const clearBlastFilter = document.querySelector('[data-clear-blast-filter]');
     const blastForm = document.querySelector('[data-blast-form]');
     const blastTemplateSelect = document.querySelector('[data-blast-template]');
     const blastPreviewButton = document.querySelector('[data-blast-preview]');
     const blastPreviewTotal = document.querySelector('[data-blast-preview-total]');
     const blastPreviewExcluded = document.querySelector('[data-blast-preview-excluded]');
     const blastPreviewFinal = document.querySelector('[data-blast-preview-final]');
+    const blastPreviewFirst = document.querySelector('[data-blast-preview-first]');
+    const blastPreviewLast = document.querySelector('[data-blast-preview-last]');
+    const blastPreviewDays = document.querySelector('[data-blast-preview-days]');
     const blastPreviewSample = document.querySelector('[data-blast-preview-sample]');
     const blastConfirmation = document.querySelector('[data-blast-confirmation]');
     const blastList = document.querySelector('[data-blast-list]');
@@ -195,6 +205,16 @@
     const audienceTotal = document.querySelector('[data-audience-total]');
     const audienceExcluded = document.querySelector('[data-audience-excluded]');
     const audienceSample = document.querySelector('[data-audience-sample]');
+    const stopSelect = builderForm
+      ? builderForm.querySelector('[data-stop-select]') || builderForm.elements.stopOnStatuses
+      : null;
+    const stopPillList = document.querySelector('[data-stop-pill-list]');
+    const workflowTabs = document.querySelectorAll('[data-schedule-step]');
+    const workflowPanels = document.querySelectorAll('[data-schedule-step-panel]');
+    const workflowNextButtons = document.querySelectorAll('[data-workflow-next]');
+    const workflowBackButtons = document.querySelectorAll('[data-workflow-back]');
+    let workflowOrder = [];
+    let currentWorkflowStep = null;
 
     if (!builderForm || !stepList) return;
 
@@ -224,10 +244,27 @@
       activeRuleId: null,
       currentQueueFilter: 'today',
       currentQueueBlastId: null,
+      currentQueueContactId: null,
       blastPreview: null,
       blasts: [],
-      currentTab: 'schedules'
+      blastRequestId: null,
+      currentTab: 'schedules',
+      initialTab: null
     };
+
+    const urlParams = new URLSearchParams(window.location.search);
+    const requestedTab = urlParams.get('tab');
+    const requestedBlastId = urlParams.get('blastId');
+    const requestedContactId = urlParams.get('contactId');
+    if (requestedBlastId) {
+      state.currentQueueBlastId = requestedBlastId;
+    }
+    if (requestedContactId) {
+      state.currentQueueContactId = requestedContactId;
+    }
+    if (requestedTab) {
+      state.initialTab = requestedTab;
+    }
 
     const scheduleMap = new Map();
     state.schedules.forEach((schedule) => {
@@ -389,6 +426,21 @@
       }
     }
 
+    function syncStopPillsFromSelect() {
+      if (!stopSelect || !stopPillList) return;
+      const selected = new Set(
+        Array.from(stopSelect.options || [])
+          .filter((option) => option.selected)
+          .map((option) => option.value)
+      );
+      stopPillList.querySelectorAll('[data-stop-pill]').forEach((pill) => {
+        const value = pill.dataset.stopPill || '';
+        const isSelected = selected.has(value);
+        pill.classList.toggle('is-muted', isSelected);
+        pill.setAttribute('aria-pressed', isSelected ? 'true' : 'false');
+      });
+    }
+
     function resetBuilderForm() {
       state.activeScheduleId = null;
       builderForm.reset();
@@ -397,6 +449,7 @@
           option.selected = false;
         });
       }
+      syncStopPillsFromSelect();
       renderSteps(state.builderPreset?.steps || []);
       setBuilderMode(false);
     }
@@ -429,6 +482,7 @@
           option.selected = selected.includes(option.value);
         });
       }
+      syncStopPillsFromSelect();
       renderSteps(schedule.steps || []);
       setBuilderMode(true, schedule.name);
     }
@@ -593,12 +647,70 @@
 
     function initTabs() {
       if (!tabButtons.length) return;
+      const validTabs = Array.from(tabButtons)
+        .map((button) => button.dataset.automationTab)
+        .filter(Boolean);
       tabButtons.forEach((button) => {
         button.addEventListener('click', () => {
           setActiveTab(button.dataset.automationTab);
         });
       });
-      setActiveTab('schedules');
+      const initial = state.initialTab && validTabs.includes(state.initialTab) ? state.initialTab : 'schedules';
+      setActiveTab(initial);
+    }
+
+    function setWorkflowStep(stepName) {
+      if (!workflowOrder.length) return;
+      const nextStep = workflowOrder.includes(stepName) ? stepName : workflowOrder[0];
+      currentWorkflowStep = nextStep;
+      workflowTabs.forEach((button) => {
+        const isActive = button.dataset.scheduleStep === nextStep;
+        button.classList.toggle('is-active', isActive);
+        button.setAttribute('aria-selected', isActive ? 'true' : 'false');
+      });
+      workflowPanels.forEach((panel) => {
+        const match = panel.dataset.scheduleStepPanel === nextStep;
+        panel.hidden = !match;
+        panel.setAttribute('aria-hidden', match ? 'false' : 'true');
+      });
+      const index = workflowOrder.indexOf(nextStep);
+      const isFirst = index <= 0;
+      const isLast = index >= workflowOrder.length - 1;
+      workflowBackButtons.forEach((button) => {
+        button.disabled = isFirst;
+      });
+      workflowNextButtons.forEach((button) => {
+        button.disabled = isLast;
+      });
+    }
+
+    function initWorkflow() {
+      if (!workflowTabs.length || !workflowPanels.length) return;
+      workflowOrder = Array.from(workflowTabs)
+        .map((button) => button.dataset.scheduleStep)
+        .filter(Boolean);
+      workflowTabs.forEach((button) => {
+        button.addEventListener('click', () => {
+          setWorkflowStep(button.dataset.scheduleStep);
+        });
+      });
+      workflowNextButtons.forEach((button) => {
+        button.addEventListener('click', () => {
+          const index = workflowOrder.indexOf(currentWorkflowStep);
+          if (index >= 0 && index < workflowOrder.length - 1) {
+            setWorkflowStep(workflowOrder[index + 1]);
+          }
+        });
+      });
+      workflowBackButtons.forEach((button) => {
+        button.addEventListener('click', () => {
+          const index = workflowOrder.indexOf(currentWorkflowStep);
+          if (index > 0) {
+            setWorkflowStep(workflowOrder[index - 1]);
+          }
+        });
+      });
+      setWorkflowStep(workflowOrder[0]);
     }
 
     function getCommonAutomationStatus(item) {
@@ -707,7 +819,7 @@
           const time = item.updatedAt ? formatDateTime(item.updatedAt) : '--';
           return `<div class="mb-2">
             <div class="fw-semibold">${item.to || 'Recipient'}</div>
-            <div class="text-muted">${time} • ${item.lastError || 'Failed'} • Attempts: ${item.attempts ?? 0}</div>
+            <div class="text-muted">${time} • ${getEmailErrorLabel(item.lastError) || 'Failed'} • Attempts: ${item.attempts ?? 0}</div>
           </div>`;
         })
         .join('');
@@ -759,6 +871,20 @@
       const excludedTotal = preview?.excludedTotal ?? '--';
       if (blastPreviewExcluded) blastPreviewExcluded.textContent = excludedTotal;
       if (blastPreviewFinal) blastPreviewFinal.textContent = preview?.finalToSend ?? '--';
+      if (blastPreviewFirst) {
+        blastPreviewFirst.textContent = preview?.estimatedFirstSendAt
+          ? formatDateTime(preview.estimatedFirstSendAt)
+          : '--';
+      }
+      if (blastPreviewLast) {
+        blastPreviewLast.textContent = preview?.estimatedLastSendAt
+          ? formatDateTime(preview.estimatedLastSendAt)
+          : '--';
+      }
+      if (blastPreviewDays) {
+        blastPreviewDays.textContent =
+          preview?.estimatedDaysSpanned != null ? preview.estimatedDaysSpanned : '--';
+      }
       if (blastPreviewSample) {
         const samples = (preview?.sampleRecipients || [])
           .map((r) => `${r.name || r.email}`)
@@ -780,7 +906,9 @@
       if (!state.emailEndpoints.blasts) return;
       const payload = {
         templateId: blastForm.elements.templateId?.value || null,
-        filters: collectBlastFilters()
+        filters: collectBlastFilters(),
+        sendMode: blastForm.elements.sendMode?.value === 'scheduled' ? 'scheduled' : 'now',
+        scheduledFor: blastForm.elements.scheduledFor?.value || null
       };
       try {
         const response = await apiRequest(`${state.emailEndpoints.blasts}/preview`, {
@@ -818,8 +946,11 @@
             <div class="small text-muted mt-2">
               Scheduled: ${blast.scheduledFor ? formatDateTime(blast.scheduledFor) : 'Now'} • Final: ${blast.finalToSend ?? 0}
             </div>
-            <div class="d-flex gap-2 mt-3">
-              <button type="button" class="btn btn-sm btn-outline-primary" data-blast-view="${blast._id}">View in Queue</button>
+            <div class="d-flex gap-2 mt-3 flex-wrap">
+              <a class="btn btn-sm btn-outline-primary" href="/email/blasts/${blast._id}">View</a>
+              <button type="button" class="btn btn-sm btn-outline-secondary" data-blast-view="${blast._id}">
+                Open Queue
+              </button>
               ${
                 blast.status === 'scheduled'
                   ? `<button type="button" class="btn btn-sm btn-outline-danger" data-blast-cancel="${blast._id}">Cancel</button>`
@@ -854,6 +985,7 @@
     async function handleBlastCreate(event) {
       event.preventDefault();
       if (!blastForm) return;
+      const submitButton = blastForm.querySelector('[data-blast-create]');
       const name = blastForm.elements.name.value.trim();
       const templateId = blastForm.elements.templateId.value;
       if (!name) {
@@ -868,22 +1000,37 @@
       const sendMode = blastForm.elements.sendMode?.value === 'scheduled' ? 'scheduled' : 'now';
       const scheduledFor = blastForm.elements.scheduledFor?.value || null;
 
+      if (!state.blastRequestId) {
+        if (window.crypto?.randomUUID) {
+          state.blastRequestId = window.crypto.randomUUID();
+        } else {
+          state.blastRequestId = `blast-${Date.now()}-${Math.random().toString(36).slice(2, 10)}`;
+        }
+      }
+
       const payload = {
         name,
         templateId,
         filters: collectBlastFilters(),
         sendMode,
         scheduledFor: sendMode === 'scheduled' ? scheduledFor : null,
-        confirmationText: blastForm.elements.confirmationText?.value || ''
+        confirmationText: blastForm.elements.confirmationText?.value || '',
+        requestId: state.blastRequestId
       };
 
       try {
+        setLoading(submitButton, true, 'Creating...');
         const response = await apiRequest(state.emailEndpoints.blasts, {
           method: 'POST',
           body: JSON.stringify(payload)
         });
-        showToast(blastToast, 'Blast queued.', 'success');
+        showToast(
+          blastToast,
+          response?.idempotent ? 'Blast already created; opening existing blast.' : 'Blast queued.',
+          'success'
+        );
         resetBlastForm();
+        state.blastRequestId = null;
         await loadBlasts();
         if (response?.blastId) {
           setActiveTab('queue');
@@ -892,6 +1039,8 @@
       } catch (err) {
         console.error('[blasts] create failed', err);
         showToast(blastToast, err.message || 'Unable to create blast.', 'error');
+      } finally {
+        setLoading(submitButton, false);
       }
     }
 
@@ -1279,15 +1428,24 @@
       }
     }
 
-    async function loadQueue(bucket = state.currentQueueFilter, blastId = state.currentQueueBlastId) {
+    async function loadQueue(
+      bucket = state.currentQueueFilter,
+      blastId = state.currentQueueBlastId,
+      contactId = state.currentQueueContactId
+    ) {
       if (!queueList) return;
       state.currentQueueFilter = bucket;
       state.currentQueueBlastId = blastId || null;
+      state.currentQueueContactId = contactId || null;
+      updateQueueBlastFilterUI();
       queueList.innerHTML = '<tr><td colspan="6" class="text-muted small">Loading queue...</td></tr>';
       try {
         const qs = new URLSearchParams({ bucket: bucket || 'today' });
         if (state.currentQueueBlastId) {
           qs.set('blastId', state.currentQueueBlastId);
+        }
+        if (state.currentQueueContactId) {
+          qs.set('contactId', state.currentQueueContactId);
         }
         const response = await apiRequest(`${state.emailEndpoints.queue}?${qs.toString()}`);
         state.queue = Array.isArray(response.jobs) ? response.jobs : [];
@@ -1325,7 +1483,11 @@
             <td>${formatDateTime(job.scheduledFor)}</td>
             <td>
               <div class="fw-semibold text-capitalize">${job.status || 'queued'}</div>
-              ${job.lastError ? `<div class="small text-muted">${job.lastError}</div>` : ''}
+              ${
+                job.lastError
+                  ? `<div class="small text-muted">${getEmailErrorLabel(job.lastError)}</div>`
+                  : ''
+              }
             </td>
             <td class="text-end">
               ${
@@ -1372,6 +1534,22 @@
       } catch (err) {
         console.error('[automations] reschedule failed', err);
         showToast(queueToast, err.message || 'Unable to reschedule job.', 'error');
+      }
+    }
+
+    function updateQueueBlastFilterUI() {
+      if (!queueBlastFilter) return;
+      if (state.currentQueueBlastId || state.currentQueueContactId) {
+        queueBlastFilter.classList.remove('d-none');
+        if (queueBlastLabel) {
+          if (state.currentQueueBlastId) {
+            queueBlastLabel.textContent = `Filtered by blast ${state.currentQueueBlastId}.`;
+          } else {
+            queueBlastLabel.textContent = `Filtered by contact ${state.currentQueueContactId}.`;
+          }
+        }
+      } else {
+        queueBlastFilter.classList.add('d-none');
       }
     }
 
@@ -1502,7 +1680,7 @@
       await Promise.allSettled([
         loadTemplates(),
         loadRules(),
-        loadQueue(state.currentQueueFilter),
+        loadQueue(state.currentQueueFilter, state.currentQueueBlastId, state.currentQueueContactId),
         loadEmailSettings(),
         loadSuppressions(),
         loadCommonAutomations(),
@@ -1523,22 +1701,24 @@
       if (target) target.focus();
     }
 
-    addStepButton?.addEventListener('click', (event) => {
-      event.preventDefault();
-      const lastStepDayField = stepList.querySelector('.builder-step:last-child [data-step-field="day"]');
-      const lastValue = lastStepDayField ? parseInt(lastStepDayField.value || '0', 10) : 0;
-      const nextDay = Number.isNaN(lastValue) ? 0 : lastValue + 2;
-      const newStep = {
-        dayOffset: nextDay,
-        channel: getDefaultChannel(),
-        title: `Touchpoint ${stepList.childElementCount + 1}`,
-        ownerRole: builderForm.elements.owner?.value || getDefaultOwnerRole(),
-        waitForReply: false
-      };
-      const element = createStepElement(newStep, stepList.childElementCount);
-      stepList.appendChild(element);
-      refreshTemplateSelects();
-      element.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    addStepButtons.forEach((button) => {
+      button.addEventListener('click', (event) => {
+        event.preventDefault();
+        const lastStepDayField = stepList.querySelector('.builder-step:last-child [data-step-field="day"]');
+        const lastValue = lastStepDayField ? parseInt(lastStepDayField.value || '0', 10) : 0;
+        const nextDay = Number.isNaN(lastValue) ? 0 : lastValue + 2;
+        const newStep = {
+          dayOffset: nextDay,
+          channel: getDefaultChannel(),
+          title: `Touchpoint ${stepList.childElementCount + 1}`,
+          ownerRole: builderForm.elements.owner?.value || getDefaultOwnerRole(),
+          waitForReply: false
+        };
+        const element = createStepElement(newStep, stepList.childElementCount);
+        stepList.appendChild(element);
+        refreshTemplateSelects();
+        element.scrollIntoView({ behavior: 'smooth', block: 'center' });
+      });
     });
 
     stepList.addEventListener('click', (event) => {
@@ -1553,9 +1733,22 @@
       step.remove();
     });
 
+    stopPillList?.addEventListener('click', (event) => {
+      const pill = event.target.closest('[data-stop-pill]');
+      if (!pill || !stopSelect) return;
+      const value = pill.dataset.stopPill || '';
+      if (!value) return;
+      const option = Array.from(stopSelect.options || []).find((opt) => opt.value === value);
+      if (!option) return;
+      option.selected = !option.selected;
+      syncStopPillsFromSelect();
+    });
+
     saveButton?.addEventListener('click', handleSaveSchedule);
     newScheduleButton?.addEventListener('click', (event) => {
       event.preventDefault();
+      setActiveTab('schedules');
+      setWorkflowStep('canvas');
       resetBuilderForm();
       const nameInput = builderForm.querySelector('input[name="scheduleName"]');
       if (nameInput) nameInput.focus();
@@ -1577,6 +1770,8 @@
       }
     });
 
+    syncStopPillsFromSelect();
+    initWorkflow();
     initTabs();
     refreshButton?.addEventListener('click', (event) => {
       event.preventDefault();
@@ -1680,6 +1875,12 @@
       });
     });
     queueList?.addEventListener('click', handleQueueAction);
+    clearBlastFilter?.addEventListener('click', (event) => {
+      event.preventDefault();
+      state.currentQueueBlastId = null;
+      state.currentQueueContactId = null;
+      loadQueue(state.currentQueueFilter, null, null);
+    });
 
     emailSettingsForm?.addEventListener('submit', handleSettingsSave);
     settingsRefresh?.addEventListener('click', (event) => {

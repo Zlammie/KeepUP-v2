@@ -49,11 +49,52 @@ async function handleContactStatusChange({
 
   if (!contact) return { enqueued: 0 };
 
+  const prevNormalized = normalizeStatus(previousStatus);
+  const nextNormalized = normalizeStatus(nextStatus);
   let enqueued = 0;
   const now = Date.now();
 
+  if (prevNormalized && prevNormalized !== nextNormalized) {
+    const exitRuleIds = rules
+      .filter((rule) => {
+        const targetStatus = normalizeStatus(rule?.trigger?.config?.toStatus);
+        if (!targetStatus || targetStatus !== prevNormalized) return false;
+        return Boolean(rule?.action?.mustStillMatchAtSend);
+      })
+      .map((rule) => rule._id);
+
+    if (exitRuleIds.length) {
+      await EmailJob.updateMany(
+        {
+          companyId,
+          contactId,
+          ruleId: { $in: exitRuleIds },
+          status: EmailJob.STATUS.QUEUED
+        },
+        {
+          $set: {
+            status: EmailJob.STATUS.CANCELED,
+            lastError: 'RULE_STATUS_EXIT'
+          }
+        }
+      );
+    }
+  }
+
   for (const rule of rules) {
     if (!ruleMatchesContact(rule, { previousStatus, nextStatus, communityIds: contact.communityIds })) {
+      continue;
+    }
+
+    const existing = await EmailJob.findOne({
+      companyId,
+      contactId,
+      ruleId: rule._id,
+      status: {
+        $in: [EmailJob.STATUS.QUEUED, EmailJob.STATUS.PROCESSING]
+      }
+    }).lean();
+    if (existing) {
       continue;
     }
 

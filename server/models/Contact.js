@@ -57,6 +57,9 @@ const ContactSchema = new Schema(
     living:     [{ type: String, trim: true }],
     tags:       [{ type: String, trim: true }],
     doNotEmail: { type: Boolean, default: false },
+    emailPaused: { type: Boolean, default: false },
+    emailPausedAt: { type: Date, default: null },
+    emailPausedBy: { type: Schema.Types.ObjectId, ref: 'User', default: null },
 
     emailNorm: { type: String, index: true },
     phoneNorm: { type: String, index: true },

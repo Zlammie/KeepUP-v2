@@ -4,6 +4,7 @@ const mongoose = require('mongoose');
 const requireRole = require('../../middleware/requireRole');
 const Contact = require('../../models/Contact');
 const Suppression = require('../../models/Suppression');
+const { normalizeEmail } = require('../../utils/normalizeEmail');
 
 const router = express.Router();
 
@@ -67,11 +68,14 @@ router.post('/preview', requireRole(...READ_ROLES), async (req, res) => {
     const suppressedEmails = await Suppression.find({ companyId: req.user.company })
       .select('email')
       .lean();
-    const suppressedSet = suppressedEmails.map((entry) => entry.email);
+    const suppressedSet = suppressedEmails
+      .map((entry) => normalizeEmail(entry.email))
+      .filter(Boolean);
 
     const eligibleFilter = {
       ...baseFilter,
       doNotEmail: { $ne: true },
+      emailPaused: { $ne: true },
       email: { $type: 'string', $ne: '' }
     };
     if (suppressedSet.length) {

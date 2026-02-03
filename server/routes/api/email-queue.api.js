@@ -42,7 +42,7 @@ function buildBucketRange(bucket, settings) {
 
 router.get('/', requireRole(...READ_ROLES), async (req, res) => {
   try {
-    const { bucket, status, blastId } = req.query || {};
+    const { bucket, status, blastId, contactId } = req.query || {};
     const settings = await getEmailSettings(req.user.company);
     const { start, end } = buildBucketRange(bucket, settings);
 
@@ -50,6 +50,10 @@ router.get('/', requireRole(...READ_ROLES), async (req, res) => {
     const blastObjectId = toObjectId(blastId);
     if (blastObjectId) {
       filter.blastId = blastObjectId;
+    }
+    const contactObjectId = toObjectId(contactId);
+    if (contactObjectId) {
+      filter.contactId = contactObjectId;
     }
     if (start || end) {
       filter.scheduledFor = {};

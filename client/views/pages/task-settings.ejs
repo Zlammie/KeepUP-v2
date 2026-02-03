@@ -7,6 +7,13 @@
   <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet" />
   <link rel="stylesheet" href="/assets/css/main.css" />
   <style>
+    html {
+      scrollbar-gutter: stable;
+    }
+
+    body {
+      overflow-y: scroll;
+    }
     .task-settings-page .schedule-stat-card {
       border-radius: 1rem;
       border: 1px solid rgba(15, 26, 58, 0.08);
@@ -106,6 +113,139 @@
       padding: 1rem;
       background: #ffffff;
     }
+
+    .task-settings-page .stop-pill {
+      border-radius: 999px;
+      font-weight: 600;
+      text-transform: none;
+      width: auto;
+      border: 1px solid transparent;
+      cursor: pointer;
+      transition: background-color 0.15s ease, color 0.15s ease, opacity 0.15s ease;
+    }
+
+    .task-settings-page .stop-pill.status-badge {
+      text-transform: none;
+      width: auto;
+      padding: 0.35rem 0.8rem;
+    }
+
+    .task-settings-page .stop-pill.status-badge.none {
+      background: #ffffff;
+      border-color: #dee2e6;
+      color: #6c757d;
+    }
+
+    .task-settings-page .stop-pill.is-muted {
+      background: transparent;
+      border-color: #dee2e6;
+      color: #adb5bd;
+      text-decoration: line-through;
+      text-decoration-thickness: 2px;
+      opacity: 0.6;
+    }
+
+    .task-settings-page .stop-pill-group {
+      margin-top: 0.75rem;
+    }
+
+    .task-settings-page .stop-pill-group:first-child {
+      margin-top: 0;
+    }
+
+    .task-settings-page .stop-pill-group__label {
+      font-size: 0.7rem;
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+      color: #6c757d;
+      margin-bottom: 0.35rem;
+    }
+
+    .task-settings-page .stop-pill-columns {
+      display: grid;
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+      gap: 1rem;
+    }
+
+    .task-settings-page .stop-pill-column + .stop-pill-column {
+      border-left: 1px solid rgba(15, 26, 58, 0.12);
+      padding-left: 1rem;
+    }
+
+    @media (max-width: 991px) {
+      .task-settings-page .stop-pill-columns {
+        grid-template-columns: 1fr;
+      }
+
+      .task-settings-page .stop-pill-column + .stop-pill-column {
+        border-left: none;
+        padding-left: 0;
+        border-top: 1px solid rgba(15, 26, 58, 0.12);
+        padding-top: 1rem;
+      }
+    }
+
+    .task-settings-page .schedule-workflow__nav {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 0.5rem;
+      border-bottom: 1px solid rgba(15, 26, 58, 0.12);
+      margin-bottom: 1.5rem;
+      padding-bottom: 0.25rem;
+    }
+
+    .task-settings-page .schedule-workflow__tab {
+      border: 1px solid rgba(15, 26, 58, 0.12);
+      border-bottom: none;
+      border-radius: 0.85rem 0.85rem 0 0;
+      background: #e9edf7;
+      color: #0f1a3a;
+      font-weight: 600;
+      padding: 0.5rem 1rem;
+    }
+
+    .task-settings-page .schedule-workflow__tab.is-active {
+      background: #ffffff;
+      border-color: rgba(15, 26, 58, 0.2);
+      box-shadow: 0 -6px 12px rgba(15, 26, 58, 0.08);
+      position: relative;
+      top: 1px;
+    }
+
+    .task-settings-page .schedule-workflow__panel {
+      margin-bottom: 1.5rem;
+    }
+
+    .task-settings-page .add-step-card {
+      width: 100%;
+      min-height: 96px;
+      border-radius: 0.9rem;
+      border: 1px dashed rgba(15, 26, 58, 0.25);
+      background: #f7f9ff;
+      color: #0f1a3a;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      gap: 0.15rem;
+      transition: border-color 0.15s ease, background-color 0.15s ease;
+    }
+
+    .task-settings-page .add-step-card:hover {
+      border-color: rgba(15, 26, 58, 0.45);
+      background: #eef2ff;
+    }
+
+    .task-settings-page .add-step-card__plus {
+      font-size: 2rem;
+      line-height: 1;
+      font-weight: 600;
+    }
+
+    .task-settings-page .add-step-card__helper {
+      font-size: 0.78rem;
+      color: #6c757d;
+    }
   </style>
 </head>
 <body>
@@ -121,48 +261,43 @@
     <% const stageOptions = Array.isArray(builder.stageOptions) ? builder.stageOptions : []; %>
     <% const ownerOptions = Array.isArray(builder.ownerOptions) ? builder.ownerOptions : []; %>
     <% const channelOptions = Array.isArray(builder.channelOptions) ? builder.channelOptions : ['SMS', 'Email', 'Call', 'Reminder']; %>
-    <% const statusOptions = Array.isArray(typeof automationStatusOptions !== 'undefined' ? automationStatusOptions : null)
+    <% const baseStatusOptions = Array.isArray(typeof automationStatusOptions !== 'undefined' ? automationStatusOptions : null)
       ? automationStatusOptions
       : ['New','Target','Possible','Hot','Negotiation','Be-Back','Cold','Purchased','Closed','Not-Interested','Deal-Lost','Bust'];
     %>
+    <% const statusOptions = Array.from(new Set(baseStatusOptions.filter((status) => status !== 'Hot'))); %>
+    <% if (!statusOptions.includes('None')) statusOptions.push('None'); %>
+    <% const statusClassMap = { 'Negotiation': 'negotiating', 'Not Interested': 'not-interested', 'Not-Interested': 'not-interested' }; %>
+    <% const getStatusClass = (status) => {
+         if (!status) return '';
+         const mapped = statusClassMap[status];
+         if (mapped) return mapped;
+         return String(status).toLowerCase().replace(/[^a-z0-9]+/g, '-');
+       };
+    %>
+    <% const statusGroups = [
+         { key: 'neutral', label: 'Neutral', items: ['New', 'Possible', 'Cold', 'Be-Back', 'None'] },
+         { key: 'positive', label: 'Positive', items: ['Negotiation', 'Purchased', 'Closed', 'Target'] },
+         { key: 'negative', label: 'Negative', items: ['Not-Interested', 'Deal-Lost', 'Bust'] }
+       ];
+    %>
+    <% const groupedStatuses = []; %>
+    <% statusGroups.forEach((group) => {
+         group.items.forEach((status) => {
+           if (statusOptions.includes(status) && !groupedStatuses.includes(status)) groupedStatuses.push(status);
+         });
+       });
+    %>
+    <% const extraStatuses = statusOptions.filter((status) => !groupedStatuses.includes(status)); %>
+    <% const orderedStatusOptions = groupedStatuses.concat(extraStatuses); %>
     <% const stopStatuses = Array.isArray(builder.stopOnStatuses) ? builder.stopOnStatuses : []; %>
     <% const canManageAutomations =
       (typeof taskSettingsData === 'object' && taskSettingsData && taskSettingsData.canManageAutomations) || false; %>
 
-    <div class="d-flex flex-wrap align-items-start justify-content-between gap-3 mb-4">
-      <div>
-        <p class="text-uppercase text-muted fw-semibold mb-1 small">Automations</p>
-        <h1 class="h3 mb-2">Email Automation Hub</h1>
-        <p class="text-muted mb-0">
-          Build nurture schedules, status triggers, and the email templates that power them in one place.
-        </p>
-      </div>
-      <div class="d-flex gap-2">
-        <button type="button" class="btn btn-outline-secondary btn-sm" data-refresh-automation>Refresh Data</button>
-        <button type="button" class="btn btn-primary btn-sm" data-new-schedule>New Draft Schedule</button>
-      </div>
-    </div>
-
-    <section class="mb-4" data-common-automation-section>
-      <div class="card shadow-sm">
-        <div class="card-body">
-          <div class="d-flex flex-wrap align-items-start justify-content-between gap-2">
-            <div>
-              <p class="text-uppercase text-muted fw-semibold small mb-1">Common Automations</p>
-              <h2 class="h5 mb-2">One-Click Setup</h2>
-              <p class="text-muted mb-0">Enable a prebuilt automation and customize it later.</p>
-            </div>
-            <button type="button" class="btn btn-outline-secondary btn-sm" data-common-refresh>Refresh</button>
-          </div>
-          <div class="vstack gap-3 mt-3" data-common-automation-list>
-            <div class="text-muted small">Loading common automations...</div>
-          </div>
-        </div>
-      </div>
-      <div class="visually-hidden" aria-live="polite" data-common-automation-toast></div>
-    </section>
-
     <ul class="nav nav-tabs mb-4" role="tablist" data-automation-tabs>
+      <li class="nav-item" role="presentation">
+        <button class="nav-link" type="button" data-automation-tab="hub" role="tab">Email Automation Hub</button>
+      </li>
       <li class="nav-item" role="presentation">
         <button class="nav-link active" type="button" data-automation-tab="schedules" role="tab">Follow Up Schedules</button>
       </li>
@@ -182,6 +317,41 @@
         <button class="nav-link" type="button" data-automation-tab="settings" role="tab">Settings</button>
       </li>
     </ul>
+
+    <section class="mb-5" data-automation-panel="hub" hidden>
+      <div class="d-flex flex-wrap align-items-start justify-content-between gap-3 mb-4">
+        <div>
+          <p class="text-uppercase text-muted fw-semibold mb-1 small">Automations</p>
+          <h1 class="h3 mb-2">Email Automation Hub</h1>
+          <p class="text-muted mb-0">
+            Build nurture schedules, status triggers, and the email templates that power them in one place.
+          </p>
+        </div>
+        <div class="d-flex gap-2">
+          <button type="button" class="btn btn-outline-secondary btn-sm" data-refresh-automation>Refresh Data</button>
+          <button type="button" class="btn btn-primary btn-sm" data-new-schedule>New Draft Schedule</button>
+        </div>
+      </div>
+
+      <div class="mb-4" data-common-automation-section>
+        <div class="card shadow-sm">
+          <div class="card-body">
+            <div class="d-flex flex-wrap align-items-start justify-content-between gap-2">
+              <div>
+                <p class="text-uppercase text-muted fw-semibold small mb-1">Common Automations</p>
+                <h2 class="h5 mb-2">One-Click Setup</h2>
+                <p class="text-muted mb-0">Enable a prebuilt automation and customize it later.</p>
+              </div>
+              <button type="button" class="btn btn-outline-secondary btn-sm" data-common-refresh>Refresh</button>
+            </div>
+            <div class="vstack gap-3 mt-3" data-common-automation-list>
+              <div class="text-muted small">Loading common automations...</div>
+            </div>
+          </div>
+        </div>
+        <div class="visually-hidden" aria-live="polite" data-common-automation-toast></div>
+      </div>
+    </section>
 
     <section class="mb-5" data-automation-panel="schedules">
       <div class="row g-3">
@@ -219,300 +389,453 @@
     </section>
 
     <section class="mb-5" data-automation-panel="schedules">
-      <div class="row g-4">
-        <div class="col-lg-7">
-          <div class="card shadow-sm h-100">
-            <div class="card-body">
-              <div class="d-flex align-items-center justify-content-between mb-3 flex-wrap gap-2">
-                <div>
-                  <p class="text-uppercase text-muted fw-semibold small mb-1">Builder</p>
-                  <h2 class="h5 mb-0" data-builder-title>Schedule Canvas</h2>
-                </div>
-                <button type="button" class="btn btn-outline-primary btn-sm" data-add-step>Add Touchpoint</button>
-              </div>
+      <div class="schedule-workflow" data-schedule-workflow>
+        <div class="schedule-workflow__nav" role="tablist" aria-label="Schedule workflow">
+          <button class="schedule-workflow__tab is-active" type="button" data-schedule-step="canvas" role="tab">Schedule Canvas</button>
+          <button class="schedule-workflow__tab" type="button" data-schedule-step="conditions" role="tab">Stop Conditions</button>
+          <button class="schedule-workflow__tab" type="button" data-schedule-step="steps" role="tab">Follow Up Steps</button>
+          <button class="schedule-workflow__tab" type="button" data-schedule-step="assignment" role="tab">Assignment</button>
+        </div>
 
-              <form class="schedule-builder" data-task-settings-form>
-                <div class="row g-3 mb-3">
-                  <div class="col-md-6">
-                    <label class="form-label">Schedule Name</label>
-                    <input type="text" class="form-control" name="scheduleName" value="<%= builder.name || '' %>" placeholder="e.g. Rapid Lead Reply" />
-                  </div>
-                  <div class="col-md-6">
-                    <label class="form-label">Pipeline Stage</label>
-                    <select class="form-select" name="pipelineStage">
-                      <% (stageOptions.length ? stageOptions : ['New Lead']).forEach((stage) => { %>
-                        <option value="<%= stage %>" <%= stage === builder.defaultStage ? 'selected' : '' %>>
-                          <%= stage %>
-                        </option>
-                      <% }) %>
-                    </select>
-                  </div>
-                  <div class="col-md-6">
-                    <label class="form-label">Default Owner</label>
-                    <select class="form-select" name="owner">
-                      <% (ownerOptions.length ? ownerOptions : ['Online Sales Concierge']).forEach((owner) => { %>
-                        <option value="<%= owner %>" <%= owner === builder.defaultOwner ? 'selected' : '' %>>
-                          <%= owner %>
-                        </option>
-                      <% }) %>
-                    </select>
-                  </div>
-                  <div class="col-md-6">
-                    <label class="form-label">Fallback Escalation</label>
-                    <select class="form-select" name="escalationOwner">
-                      <% (ownerOptions.length ? ownerOptions : ['Sales Manager']).forEach((owner) => { %>
-                        <option value="<%= owner %>"><%= owner %></option>
-                      <% }) %>
-                    </select>
+        <form class="schedule-builder" data-task-settings-form>
+          <section class="schedule-workflow__panel" data-schedule-step-panel="canvas" role="tabpanel">
+            <div class="row g-4">
+              <div class="col-lg-7">
+                <div class="card shadow-sm h-100">
+                  <div class="card-body">
+                    <div class="d-flex align-items-center justify-content-between mb-3 flex-wrap gap-2">
+                      <div>
+                        <p class="text-uppercase text-muted fw-semibold small mb-1">Step 1</p>
+                        <h2 class="h5 mb-0" data-builder-title>Schedule Canvas</h2>
+                      </div>
+                    </div>
+
+                    <div class="row g-3 mb-3">
+                      <div class="col-md-6">
+                        <label class="form-label">Schedule Name</label>
+                        <input type="text" class="form-control" name="scheduleName" value="<%= builder.name || '' %>" placeholder="e.g. Rapid Lead Reply" />
+                      </div>
+                      <div class="col-md-6">
+                        <label class="form-label">Pipeline Stage</label>
+                        <select class="form-select" name="pipelineStage">
+                          <% (stageOptions.length ? stageOptions : ['New Lead']).forEach((stage) => { %>
+                            <option value="<%= stage %>" <%= stage === builder.defaultStage ? 'selected' : '' %>>
+                              <%= stage %>
+                            </option>
+                          <% }) %>
+                        </select>
+                      </div>
+                      <div class="col-md-6">
+                        <label class="form-label">Default Owner</label>
+                        <select class="form-select" name="owner">
+                          <% (ownerOptions.length ? ownerOptions : ['Online Sales Concierge']).forEach((owner) => { %>
+                            <option value="<%= owner %>" <%= owner === builder.defaultOwner ? 'selected' : '' %>>
+                              <%= owner %>
+                            </option>
+                          <% }) %>
+                        </select>
+                      </div>
+                      <div class="col-md-6">
+                        <label class="form-label">Fallback Escalation</label>
+                        <select class="form-select" name="escalationOwner">
+                          <% (ownerOptions.length ? ownerOptions : ['Sales Manager']).forEach((owner) => { %>
+                            <option value="<%= owner %>"><%= owner %></option>
+                          <% }) %>
+                        </select>
+                      </div>
+                    </div>
+                    <div class="mb-4">
+                      <label class="form-label">Internal Description</label>
+                      <textarea class="form-control" rows="3" name="description" placeholder="Explain when this cadence should be used."><%= builder.description || '' %></textarea>
+                    </div>
+
+                    <div class="d-flex justify-content-between mt-4">
+                      <button type="button" class="btn btn-outline-secondary" data-workflow-back>Back</button>
+                      <button type="button" class="btn btn-primary" data-workflow-next>Next</button>
+                    </div>
                   </div>
                 </div>
-                <div class="mb-4">
-                  <label class="form-label">Internal Description</label>
-                  <textarea class="form-control" rows="3" name="description" placeholder="Explain when this cadence should be used."><%= builder.description || '' %></textarea>
+              </div>
+              <div class="col-lg-5">
+                <div class="card shadow-sm h-100">
+                  <div class="card-body">
+                    <p class="text-uppercase text-muted fw-semibold small mb-1">Library</p>
+                    <h2 class="h6 mb-3">Saved Schedules</h2>
+                    <div class="vstack gap-3" data-schedule-list>
+                      <% if (!schedules.length) { %>
+                        <div class="border rounded-3 p-3 text-center text-muted">
+                          No schedules saved yet. Build one on the left to get started.
+                        </div>
+                      <% } else { %>
+                        <% schedules.forEach((schedule) => { %>
+                          <div class="border rounded-3 p-3">
+                            <div class="d-flex justify-content-between align-items-start gap-2">
+                              <div>
+                                <div class="fw-semibold"><%= schedule.name %></div>
+                                <p class="text-muted small mb-1"><%= schedule.summary %></p>
+                                <div class="d-flex flex-wrap gap-1">
+                                  <% (schedule.tags || []).forEach((tag) => { %>
+                                    <span class="badge bg-light text-dark border"><%= tag %></span>
+                                  <% }) %>
+                                </div>
+                              </div>
+                              <div class="text-end">
+                                <small class="text-muted d-block">
+                                  Updated <%= schedule.lastUpdatedAt ? new Date(schedule.lastUpdatedAt).toLocaleDateString() : '' %>
+                                </small>
+                                <span class="badge rounded-pill bg-primary-subtle text-primary mt-1">
+                                  <%= schedule.metrics?.touchpoints || schedule.steps?.length || 0 %> touches
+                                </span>
+                              </div>
+                            </div>
+                            <div class="d-flex gap-2 mt-3">
+                              <button type="button" class="btn btn-sm btn-outline-primary flex-grow-1" data-load-schedule="<%= schedule.id %>">Load into builder</button>
+                              <button type="button" class="btn btn-sm btn-outline-secondary" title="Duplicate schedule">
+                                Duplicate
+                              </button>
+                            </div>
+                          </div>
+                        <% }) %>
+                      <% } %>
+                    </div>
+                  </div>
                 </div>
+              </div>
+            </div>
+          </section>
+
+          <section class="schedule-workflow__panel" data-schedule-step-panel="conditions" role="tabpanel" hidden>
+            <div class="card shadow-sm">
+              <div class="card-body">
+                <div class="d-flex align-items-center justify-content-between mb-3 flex-wrap gap-2">
+                  <div>
+                    <p class="text-uppercase text-muted fw-semibold small mb-1">Step 2</p>
+                    <h2 class="h5 mb-0">Stop Conditions</h2>
+                  </div>
+                </div>
+
                 <div class="mb-4">
-                  <label class="form-label">Stop Conditions</label>
-                  <select class="form-select" name="stopOnStatuses" multiple>
-                    <% statusOptions.forEach((status) => { %>
+                  <div class="form-text mb-2">When a contact reaches a struck-through status, this automation will stop.</div>
+                  <select class="form-select visually-hidden" name="stopOnStatuses" multiple data-stop-select aria-hidden="true" tabindex="-1">
+                    <% orderedStatusOptions.forEach((status) => { %>
                       <option value="<%= status %>" <%= stopStatuses.includes(status) ? 'selected' : '' %>><%= status %></option>
                     <% }) %>
                   </select>
-                  <div class="form-text">Stop the cadence if the contact moves into any of these statuses.</div>
-                </div>
-
-                <div>
-                  <div class="d-flex align-items-center justify-content-between">
-                    <h3 class="h6 mb-0">Follow-Up Steps</h3>
-                    <small class="text-muted">Drag order coming soon</small>
-                  </div>
-                  <div id="builder-step-list" class="mt-3" data-step-list>
-                    <% const safeOwnerOptions = ownerOptions.length ? ownerOptions : ['Online Sales Concierge', 'Sales Manager']; %>
-                    <% const safeChannelOptions = channelOptions.length ? channelOptions : ['SMS', 'Email', 'Call']; %>
-                    <% builderSteps.forEach((step) => {
-                         const selectedChannel = safeChannelOptions.includes(step.channel) ? step.channel : safeChannelOptions[0];
-                         const selectedOwner = safeOwnerOptions.includes(step.ownerRole) ? step.ownerRole : safeOwnerOptions[0];
-                    %>
-                      <div class="builder-step p-3 mb-3" data-step-id="<%= step.id %>">
-                        <div class="row g-3 align-items-end">
-                          <div class="col-6 col-md-2">
-                            <label class="form-label text-muted text-uppercase small fw-semibold">Day</label>
-                            <input type="number" class="form-control" min="0" value="<%= step.dayOffset ?? 0 %>" data-step-field="day" />
-                          </div>
-                          <div class="col-6 col-md-3">
-                            <label class="form-label text-muted text-uppercase small fw-semibold">Channel</label>
-                            <select class="form-select" data-step-field="channel">
-                              <% safeChannelOptions.forEach((channel) => { %>
-                                <option value="<%= channel %>" <%= channel === selectedChannel ? 'selected' : '' %>>
-                                  <%= channel %>
-                                </option>
+                  <div class="stop-pill-columns mt-2" data-stop-pill-list>
+                    <% const neutralGroup = statusGroups.find((group) => group.key === 'neutral'); %>
+                    <% const positiveGroup = statusGroups.find((group) => group.key === 'positive'); %>
+                    <% const negativeGroup = statusGroups.find((group) => group.key === 'negative'); %>
+                    <div class="stop-pill-column">
+                      <% if (neutralGroup) { %>
+                        <% const groupItems = neutralGroup.items.filter((status) => statusOptions.includes(status)); %>
+                        <% if (groupItems.length) { %>
+                          <div class="stop-pill-group">
+                            <div class="stop-pill-group__label"><%= neutralGroup.label %></div>
+                            <div class="d-flex flex-wrap gap-2">
+                              <% groupItems.forEach((status) => { %>
+                                <% const isSelected = stopStatuses.includes(status); %>
+                                <button
+                                  type="button"
+                                  class="stop-pill status-badge <%= getStatusClass(status) %> <%= isSelected ? 'is-muted' : '' %>"
+                                  data-stop-pill="<%= status %>"
+                                  aria-pressed="<%= isSelected ? 'true' : 'false' %>">
+                                  <%= status %>
+                                </button>
                               <% }) %>
-                            </select>
+                            </div>
                           </div>
-                          <div class="col-12 col-md-7">
-                            <label class="form-label text-muted text-uppercase small fw-semibold">Touchpoint summary</label>
-                            <input type="text" class="form-control" value="<%= step.title || '' %>" placeholder="What happens during this touch?" data-step-field="title" />
-                          </div>
-                          <div class="col-12 col-md-6">
-                            <label class="form-label text-muted text-uppercase small fw-semibold">Template</label>
-                            <select class="form-select" data-step-field="template">
-                              <option value="">Select template (email only)</option>
-                            </select>
-                          </div>
-                          <div class="col-12 col-md-6">
-                            <label class="form-label text-muted text-uppercase small fw-semibold">Owner</label>
-                            <select class="form-select" data-step-field="owner">
-                              <% safeOwnerOptions.forEach((owner) => { %>
-                                <option value="<%= owner %>" <%= owner === selectedOwner ? 'selected' : '' %>>
-                                  <%= owner %>
-                                </option>
-                              <% }) %>
-                            </select>
-                          </div>
-                          <div class="col-12 col-md-6">
-                            <label class="form-label text-muted text-uppercase small fw-semibold">Auto-complete rule</label>
-                            <select class="form-select" data-step-field="rule">
-                              <option value="manual" <%= step.waitForReply ? '' : 'selected' %>>Requires manual check-in</option>
-                              <option value="reply" <%= step.waitForReply ? 'selected' : '' %>>Mark complete when contact replies</option>
-                            </select>
-                          </div>
-                          <div class="col-12">
-                            <label class="form-label text-muted text-uppercase small fw-semibold">Internal instructions</label>
-                            <textarea class="form-control" rows="2" data-step-field="instructions" placeholder="Provide talking points or templates."><%= step.instructions || '' %></textarea>
-                          </div>
-                        </div>
-                        <div class="d-flex align-items-center mt-3 gap-3">
-                          <div class="form-check form-switch">
-                            <input class="form-check-input" type="checkbox" role="switch" <%= step.waitForReply ? 'checked' : '' %> data-step-field="wait" />
-                            <label class="form-check-label small text-muted">Pause cadence until reply arrives</label>
-                          </div>
-                          <button type="button" class="btn btn-sm btn-outline-danger ms-auto" data-remove-step>&times; Remove</button>
-                        </div>
-                      </div>
-                    <% }) %>
-                  </div>
-                </div>
-
-                <div class="d-flex flex-wrap gap-3 mt-4">
-                  <button type="button" class="btn btn-primary" data-save-schedule>Save Schedule</button>
-                  <button type="button" class="btn btn-outline-secondary">Save as Template</button>
-                  <button type="button" class="btn btn-link text-decoration-none">Preview automation rules</button>
-                </div>
-              </form>
-            </div>
-          </div>
-        </div>
-        <div class="col-lg-5">
-          <div class="card shadow-sm mb-4">
-            <div class="card-body">
-              <p class="text-uppercase text-muted fw-semibold small mb-1">Preview</p>
-              <h2 class="h6 mb-3">Timeline Overview</h2>
-              <% const previewSteps = builderSteps.slice().sort((a, b) => (a.dayOffset || 0) - (b.dayOffset || 0)); %>
-              <div class="timeline">
-                <% if (!previewSteps.length) { %>
-                  <p class="text-muted small mb-0">Add at least one step to see how the cadence plays out.</p>
-                <% } else { %>
-                  <% previewSteps.forEach((step) => { %>
-                    <div class="timeline-step">
-                      <span class="timeline-point" aria-hidden="true"></span>
-                      <div class="d-flex justify-content-between align-items-start flex-wrap gap-2">
-                        <div>
-                          <div class="fw-semibold">
-                            Day <%= step.dayOffset ?? 0 %> &middot; <%= step.channel || 'Touchpoint' %>
-                          </div>
-                          <p class="text-muted small mb-1"><%= step.title || 'Touchpoint' %></p>
-                          <span class="badge bg-light text-dark border">
-                            Owner: <%= step.ownerRole || builder.defaultOwner || 'Team' %>
-                          </span>
-                        </div>
-                        <small class="text-muted">
-                          <%= step.waitForReply ? 'Wait for reply' : 'Auto-advance' %>
-                        </small>
-                      </div>
+                        <% } %>
+                      <% } %>
                     </div>
-                  <% }) %>
-                <% } %>
-              </div>
-            </div>
-          </div>
-
-          <div class="card shadow-sm h-100">
-            <div class="card-body">
-              <p class="text-uppercase text-muted fw-semibold small mb-1">Library</p>
-              <h2 class="h6 mb-3">Saved Schedules</h2>
-              <div class="vstack gap-3" data-schedule-list>
-                <% if (!schedules.length) { %>
-                  <div class="border rounded-3 p-3 text-center text-muted">
-                    No schedules saved yet. Build one on the left to get started.
-                  </div>
-                <% } else { %>
-                  <% schedules.forEach((schedule) => { %>
-                    <div class="border rounded-3 p-3">
-                      <div class="d-flex justify-content-between align-items-start gap-2">
-                        <div>
-                          <div class="fw-semibold"><%= schedule.name %></div>
-                          <p class="text-muted small mb-1"><%= schedule.summary %></p>
-                          <div class="d-flex flex-wrap gap-1">
-                            <% (schedule.tags || []).forEach((tag) => { %>
-                              <span class="badge bg-light text-dark border"><%= tag %></span>
+                    <div class="stop-pill-column">
+                      <% if (positiveGroup) { %>
+                        <% const groupItems = positiveGroup.items.filter((status) => statusOptions.includes(status)); %>
+                        <% if (groupItems.length) { %>
+                          <div class="stop-pill-group">
+                            <div class="stop-pill-group__label"><%= positiveGroup.label %></div>
+                            <div class="d-flex flex-wrap gap-2">
+                              <% groupItems.forEach((status) => { %>
+                                <% const isSelected = stopStatuses.includes(status); %>
+                                <button
+                                  type="button"
+                                  class="stop-pill status-badge <%= getStatusClass(status) %> <%= isSelected ? 'is-muted' : '' %>"
+                                  data-stop-pill="<%= status %>"
+                                  aria-pressed="<%= isSelected ? 'true' : 'false' %>">
+                                  <%= status %>
+                                </button>
+                              <% }) %>
+                            </div>
+                          </div>
+                        <% } %>
+                      <% } %>
+                    </div>
+                    <div class="stop-pill-column">
+                      <% if (negativeGroup) { %>
+                        <% const groupItems = negativeGroup.items.filter((status) => statusOptions.includes(status)); %>
+                        <% if (groupItems.length) { %>
+                          <div class="stop-pill-group">
+                            <div class="stop-pill-group__label"><%= negativeGroup.label %></div>
+                            <div class="d-flex flex-wrap gap-2">
+                              <% groupItems.forEach((status) => { %>
+                                <% const isSelected = stopStatuses.includes(status); %>
+                                <button
+                                  type="button"
+                                  class="stop-pill status-badge <%= getStatusClass(status) %> <%= isSelected ? 'is-muted' : '' %>"
+                                  data-stop-pill="<%= status %>"
+                                  aria-pressed="<%= isSelected ? 'true' : 'false' %>">
+                                  <%= status %>
+                                </button>
+                              <% }) %>
+                            </div>
+                          </div>
+                        <% } %>
+                      <% } %>
+                      <% if (extraStatuses.length) { %>
+                        <div class="stop-pill-group">
+                          <div class="stop-pill-group__label">Other</div>
+                          <div class="d-flex flex-wrap gap-2">
+                            <% extraStatuses.forEach((status) => { %>
+                              <% const isSelected = stopStatuses.includes(status); %>
+                              <button
+                                type="button"
+                                class="stop-pill status-badge <%= getStatusClass(status) %> <%= isSelected ? 'is-muted' : '' %>"
+                                data-stop-pill="<%= status %>"
+                                aria-pressed="<%= isSelected ? 'true' : 'false' %>">
+                                <%= status %>
+                              </button>
                             <% }) %>
                           </div>
                         </div>
-                        <div class="text-end">
-                          <small class="text-muted d-block">
-                            Updated <%= schedule.lastUpdatedAt ? new Date(schedule.lastUpdatedAt).toLocaleDateString() : '' %>
-                          </small>
-                          <span class="badge rounded-pill bg-primary-subtle text-primary mt-1">
-                            <%= schedule.metrics?.touchpoints || schedule.steps?.length || 0 %> touches
-                          </span>
-                        </div>
+                      <% } %>
+                    </div>
+                  </div>
+                </div>
+
+                <div class="d-flex justify-content-between mt-4">
+                  <button type="button" class="btn btn-outline-secondary" data-workflow-back>Back</button>
+                  <button type="button" class="btn btn-primary" data-workflow-next>Next</button>
+                </div>
+              </div>
+            </div>
+          </section>
+
+          <section class="schedule-workflow__panel" data-schedule-step-panel="steps" role="tabpanel" hidden>
+            <div class="row g-4">
+              <div class="col-lg-7">
+                <div class="card shadow-sm h-100">
+                  <div class="card-body">
+                    <div class="d-flex align-items-center justify-content-between mb-3 flex-wrap gap-2">
+                      <div>
+                        <p class="text-uppercase text-muted fw-semibold small mb-1">Step 3</p>
+                        <h2 class="h5 mb-0">Follow Up Steps</h2>
                       </div>
-                      <div class="d-flex gap-2 mt-3">
-                        <button type="button" class="btn btn-sm btn-outline-primary flex-grow-1" data-load-schedule="<%= schedule.id %>">Load into builder</button>
-                        <button type="button" class="btn btn-sm btn-outline-secondary" title="Duplicate schedule">
-                          Duplicate
+                    </div>
+
+                    <div>
+                      <div class="d-flex align-items-center justify-content-between">
+                        <h3 class="h6 mb-0">Follow-Up Steps</h3>
+                        <small class="text-muted">Drag order coming soon</small>
+                      </div>
+                      <div id="builder-step-list" class="mt-3" data-step-list>
+                        <% const safeOwnerOptions = ownerOptions.length ? ownerOptions : ['Online Sales Concierge', 'Sales Manager']; %>
+                        <% const safeChannelOptions = channelOptions.length ? channelOptions : ['SMS', 'Email', 'Call']; %>
+                        <% builderSteps.forEach((step) => {
+                             const selectedChannel = safeChannelOptions.includes(step.channel) ? step.channel : safeChannelOptions[0];
+                             const selectedOwner = safeOwnerOptions.includes(step.ownerRole) ? step.ownerRole : safeOwnerOptions[0];
+                        %>
+                          <div class="builder-step p-3 mb-3" data-step-id="<%= step.id %>">
+                            <div class="row g-3 align-items-end">
+                              <div class="col-6 col-md-2">
+                                <label class="form-label text-muted text-uppercase small fw-semibold">Day</label>
+                                <input type="number" class="form-control" min="0" value="<%= step.dayOffset ?? 0 %>" data-step-field="day" />
+                              </div>
+                              <div class="col-6 col-md-3">
+                                <label class="form-label text-muted text-uppercase small fw-semibold">Channel</label>
+                                <select class="form-select" data-step-field="channel">
+                                  <% safeChannelOptions.forEach((channel) => { %>
+                                    <option value="<%= channel %>" <%= channel === selectedChannel ? 'selected' : '' %>>
+                                      <%= channel %>
+                                    </option>
+                                  <% }) %>
+                                </select>
+                              </div>
+                              <div class="col-12 col-md-7">
+                                <label class="form-label text-muted text-uppercase small fw-semibold">Touchpoint summary</label>
+                                <input type="text" class="form-control" value="<%= step.title || '' %>" placeholder="What happens during this touch?" data-step-field="title" />
+                              </div>
+                              <div class="col-12 col-md-6">
+                                <label class="form-label text-muted text-uppercase small fw-semibold">Template</label>
+                                <select class="form-select" data-step-field="template">
+                                  <option value="">Select template (email only)</option>
+                                </select>
+                              </div>
+                              <div class="col-12 col-md-6">
+                                <label class="form-label text-muted text-uppercase small fw-semibold">Owner</label>
+                                <select class="form-select" data-step-field="owner">
+                                  <% safeOwnerOptions.forEach((owner) => { %>
+                                    <option value="<%= owner %>" <%= owner === selectedOwner ? 'selected' : '' %>>
+                                      <%= owner %>
+                                    </option>
+                                  <% }) %>
+                                </select>
+                              </div>
+                              <div class="col-12 col-md-6">
+                                <label class="form-label text-muted text-uppercase small fw-semibold">Auto-complete rule</label>
+                                <select class="form-select" data-step-field="rule">
+                                  <option value="manual" <%= step.waitForReply ? '' : 'selected' %>>Requires manual check-in</option>
+                                  <option value="reply" <%= step.waitForReply ? 'selected' : '' %>>Mark complete when contact replies</option>
+                                </select>
+                              </div>
+                              <div class="col-12">
+                                <label class="form-label text-muted text-uppercase small fw-semibold">Internal instructions</label>
+                                <textarea class="form-control" rows="2" data-step-field="instructions" placeholder="Provide talking points or templates."><%= step.instructions || '' %></textarea>
+                              </div>
+                            </div>
+                            <div class="d-flex align-items-center mt-3 gap-3">
+                              <div class="form-check form-switch">
+                                <input class="form-check-input" type="checkbox" role="switch" <%= step.waitForReply ? 'checked' : '' %> data-step-field="wait" />
+                                <label class="form-check-label small text-muted">Pause cadence until reply arrives</label>
+                              </div>
+                              <button type="button" class="btn btn-sm btn-outline-danger ms-auto" data-remove-step>&times; Remove</button>
+                            </div>
+                          </div>
+                        <% }) %>
+                      </div>
+                      <div class="d-flex flex-wrap gap-3 mt-3">
+                        <button type="button" class="add-step-card" data-add-step aria-label="Add new touchpoint">
+                          <span class="add-step-card__plus" aria-hidden="true">+</span>
+                          <span class="add-step-card__helper">Add new touchpoint</span>
                         </button>
                       </div>
                     </div>
-                  <% }) %>
-                <% } %>
+
+                    <div class="d-flex flex-wrap gap-3 mt-4">
+                      <button type="button" class="btn btn-primary" data-save-schedule>Save Schedule</button>
+                      <button type="button" class="btn btn-outline-secondary">Save as Template</button>
+                      <button type="button" class="btn btn-link text-decoration-none">Preview automation rules</button>
+                    </div>
+
+                    <div class="d-flex justify-content-between mt-4">
+                      <button type="button" class="btn btn-outline-secondary" data-workflow-back>Back</button>
+                      <button type="button" class="btn btn-primary" data-workflow-next>Next</button>
+                    </div>
+                  </div>
+                </div>
+              </div>
+              <div class="col-lg-5">
+                <div class="card shadow-sm mb-4">
+                  <div class="card-body">
+                    <p class="text-uppercase text-muted fw-semibold small mb-1">Preview</p>
+                    <h2 class="h6 mb-3">Timeline Overview</h2>
+                    <% const previewSteps = builderSteps.slice().sort((a, b) => (a.dayOffset || 0) - (b.dayOffset || 0)); %>
+                    <div class="timeline">
+                      <% if (!previewSteps.length) { %>
+                        <p class="text-muted small mb-0">Add at least one step to see how the cadence plays out.</p>
+                      <% } else { %>
+                        <% previewSteps.forEach((step) => { %>
+                          <div class="timeline-step">
+                            <span class="timeline-point" aria-hidden="true"></span>
+                            <div class="d-flex justify-content-between align-items-start flex-wrap gap-2">
+                              <div>
+                                <div class="fw-semibold">
+                                  Day <%= step.dayOffset ?? 0 %> &middot; <%= step.channel || 'Touchpoint' %>
+                                </div>
+                                <p class="text-muted small mb-1"><%= step.title || 'Touchpoint' %></p>
+                                <span class="badge bg-light text-dark border">
+                                  Owner: <%= step.ownerRole || builder.defaultOwner || 'Team' %>
+                                </span>
+                              </div>
+                              <small class="text-muted">
+                                <%= step.waitForReply ? 'Wait for reply' : 'Auto-advance' %>
+                              </small>
+                            </div>
+                          </div>
+                        <% }) %>
+                      <% } %>
+                    </div>
+                  </div>
+                </div>
               </div>
             </div>
+          </section>
+        </form>
+        <div class="visually-hidden" aria-live="polite" data-apply-toast></div>
+
+        <section class="schedule-workflow__panel" data-schedule-step-panel="assignment" role="tabpanel" hidden>
+          <div class="card shadow-sm">
+            <div class="card-body">
+              <div class="d-flex flex-wrap align-items-center justify-content-between gap-3">
+                <div>
+                  <p class="text-uppercase text-muted fw-semibold small mb-1">Assignment</p>
+                  <h2 class="h5 mb-1">Apply Auto Follow-Up to Teammates</h2>
+                  <p class="text-muted mb-0">Choose a cadence for each team member. KeepUP will keep them on schedule.</p>
+                </div>
+                <button type="button" class="btn btn-outline-secondary btn-sm">Download coverage</button>
+              </div>
+
+              <% if (!teamAssignments.length) { %>
+                <div class="alert alert-info mt-4 mb-0">
+                  Add teammates in the Admin area to start assigning auto follow-up schedules.
+                </div>
+              <% } else { %>
+                <div class="table-responsive mt-4">
+                  <table class="table align-middle" data-assignment-table>
+                    <thead>
+                      <tr>
+                        <th scope="col">Team Member</th>
+                        <th scope="col">Role</th>
+                        <th scope="col">Status</th>
+                        <th scope="col">Current Schedule</th>
+                        <th scope="col" class="text-end">Apply New</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      <% teamAssignments.forEach((member) => { %>
+                        <tr data-member-id="<%= member.id %>" data-member-name="<%= member.name %>">
+                          <td>
+                            <div class="fw-semibold"><%= member.name %></div>
+                            <div class="text-muted small"><%= member.email || 'No email on file' %></div>
+                          </td>
+                          <td><span class="badge bg-light text-dark border"><%= member.role %></span></td>
+                          <td>
+                            <% const isActive = (member.status || '').toUpperCase() === 'ACTIVE'; %>
+                            <span class="badge <%= isActive ? 'bg-success-subtle text-success' : 'bg-secondary-subtle text-secondary' %>">
+                              <%= member.status || 'Active' %>
+                            </span>
+                          </td>
+                          <td>
+                            <div data-current-schedule class="text-muted">
+                              <%= member.currentScheduleId
+                                    ? (schedules.find((s) => s.id === member.currentScheduleId)?.name || 'Custom cadence')
+                                    : 'Not assigned yet' %>
+                            </div>
+                          </td>
+                          <td>
+                            <div class="d-flex gap-2 align-items-center justify-content-end flex-wrap">
+                              <select class="form-select form-select-sm" data-schedule-select>
+                                <option value="">Select schedule</option>
+                                <% schedules.forEach((schedule) => { %>
+                                  <option value="<%= schedule.id %>"><%= schedule.name %></option>
+                                <% }) %>
+                              </select>
+                              <button type="button" class="btn btn-sm btn-outline-primary" data-apply-schedule>Apply</button>
+                            </div>
+                          </td>
+                        </tr>
+                      <% }) %>
+                    </tbody>
+                  </table>
+                </div>
+              <% } %>
+            </div>
           </div>
-        </div>
+          <div class="d-flex justify-content-between mt-4">
+            <button type="button" class="btn btn-outline-secondary" data-workflow-back>Back</button>
+            <button type="button" class="btn btn-primary" data-workflow-next>Next</button>
+          </div>
+        </section>
       </div>
     </section>
-
-    <section class="mb-5" data-automation-panel="schedules">
-      <div class="card shadow-sm">
-        <div class="card-body">
-          <div class="d-flex flex-wrap align-items-center justify-content-between gap-3">
-            <div>
-              <p class="text-uppercase text-muted fw-semibold small mb-1">Assignment</p>
-              <h2 class="h5 mb-1">Apply Auto Follow-Up to Teammates</h2>
-              <p class="text-muted mb-0">Choose a cadence for each team member. KeepUP will keep them on schedule.</p>
-            </div>
-            <button type="button" class="btn btn-outline-secondary btn-sm">Download coverage</button>
-          </div>
-
-          <% if (!teamAssignments.length) { %>
-            <div class="alert alert-info mt-4 mb-0">
-              Add teammates in the Admin area to start assigning auto follow-up schedules.
-            </div>
-          <% } else { %>
-            <div class="table-responsive mt-4">
-              <table class="table align-middle" data-assignment-table>
-                <thead>
-                  <tr>
-                    <th scope="col">Team Member</th>
-                    <th scope="col">Role</th>
-                    <th scope="col">Status</th>
-                    <th scope="col">Current Schedule</th>
-                    <th scope="col" class="text-end">Apply New</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  <% teamAssignments.forEach((member) => { %>
-                    <tr data-member-id="<%= member.id %>" data-member-name="<%= member.name %>">
-                      <td>
-                        <div class="fw-semibold"><%= member.name %></div>
-                        <div class="text-muted small"><%= member.email || 'No email on file' %></div>
-                      </td>
-                      <td><span class="badge bg-light text-dark border"><%= member.role %></span></td>
-                      <td>
-                        <% const isActive = (member.status || '').toUpperCase() === 'ACTIVE'; %>
-                        <span class="badge <%= isActive ? 'bg-success-subtle text-success' : 'bg-secondary-subtle text-secondary' %>">
-                          <%= member.status || 'Active' %>
-                        </span>
-                      </td>
-                      <td>
-                        <div data-current-schedule class="text-muted">
-                          <%= member.currentScheduleId
-                                ? (schedules.find((s) => s.id === member.currentScheduleId)?.name || 'Custom cadence')
-                                : 'Not assigned yet' %>
-                        </div>
-                      </td>
-                      <td>
-                        <div class="d-flex gap-2 align-items-center justify-content-end flex-wrap">
-                          <select class="form-select form-select-sm" data-schedule-select>
-                            <option value="">Select schedule</option>
-                            <% schedules.forEach((schedule) => { %>
-                              <option value="<%= schedule.id %>"><%= schedule.name %></option>
-                            <% }) %>
-                          </select>
-                          <button type="button" class="btn btn-sm btn-outline-primary" data-apply-schedule>Apply</button>
-                        </div>
-                      </td>
-                    </tr>
-                  <% }) %>
-                </tbody>
-              </table>
-            </div>
-          <% } %>
-        </div>
-      </div>
-      <div class="visually-hidden" aria-live="polite" data-apply-toast></div>
-    </section>
-
     <section class="mb-5" data-automation-panel="templates" hidden>
       <div class="row g-4">
         <div class="col-lg-6">
@@ -747,6 +1070,10 @@
               <button type="button" class="btn btn-outline-primary btn-sm" data-queue-filter="sent">Sent</button>
             </div>
           </div>
+          <div class="alert alert-info d-none align-items-center justify-content-between gap-2" role="alert" data-queue-blast-filter>
+            <span data-queue-blast-label>Filtered by blast.</span>
+            <button type="button" class="btn btn-sm btn-outline-secondary" data-clear-blast-filter>Clear</button>
+          </div>
           <div class="table-responsive">
             <table class="table align-middle">
               <thead>
@@ -823,22 +1150,34 @@
                     Preview Audience
                   </button>
                 </div>
-                <div class="border rounded-3 p-3 mb-3">
-                  <div class="fw-semibold mb-2">Preview</div>
-                  <div class="d-flex justify-content-between">
-                    <span class="text-muted small">Matched</span>
-                    <span class="fw-semibold" data-blast-preview-total>—</span>
+                  <div class="border rounded-3 p-3 mb-3">
+                    <div class="fw-semibold mb-2">Preview</div>
+                    <div class="d-flex justify-content-between">
+                      <span class="text-muted small">Matched</span>
+                      <span class="fw-semibold" data-blast-preview-total>—</span>
+                    </div>
+                    <div class="d-flex justify-content-between">
+                      <span class="text-muted small">Excluded</span>
+                      <span class="fw-semibold" data-blast-preview-excluded>—</span>
+                    </div>
+                    <div class="d-flex justify-content-between">
+                      <span class="text-muted small">Final to send</span>
+                      <span class="fw-semibold" data-blast-preview-final>—</span>
+                    </div>
+                    <div class="d-flex justify-content-between">
+                      <span class="text-muted small">Est. first send</span>
+                      <span class="fw-semibold" data-blast-preview-first>—</span>
+                    </div>
+                    <div class="d-flex justify-content-between">
+                      <span class="text-muted small">Est. last send</span>
+                      <span class="fw-semibold" data-blast-preview-last>—</span>
+                    </div>
+                    <div class="d-flex justify-content-between">
+                      <span class="text-muted small">Est. days spanned</span>
+                      <span class="fw-semibold" data-blast-preview-days>—</span>
+                    </div>
+                    <div class="small text-muted mt-2" data-blast-preview-sample>—</div>
                   </div>
-                  <div class="d-flex justify-content-between">
-                    <span class="text-muted small">Excluded</span>
-                    <span class="fw-semibold" data-blast-preview-excluded>—</span>
-                  </div>
-                  <div class="d-flex justify-content-between">
-                    <span class="text-muted small">Final to send</span>
-                    <span class="fw-semibold" data-blast-preview-final>—</span>
-                  </div>
-                  <div class="small text-muted mt-2" data-blast-preview-sample>—</div>
-                </div>
                 <div class="border rounded-3 p-3 mb-3 bg-light">
                   <div class="fw-semibold mb-2">Send Options</div>
                   <div class="form-check">
@@ -1037,6 +1376,7 @@
   <script id="task-settings-data" type="application/json">
     <%- JSON.stringify(taskSettingsJson) %>
   </script>
+  <script defer src="/assets/js/shared/emailErrorLabels.js"></script>
   <script defer src="/assets/js/pages/task/settings.js"></script>
 </body>
 </html>
