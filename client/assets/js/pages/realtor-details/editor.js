@@ -17,6 +17,9 @@ export function populateForm(r) {
   dom.inputs.bCity.value   = r.brokerageCity      || '';
   dom.inputs.bState.value  = r.brokerageState     || '';
   dom.inputs.bZip.value    = r.brokerageZip       || '';
+  if (dom.inputs.emailPaused) {
+    dom.inputs.emailPaused.checked = Boolean(r.emailPaused);
+  }
 
   updateHeaderFromInputs();
 }

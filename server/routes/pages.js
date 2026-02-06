@@ -530,6 +530,7 @@ router.get(
           stats: autoFollowUpStats,
           teamAssignments: teamScheduleAssignments,
           canManageAutomations: isCompanyAdmin(req) || isSuper(req),
+          currentUserEmail: req.user?.email || '',
           endpoints: {
             schedules: '/api/task-schedules',
             assignments: '/api/task-schedules/assignments'

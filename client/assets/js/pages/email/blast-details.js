@@ -61,6 +61,30 @@
     return date.toLocaleString();
   }
 
+  function summarizeFilters(blast) {
+    const filters = blast?.audience?.filters || {};
+    if (blast?.audienceType === 'realtors') {
+      const parts = [];
+      if (filters.communityId) parts.push(`Community: ${filters.communityId}`);
+      if (filters.managerId) parts.push(`Manager: ${filters.managerId}`);
+      if (filters.textSearch) parts.push(`Search: ${filters.textSearch}`);
+      if (filters.includeInactive) parts.push('Include inactive');
+      return parts.length ? `Filters: ${parts.join(', ')}` : null;
+    }
+    const parts = [];
+    if (Array.isArray(filters.communityIds) && filters.communityIds.length) {
+      parts.push(`Communities: ${filters.communityIds.length}`);
+    }
+    if (Array.isArray(filters.statuses) && filters.statuses.length) {
+      parts.push(`Statuses: ${filters.statuses.length}`);
+    }
+    if (Array.isArray(filters.tags) && filters.tags.length) {
+      parts.push(`Tags: ${filters.tags.length}`);
+    }
+    if (filters.linkedLot) parts.push('Linked lot only');
+    return parts.length ? `Filters: ${parts.join(', ')}` : null;
+  }
+
   document.addEventListener('DOMContentLoaded', () => {
     const initialData = parseInitialData();
     const blastId = initialData.blastId;
@@ -132,11 +156,14 @@
     function updateHeader(blast) {
       if (!blast) return;
       if (blastName) blastName.textContent = blast.name || 'Blast Details';
+      const filterSummary = summarizeFilters(blast);
       const parts = [
         `Status: ${blast.status || 'scheduled'}`,
         `Created: ${formatDateTime(blast.createdAt)}`,
         blast.scheduledFor ? `Scheduled: ${formatDateTime(blast.scheduledFor)}` : null,
-        blast.templateName ? `Template: ${blast.templateName}` : null
+        blast.templateName ? `Template: ${blast.templateName}` : null,
+        blast.audienceType ? `Audience: ${blast.audienceType}` : null,
+        filterSummary
       ].filter(Boolean);
       if (blastMeta) blastMeta.textContent = parts.join(' • ');
       if (blastPacing) {

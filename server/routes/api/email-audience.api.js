@@ -30,10 +30,6 @@ router.post('/preview', requireRole(...READ_ROLES), async (req, res) => {
       baseFilter.status = { $in: filters.statuses };
     }
 
-    if (Array.isArray(filters.ownerIds) && filters.ownerIds.length) {
-      baseFilter.ownerId = { $in: filters.ownerIds.map((id) => toObjectId(id)).filter(Boolean) };
-    }
-
     const andClauses = [];
 
     if (filters.linkedLot === true) {
@@ -45,15 +41,6 @@ router.post('/preview', requireRole(...READ_ROLES), async (req, res) => {
       });
     }
 
-    if (Array.isArray(filters.lenderIds) && filters.lenderIds.length) {
-      const lenderIds = filters.lenderIds.map((id) => toObjectId(id)).filter(Boolean);
-      andClauses.push({
-        $or: [
-          { lenderId: { $in: lenderIds } },
-          { 'lenders.lender': { $in: lenderIds } }
-        ]
-      });
-    }
 
     if (andClauses.length) {
       baseFilter.$and = andClauses;

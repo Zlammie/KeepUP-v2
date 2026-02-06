@@ -4,6 +4,7 @@
     SCHEDULE_STOP_STATUS: 'Canceled (stop status reached)',
     SCHEDULE_UNENROLLED: 'Canceled (schedule un-enrolled)',
     CONTACT_PAUSED: 'Skipped (contact paused)',
+    REALTOR_PAUSED: 'Skipped (realtor paused)',
     SUPPRESSED: 'Skipped (suppressed)',
     INVALID_EMAIL: 'Skipped (invalid email)',
     OUTSIDE_SEND_WINDOW: 'Rescheduled (outside send window)',

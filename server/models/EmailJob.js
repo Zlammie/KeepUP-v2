@@ -18,6 +18,7 @@ const EmailJobSchema = new Schema(
     contactId: { type: Schema.Types.ObjectId, ref: 'Contact', default: null },
     realtorId: { type: Schema.Types.ObjectId, ref: 'Realtor', default: null },
     lenderId: { type: Schema.Types.ObjectId, ref: 'Lender', default: null },
+    recipientType: { type: String, enum: ['contact', 'realtor'], default: 'contact' },
     templateId: { type: Schema.Types.ObjectId, ref: 'EmailTemplate', required: true },
     ruleId: { type: Schema.Types.ObjectId, ref: 'AutomationRule', default: null },
     scheduleId: { type: Schema.Types.ObjectId, ref: 'AutoFollowUpSchedule', default: null },
@@ -51,6 +52,7 @@ EmailJobSchema.index({ companyId: 1, ruleId: 1, contactId: 1, createdAt: -1 });
 EmailJobSchema.index({ companyId: 1, contactId: 1, ruleId: 1, status: 1, scheduledFor: 1 });
 EmailJobSchema.index({ companyId: 1, blastId: 1, createdAt: -1 });
 EmailJobSchema.index({ companyId: 1, contactId: 1, scheduleId: 1, status: 1, scheduledFor: 1 });
+EmailJobSchema.index({ companyId: 1, recipientType: 1, realtorId: 1, status: 1, scheduledFor: 1 });
 
 const EmailJob = mongoose.model('EmailJob', EmailJobSchema);
 

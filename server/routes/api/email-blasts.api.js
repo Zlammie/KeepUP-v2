@@ -3,6 +3,7 @@ const mongoose = require('mongoose');
 
 const requireRole = require('../../middleware/requireRole');
 const Contact = require('../../models/Contact');
+const Realtor = require('../../models/Realtor');
 const Suppression = require('../../models/Suppression');
 const EmailTemplate = require('../../models/EmailTemplate');
 const EmailBlast = require('../../models/EmailBlast');
@@ -39,10 +40,6 @@ function buildContactFilter(filters, companyId) {
     baseFilter.status = { $in: filters.statuses };
   }
 
-  if (Array.isArray(filters.ownerIds) && filters.ownerIds.length) {
-    baseFilter.ownerId = { $in: filters.ownerIds.map((id) => toObjectId(id)).filter(Boolean) };
-  }
-
   const andClauses = [];
 
   if (filters.linkedLot === true) {
@@ -54,15 +51,6 @@ function buildContactFilter(filters, companyId) {
     });
   }
 
-  if (Array.isArray(filters.lenderIds) && filters.lenderIds.length) {
-    const lenderIds = filters.lenderIds.map((id) => toObjectId(id)).filter(Boolean);
-    andClauses.push({
-      $or: [
-        { lenderId: { $in: lenderIds } },
-        { 'lenders.lender': { $in: lenderIds } }
-      ]
-    });
-  }
 
   if (andClauses.length) {
     baseFilter.$and = andClauses;
@@ -73,6 +61,12 @@ function buildContactFilter(filters, companyId) {
   }
 
   return baseFilter;
+}
+
+function normalizeStatusKey(status) {
+  return String(status || '')
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, '');
 }
 
 async function resolveBlastRecipients({ companyId, filters }) {
@@ -138,6 +132,137 @@ async function resolveBlastRecipients({ companyId, filters }) {
     excluded,
     totalMatched: contacts.length
   };
+}
+
+async function resolveBlastRecipientsRealtors({ companyId, filters }) {
+  const communityId = toObjectId(filters?.communityId);
+  const managerId = toObjectId(filters?.managerId);
+  const textSearch = typeof filters?.textSearch === 'string' ? filters.textSearch.trim() : '';
+  const includeInactive = Boolean(filters?.includeInactive);
+
+  let realtorIds = null;
+  if (communityId || managerId) {
+    const contactFilter = { company: companyId, realtorId: { $ne: null } };
+    if (communityId) contactFilter.communityIds = { $in: [communityId] };
+    if (managerId) contactFilter.ownerId = managerId;
+    realtorIds = await Contact.distinct('realtorId', contactFilter);
+    realtorIds = realtorIds.filter(Boolean).map((id) => toObjectId(id)).filter(Boolean);
+    if (!realtorIds.length) {
+      return {
+        recipients: [],
+        excluded: { suppressed: 0, invalidEmail: 0, noEmail: 0, duplicates: 0, paused: 0 },
+        totalMatched: 0
+      };
+    }
+  }
+
+  const realtorFilter = { company: companyId };
+  if (!includeInactive) {
+    realtorFilter.isActive = true;
+  }
+  if (realtorIds) {
+    realtorFilter._id = { $in: realtorIds };
+  }
+  if (textSearch) {
+    const regex = new RegExp(textSearch.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), 'i');
+    realtorFilter.$or = [
+      { firstName: regex },
+      { lastName: regex },
+      { email: regex },
+      { brokerage: regex }
+    ];
+  }
+
+  const realtors = await Realtor.find(realtorFilter)
+    .select('firstName lastName email isActive emailPaused')
+    .lean();
+
+  const suppressedEmails = await Suppression.find({ companyId })
+    .select('email')
+    .lean();
+  const suppressedSet = new Set(
+    suppressedEmails
+      .map((entry) => normalizeEmail(entry.email))
+      .filter(Boolean)
+  );
+
+  const seenEmails = new Set();
+  const recipients = [];
+  const excluded = {
+    suppressed: 0,
+    invalidEmail: 0,
+    noEmail: 0,
+    duplicates: 0,
+    paused: 0
+  };
+
+  realtors.forEach((realtor) => {
+    const email = normalizeEmail(realtor.email);
+    if (!email) {
+      excluded.noEmail += 1;
+      return;
+    }
+    if (!isValidEmail(email)) {
+      excluded.invalidEmail += 1;
+      return;
+    }
+    if (realtor.emailPaused) {
+      excluded.paused += 1;
+      return;
+    }
+    if (suppressedSet.has(email)) {
+      excluded.suppressed += 1;
+      return;
+    }
+    if (seenEmails.has(email)) {
+      excluded.duplicates += 1;
+      return;
+    }
+    seenEmails.add(email);
+    recipients.push({ realtor, email });
+  });
+
+  return {
+    recipients,
+    excluded,
+    totalMatched: realtors.length
+  };
+}
+
+function buildRealtorMergeData(realtor) {
+  if (!realtor) return {};
+  const firstName = realtor.firstName || '';
+  const lastName = realtor.lastName || '';
+  const fullName = [firstName, lastName].filter(Boolean).join(' ').trim();
+  return {
+    firstName,
+    lastName,
+    fullName,
+    email: realtor.email || '',
+    realtor: {
+      firstName,
+      lastName,
+      fullName,
+      email: realtor.email || ''
+    }
+  };
+}
+
+async function loadStatusCounts({ companyId, filters }) {
+  const countFilters = { ...(filters || {}) };
+  delete countFilters.statuses;
+  const match = buildContactFilter(countFilters, companyId);
+  const results = await Contact.aggregate([
+    { $match: match },
+    { $group: { _id: '$status', count: { $sum: 1 } } }
+  ]);
+  const statusCounts = {};
+  results.forEach((row) => {
+    const statusKey = normalizeStatusKey(row._id);
+    if (!statusKey) return;
+    statusCounts[statusKey] = row.count;
+  });
+  return statusCounts;
 }
 
 function sortRecipientsStable(list) {
@@ -240,28 +365,44 @@ router.post('/preview', requireRole(...ADMIN_ROLES), async (req, res) => {
   try {
     const payload = req.body || {};
     const filters = payload.filters || {};
+    const audienceType = payload.audienceType === 'realtors' ? 'realtors' : 'contacts';
     const sendMode = payload.sendMode === 'scheduled' ? 'scheduled' : 'now';
     const scheduledForRaw = payload.scheduledFor ? new Date(payload.scheduledFor) : null;
 
-    const { recipients, excluded, totalMatched } = await resolveBlastRecipients({
+    const resolver = audienceType === 'realtors' ? resolveBlastRecipientsRealtors : resolveBlastRecipients;
+    const { recipients, excluded, totalMatched } = await resolver({
       companyId: req.user.company,
       filters
     });
+    const statusCounts = audienceType === 'contacts'
+      ? await loadStatusCounts({ companyId: req.user.company, filters })
+      : {};
 
     const finalToSend = recipients.length;
     const excludedTotal =
       excluded.suppressed +
       excluded.invalidEmail +
       excluded.noEmail +
-      excluded.doNotEmail +
+      (excluded.doNotEmail || 0) +
       excluded.duplicates +
-      excluded.paused;
+      (excluded.paused || 0);
 
-    const sampleRecipients = recipients.slice(0, 10).map(({ contact, email }) => ({
-      contactId: contact._id,
-      name: [contact.firstName, contact.lastName].filter(Boolean).join(' ') || email,
-      email
-    }));
+    const sampleRecipients = recipients.slice(0, 10).map((entry) => {
+      if (audienceType === 'realtors') {
+        const realtor = entry.realtor;
+        return {
+          realtorId: realtor._id,
+          name: [realtor.firstName, realtor.lastName].filter(Boolean).join(' ') || entry.email,
+          email: entry.email
+        };
+      }
+      const contact = entry.contact;
+      return {
+        contactId: contact._id,
+        name: [contact.firstName, contact.lastName].filter(Boolean).join(' ') || entry.email,
+        email: entry.email
+      };
+    });
 
     const settings = await getEmailSettings(req.user.company);
     let pacing = null;
@@ -287,12 +428,14 @@ router.post('/preview', requireRole(...ADMIN_ROLES), async (req, res) => {
       excludedSuppressed: excluded.suppressed,
       excludedInvalidEmail: excluded.invalidEmail,
       excludedNoEmail: excluded.noEmail,
-      excludedDoNotEmail: excluded.doNotEmail,
+      excludedDoNotEmail: excluded.doNotEmail || 0,
       excludedDuplicates: excluded.duplicates,
-      excludedPaused: excluded.paused,
+      excludedPaused: excluded.paused || 0,
       excludedTotal,
       finalToSend,
+      statusCounts,
       sampleRecipients,
+      audienceType,
       warnings: finalToSend >= BLAST_CONFIRM_THRESHOLD ? [`Confirm send for ${finalToSend} recipients.`] : [],
       estimatedFirstSendAt: pacing?.firstSendAt || null,
       estimatedLastSendAt: pacing?.lastSendAt || null,
@@ -310,6 +453,7 @@ router.post('/', requireRole(...ADMIN_ROLES), async (req, res) => {
     const name = String(payload.name || '').trim();
     const templateId = toObjectId(payload.templateId);
     const filters = payload.filters || {};
+    const audienceType = payload.audienceType === 'realtors' ? 'realtors' : 'contacts';
     const sendMode = payload.sendMode === 'scheduled' ? 'scheduled' : 'now';
     const scheduledForRaw = payload.scheduledFor ? new Date(payload.scheduledFor) : null;
     const requestId = typeof payload.requestId === 'string' ? payload.requestId.trim() : '';
@@ -348,7 +492,8 @@ router.post('/', requireRole(...ADMIN_ROLES), async (req, res) => {
       return res.status(400).json({ error: 'Template is inactive' });
     }
 
-    const { recipients, excluded, totalMatched } = await resolveBlastRecipients({
+    const resolver = audienceType === 'realtors' ? resolveBlastRecipientsRealtors : resolveBlastRecipients;
+    const { recipients, excluded, totalMatched } = await resolver({
       companyId: req.user.company,
       filters
     });
@@ -358,9 +503,9 @@ router.post('/', requireRole(...ADMIN_ROLES), async (req, res) => {
       excluded.suppressed +
       excluded.invalidEmail +
       excluded.noEmail +
-      excluded.doNotEmail +
+      (excluded.doNotEmail || 0) +
       excluded.duplicates +
-      excluded.paused;
+      (excluded.paused || 0);
 
     if (finalToSend >= BLAST_CONFIRM_THRESHOLD) {
       const expected = `SEND ${finalToSend}`;
@@ -401,9 +546,10 @@ router.post('/', requireRole(...ADMIN_ROLES), async (req, res) => {
         templateId,
         createdBy: req.user?._id || null,
         requestId: requestId || null,
+        audienceType,
         status: EmailBlast.STATUS.SCHEDULED,
         audience: {
-          type: 'contacts',
+          type: audienceType,
           filters,
           snapshotCount: totalMatched,
           excludedCount: excludedTotal
@@ -442,20 +588,42 @@ router.post('/', requireRole(...ADMIN_ROLES), async (req, res) => {
     }
 
     // Build job payloads with server-side dedupe and exclusions applied.
-    const jobs = pacingPlan.ordered.map(({ contact, email }, index) => ({
-      companyId: req.user.company,
-      to: normalizeEmail(email),
-      contactId: contact._id,
-      templateId,
-      blastId: blast._id,
-      data: buildContactMergeData(contact),
-      scheduledFor: pacingPlan.times[index] || scheduledFor,
-      status: EmailJob.STATUS.QUEUED,
-      provider: 'mock',
-      meta: {
-        blastName: name
+    const jobs = pacingPlan.ordered.map((entry, index) => {
+      if (audienceType === 'realtors') {
+        const realtor = entry.realtor;
+        return {
+          companyId: req.user.company,
+          to: normalizeEmail(entry.email),
+          realtorId: realtor._id,
+          recipientType: 'realtor',
+          templateId,
+          blastId: blast._id,
+          data: buildRealtorMergeData(realtor),
+          scheduledFor: pacingPlan.times[index] || scheduledFor,
+          status: EmailJob.STATUS.QUEUED,
+          provider: 'mock',
+          meta: {
+            blastName: name
+          }
+        };
       }
-    }));
+      const contact = entry.contact;
+      return {
+        companyId: req.user.company,
+        to: normalizeEmail(entry.email),
+        contactId: contact._id,
+        recipientType: 'contact',
+        templateId,
+        blastId: blast._id,
+        data: buildContactMergeData(contact),
+        scheduledFor: pacingPlan.times[index] || scheduledFor,
+        status: EmailJob.STATUS.QUEUED,
+        provider: 'mock',
+        meta: {
+          blastName: name
+        }
+      };
+    });
 
     if (jobs.length) {
       try {
@@ -498,6 +666,7 @@ router.get('/', requireRole(...ADMIN_ROLES), async (req, res) => {
       createdAt: blast.createdAt,
       scheduledFor: blast.schedule?.scheduledFor || null,
       templateName: blast.templateId?.name || null,
+      audienceType: blast.audienceType || blast.audience?.type || 'contacts',
       finalToSend: blast.audience?.snapshotCount
         ? Math.max(0, blast.audience.snapshotCount - (blast.audience.excludedCount || 0))
         : 0
@@ -592,6 +761,7 @@ router.get('/:blastId', requireRole(...ADMIN_ROLES), async (req, res) => {
         updatedAt: blast.updatedAt,
         sendMode: blast.schedule?.sendMode || 'now',
         scheduledFor: blast.schedule?.scheduledFor || null,
+        audienceType: blast.audienceType || blast.audience?.type || 'contacts',
         audience: blast.audience || { type: 'contacts', filters: {}, snapshotCount: 0, excludedCount: 0 },
         confirmationRequired,
         pacingSummary: blast.pacingSummary || null

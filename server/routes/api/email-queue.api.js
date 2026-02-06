@@ -5,6 +5,8 @@ const requireRole = require('../../middleware/requireRole');
 const EmailJob = require('../../models/EmailJob');
 const AutoFollowUpSchedule = require('../../models/AutoFollowUpSchedule');
 const EmailBlast = require('../../models/EmailBlast');
+const Contact = require('../../models/Contact');
+const Realtor = require('../../models/Realtor');
 const { getEmailSettings, adjustToAllowedWindow, getLocalDayBounds } = require('../../services/email/scheduler');
 
 const router = express.Router();
@@ -42,7 +44,7 @@ function buildBucketRange(bucket, settings) {
 
 router.get('/', requireRole(...READ_ROLES), async (req, res) => {
   try {
-    const { bucket, status, blastId, contactId } = req.query || {};
+    const { bucket, status, blastId, contactId, realtorId } = req.query || {};
     const settings = await getEmailSettings(req.user.company);
     const { start, end } = buildBucketRange(bucket, settings);
 
@@ -54,6 +56,10 @@ router.get('/', requireRole(...READ_ROLES), async (req, res) => {
     const contactObjectId = toObjectId(contactId);
     if (contactObjectId) {
       filter.contactId = contactObjectId;
+    }
+    const realtorObjectId = toObjectId(realtorId);
+    if (realtorObjectId) {
+      filter.realtorId = realtorObjectId;
     }
     if (start || end) {
       filter.scheduledFor = {};
@@ -118,10 +124,60 @@ router.get('/', requireRole(...READ_ROLES), async (req, res) => {
       }, {});
     }
 
+    const contactIds = jobs
+      .map((job) => job.contactId)
+      .filter(Boolean)
+      .map((id) => String(id));
+    let contactsById = {};
+    if (contactIds.length) {
+      const contactDocs = await Contact.find({
+        _id: { $in: contactIds },
+        company: req.user.company
+      })
+        .select('firstName lastName email')
+        .lean();
+      contactsById = contactDocs.reduce((acc, doc) => {
+        acc[String(doc._id)] = doc;
+        return acc;
+      }, {});
+    }
+
+    const realtorIds = jobs
+      .map((job) => job.realtorId)
+      .filter(Boolean)
+      .map((id) => String(id));
+    let realtorsById = {};
+    if (realtorIds.length) {
+      const realtorDocs = await Realtor.find({
+        _id: { $in: realtorIds },
+        company: req.user.company
+      })
+        .select('firstName lastName email')
+        .lean();
+      realtorsById = realtorDocs.reduce((acc, doc) => {
+        acc[String(doc._id)] = doc;
+        return acc;
+      }, {});
+    }
+
     const shaped = jobs.map((job) => ({
       _id: job._id,
       to: job.to,
+      recipientType: job.recipientType || (job.realtorId ? 'realtor' : 'contact'),
+      contactId: job.contactId || null,
+      realtorId: job.realtorId || null,
+      blastId: job.blastId || null,
+      ruleId: job.ruleId || null,
+      scheduleId: job.scheduleId || null,
+      recipientName: job.realtorId
+        ? [realtorsById[String(job.realtorId)]?.firstName, realtorsById[String(job.realtorId)]?.lastName]
+            .filter(Boolean)
+            .join(' ')
+        : [contactsById[String(job.contactId)]?.firstName, contactsById[String(job.contactId)]?.lastName]
+            .filter(Boolean)
+            .join(' '),
       scheduledFor: job.scheduledFor,
+      nextAttemptAt: job.nextAttemptAt || null,
       status: job.status,
       lastError: job.lastError || null,
       templateName: job.templateId?.name || null,
@@ -183,6 +239,31 @@ router.post('/:jobId/reschedule', requireRole(...MANAGE_ROLES), async (req, res)
   } catch (err) {
     console.error('[email-queue] reschedule failed', err);
     res.status(500).json({ error: 'Failed to reschedule job' });
+  }
+});
+
+router.post('/:jobId/retry', requireRole(...MANAGE_ROLES), async (req, res) => {
+  try {
+    const jobId = toObjectId(req.params.jobId);
+    if (!jobId) return res.status(400).json({ error: 'Invalid job id' });
+
+    const job = await EmailJob.findOneAndUpdate(
+      { _id: jobId, companyId: req.user.company, status: EmailJob.STATUS.FAILED },
+      {
+        $set: {
+          status: EmailJob.STATUS.QUEUED,
+          nextAttemptAt: new Date(),
+          lastError: null
+        }
+      },
+      { new: true }
+    ).lean();
+
+    if (!job) return res.status(404).json({ error: 'Job not found or not retryable' });
+    res.json({ job });
+  } catch (err) {
+    console.error('[email-queue] retry failed', err);
+    res.status(500).json({ error: 'Failed to retry job' });
   }
 });
 

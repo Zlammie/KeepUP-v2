@@ -17,6 +17,7 @@ const EmailBlastSchema = new Schema(
     templateId: { type: Schema.Types.ObjectId, ref: 'EmailTemplate', required: true },
     createdBy: { type: Schema.Types.ObjectId, ref: 'User', default: null },
     requestId: { type: String, default: null, trim: true },
+    audienceType: { type: String, enum: ['contacts', 'realtors'], default: 'contacts' },
     status: {
       type: String,
       enum: Object.values(STATUS),

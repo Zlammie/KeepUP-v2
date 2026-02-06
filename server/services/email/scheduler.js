@@ -6,6 +6,7 @@ const Suppression = require('../../models/Suppression');
 const EmailTemplate = require('../../models/EmailTemplate');
 const AutomationRule = require('../../models/AutomationRule');
 const Contact = require('../../models/Contact');
+const Realtor = require('../../models/Realtor');
 const Company = require('../../models/Company');
 const { renderTemplate } = require('./renderTemplate');
 const provider = require('./provider');
@@ -526,7 +527,14 @@ async function processDueEmailJobs({
         .lean();
     }
 
-    const recipient = normalizeEmail(job.to || contact?.email);
+    let realtor = null;
+    if (job.realtorId && (job.recipientType === 'realtor' || !contact)) {
+      realtor = await Realtor.findOne({ _id: job.realtorId, company: job.companyId })
+        .select('firstName lastName email emailPaused')
+        .lean();
+    }
+
+    const recipient = normalizeEmail(job.to || contact?.email || realtor?.email);
     if (!recipient) {
       await markJobFailed(job._id, workerId, 'Missing recipient');
       logJobEvent('warn', '[email] job failed (missing recipient)', { jobId: job._id });
@@ -548,6 +556,12 @@ async function processDueEmailJobs({
     if (contact?.emailPaused) {
       await markJobSkipped(job._id, workerId, 'CONTACT_PAUSED');
       logJobEvent('info', '[email] job skipped', { jobId: job._id, reason: 'CONTACT_PAUSED' });
+      continue;
+    }
+
+    if (realtor?.emailPaused) {
+      await markJobSkipped(job._id, workerId, 'REALTOR_PAUSED');
+      logJobEvent('info', '[email] job skipped', { jobId: job._id, reason: 'REALTOR_PAUSED' });
       continue;
     }
 

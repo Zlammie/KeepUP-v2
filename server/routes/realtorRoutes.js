@@ -175,6 +175,34 @@ router.get('/:id',
 );
 
 /**
+ * POST /api/realtors/:id/email-pause
+ * Toggle email pause for a realtor (USER+).
+ */
+router.post('/:id/email-pause',
+  requireRole(...WRITE_ROLES),
+  async (req, res) => {
+    try {
+      const { id } = req.params;
+      if (!isObjectId(id)) return res.status(400).json({ error: 'Invalid id' });
+      const paused = Boolean(req.body?.paused);
+      const updates = paused
+        ? { emailPaused: true, emailPausedAt: new Date(), emailPausedBy: req.user?._id || null }
+        : { emailPaused: false, emailPausedAt: null, emailPausedBy: null };
+
+      const realtor = await Realtor.findOneAndUpdate(
+        { _id: id, ...companyFilter(req) },
+        { $set: updates },
+        { new: true }
+      ).lean();
+      if (!realtor) return res.status(404).json({ error: 'Realtor not found' });
+      res.json({ ok: true, paused: Boolean(realtor.emailPaused) });
+    } catch (err) {
+      res.status(500).json({ error: 'Failed to update email pause', details: err.message });
+    }
+  }
+);
+
+/**
  * PUT /api/realtors/:id
  * Update (USER+). Prevent cross-tenant moves.
  */

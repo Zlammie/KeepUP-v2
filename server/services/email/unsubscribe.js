@@ -1,11 +1,22 @@
 const Contact = require('../../models/Contact');
 const EmailSettings = require('../../models/EmailSettings');
+const Suppression = require('../../models/Suppression');
+const { normalizeEmail } = require('../../utils/normalizeEmail');
 
 async function applyUnsubscribeBehavior({ companyId, email }) {
   if (!companyId || !email) return { updated: 0 };
 
   const settings = await EmailSettings.findOne({ companyId }).lean();
   const behavior = settings?.unsubscribeBehavior || 'do_not_email';
+
+  const normalizedEmail = normalizeEmail(email);
+  if (normalizedEmail) {
+    await Suppression.findOneAndUpdate(
+      { companyId, email: normalizedEmail },
+      { $set: { reason: Suppression.REASONS.UNSUBSCRIBED } },
+      { upsert: true, new: false }
+    );
+  }
 
   const update = {};
   const set = {};
