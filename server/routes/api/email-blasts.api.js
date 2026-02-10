@@ -819,4 +819,94 @@ router.post('/:blastId/cancel', requireRole(...ADMIN_ROLES), async (req, res) =>
   }
 });
 
+router.post('/:blastId/pause', requireRole(...ADMIN_ROLES), async (req, res) => {
+  try {
+    const blastId = toObjectId(req.params.blastId);
+    if (!blastId) return res.status(400).json({ error: 'Invalid blast id' });
+
+    const blast = await EmailBlast.findOne({
+      _id: blastId,
+      companyId: req.user.company
+    });
+    if (!blast) return res.status(404).json({ error: 'Blast not found' });
+
+    if (blast.status === EmailBlast.STATUS.PAUSED) {
+      return res.json({ ok: true, blast });
+    }
+
+    const canPause = [EmailBlast.STATUS.SCHEDULED, EmailBlast.STATUS.SENDING].includes(blast.status);
+    if (!canPause) {
+      return res.status(409).json({ error: 'Blast cannot be paused in its current state.' });
+    }
+
+    blast.lastStateBeforePause = blast.status;
+    blast.status = EmailBlast.STATUS.PAUSED;
+    blast.pausedAt = new Date();
+    blast.pausedBy = req.user?._id || null;
+    await blast.save();
+
+    await EmailJob.updateMany(
+      {
+        companyId: req.user.company,
+        blastId,
+        status: EmailJob.STATUS.QUEUED
+      },
+      {
+        $set: {
+          lastError: 'BLAST_PAUSED'
+        }
+      }
+    );
+
+    res.json({ ok: true, blast });
+  } catch (err) {
+    console.error('[email-blasts] pause failed', err);
+    res.status(500).json({ error: 'Failed to pause blast' });
+  }
+});
+
+router.post('/:blastId/resume', requireRole(...ADMIN_ROLES), async (req, res) => {
+  try {
+    const blastId = toObjectId(req.params.blastId);
+    if (!blastId) return res.status(400).json({ error: 'Invalid blast id' });
+
+    const blast = await EmailBlast.findOne({
+      _id: blastId,
+      companyId: req.user.company
+    });
+    if (!blast) return res.status(404).json({ error: 'Blast not found' });
+
+    if (blast.status !== EmailBlast.STATUS.PAUSED) {
+      return res.json({ ok: true, blast });
+    }
+
+    const nextStatus = [EmailBlast.STATUS.SCHEDULED, EmailBlast.STATUS.SENDING].includes(
+      blast.lastStateBeforePause
+    )
+      ? blast.lastStateBeforePause
+      : EmailBlast.STATUS.SCHEDULED;
+
+    blast.status = nextStatus;
+    blast.resumedAt = new Date();
+    blast.resumedBy = req.user?._id || null;
+    blast.lastStateBeforePause = null;
+    await blast.save();
+
+    await EmailJob.updateMany(
+      {
+        companyId: req.user.company,
+        blastId,
+        status: EmailJob.STATUS.QUEUED,
+        lastError: 'BLAST_PAUSED'
+      },
+      { $set: { lastError: null, nextAttemptAt: null } }
+    );
+
+    res.json({ ok: true, blast });
+  } catch (err) {
+    console.error('[email-blasts] resume failed', err);
+    res.status(500).json({ error: 'Failed to resume blast' });
+  }
+});
+
 module.exports = router;

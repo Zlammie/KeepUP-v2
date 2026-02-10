@@ -294,7 +294,7 @@ const CONTACT_STATUS_OPTIONS = [
   'Target',
   'Possible',
   'Hot',
-  'Negotiation',
+  'Negotiating',
   'Be-Back',
   'Cold',
   'Purchased',
@@ -678,7 +678,7 @@ router.get(
             { key: 'new', label: 'New' },
             { key: 'target', label: 'Target' },
             { key: 'possible', label: 'Possible' },
-            { key: 'negotiation', label: 'Negotiation' },
+            { key: 'negotiating', label: 'Negotiating' },
             { key: 'beback', label: 'Be-Back' }
           ];
           const bucketLabels = new Map(

@@ -92,6 +92,7 @@
     const queueBase = initialData.endpoints?.queue || '/task?view=settings&tab=queue';
 
     const blastName = document.querySelector('[data-blast-name]');
+    const blastStatus = document.querySelector('[data-blast-status]');
     const blastMeta = document.querySelector('[data-blast-meta]');
     const blastPacing = document.querySelector('[data-blast-pacing]');
     const countsNode = document.querySelector('[data-blast-counts]');
@@ -99,8 +100,11 @@
     const recentFailed = document.querySelector('[data-recent-failed]');
     const recentSkipped = document.querySelector('[data-recent-skipped]');
     const cancelButton = document.querySelector('[data-cancel-blast]');
+    const pauseButton = document.querySelector('[data-pause-blast]');
+    const resumeButton = document.querySelector('[data-resume-blast]');
     const openQueue = document.querySelector('[data-open-queue]');
     const toast = document.querySelector('[data-blast-toast]');
+    let currentBlastStatus = '';
     const getEmailErrorLabel =
       typeof window !== 'undefined' && typeof window.getEmailErrorLabel === 'function'
         ? window.getEmailErrorLabel
@@ -156,6 +160,19 @@
     function updateHeader(blast) {
       if (!blast) return;
       if (blastName) blastName.textContent = blast.name || 'Blast Details';
+      if (blastStatus) {
+        const statusValue = String(blast.status || 'scheduled').toLowerCase();
+        const badgeClasses = {
+          paused: 'badge bg-warning text-dark text-uppercase',
+          canceled: 'badge bg-danger text-white text-uppercase',
+          completed: 'badge bg-success text-white text-uppercase',
+          sending: 'badge bg-primary text-white text-uppercase',
+          scheduled: 'badge bg-primary text-white text-uppercase',
+          draft: 'badge bg-light text-dark border text-uppercase'
+        };
+        blastStatus.textContent = statusValue.toUpperCase();
+        blastStatus.className = badgeClasses[statusValue] || 'badge bg-light text-dark border text-uppercase';
+      }
       const filterSummary = summarizeFilters(blast);
       const parts = [
         `Status: ${blast.status || 'scheduled'}`,
@@ -177,11 +194,16 @@
           blastPacing.hidden = true;
         }
       }
+      const status = String(blast.status || '').toLowerCase();
+      currentBlastStatus = status;
       if (cancelButton) {
-        cancelButton.classList.toggle(
-          'd-none',
-          ['canceled', 'completed'].includes(String(blast.status || '').toLowerCase())
-        );
+        cancelButton.classList.toggle('d-none', ['canceled', 'completed'].includes(status));
+      }
+      if (pauseButton) {
+        pauseButton.classList.toggle('d-none', !['scheduled', 'sending'].includes(status));
+      }
+      if (resumeButton) {
+        resumeButton.classList.toggle('d-none', status !== 'paused');
       }
     }
 
@@ -209,6 +231,54 @@
       } catch (err) {
         console.error('[blast-details] cancel failed', err);
         showToast(toast, err.message || 'Unable to cancel blast.', 'error');
+      }
+    });
+
+    pauseButton?.addEventListener('click', async () => {
+      if (!blastId) return;
+      if (pauseButton.disabled) return;
+      if (currentBlastStatus === 'paused') {
+        await loadDetails();
+        return;
+      }
+      const confirmed = window.confirm(
+        'Pausing will stop remaining scheduled emails from sending. Emails already sent are not affected.'
+      );
+      if (!confirmed) return;
+      try {
+        pauseButton.disabled = true;
+        await apiRequest(`${blastEndpoint}/${blastId}/pause`, { method: 'POST' });
+        showToast(toast, 'Blast paused.', 'success');
+        await loadDetails();
+      } catch (err) {
+        console.error('[blast-details] pause failed', err);
+        showToast(toast, err.message || 'Unable to pause blast.', 'error');
+      } finally {
+        pauseButton.disabled = false;
+      }
+    });
+
+    resumeButton?.addEventListener('click', async () => {
+      if (!blastId) return;
+      if (resumeButton.disabled) return;
+      if (currentBlastStatus !== 'paused') {
+        await loadDetails();
+        return;
+      }
+      const confirmed = window.confirm(
+        'Resuming will continue sending remaining emails using the original pacing and schedule.'
+      );
+      if (!confirmed) return;
+      try {
+        resumeButton.disabled = true;
+        await apiRequest(`${blastEndpoint}/${blastId}/resume`, { method: 'POST' });
+        showToast(toast, 'Blast resumed.', 'success');
+        await loadDetails();
+      } catch (err) {
+        console.error('[blast-details] resume failed', err);
+        showToast(toast, err.message || 'Unable to resume blast.', 'error');
+      } finally {
+        resumeButton.disabled = false;
       }
     });
 

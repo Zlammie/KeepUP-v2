@@ -256,11 +256,47 @@
     const blastPreviewButton = document.querySelector('[data-blast-preview]');
     const blastPreviewTotal = document.querySelector('[data-blast-preview-total]');
     const blastPreviewExcluded = document.querySelector('[data-blast-preview-excluded]');
+    const blastPreviewSuppressed = document.querySelector('[data-blast-preview-suppressed]');
+    const blastPreviewPaused = document.querySelector('[data-blast-preview-paused]');
+    const blastPreviewInvalid = document.querySelector('[data-blast-preview-invalid]');
+    const blastPreviewNoEmail = document.querySelector('[data-blast-preview-no-email]');
     const blastPreviewFinal = document.querySelector('[data-blast-preview-final]');
     const blastPreviewFirst = document.querySelector('[data-blast-preview-first]');
     const blastPreviewLast = document.querySelector('[data-blast-preview-last]');
     const blastPreviewDays = document.querySelector('[data-blast-preview-days]');
     const blastPreviewSample = document.querySelector('[data-blast-preview-sample]');
+    const blastPreviewHelp = document.querySelector('[data-blast-preview-help]');
+    const blastStepCompleteBadges = document.querySelectorAll('[data-blast-step-complete]');
+    const blastWindowNote = document.querySelector('[data-blast-window-note]');
+    const blastPacingNote = document.querySelector('[data-blast-pacing-note]');
+    const blastScheduleEstimate = document.querySelector('[data-blast-schedule-estimate]');
+    const blastScheduleFirst = document.querySelector('[data-blast-schedule-first]');
+    const blastScheduleLast = document.querySelector('[data-blast-schedule-last]');
+    const blastScheduleDays = document.querySelector('[data-blast-schedule-days]');
+    const blastSummaryAudience = document.querySelector('[data-blast-summary-audience]');
+    const blastSummaryFinal = document.querySelector('[data-blast-summary-final]');
+    const blastSummaryTemplate = document.querySelector('[data-blast-summary-template]');
+    const blastSummarySchedule = document.querySelector('[data-blast-summary-schedule]');
+    const blastSummaryPacing = document.querySelector('[data-blast-summary-pacing]');
+    const blastSummaryFirst = document.querySelector('[data-blast-summary-first]');
+    const blastSummaryLast = document.querySelector('[data-blast-summary-last]');
+    const blastSuccessLinks = document.querySelector('[data-blast-success-links]');
+    const blastViewQueue = document.querySelector('[data-blast-view-queue]');
+    const blastViewDetails = document.querySelector('[data-blast-view-details]');
+    const blastCopySummary = document.querySelector('[data-blast-copy-summary]');
+    const blastRecipientToggle = document.querySelector('[data-blast-recipient-toggle]');
+    const blastRecipientPanel = document.querySelector('[data-blast-recipient-panel]');
+    const blastRecipientType = document.querySelector('[data-blast-recipient-type]');
+    const blastRecipientSample = document.querySelector('[data-blast-recipient-sample]');
+    const blastRecipientSearch = document.querySelector('[data-blast-recipient-search]');
+    const blastRecipientSearchBtn = document.querySelector('[data-blast-recipient-search-btn]');
+    const blastRecipientResults = document.querySelector('[data-blast-recipient-results]');
+    const blastRecipientRender = document.querySelector('[data-blast-recipient-render]');
+    const blastRecipientPreview = document.querySelector('[data-blast-recipient-preview]');
+    const blastRecipientSubject = document.querySelector('[data-blast-recipient-subject]');
+    const blastRecipientText = document.querySelector('[data-blast-recipient-text]');
+    const blastRecipientHtml = document.querySelector('[data-blast-recipient-html]');
+    const blastRecipientMissing = document.querySelector('[data-blast-recipient-missing]');
     const blastEmailPreviewButton = document.querySelector('[data-blast-email-preview]');
     const blastEmailPreviewSubject = document.querySelector('[data-blast-email-subject]');
     const blastEmailPreviewText = document.querySelector('[data-blast-email-text]');
@@ -340,12 +376,13 @@
         currentQueueRealtorId: null,
         currentQueueStatus: '',
         blastPreview: null,
-      blasts: [],
-      blastRequestId: null,
-      currentTab: 'schedules',
-      initialTab: null,
-      emailAssets: []
-    };
+        blasts: [],
+        blastRequestId: null,
+        currentTab: 'schedules',
+        initialTab: null,
+        emailAssets: [],
+        blastStepVisited: new Set()
+      };
 
     const urlParams = new URLSearchParams(window.location.search);
       const requestedTab = urlParams.get('tab');
@@ -881,9 +918,9 @@
       }
     }
 
-    function setActiveTab(tabName) {
-      if (!tabName) return;
-      state.currentTab = tabName;
+      function setActiveTab(tabName) {
+        if (!tabName) return;
+        state.currentTab = tabName;
       tabButtons.forEach((button) => {
         const isActive = button.dataset.automationTab === tabName;
         button.classList.toggle('active', isActive);
@@ -894,12 +931,15 @@
         panel.hidden = !match;
         panel.setAttribute('aria-hidden', match ? 'false' : 'true');
       });
-      if (tabName === 'queue') {
-        startHealthPolling();
-      } else {
-        stopHealthPolling();
+        if (tabName === 'queue') {
+          startHealthPolling();
+        } else {
+          stopHealthPolling();
+        }
+        if (tabName === 'blasts') {
+          scheduleBlastPreviewRefresh(true);
+        }
       }
-    }
 
     function initTabs() {
       if (!tabButtons.length) return;
@@ -971,8 +1011,12 @@
 
     function setBlastWorkflowStep(stepName) {
       if (!blastWorkflowOrder.length) return;
-      const nextStep = blastWorkflowOrder.includes(stepName) ? stepName : blastWorkflowOrder[0];
+      const desiredStep = blastWorkflowOrder.includes(stepName) ? stepName : blastWorkflowOrder[0];
+      const desiredIndex = blastWorkflowOrder.indexOf(desiredStep);
+      const maxIndex = getBlastMaxStepIndex();
+      const nextStep = blastWorkflowOrder[Math.min(desiredIndex, maxIndex)] || blastWorkflowOrder[0];
       currentBlastWorkflowStep = nextStep;
+      state.blastStepVisited.add(nextStep);
       blastWorkflowTabs.forEach((button) => {
         const isActive = button.dataset.blastStep === nextStep;
         button.classList.toggle('is-active', isActive);
@@ -983,15 +1027,7 @@
         panel.hidden = !match;
         panel.setAttribute('aria-hidden', match ? 'false' : 'true');
       });
-      const index = blastWorkflowOrder.indexOf(nextStep);
-      const isFirst = index <= 0;
-      const isLast = index >= blastWorkflowOrder.length - 1;
-      blastWorkflowBackButtons.forEach((button) => {
-        button.disabled = isFirst;
-      });
-      blastWorkflowNextButtons.forEach((button) => {
-        button.disabled = isLast;
-      });
+      updateBlastStepState();
     }
 
     function initBlastWorkflow() {
@@ -1223,9 +1259,26 @@
     }
 
     function updateBlastPreviewUI(preview) {
+      const hasPreview = preview && typeof preview.finalToSend !== 'undefined';
+      if (blastPreviewHelp) {
+        if (!hasPreview) {
+          blastPreviewHelp.textContent = 'Run preview to see who will receive this.';
+        } else {
+          const days = Number(preview?.estimatedDaysSpanned || 0);
+          if (days > 1) {
+            blastPreviewHelp.textContent = `This blast will send over ${days} days.`;
+          } else {
+            blastPreviewHelp.textContent = 'Preview ready. Review exclusions before continuing.';
+          }
+        }
+      }
       if (blastPreviewTotal) blastPreviewTotal.textContent = preview?.totalMatched ?? '--';
       const excludedTotal = preview?.excludedTotal ?? '--';
       if (blastPreviewExcluded) blastPreviewExcluded.textContent = excludedTotal;
+      if (blastPreviewSuppressed) blastPreviewSuppressed.textContent = preview?.excludedSuppressed ?? '--';
+      if (blastPreviewPaused) blastPreviewPaused.textContent = preview?.excludedPaused ?? '--';
+      if (blastPreviewInvalid) blastPreviewInvalid.textContent = preview?.excludedInvalidEmail ?? '--';
+      if (blastPreviewNoEmail) blastPreviewNoEmail.textContent = preview?.excludedNoEmail ?? '--';
       if (blastPreviewFinal) blastPreviewFinal.textContent = preview?.finalToSend ?? '--';
       if (blastPreviewFirst) {
         blastPreviewFirst.textContent = preview?.estimatedFirstSendAt
@@ -1257,6 +1310,333 @@
           blastForm.elements.confirmationText.placeholder = `Type: SEND ${preview.finalToSend}`;
         }
       }
+
+      if (blastPacingNote) {
+        const days = Number(preview?.estimatedDaysSpanned || 0);
+        blastPacingNote.classList.toggle('d-none', !(days > 1));
+      }
+      if (blastScheduleEstimate) {
+        const hasTiming = Boolean(preview?.estimatedFirstSendAt || preview?.estimatedLastSendAt);
+        blastScheduleEstimate.classList.toggle('d-none', !hasTiming);
+        if (hasTiming) {
+          if (blastScheduleFirst) {
+            blastScheduleFirst.textContent = preview?.estimatedFirstSendAt
+              ? formatDateTime(preview.estimatedFirstSendAt)
+              : '--';
+          }
+          if (blastScheduleLast) {
+            blastScheduleLast.textContent = preview?.estimatedLastSendAt
+              ? formatDateTime(preview.estimatedLastSendAt)
+              : '--';
+          }
+          if (blastScheduleDays) {
+            blastScheduleDays.textContent =
+              preview?.estimatedDaysSpanned != null ? preview.estimatedDaysSpanned : '--';
+          }
+        }
+      }
+
+      renderBlastRecipientSampleOptions(preview?.sampleRecipients || []);
+
+      updateBlastStepState();
+      updateBlastConfirmationSummary();
+    }
+
+    function renderBlastRecipientSampleOptions(recipients) {
+      if (!blastRecipientSample) return;
+      const list = Array.isArray(recipients) ? recipients.slice(0, 10) : [];
+      blastRecipientSample.innerHTML = '<option value="">Select a recipient</option>';
+      list.forEach((item) => {
+        const option = document.createElement('option');
+        option.value = item.contactId || item.realtorId || item.id || '';
+        option.dataset.recipientType = item.realtorId ? 'realtor' : 'contact';
+        option.textContent = item.name || item.email || 'Recipient';
+        if (option.value) {
+          blastRecipientSample.appendChild(option);
+        }
+      });
+    }
+
+    function getBlastPreviewFinalCount() {
+      return Number(state.blastPreview?.finalToSend || 0);
+    }
+
+    function isBlastPreviewReady() {
+      return Boolean(state.blastPreview) && getBlastPreviewFinalCount() > 0;
+    }
+
+    function isBlastContentReady() {
+      const name = blastForm?.elements.name?.value?.trim() || '';
+      const templateId = blastForm?.elements.templateId?.value || '';
+      return Boolean(name) && Boolean(templateId);
+    }
+
+    function isBlastScheduleReady() {
+      const sendMode = blastForm?.elements.sendMode?.value === 'scheduled' ? 'scheduled' : 'now';
+      if (sendMode === 'scheduled') {
+        const value = blastForm?.elements.scheduledFor?.value;
+        if (!value) return false;
+        const date = new Date(value);
+        return !Number.isNaN(date.getTime());
+      }
+      return true;
+    }
+
+    function getBlastMaxStepIndex() {
+      if (!isBlastPreviewReady()) return 0;
+      if (!isBlastContentReady()) return 1;
+      if (!isBlastScheduleReady()) return 2;
+      return 3;
+    }
+
+    function updateBlastStepState() {
+      if (!blastWorkflowTabs.length) return;
+      const maxIndex = getBlastMaxStepIndex();
+      blastWorkflowTabs.forEach((button) => {
+        const step = button.dataset.blastStep;
+        const index = blastWorkflowOrder.indexOf(step);
+        button.disabled = index > maxIndex;
+        const visited = state.blastStepVisited.has(step);
+        const isComplete = index >= 0 && index < maxIndex && visited;
+        button.classList.toggle('is-complete', isComplete);
+      });
+      blastStepCompleteBadges.forEach((badge) => {
+        const step = badge.dataset.blastStepComplete;
+        const index = blastWorkflowOrder.indexOf(step);
+        const visited = state.blastStepVisited.has(step);
+        badge.classList.toggle('d-none', !(index >= 0 && index < maxIndex && visited));
+      });
+      updateBlastNavigationControls();
+      updateBlastSubmitState();
+    }
+
+    function updateBlastNavigationControls() {
+      if (!blastWorkflowOrder.length) return;
+      const index = blastWorkflowOrder.indexOf(currentBlastWorkflowStep);
+      const maxIndex = getBlastMaxStepIndex();
+      blastWorkflowBackButtons.forEach((button) => {
+        button.disabled = index <= 0;
+      });
+      blastWorkflowNextButtons.forEach((button) => {
+        button.disabled = index < 0 || index >= maxIndex;
+      });
+    }
+
+    function updateBlastConfirmationSummary() {
+      if (!blastForm) return;
+      const audienceType = getBlastAudienceType();
+      if (blastSummaryAudience) {
+        blastSummaryAudience.textContent = audienceType === 'realtors' ? 'Realtors' : 'Contacts';
+      }
+      if (blastSummaryFinal) {
+        blastSummaryFinal.textContent = isBlastPreviewReady()
+          ? getBlastPreviewFinalCount()
+          : '--';
+      }
+      if (blastSummaryTemplate) {
+        const templateId = blastForm.elements.templateId?.value || '';
+        blastSummaryTemplate.textContent = templateId ? getRuleTemplateName(templateId) : '--';
+      }
+      if (blastSummarySchedule) {
+        const sendMode = blastForm.elements.sendMode?.value === 'scheduled' ? 'Scheduled' : 'Now';
+        const scheduledFor = blastForm.elements.scheduledFor?.value || '';
+        blastSummarySchedule.textContent =
+          sendMode === 'Scheduled' && scheduledFor ? formatDateTime(scheduledFor) : sendMode;
+      }
+      if (blastSummaryPacing) {
+        const days = Number(state.blastPreview?.estimatedDaysSpanned || 0);
+        blastSummaryPacing.textContent = days > 0 ? `${days} day${days === 1 ? '' : 's'}` : '--';
+      }
+      if (blastSummaryFirst) {
+        blastSummaryFirst.textContent = state.blastPreview?.estimatedFirstSendAt
+          ? formatDateTime(state.blastPreview.estimatedFirstSendAt)
+          : '--';
+      }
+      if (blastSummaryLast) {
+        blastSummaryLast.textContent = state.blastPreview?.estimatedLastSendAt
+          ? formatDateTime(state.blastPreview.estimatedLastSendAt)
+          : '--';
+      }
+    }
+
+    function getBlastRecipientType() {
+      if (blastRecipientType?.value) return blastRecipientType.value;
+      return getBlastAudienceType() === 'realtors' ? 'realtor' : 'contact';
+    }
+
+    function syncBlastRecipientType() {
+      if (!blastRecipientType) return;
+      blastRecipientType.value = getBlastAudienceType() === 'realtors' ? 'realtor' : 'contact';
+    }
+
+    function toggleBlastRecipientPanel(forceOpen = null) {
+      if (!blastRecipientPanel) return;
+      const shouldOpen = typeof forceOpen === 'boolean'
+        ? forceOpen
+        : blastRecipientPanel.classList.contains('d-none');
+      blastRecipientPanel.classList.toggle('d-none', !shouldOpen);
+      if (shouldOpen) {
+        syncBlastRecipientType();
+        blastRecipientSearch?.focus();
+      }
+    }
+
+    function clearBlastRecipientPreview() {
+      if (blastRecipientPreview) blastRecipientPreview.classList.add('d-none');
+      if (blastRecipientSubject) blastRecipientSubject.textContent = '--';
+      if (blastRecipientText) blastRecipientText.textContent = '--';
+      if (blastRecipientHtml) blastRecipientHtml.innerHTML = '--';
+      if (blastRecipientMissing) {
+        blastRecipientMissing.classList.add('d-none');
+        blastRecipientMissing.textContent = '--';
+      }
+    }
+
+    async function searchBlastRecipients() {
+      if (!blastRecipientResults || !blastRecipientSearch) return;
+      const query = blastRecipientSearch.value.trim();
+      if (!query) return;
+      blastRecipientResults.innerHTML = '<option value="">Searching...</option>';
+      const recipientType = getBlastRecipientType();
+      const endpoint = recipientType === 'realtor' ? '/api/realtors/search' : '/api/contacts/search';
+      try {
+        const response = await apiRequest(`${endpoint}?q=${encodeURIComponent(query)}`);
+        const list = Array.isArray(response?.contacts || response?.realtors)
+          ? (response.contacts || response.realtors)
+          : Array.isArray(response) ? response : [];
+        if (!list.length) {
+          blastRecipientResults.innerHTML = '<option value="">No matches found</option>';
+          return;
+        }
+        blastRecipientResults.innerHTML = '<option value="">Select a recipient</option>';
+        list.forEach((item) => {
+          const option = document.createElement('option');
+          option.value = item._id || item.id || '';
+          option.textContent = `${item.firstName || ''} ${item.lastName || ''}`.trim()
+            || item.email
+            || 'Recipient';
+          if (option.value) blastRecipientResults.appendChild(option);
+        });
+      } catch (err) {
+        console.error('[blasts] recipient search failed', err);
+        blastRecipientResults.innerHTML = '<option value="">Search failed</option>';
+      }
+    }
+
+    async function renderBlastRecipientPreview() {
+      if (!blastTemplateSelect?.value) {
+        showToast(blastToast, 'Select a template first.', 'error');
+        return;
+      }
+      const templateId = blastTemplateSelect.value;
+      const recipientType = getBlastRecipientType();
+      const recipientId = blastRecipientSample?.value || blastRecipientResults?.value || '';
+      if (!recipientId) {
+        showToast(blastToast, 'Select a recipient for preview.', 'error');
+        return;
+      }
+      try {
+        const response = await apiRequest(`${state.emailEndpoints.templates}/${templateId}/preview`, {
+          method: 'POST',
+          body: JSON.stringify({ recipientType, recipientId })
+        });
+        blastRecipientPreview?.classList.remove('d-none');
+        if (blastRecipientSubject) blastRecipientSubject.textContent = response?.rendered?.subject || '--';
+        if (blastRecipientText) blastRecipientText.textContent = response?.rendered?.text || '--';
+        if (blastRecipientHtml) blastRecipientHtml.innerHTML = response?.rendered?.html || '--';
+        if (blastRecipientMissing) {
+          const missing = Array.isArray(response?.missingTokens) ? response.missingTokens : [];
+          blastRecipientMissing.textContent = missing.length
+            ? `Missing tokens: ${missing.join(', ')}`
+            : 'All tokens resolved.';
+          blastRecipientMissing.classList.remove('d-none');
+        }
+      } catch (err) {
+        console.error('[blasts] recipient preview failed', err);
+        showToast(blastToast, err.message || 'Unable to render preview.', 'error');
+      }
+    }
+
+    function buildBlastSummaryText() {
+      if (!blastForm) return '';
+      const audienceType = getBlastAudienceType() === 'realtors' ? 'Realtors' : 'Contacts';
+      const name = blastForm.elements.name?.value?.trim() || 'Untitled';
+      const templateName = getRuleTemplateName(blastForm.elements.templateId?.value) || '--';
+      const sendMode = blastForm.elements.sendMode?.value === 'scheduled' ? 'Scheduled' : 'Now';
+      const scheduledFor = blastForm.elements.scheduledFor?.value || '';
+      const scheduleText = sendMode === 'Scheduled' && scheduledFor
+        ? formatDateTime(scheduledFor)
+        : 'Send now';
+      const preview = state.blastPreview || {};
+      const excluded = {
+        suppressed: preview.excludedSuppressed || 0,
+        paused: preview.excludedPaused || 0,
+        invalid: preview.excludedInvalidEmail || 0,
+        missing: preview.excludedNoEmail || 0,
+        duplicates: preview.excludedDuplicates || 0
+      };
+      const filters = collectBlastFilters();
+      const filterParts = [];
+      if (audienceType === 'Realtors') {
+        if (filters.communityId) filterParts.push(`communityId=${filters.communityId}`);
+        if (filters.managerId) filterParts.push(`managerId=${filters.managerId}`);
+        if (filters.textSearch) filterParts.push(`search=${filters.textSearch}`);
+        if (filters.includeInactive) filterParts.push('includeInactive=true');
+      } else {
+        if (Array.isArray(filters.communityIds) && filters.communityIds.length) {
+          filterParts.push(`communities=${filters.communityIds.join('|')}`);
+        }
+        if (Array.isArray(filters.statuses) && filters.statuses.length) {
+          filterParts.push(`statuses=${filters.statuses.join('|')}`);
+        }
+        if (Array.isArray(filters.tags) && filters.tags.length) {
+          filterParts.push(`tags=${filters.tags.join('|')}`);
+        }
+        if (filters.linkedLot) filterParts.push('linkedLot=true');
+      }
+
+      const lines = [
+        `Blast: ${name}`,
+        `Audience: ${audienceType}`,
+        `Filters: ${filterParts.length ? filterParts.join(', ') : 'none'}`,
+        `Preview: matched ${preview.totalMatched ?? 0}, final ${preview.finalToSend ?? 0}`,
+        `Excluded: suppressed ${excluded.suppressed}, paused ${excluded.paused}, invalid ${excluded.invalid}, missing ${excluded.missing}, deduped ${excluded.duplicates}`,
+        `Template: ${templateName}`,
+        `Schedule: ${scheduleText}`,
+        `Pacing: days ${preview.estimatedDaysSpanned ?? '--'}, first ${preview.estimatedFirstSendAt ? formatDateTime(preview.estimatedFirstSendAt) : '--'}, last ${preview.estimatedLastSendAt ? formatDateTime(preview.estimatedLastSendAt) : '--'}`
+      ];
+      return lines.join('\n');
+    }
+
+    async function copyBlastSummary() {
+      const text = buildBlastSummaryText();
+      if (!text) return;
+      try {
+        await navigator.clipboard.writeText(text);
+        showToast(blastToast, 'Copied summary.', 'success');
+      } catch {
+        const textarea = document.createElement('textarea');
+        textarea.value = text;
+        document.body.appendChild(textarea);
+        textarea.select();
+        document.execCommand('copy');
+        document.body.removeChild(textarea);
+        showToast(blastToast, 'Copied summary.', 'success');
+      }
+    }
+
+    function updateBlastSubmitState() {
+      const submitButton = blastForm?.querySelector('[data-blast-create]');
+      if (!submitButton) return;
+      const previewReady = isBlastPreviewReady();
+      let ready = previewReady && isBlastContentReady() && isBlastScheduleReady();
+      const finalCount = getBlastPreviewFinalCount();
+      const needsConfirm = previewReady && finalCount >= 200;
+      if (needsConfirm && blastForm?.elements.confirmationText) {
+        const expected = `SEND ${finalCount}`;
+        ready = ready && blastForm.elements.confirmationText.value.trim() === expected;
+      }
+      submitButton.disabled = !ready;
     }
 
     function scheduleBlastPreviewRefresh(immediate = false) {
@@ -1265,6 +1645,8 @@
         clearTimeout(blastPreviewTimer);
         blastPreviewTimer = null;
       }
+      state.blastPreview = null;
+      updateBlastPreviewUI({});
       if (immediate) {
         loadBlastPreview();
         return;
@@ -1331,19 +1713,32 @@
         return;
       }
       blastList.innerHTML = state.blasts
-        .map((blast) => `
+        .map((blast) => {
+          const statusValue = String(blast.status || 'scheduled').toLowerCase();
+          const statusClassMap = {
+            paused: 'bg-warning-subtle text-warning',
+            canceled: 'bg-secondary-subtle text-secondary',
+            completed: 'bg-success-subtle text-success',
+            sending: 'bg-primary-subtle text-primary',
+            scheduled: 'bg-primary-subtle text-primary',
+            draft: 'bg-light text-dark border'
+          };
+          const statusClass = statusClassMap[statusValue] || 'bg-light text-dark border';
+          const canPause = ['scheduled', 'sending'].includes(statusValue);
+          const canResume = statusValue === 'paused';
+          return `
           <div class="border rounded-3 p-3">
             <div class="d-flex justify-content-between align-items-start gap-2">
               <div>
                 <div class="fw-semibold">${blast.name || 'Blast'}</div>
                 <div class="text-muted small">${formatDateTime(blast.createdAt)}</div>
               </div>
-              <span class="badge ${blast.status === 'canceled' ? 'bg-secondary-subtle text-secondary' : 'bg-success-subtle text-success'}">
-                ${blast.status || 'scheduled'}
+              <span class="badge ${statusClass}">
+                ${statusValue}
               </span>
             </div>
             <div class="small text-muted mt-2">
-              Scheduled: ${blast.scheduledFor ? formatDateTime(blast.scheduledFor) : 'Now'} • Final: ${blast.finalToSend ?? 0}
+              Scheduled: ${blast.scheduledFor ? formatDateTime(blast.scheduledFor) : 'Now'} | Final: ${blast.finalToSend ?? 0}
             </div>
             <div class="d-flex gap-2 mt-3 flex-wrap">
               <a class="btn btn-sm btn-outline-primary" href="/email/blasts/${blast._id}">View</a>
@@ -1351,13 +1746,24 @@
                 Open Queue
               </button>
               ${
+                canPause
+                  ? `<button type="button" class="btn btn-sm btn-outline-warning" data-blast-pause="${blast._id}">Pause</button>`
+                  : ''
+              }
+              ${
+                canResume
+                  ? `<button type="button" class="btn btn-sm btn-outline-success" data-blast-resume="${blast._id}">Resume</button>`
+                  : ''
+              }
+              ${
                 blast.status === 'scheduled'
                   ? `<button type="button" class="btn btn-sm btn-outline-danger" data-blast-cancel="${blast._id}">Cancel</button>`
                   : ''
               }
             </div>
           </div>
-        `)
+        `;
+        })
         .join('');
     }
 
@@ -1377,9 +1783,11 @@
         if (!blastForm) return;
         blastForm.reset();
         state.blastPreview = null;
+        state.blastStepVisited = new Set();
         updateBlastPreviewUI({});
         updateBlastStatusCounts(null);
         if (blastConfirmation) blastConfirmation.classList.add('d-none');
+        if (blastSuccessLinks) blastSuccessLinks.classList.add('d-none');
         const communityInput = blastForm.querySelector('[data-blast-community-input]') || blastForm.elements.communityIds;
         const statusInput = blastForm.querySelector('[data-blast-status-input]') || blastForm.elements.statuses;
         if (communityInput) communityInput.value = '';
@@ -1388,6 +1796,12 @@
         if (blastEmailPreviewSubject) blastEmailPreviewSubject.textContent = '--';
         if (blastEmailPreviewText) blastEmailPreviewText.textContent = '--';
         updateBlastAudienceUI();
+        syncBlastRecipientType();
+        clearBlastRecipientPreview();
+        if (blastRecipientPanel) blastRecipientPanel.classList.add('d-none');
+        updateBlastStepState();
+        updateBlastConfirmationSummary();
+        setBlastWorkflowStep('audience');
       }
 
     async function handleBlastCreate(event) {
@@ -1396,12 +1810,20 @@
       const submitButton = blastForm.querySelector('[data-blast-create]');
       const name = blastForm.elements.name.value.trim();
       const templateId = blastForm.elements.templateId.value;
+      if (!isBlastPreviewReady()) {
+        showToast(blastToast, 'Run preview to confirm your audience.', 'error');
+        return;
+      }
       if (!name) {
         showToast(blastToast, 'Blast name is required.', 'error');
         return;
       }
       if (!templateId) {
         showToast(blastToast, 'Select a template.', 'error');
+        return;
+      }
+      if (!isBlastScheduleReady()) {
+        showToast(blastToast, 'Select a valid schedule time.', 'error');
         return;
       }
 
@@ -1442,8 +1864,13 @@
         state.blastRequestId = null;
         await loadBlasts();
         if (response?.blastId) {
-          setActiveTab('queue');
-          await loadQueue(state.currentQueueFilter, response.blastId, null, null, state.currentQueueStatus);
+          if (blastViewQueue) {
+            blastViewQueue.href = `/task?view=settings&tab=queue&blastId=${encodeURIComponent(response.blastId)}`;
+          }
+          if (blastViewDetails) {
+            blastViewDetails.href = `/email/blasts/${encodeURIComponent(response.blastId)}`;
+          }
+          blastSuccessLinks?.classList.remove('d-none');
         }
       } catch (err) {
         console.error('[blasts] create failed', err);
@@ -1462,6 +1889,66 @@
       } catch (err) {
         console.error('[blasts] cancel failed', err);
         showToast(blastToast, err.message || 'Unable to cancel blast.', 'error');
+      }
+    }
+
+    async function handleBlastPause(blastId) {
+      if (!blastId) return;
+      const blast = state.blasts.find((item) => String(item._id) === String(blastId));
+      if (String(blast?.status || '').toLowerCase() === 'paused') {
+        await loadBlasts();
+        return;
+      }
+      const confirmed = window.confirm(
+        'Pausing will stop remaining scheduled emails from sending. Emails already sent are not affected.'
+      );
+      if (!confirmed) return;
+      if (blastList) {
+        const btn = blastList.querySelector(`[data-blast-pause="${blastId}"]`);
+        if (btn) btn.disabled = true;
+      }
+      try {
+        await apiRequest(`${state.emailEndpoints.blasts}/${blastId}/pause`, { method: 'POST' });
+        showToast(blastToast, 'Blast paused.', 'success');
+        await loadBlasts();
+      } catch (err) {
+        console.error('[blasts] pause failed', err);
+        showToast(blastToast, err.message || 'Unable to pause blast.', 'error');
+      } finally {
+        if (blastList) {
+          const btn = blastList.querySelector(`[data-blast-pause="${blastId}"]`);
+          if (btn) btn.disabled = false;
+        }
+      }
+    }
+
+    async function handleBlastResume(blastId) {
+      if (!blastId) return;
+      const blast = state.blasts.find((item) => String(item._id) === String(blastId));
+      if (String(blast?.status || '').toLowerCase() !== 'paused') {
+        await loadBlasts();
+        return;
+      }
+      const confirmed = window.confirm(
+        'Resuming will continue sending remaining emails using the original pacing and schedule.'
+      );
+      if (!confirmed) return;
+      if (blastList) {
+        const btn = blastList.querySelector(`[data-blast-resume="${blastId}"]`);
+        if (btn) btn.disabled = true;
+      }
+      try {
+        await apiRequest(`${state.emailEndpoints.blasts}/${blastId}/resume`, { method: 'POST' });
+        showToast(blastToast, 'Blast resumed.', 'success');
+        await loadBlasts();
+      } catch (err) {
+        console.error('[blasts] resume failed', err);
+        showToast(blastToast, err.message || 'Unable to resume blast.', 'error');
+      } finally {
+        if (blastList) {
+          const btn = blastList.querySelector(`[data-blast-resume="${blastId}"]`);
+          if (btn) btn.disabled = false;
+        }
       }
     }
 
@@ -2825,7 +3312,7 @@
                     : ''
                 }
                 ${
-                  job.status === 'failed'
+                  job.status === 'failed' && job.lastError !== 'BLAST_PAUSED'
                     ? `<button class="btn btn-sm btn-outline-secondary me-2" data-queue-retry="${job._id}">Retry</button>`
                     : ''
                 }
@@ -3096,32 +3583,52 @@
       });
     }
 
-      if (blastForm?.elements.linkedLot) {
-        blastForm.elements.linkedLot.addEventListener('change', () => {
-          scheduleBlastPreviewRefresh();
-        });
-      }
+    if (blastForm?.elements.linkedLot) {
+      blastForm.elements.linkedLot.addEventListener('change', () => {
+        scheduleBlastPreviewRefresh();
+      });
+    }
 
-      if (blastForm?.elements.realtorCommunityId) {
-        blastForm.elements.realtorCommunityId.addEventListener('change', () => {
-          scheduleBlastPreviewRefresh();
-        });
-      }
-      if (blastForm?.elements.realtorManagerId) {
-        blastForm.elements.realtorManagerId.addEventListener('change', () => {
-          scheduleBlastPreviewRefresh();
-        });
-      }
-      if (blastForm?.elements.realtorTextSearch) {
-        blastForm.elements.realtorTextSearch.addEventListener('input', () => {
-          scheduleBlastPreviewRefresh();
-        });
-      }
-      if (blastForm?.elements.realtorIncludeInactive) {
-        blastForm.elements.realtorIncludeInactive.addEventListener('change', () => {
-          scheduleBlastPreviewRefresh();
-        });
-      }
+    if (blastForm?.elements.realtorCommunityId) {
+      blastForm.elements.realtorCommunityId.addEventListener('change', () => {
+        scheduleBlastPreviewRefresh();
+      });
+    }
+    if (blastForm?.elements.realtorManagerId) {
+      blastForm.elements.realtorManagerId.addEventListener('change', () => {
+        scheduleBlastPreviewRefresh();
+      });
+    }
+    if (blastForm?.elements.realtorTextSearch) {
+      blastForm.elements.realtorTextSearch.addEventListener('input', () => {
+        scheduleBlastPreviewRefresh();
+      });
+    }
+    if (blastForm?.elements.realtorIncludeInactive) {
+      blastForm.elements.realtorIncludeInactive.addEventListener('change', () => {
+        scheduleBlastPreviewRefresh();
+      });
+    }
+
+    if (blastForm?.elements.audienceType) {
+      blastForm.elements.audienceType.addEventListener('change', () => {
+        updateBlastAudienceUI();
+        syncBlastRecipientType();
+        scheduleBlastPreviewRefresh();
+      });
+    }
+    if (blastForm?.elements.name) {
+      blastForm.elements.name.addEventListener('input', () => {
+        updateBlastStepState();
+        updateBlastConfirmationSummary();
+      });
+    }
+    if (blastTemplateSelect) {
+      blastTemplateSelect.addEventListener('change', () => {
+        updateBlastStepState();
+        updateBlastConfirmationSummary();
+      });
+    }
 
     const blastSendModeInputs = blastForm
       ? blastForm.querySelectorAll('input[name="sendMode"]')
@@ -3130,6 +3637,7 @@
       blastSendModeInputs.forEach((input) => {
         input.addEventListener('change', () => {
           scheduleBlastPreviewRefresh();
+          updateBlastConfirmationSummary();
         });
       });
     }
@@ -3137,8 +3645,41 @@
     if (blastForm?.elements.scheduledFor) {
       blastForm.elements.scheduledFor.addEventListener('change', () => {
         scheduleBlastPreviewRefresh();
+        updateBlastConfirmationSummary();
       });
     }
+    if (blastForm?.elements.confirmationText) {
+      blastForm.elements.confirmationText.addEventListener('input', () => {
+        updateBlastSubmitState();
+      });
+    }
+    blastRecipientToggle?.addEventListener('click', (event) => {
+      event.preventDefault();
+      toggleBlastRecipientPanel();
+    });
+    blastRecipientType?.addEventListener('change', () => {
+      clearBlastRecipientPreview();
+    });
+    blastRecipientSample?.addEventListener('change', () => {
+      if (blastRecipientResults) blastRecipientResults.value = '';
+      const selected = blastRecipientSample.selectedOptions?.[0];
+      const type = selected?.dataset?.recipientType;
+      if (type && blastRecipientType) blastRecipientType.value = type;
+      clearBlastRecipientPreview();
+    });
+    blastRecipientSearchBtn?.addEventListener('click', searchBlastRecipients);
+    blastRecipientSearch?.addEventListener('keydown', (event) => {
+      if (event.key === 'Enter') {
+        event.preventDefault();
+        searchBlastRecipients();
+      }
+    });
+    blastRecipientResults?.addEventListener('change', () => {
+      if (blastRecipientSample) blastRecipientSample.value = '';
+      clearBlastRecipientPreview();
+    });
+    blastRecipientRender?.addEventListener('click', renderBlastRecipientPreview);
+    blastCopySummary?.addEventListener('click', copyBlastSummary);
 
     saveButton?.addEventListener('click', handleSaveSchedule);
     newScheduleButton?.addEventListener('click', (event) => {
@@ -3403,10 +3944,20 @@
     });
     blastList?.addEventListener('click', (event) => {
       const viewButton = event.target.closest('[data-blast-view]');
+      const pauseButton = event.target.closest('[data-blast-pause]');
+      const resumeButton = event.target.closest('[data-blast-resume]');
       const cancelButton = event.target.closest('[data-blast-cancel]');
       if (viewButton) {
         event.preventDefault();
         handleBlastView(viewButton.dataset.blastView);
+      }
+      if (pauseButton) {
+        event.preventDefault();
+        handleBlastPause(pauseButton.dataset.blastPause);
+      }
+      if (resumeButton) {
+        event.preventDefault();
+        handleBlastResume(resumeButton.dataset.blastResume);
       }
       if (cancelButton) {
         event.preventDefault();

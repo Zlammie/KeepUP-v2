@@ -91,7 +91,7 @@ const ContactSchema = new Schema(
       type: String,
       enum: [
         '',
-        'New','Target','Possible','Hot','Negotiation','Be-Back','Cold',
+        'New','Target','Possible','Hot','Negotiating','Be-Back','Cold',
         'Purchased','Closed','Not-Interested','Deal-Lost','Bust'
       ],
       default: 'New'

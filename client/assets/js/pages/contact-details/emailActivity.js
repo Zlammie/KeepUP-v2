@@ -127,7 +127,7 @@ export function initEmailActivity({ contactId } = {}) {
             : 'Active';
       }
       if (pausedBadge) {
-        pausedBadge.classList.toggle('d-none', !data.paused);
+        pausedBadge.classList.toggle('is-hidden', !data.paused);
         if (data.pausedAt) {
           pausedBadge.title = `Automated emails and blasts are paused. Paused at ${formatDateTime(data.pausedAt)}.`;
         } else {

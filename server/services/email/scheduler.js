@@ -366,6 +366,7 @@ async function enqueueEmailJob({
 async function claimNextDueJob({ now = new Date(), workerId = getWorkerId() } = {}) {
   const filter = {
     status: EmailJob.STATUS.QUEUED,
+    lastError: { $ne: 'BLAST_PAUSED' },
     scheduledFor: { $lte: now },
     $or: [
       { nextAttemptAt: { $exists: false } },
@@ -419,16 +420,24 @@ function buildProcessingFilter(jobId, workerId) {
   };
 }
 
-async function markJobQueued(jobId, workerId, { scheduledFor, nextAttemptAt, lastError } = {}) {
+async function markJobQueued(
+  jobId,
+  workerId,
+  { scheduledFor, nextAttemptAt, lastError, attemptsDelta } = {}
+) {
   const updates = {
     status: EmailJob.STATUS.QUEUED,
     lastError: lastError || null,
     nextAttemptAt: nextAttemptAt || null
   };
   if (scheduledFor) updates.scheduledFor = scheduledFor;
+  const updatePayload = { $set: updates, $unset: { processingAt: '', processingBy: '' } };
+  if (attemptsDelta) {
+    updatePayload.$inc = { attempts: attemptsDelta };
+  }
   return EmailJob.updateOne(
     buildProcessingFilter(jobId, workerId),
-    { $set: updates, $unset: { processingAt: '', processingBy: '' } }
+    updatePayload
   );
 }
 
@@ -514,6 +523,7 @@ async function processDueEmailJobs({
     });
 
     const companyKey = String(job.companyId);
+    const jobNow = new Date();
     let settings = settingsCache.get(companyKey);
     if (!settings) {
       settings = await getEmailSettings(job.companyId);
@@ -614,8 +624,6 @@ async function processDueEmailJobs({
       { subject: template.subject, html: template.html, text: template.text },
       mergeData
     );
-
-    const jobNow = new Date();
 
     if (!isWithinAllowedWindow(jobNow, settings)) {
       const nextTime = adjustToAllowedWindow(jobNow, settings);

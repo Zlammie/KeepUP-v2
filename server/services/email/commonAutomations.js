@@ -95,7 +95,7 @@ const COMMON_AUTOMATIONS = [
   {
     key: 'under_contract_checklist',
     title: 'Under Contract Checklist',
-    description: 'When a contact enters Negotiation (Under Contract), send a checklist immediately.',
+    description: 'When a contact enters Negotiating (Under Contract), send a checklist immediately.',
     requiredTemplates: [
       {
         name: 'Under Contract Checklist',
@@ -132,8 +132,8 @@ const COMMON_AUTOMATIONS = [
       }
     ],
     rule: {
-      name: 'Status -> Negotiation: Checklist',
-      trigger: { type: 'contact.status.changed', config: { toStatus: 'Negotiation' } },
+      name: 'Status -> Negotiating: Checklist',
+      trigger: { type: 'contact.status.changed', config: { toStatus: 'Negotiating' } },
       action: {
         type: 'sendEmail',
         templateName: 'Under Contract Checklist',

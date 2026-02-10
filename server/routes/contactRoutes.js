@@ -419,13 +419,13 @@ router.get('/search',
     const q = toStr(req.query.q);
     if (!q) return res.json([]);
     const regex = new RegExp(q, 'i');
-    const results = await Lender.find({
-      ...companyFilter(req),
-      $or: [
-        { firstName: regex },
-        { lastName: regex },
-        { email: regex },
-        { phone: regex }
+      const results = await Contact.find({
+        ...companyFilter(req),
+        $or: [
+          { firstName: regex },
+          { lastName: regex },
+          { email: regex },
+          { phone: regex }
       ]
     }).limit(10).lean();
     res.json(results);

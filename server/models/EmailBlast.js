@@ -6,6 +6,7 @@ const STATUS = Object.freeze({
   DRAFT: 'draft',
   SCHEDULED: 'scheduled',
   SENDING: 'sending',
+  PAUSED: 'paused',
   COMPLETED: 'completed',
   CANCELED: 'canceled'
 });
@@ -46,7 +47,12 @@ const EmailBlastSchema = new Schema(
       lastSendAt: { type: Date, default: null },
       daysSpanned: { type: Number, default: null },
       perDayPlanned: { type: Schema.Types.Mixed, default: null }
-    }
+    },
+    pausedAt: { type: Date, default: null },
+    pausedBy: { type: Schema.Types.ObjectId, ref: 'User', default: null },
+    resumedAt: { type: Date, default: null },
+    resumedBy: { type: Schema.Types.ObjectId, ref: 'User', default: null },
+    lastStateBeforePause: { type: String, default: null }
   },
   { timestamps: true }
 );

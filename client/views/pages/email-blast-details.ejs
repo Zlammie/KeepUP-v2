@@ -23,12 +23,17 @@
     <div class="d-flex flex-wrap justify-content-between align-items-start gap-3 mb-4">
       <div>
         <p class="text-uppercase text-muted fw-semibold small mb-1">Blasts</p>
-        <h1 class="h3 mb-2" data-blast-name>Blast Details</h1>
+        <div class="d-flex align-items-center gap-2 mb-2">
+          <h1 class="h3 mb-0" data-blast-name>Blast Details</h1>
+          <span class="badge bg-light text-dark border text-uppercase" data-blast-status>--</span>
+        </div>
         <p class="text-muted mb-0" data-blast-meta>Loading...</p>
         <p class="text-muted small mb-0" data-blast-pacing hidden></p>
       </div>
       <div class="d-flex gap-2">
         <a class="btn btn-outline-secondary btn-sm" data-open-queue href="#">Open Queue (filtered)</a>
+        <button type="button" class="btn btn-outline-warning btn-sm d-none" data-pause-blast>Pause blast</button>
+        <button type="button" class="btn btn-outline-success btn-sm d-none" data-resume-blast>Resume blast</button>
         <button type="button" class="btn btn-outline-danger btn-sm" data-cancel-blast>Cancel blast</button>
       </div>
     </div>
