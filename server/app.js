@@ -201,11 +201,17 @@ if (enableCsp) {
       'https://cdn.jsdelivr.net'
     ],
     "script-src-attr": ["'none'"],
-    "style-src": ["'self'", "'unsafe-inline'", 'https://cdn.jsdelivr.net'],
+    "style-src": [
+      "'self'",
+      "'unsafe-inline'",
+      'https://cdn.jsdelivr.net',
+      'https://fonts.googleapis.com'
+    ],
     "img-src": ["'self'", 'data:', 'blob:'],
-    "font-src": ["'self'", 'data:'],
+    "font-src": ["'self'", 'data:', 'https://fonts.gstatic.com'],
     "connect-src": Array.from(connectSrc),
     "object-src": ["'none'"],
+    "frame-src": ["'self'", 'https://app.keepupcrm.com'],
     "frame-ancestors": ["'self'"]
   };
 

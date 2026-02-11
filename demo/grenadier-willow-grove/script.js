@@ -5,6 +5,13 @@
   const status = document.querySelector(".dev-toggle-status");
   const mapUrlLabel = document.querySelector(".map-url");
   const toggleButtons = document.querySelectorAll(".dev-toggle [data-mode]");
+  const previewButtons = document.querySelectorAll(
+    ".preview-toolbar [data-preview]"
+  );
+  const previewLabel = document.querySelector("[data-preview-label]");
+  const previewSize = document.querySelector("[data-preview-size]");
+  const previewStorageKey = "keepup-demo-preview";
+  const previewSizeValue = "390x844";
 
   if (!mapWrapper || !iframe || !placeholder) {
     return;
@@ -42,13 +49,87 @@
     resolvedEmbedUrl = embedLocal;
   }
 
-  if (resolvedEmbedUrl && iframe.src !== resolvedEmbedUrl) {
-    iframe.src = resolvedEmbedUrl;
+  const splitUrlParts = (url) => {
+    const [baseWithQuery, hash = ""] = String(url).split("#");
+    const [base, query = ""] = baseWithQuery.split("?");
+    return { base, query, hash };
+  };
+
+  const updateQueryParam = (url, mode) => {
+    if (!url) return "";
+    try {
+      const parsed = new URL(url, window.location.origin);
+      if (mode === "mobile") {
+        parsed.searchParams.set("ui", "mobile");
+      } else {
+        parsed.searchParams.delete("ui");
+      }
+      return parsed.toString();
+    } catch (error) {
+      const { base, query, hash } = splitUrlParts(url);
+      const params = new URLSearchParams(query);
+      if (mode === "mobile") {
+        params.set("ui", "mobile");
+      } else {
+        params.delete("ui");
+      }
+      const qs = params.toString();
+      const hashPart = hash ? `#${hash}` : "";
+      return `${base}${qs ? `?${qs}` : ""}${hashPart}`;
+    }
+  };
+
+  const sanitizeEmbedUrl = (url) => updateQueryParam(url, "desktop");
+
+  const buildEmbedUrl = (url, mode) =>
+    updateQueryParam(url, mode === "mobile" ? "mobile" : "desktop");
+
+  const baseEmbedUrl = sanitizeEmbedUrl(resolvedEmbedUrl);
+  let previewMode = "desktop";
+
+  const setPreviewMode = (mode, persist = true) => {
+    previewMode = mode === "mobile" ? "mobile" : "desktop";
+    document.body.classList.toggle(
+      "is-preview-mobile",
+      previewMode === "mobile"
+    );
+    previewButtons.forEach((button) => {
+      const isActive = button.dataset.preview === previewMode;
+      button.classList.toggle("is-active", isActive);
+    });
+    if (persist) {
+      try {
+        localStorage.setItem(previewStorageKey, previewMode);
+      } catch (error) {
+        // no-op
+      }
+    }
+
+    if (previewLabel) {
+      previewLabel.textContent =
+        previewMode === "mobile" ? "Mobile" : "Desktop";
+    }
+    if (previewSize) {
+      previewSize.textContent = previewSizeValue;
+    }
+
+    const nextEmbedUrl = buildEmbedUrl(baseEmbedUrl, previewMode);
+    if (nextEmbedUrl && iframe.src !== nextEmbedUrl) {
+      iframe.src = nextEmbedUrl;
+    }
+    if (mapUrlLabel && nextEmbedUrl) {
+      mapUrlLabel.textContent = nextEmbedUrl;
+    }
+  };
+
+  try {
+    const stored = localStorage.getItem(previewStorageKey);
+    if (stored) previewMode = stored;
+  } catch (error) {
+    // no-op
   }
 
-  if (mapUrlLabel && resolvedEmbedUrl) {
-    mapUrlLabel.textContent = resolvedEmbedUrl;
-  }
+  setPreviewMode(previewMode, false);
 
   let autoState = "embed";
   let manualState = null;
@@ -115,6 +196,12 @@
     button.addEventListener("click", () => {
       manualState = button.dataset.mode || "embed";
       updateState("toggle");
+    });
+  });
+
+  previewButtons.forEach((button) => {
+    button.addEventListener("click", () => {
+      setPreviewMode(button.dataset.preview || "desktop");
     });
   });
 

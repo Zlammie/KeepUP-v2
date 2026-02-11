@@ -41,33 +41,38 @@
               <div class="zoom-label" data-zoom="label" aria-live="polite">100%</div>
             </div>
             <div class="embed-map-legend-mini status-legend" aria-label="Status legend">
-              <div class="legend-item">
-                <span class="legend-swatch legend-swatch--available" aria-hidden="true"></span>
-                <span class="legend-label">Available</span>
-              </div>
-              <div class="legend-item">
-                <span class="legend-swatch legend-swatch--spec" aria-hidden="true"></span>
-                <span class="legend-label">Spec</span>
-              </div>
-              <div class="legend-item">
-                <span class="legend-swatch legend-swatch--coming-soon" aria-hidden="true"></span>
-                <span class="legend-label">Coming Soon</span>
-              </div>
-              <div class="legend-item">
-                <span class="legend-swatch legend-swatch--hold" aria-hidden="true"></span>
-                <span class="legend-label">Future Homesite</span>
-              </div>
-              <div class="legend-item">
-                <span class="legend-swatch legend-swatch--model" aria-hidden="true"></span>
-                <span class="legend-label">Model</span>
-              </div>
-              <div class="legend-item">
-                <span class="legend-swatch legend-swatch--sold" aria-hidden="true"></span>
-                <span class="legend-label">Sold</span>
-              </div>
-              <div class="legend-item legend-item--closed">
-                <span class="legend-swatch legend-swatch--closed" aria-hidden="true"></span>
-                <span class="legend-label">Closed</span>
+              <button type="button" class="legend-toggle" aria-expanded="true">
+                Legend <span class="legend-toggle__chevron" aria-hidden="true"></span>
+              </button>
+              <div class="legend-list">
+                <div class="legend-item">
+                  <span class="legend-swatch legend-swatch--available" aria-hidden="true"></span>
+                  <span class="legend-label">Available</span>
+                </div>
+                <div class="legend-item">
+                  <span class="legend-swatch legend-swatch--spec" aria-hidden="true"></span>
+                  <span class="legend-label">Spec</span>
+                </div>
+                <div class="legend-item">
+                  <span class="legend-swatch legend-swatch--coming-soon" aria-hidden="true"></span>
+                  <span class="legend-label">Coming Soon</span>
+                </div>
+                <div class="legend-item">
+                  <span class="legend-swatch legend-swatch--hold" aria-hidden="true"></span>
+                  <span class="legend-label">Future Homesite</span>
+                </div>
+                <div class="legend-item">
+                  <span class="legend-swatch legend-swatch--model" aria-hidden="true"></span>
+                  <span class="legend-label">Model</span>
+                </div>
+                <div class="legend-item">
+                  <span class="legend-swatch legend-swatch--sold" aria-hidden="true"></span>
+                  <span class="legend-label">Sold</span>
+                </div>
+                <div class="legend-item legend-item--closed">
+                  <span class="legend-swatch legend-swatch--closed" aria-hidden="true"></span>
+                  <span class="legend-label">Closed</span>
+                </div>
               </div>
             </div>
           </div>
@@ -85,117 +90,150 @@
       </section>
 
       <aside class="embed-map-panel" id="lot-panel">
-        <div class="panel-header">
-          <div class="panel-title" id="lot-title">Select a lot</div>
-          <div class="panel-status" id="lot-status">-</div>
-        </div>
+        <div class="lot-sheet" id="lot-sheet" data-state="collapsed">
+          <button
+            type="button"
+            class="lot-sheet__handle"
+            id="lot-sheet-toggle"
+            aria-expanded="false"
+            aria-controls="lot-sheet-details"
+          >
+            <span class="lot-sheet__grip" aria-hidden="true"></span>
+            <span class="lot-sheet__label">Lot details</span>
+            <span class="lot-sheet__chevron" aria-hidden="true"></span>
+          </button>
 
-        <div class="panel-body">
-          <div class="panel-empty" id="lot-empty">
-            Tap a lot to view details.
+          <div class="lot-sheet__summary" id="lot-summary">
+            <div class="lot-summary__row">
+              <div class="lot-summary__address" id="lot-summary-address">Select a lot</div>
+              <div class="panel-status lot-summary__status" id="lot-summary-status">-</div>
+            </div>
+            <div class="lot-summary__price is-hidden" id="lot-summary-price"></div>
+            <div class="lot-summary__stats is-hidden" id="lot-summary-stats"></div>
+            <a
+              id="lot-summary-wp-link"
+              class="embed-map-button embed-map-button--wp view-home--summary is-hidden"
+              href="#"
+              target="_blank"
+              rel="noopener noreferrer"
+            >
+              View Home
+            </a>
           </div>
-          <div class="panel-details" id="lot-details">
-            <div class="panel-field">
-              <div class="panel-label-row">
-                <div class="panel-label">Floor Plan</div>
-                <a
-                  id="lot-plan-link"
-                  class="panel-link-button is-hidden"
-                  href="#"
-                  target="_blank"
-                  rel="noopener noreferrer"
-                >
-                  View
-                </a>
-              </div>
-              <div class="panel-value" id="lot-plan">-</div>
+
+          <div class="lot-sheet__details" id="lot-sheet-details">
+            <div class="panel-header">
+              <div class="panel-title" id="lot-title">Select a lot</div>
+              <div class="panel-status" id="lot-status">-</div>
             </div>
-            <div class="panel-field">
-              <div class="panel-label">Sq Ft</div>
-              <div class="panel-value" id="lot-sqft">-</div>
+
+            <div class="panel-body" id="lot-panel-body">
+              <div class="panel-empty" id="lot-empty">
+                Tap a lot to view details.
+              </div>
+              <div class="panel-details" id="lot-details">
+                <div class="panel-field">
+                  <div class="panel-label-row">
+                    <div class="panel-label">Floor Plan</div>
+                    <a
+                      id="lot-plan-link"
+                      class="panel-link-button is-hidden"
+                      href="#"
+                      target="_blank"
+                      rel="noopener noreferrer"
+                    >
+                      View
+                    </a>
+                  </div>
+                  <div class="panel-value" id="lot-plan">-</div>
+                </div>
+                <div class="panel-field">
+                  <div class="panel-label">Sq Ft</div>
+                  <div class="panel-value" id="lot-sqft">-</div>
+                </div>
+                <div class="panel-feature-grid">
+                  <div class="panel-feature">
+                    <div class="panel-feature-icon" aria-hidden="true">
+                      <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round">
+                        <path d="M3 12h18"></path>
+                        <path d="M4 12V8a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v4"></path>
+                        <path d="M12 12V8"></path>
+                        <path d="M4 16v-4"></path>
+                        <path d="M20 16v-4"></path>
+                        <path d="M3 16h18"></path>
+                      </svg>
+                    </div>
+                    <div class="panel-value panel-feature-value" id="lot-beds">-</div>
+                    <div class="panel-label panel-feature-label">Beds</div>
+                  </div>
+                  <div class="panel-feature">
+                    <div class="panel-feature-icon" aria-hidden="true">
+                      <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round">
+                        <path d="M4 12h16"></path>
+                        <path d="M6 12v4a2 2 0 0 0 2 2h8a2 2 0 0 0 2-2v-4"></path>
+                        <path d="M8 6v2"></path>
+                        <path d="M6 6h4"></path>
+                      </svg>
+                    </div>
+                    <div class="panel-value panel-feature-value" id="lot-baths">-</div>
+                    <div class="panel-label panel-feature-label">Baths</div>
+                  </div>
+                  <div class="panel-feature">
+                    <div class="panel-feature-icon" aria-hidden="true">
+                      <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round">
+                        <path d="M3 11l9-6 9 6"></path>
+                        <path d="M5 11v8h14v-8"></path>
+                        <path d="M8 19v-4h8v4"></path>
+                      </svg>
+                    </div>
+                    <div class="panel-value panel-feature-value" id="lot-garage">-</div>
+                    <div class="panel-label panel-feature-label">Garage</div>
+                  </div>
+                  <div class="panel-feature">
+                    <div class="panel-feature-icon" aria-hidden="true">
+                      <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round">
+                        <rect x="6" y="4" width="12" height="6" rx="1"></rect>
+                        <rect x="6" y="14" width="12" height="6" rx="1"></rect>
+                        <path d="M9 7h6"></path>
+                        <path d="M9 17h6"></path>
+                      </svg>
+                    </div>
+                    <div class="panel-value panel-feature-value" id="lot-stories">-</div>
+                    <div class="panel-label panel-feature-label">Stories</div>
+                  </div>
+                </div>
+                <div class="panel-field" id="lot-price-field">
+                  <div class="panel-label">Price</div>
+                  <div class="panel-value" id="lot-price">-</div>
+                </div>
+                <div class="panel-center-action">
+                  <a
+                    id="lot-wp-link"
+                    class="embed-map-button embed-map-button--wp view-home--details is-hidden"
+                    href="#"
+                    target="_blank"
+                    rel="noopener noreferrer"
+                  >
+                    View Home
+                  </a>
+                </div>
+              </div>
             </div>
-            <div class="panel-feature-grid">
-              <div class="panel-feature">
-                <div class="panel-feature-icon" aria-hidden="true">
-                  <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round">
-                    <path d="M3 12h18"></path>
-                    <path d="M4 12V8a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v4"></path>
-                    <path d="M12 12V8"></path>
-                    <path d="M4 16v-4"></path>
-                    <path d="M20 16v-4"></path>
-                    <path d="M3 16h18"></path>
-                  </svg>
-                </div>
-                <div class="panel-value panel-feature-value" id="lot-beds">-</div>
-                <div class="panel-label panel-feature-label">Beds</div>
-              </div>
-              <div class="panel-feature">
-                <div class="panel-feature-icon" aria-hidden="true">
-                  <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round">
-                    <path d="M4 12h16"></path>
-                    <path d="M6 12v4a2 2 0 0 0 2 2h8a2 2 0 0 0 2-2v-4"></path>
-                    <path d="M8 6v2"></path>
-                    <path d="M6 6h4"></path>
-                  </svg>
-                </div>
-                <div class="panel-value panel-feature-value" id="lot-baths">-</div>
-                <div class="panel-label panel-feature-label">Baths</div>
-              </div>
-              <div class="panel-feature">
-                <div class="panel-feature-icon" aria-hidden="true">
-                  <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round">
-                    <path d="M3 11l9-6 9 6"></path>
-                    <path d="M5 11v8h14v-8"></path>
-                    <path d="M8 19v-4h8v4"></path>
-                  </svg>
-                </div>
-                <div class="panel-value panel-feature-value" id="lot-garage">-</div>
-                <div class="panel-label panel-feature-label">Garage</div>
-              </div>
-              <div class="panel-feature">
-                <div class="panel-feature-icon" aria-hidden="true">
-                  <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round">
-                    <rect x="6" y="4" width="12" height="6" rx="1"></rect>
-                    <rect x="6" y="14" width="12" height="6" rx="1"></rect>
-                    <path d="M9 7h6"></path>
-                    <path d="M9 17h6"></path>
-                  </svg>
-                </div>
-                <div class="panel-value panel-feature-value" id="lot-stories">-</div>
-                <div class="panel-label panel-feature-label">Stories</div>
-              </div>
-            </div>
-            <div class="panel-field" id="lot-price-field">
-              <div class="panel-label">Price</div>
-              <div class="panel-value" id="lot-price">-</div>
-            </div>
-            <div class="panel-center-action">
+
+            <div class="panel-actions">
               <a
-                id="lot-wp-link"
-                class="embed-map-button embed-map-button--wp is-hidden"
+                id="lot-link"
+                class="embed-map-button"
                 href="#"
                 target="_blank"
                 rel="noopener noreferrer"
               >
-                View Home
+                View Listing
               </a>
+              <div id="lot-wp-url" class="embed-map-url-hint is-hidden"></div>
             </div>
           </div>
         </div>
-
-        <div class="panel-actions">
-          <a
-            id="lot-link"
-            class="embed-map-button"
-            href="#"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            View Listing
-          </a>
-          <div id="lot-wp-url" class="embed-map-url-hint is-hidden"></div>
-        </div>
-
       </aside>
     </div>
   </div>

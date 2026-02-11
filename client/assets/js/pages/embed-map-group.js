@@ -21,6 +21,25 @@ import {
   const zoomOutBtn = document.querySelector('[data-zoom="out"]');
   const zoomResetBtn = document.querySelector('[data-zoom="reset"]');
   const zoomLabel = document.querySelector('[data-zoom="label"]');
+  const sheetEl = document.getElementById('lot-sheet');
+  const sheetToggle = document.getElementById('lot-sheet-toggle');
+  const sheetDetails = document.getElementById('lot-sheet-details');
+  const summaryAddress = document.getElementById('lot-summary-address');
+  const summaryStatus = document.getElementById('lot-summary-status');
+  const summaryPrice = document.getElementById('lot-summary-price');
+  const summaryStats = document.getElementById('lot-summary-stats');
+  const summaryWpLink = document.getElementById('lot-summary-wp-link');
+
+  const params = new URLSearchParams(window.location.search);
+  const uiMode = params.get('ui');
+  if (uiMode === 'mobile') {
+    document.body.classList.add('ui-mobile');
+  }
+
+  let panelMode = 'auto';
+  let hasManualCollapse = false;
+  let hasFirstSelection = false;
+  let lastSelectedId = null;
 
   const lotTitle = document.getElementById('lot-title');
   const lotStatus = document.getElementById('lot-status');
@@ -364,6 +383,20 @@ import {
     zoomLabel.textContent = `${Math.round(viewState.scale * 100)}%`;
   };
 
+  const getSheetOverlap = (frameRect, paddingTop, paddingBottom) => {
+    if (!document.body.classList.contains('ui-mobile')) return 0;
+    if (!sheetEl || sheetEl.dataset.state === 'hidden') return 0;
+    const sheetRect = sheetEl.getBoundingClientRect();
+    if (!sheetRect.height) return 0;
+    const contentTop = frameRect.top + paddingTop;
+    const contentBottom = frameRect.bottom - paddingBottom;
+    if (sheetRect.top >= contentBottom) return 0;
+    if (sheetRect.bottom <= contentTop) return 0;
+    const overlap = contentBottom - sheetRect.top;
+    const maxOverlap = Math.max(0, contentBottom - contentTop);
+    return Math.max(0, Math.min(overlap, maxOverlap));
+  };
+
   const updateFrameMetrics = () => {
     if (!frameEl) return;
     const rect = frameEl.getBoundingClientRect();
@@ -372,14 +405,23 @@ import {
     const paddingTop = Number.parseFloat(styles.paddingTop) || 0;
     const paddingRight = Number.parseFloat(styles.paddingRight) || 0;
     const paddingBottom = Number.parseFloat(styles.paddingBottom) || 0;
+    const visibleHeight = rect.height - paddingTop - paddingBottom;
+    const overlap = getSheetOverlap(rect, paddingTop, paddingBottom);
     viewState.frame.left = rect.left;
     viewState.frame.top = rect.top;
     viewState.frame.width = rect.width - paddingLeft - paddingRight;
-    viewState.frame.height = rect.height - paddingTop - paddingBottom;
+    viewState.frame.height = Math.max(0, visibleHeight - overlap);
     viewState.frame.paddingLeft = paddingLeft;
     viewState.frame.paddingTop = paddingTop;
     viewState.frame.paddingRight = paddingRight;
     viewState.frame.paddingBottom = paddingBottom;
+  };
+
+  const refreshFrameClamp = () => {
+    if (!frameEl || !stageEl) return;
+    updateFrameMetrics();
+    clampTranslate();
+    applyTransform();
   };
 
   const clampScale = (value) => Math.min(MAX_SCALE, Math.max(MIN_SCALE, value));
@@ -482,6 +524,12 @@ import {
     viewState.hasInitialView = true;
   };
 
+  const collapseSheetIfExpanded = () => {
+    if (!document.body.classList.contains('ui-mobile')) return;
+    if (sheetEl?.dataset?.state !== 'expanded') return;
+    setSheetState('collapsed');
+  };
+
   const initPanZoom = () => {
     if (!frameEl || !stageEl) return;
     if (updateBounds()) {
@@ -492,6 +540,7 @@ import {
     const handlePointerDown = (event) => {
       if (event.button && event.button !== 0) return;
       if (event.target.closest('.embed-map-zoom')) return;
+      collapseSheetIfExpanded();
       updateFrameMetrics();
       const point = getFramePoint(event);
       viewState.pointers.set(event.pointerId, point);
@@ -606,15 +655,20 @@ import {
 
     zoomInBtn?.addEventListener('click', () => {
       if (!updateBounds()) return;
+      collapseSheetIfExpanded();
       zoomToPoint(viewState.scale + ZOOM_STEP, getFrameCenter());
       sharpenMap();
     });
     zoomOutBtn?.addEventListener('click', () => {
       if (!updateBounds()) return;
+      collapseSheetIfExpanded();
       zoomToPoint(viewState.scale - ZOOM_STEP, getFrameCenter());
       sharpenMap();
     });
-    zoomResetBtn?.addEventListener('click', () => resetView(true));
+    zoomResetBtn?.addEventListener('click', () => {
+      collapseSheetIfExpanded();
+      resetView(true);
+    });
 
     window.addEventListener('resize', () => {
       if (!updateBounds()) return;
@@ -660,27 +714,81 @@ import {
     if (lotLink) lotLink.classList.add('is-hidden');
     if (lotWpLink) lotWpLink.classList.add('is-hidden');
     if (lotWpUrl) lotWpUrl.classList.add('is-hidden');
+    if (summaryAddress) summaryAddress.textContent = title;
+    if (summaryStatus) {
+      summaryStatus.textContent = '-';
+      delete summaryStatus.dataset.status;
+    }
+    if (summaryPrice) {
+      summaryPrice.textContent = '';
+      summaryPrice.classList.add('is-hidden');
+    }
+    if (summaryStats) {
+      summaryStats.textContent = '';
+      summaryStats.classList.add('is-hidden');
+    }
+    if (summaryWpLink) summaryWpLink.classList.add('is-hidden');
+    setSheetState('collapsed');
+  };
+
+  const setSheetState = (state, options = {}) => {
+    if (!sheetEl) return;
+    const nextState = ['collapsed', 'expanded', 'hidden'].includes(state)
+      ? state
+      : 'collapsed';
+    sheetEl.dataset.state = nextState;
+    if (sheetToggle) {
+      sheetToggle.setAttribute('aria-expanded', nextState === 'expanded' ? 'true' : 'false');
+    }
+    if (sheetDetails) {
+      sheetDetails.setAttribute('aria-hidden', nextState === 'expanded' ? 'false' : 'true');
+    }
+    if (options.manual) {
+      panelMode = 'manual';
+      if (nextState === 'collapsed') {
+        hasManualCollapse = true;
+      }
+    }
+    refreshFrameClamp();
   };
 
   const updateWpLink = (entry) => {
-    if (!lotWpLink) return;
+    if (!lotWpLink && !summaryWpLink) return;
     const address = String(entry?.address || '').trim();
     const hasLink = hasViewHomeLink(entry);
     if (!wpCommunitySlug || !address || !hasLink) {
-      lotWpLink.classList.add('is-hidden');
-      lotWpLink.dataset.url = '';
+      if (lotWpLink) {
+        lotWpLink.classList.add('is-hidden');
+        lotWpLink.dataset.url = '';
+      }
+      if (summaryWpLink) {
+        summaryWpLink.classList.add('is-hidden');
+        summaryWpLink.dataset.url = '';
+      }
       if (lotWpUrl) lotWpUrl.classList.add('is-hidden');
       return;
     }
     const url = buildWpInventoryUrl({ wpCommunitySlug, address });
     if (!url) {
-      lotWpLink.classList.add('is-hidden');
-      lotWpLink.dataset.url = '';
+      if (lotWpLink) {
+        lotWpLink.classList.add('is-hidden');
+        lotWpLink.dataset.url = '';
+      }
+      if (summaryWpLink) {
+        summaryWpLink.classList.add('is-hidden');
+        summaryWpLink.dataset.url = '';
+      }
       if (lotWpUrl) lotWpUrl.classList.add('is-hidden');
       return;
     }
-    lotWpLink.dataset.url = url;
-    lotWpLink.classList.remove('is-hidden');
+    if (lotWpLink) {
+      lotWpLink.dataset.url = url;
+      lotWpLink.classList.remove('is-hidden');
+    }
+    if (summaryWpLink) {
+      summaryWpLink.dataset.url = url;
+      summaryWpLink.classList.remove('is-hidden');
+    }
     if (lotWpUrl) {
       if (showWpUrlHint) {
         lotWpUrl.textContent = url;
@@ -691,10 +799,36 @@ import {
     }
   };
 
-  const renderLotPanel = (entry) => {
+  const buildSummaryStats = (entry) => {
+    const parts = [];
+    const beds = Number(entry?.beds);
+    const baths = Number(entry?.baths);
+    const sqft = Number(entry?.squareFeet);
+    if (Number.isFinite(beds) && beds > 0) parts.push(`${formatNumber(beds)} Beds`);
+    if (Number.isFinite(baths) && baths > 0) parts.push(`${formatNumber(baths)} Baths`);
+    if (Number.isFinite(sqft) && sqft > 0) parts.push(`${formatNumber(sqft)} Sq Ft`);
+    return parts.join(' • ');
+  };
+
+  const renderLotPanel = (entry, regionId = null) => {
     if (!entry) {
       showEmptyPanel('No lot selected');
       return;
+    }
+    const selectionKey = regionId || entry?.id || entry?.lotId || null;
+    const selectionChanged = Boolean(selectionKey && selectionKey !== lastSelectedId);
+    const isFirstSelection = !hasFirstSelection;
+    const shouldAutoExpand =
+      !hasManualCollapse ||
+      isFirstSelection ||
+      (selectionChanged && panelMode === 'auto');
+
+    if (shouldAutoExpand) {
+      setSheetState('expanded');
+    }
+    hasFirstSelection = true;
+    if (selectionKey) {
+      lastSelectedId = selectionKey;
     }
     const labelText = entry.address || 'Selected lot';
     if (lotTitle) lotTitle.textContent = labelText;
@@ -703,6 +837,15 @@ import {
       lotStatus.textContent = formatStatus(entry.status) || '-';
       if (statusKey) lotStatus.dataset.status = statusKey;
       else delete lotStatus.dataset.status;
+    }
+    if (summaryAddress) {
+      summaryAddress.textContent = entry.address || 'Selected lot';
+    }
+    if (summaryStatus) {
+      const statusKey = normalizeStatus(entry.status);
+      summaryStatus.textContent = formatStatus(entry.status) || '-';
+      if (statusKey) summaryStatus.dataset.status = statusKey;
+      else delete summaryStatus.dataset.status;
     }
     if (lotAddress) lotAddress.textContent = entry.address || '-';
     if (lotPlan) {
@@ -729,6 +872,17 @@ import {
       const hasPrice = Number.isFinite(priceVal) && priceVal > 0;
       lotPrice.textContent = hasPrice ? formatCurrency(priceVal) : 'Contact for Pricing';
       lotPrice.classList.toggle('price-none', !hasPrice);
+    }
+    if (summaryPrice) {
+      const priceVal = Number(entry.price);
+      const hasPrice = Number.isFinite(priceVal) && priceVal > 0;
+      summaryPrice.textContent = hasPrice ? formatCurrency(priceVal) : 'Contact for Pricing';
+      summaryPrice.classList.toggle('is-hidden', false);
+    }
+    if (summaryStats) {
+      const statsText = buildSummaryStats(entry);
+      summaryStats.textContent = statsText;
+      summaryStats.classList.toggle('is-hidden', !statsText);
     }
     if (lotPriceField) {
       const showPrice = shouldShowPrice(entry.status);
@@ -935,7 +1089,7 @@ import {
         if (activeShape && activeShape !== shape) activeShape.classList.remove('lot-selected');
         activeShape = shape;
         shape.classList.add('lot-selected');
-        renderLotPanel(entry);
+        renderLotPanel(entry, regionId);
       });
     });
 
@@ -1037,8 +1191,119 @@ import {
     event.preventDefault();
     window.open(url, '_blank', 'noopener,noreferrer');
   });
+  summaryWpLink?.addEventListener('click', (event) => {
+    const url = summaryWpLink.dataset.url;
+    if (!url) return;
+    event.preventDefault();
+    window.open(url, '_blank', 'noopener,noreferrer');
+  });
 
+  const initLegendToggle = () => {
+    const legendEl = document.querySelector('.embed-map-legend-mini');
+    if (!legendEl) return;
+    const toggle = legendEl.querySelector('.legend-toggle');
+    const list = legendEl.querySelector('.legend-list');
+    if (!toggle || !list) return;
+
+    const storageKey = 'embed-map-legend-collapsed';
+    const prefersMobile = () => (
+      document.body.classList.contains('ui-mobile') ||
+      window.matchMedia('(max-width: 768px)').matches
+    );
+
+    const readStored = () => {
+      try {
+        const value = localStorage.getItem(storageKey);
+        if (value == null) return null;
+        return value === '1';
+      } catch (_) {
+        return null;
+      }
+    };
+
+    const applyState = (collapsed, persist = false) => {
+      legendEl.classList.toggle('is-collapsed', collapsed);
+      toggle.setAttribute('aria-expanded', collapsed ? 'false' : 'true');
+      if (persist) {
+        try {
+          localStorage.setItem(storageKey, collapsed ? '1' : '0');
+        } catch (_) {
+          // Ignore storage issues (private mode, etc).
+        }
+      }
+    };
+
+    const syncFromViewport = () => {
+      if (!prefersMobile()) {
+        applyState(false);
+        return;
+      }
+      const stored = readStored();
+      applyState(stored ?? true);
+    };
+
+    syncFromViewport();
+
+    toggle.addEventListener('click', () => {
+      const nextCollapsed = !legendEl.classList.contains('is-collapsed');
+      applyState(nextCollapsed, true);
+    });
+
+    const mql = window.matchMedia('(max-width: 768px)');
+    const handleResize = () => {
+      if (!prefersMobile()) {
+        applyState(false);
+        return;
+      }
+      const stored = readStored();
+      if (stored == null) return;
+      applyState(stored);
+    };
+    if (mql?.addEventListener) {
+      mql.addEventListener('change', handleResize);
+    } else if (mql?.addListener) {
+      mql.addListener(handleResize);
+    }
+    window.addEventListener('resize', handleResize);
+  };
+
+  initLegendToggle();
   applyStyleMode('status');
+  let sheetDragStart = null;
+  let sheetDragHandled = false;
+
+  const handleSheetToggle = () => {
+    const nextState = sheetEl?.dataset?.state === 'expanded' ? 'collapsed' : 'expanded';
+    setSheetState(nextState, { manual: true });
+  };
+
+  sheetToggle?.addEventListener('click', (event) => {
+    if (sheetDragHandled) {
+      sheetDragHandled = false;
+      return;
+    }
+    event.preventDefault();
+    handleSheetToggle();
+  });
+  sheetToggle?.addEventListener('pointerdown', (event) => {
+    sheetDragStart = event.clientY;
+    sheetDragHandled = false;
+    sheetToggle.setPointerCapture?.(event.pointerId);
+  });
+  sheetToggle?.addEventListener('pointerup', (event) => {
+    if (sheetDragStart == null) return;
+    const delta = event.clientY - sheetDragStart;
+    sheetDragStart = null;
+    if (Math.abs(delta) < 24) return;
+    sheetDragHandled = true;
+    setSheetState(delta < 0 ? 'expanded' : 'collapsed', { manual: true });
+  });
+  sheetToggle?.addEventListener('pointercancel', () => {
+    sheetDragStart = null;
+    sheetDragHandled = false;
+  });
+
+  setSheetState('collapsed');
   initPanZoom();
   init();
 })();

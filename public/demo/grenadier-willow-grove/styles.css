@@ -13,6 +13,7 @@
   --header-offset: 86px;
   --sticky-offset: 160px;
   --map-height: 75vh;
+  --map-min-height: 520px;
   --radius: 18px;
   --shadow: 0 18px 40px rgba(44, 35, 28, 0.15);
   --max-width: 1200px;
@@ -21,6 +22,7 @@
 @media (max-width: 900px) {
   :root {
     --map-height: 60vh;
+    --map-min-height: 420px;
   }
 }
 
@@ -816,7 +818,7 @@ h3 {
   position: relative;
   width: 100%;
   height: var(--map-height);
-  min-height: 420px;
+  min-height: var(--map-min-height);
   max-height: 860px;
   border-radius: calc(var(--radius) + 4px);
   overflow: hidden;
@@ -1001,7 +1003,7 @@ h3 {
 
 .dev-toggle {
   position: fixed;
-  top: 18px;
+  top: 128px;
   right: 18px;
   z-index: 50;
   background: rgba(47, 42, 36, 0.88);
@@ -1039,6 +1041,126 @@ h3 {
 .dev-toggle-status {
   margin-top: 8px;
   color: rgba(255, 255, 255, 0.75);
+}
+
+.preview-toolbar {
+  position: fixed;
+  top: 18px;
+  right: 18px;
+  z-index: 55;
+  background: rgba(255, 255, 255, 0.92);
+  color: #2f2a24;
+  padding: 12px 14px;
+  border-radius: 12px;
+  box-shadow: 0 10px 24px rgba(23, 20, 17, 0.18);
+  border: 1px solid rgba(196, 178, 158, 0.35);
+  font-size: 0.85rem;
+  backdrop-filter: blur(6px);
+}
+
+.preview-toolbar-title {
+  font-weight: 600;
+  margin-bottom: 8px;
+}
+
+.preview-toolbar-buttons {
+  display: grid;
+  gap: 8px;
+}
+
+.preview-toolbar button {
+  background: #fff;
+  color: #2f2a24;
+  border: 1px solid rgba(196, 178, 158, 0.5);
+  padding: 6px 12px;
+  border-radius: 999px;
+  cursor: pointer;
+  font-size: 0.85rem;
+  font-weight: 600;
+}
+
+.preview-toolbar button.is-active {
+  background: #2f2a24;
+  color: #fff;
+  border-color: #2f2a24;
+}
+
+.preview-toolbar-status {
+  margin-top: 8px;
+  font-size: 0.8rem;
+  color: #4b5563;
+  display: flex;
+  gap: 6px;
+  flex-wrap: wrap;
+}
+
+.preview-toolbar-size {
+  display: none;
+  font-weight: 600;
+  color: #2f2a24;
+}
+
+body.is-preview-mobile .preview-toolbar-size {
+  display: inline-flex;
+}
+
+.preview-dim {
+  position: fixed;
+  inset: 0;
+  background: rgba(15, 23, 42, 0.25);
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 0.25s ease;
+  z-index: 30;
+}
+
+.preview-shell {
+  position: relative;
+}
+
+.preview-device {
+  width: 100%;
+}
+
+.preview-placeholder {
+  display: none;
+}
+
+body.is-preview-mobile .preview-dim {
+  opacity: 1;
+}
+
+body.is-preview-mobile .preview-shell {
+  position: fixed;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  z-index: 40;
+}
+
+body.is-preview-mobile .preview-device {
+  width: min(390px, 92vw);
+  height: min(844px, 92vh);
+  background: #1f1f1f;
+  border-radius: 28px;
+  padding: 12px;
+  border: 1px solid rgba(255, 255, 255, 0.15);
+  box-shadow: 0 18px 50px rgba(15, 23, 42, 0.35);
+}
+
+body.is-preview-mobile .preview-device .map-wrapper {
+  height: 100%;
+  min-height: 100%;
+  max-height: 100%;
+  border-radius: 20px;
+  box-shadow: none;
+  border: none;
+}
+
+body.is-preview-mobile .preview-placeholder {
+  display: block;
+  height: var(--map-height);
+  min-height: var(--map-min-height);
 }
 
 @media (max-width: 900px) {
@@ -1118,6 +1240,11 @@ h3 {
   }
 
   .dev-toggle {
+    position: static;
+    margin: 16px;
+  }
+
+  .preview-toolbar {
     position: static;
     margin: 16px;
   }

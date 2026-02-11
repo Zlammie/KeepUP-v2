@@ -21,6 +21,20 @@
       </div>
       <div class="dev-toggle-status">State: Auto</div>
     </div>
+    <div class="preview-toolbar" role="region" aria-label="Embed preview mode">
+      <div class="preview-toolbar-title">Preview</div>
+      <div class="preview-toolbar-buttons">
+        <button type="button" data-preview="desktop" class="is-active">
+          Desktop
+        </button>
+        <button type="button" data-preview="mobile">Mobile</button>
+      </div>
+      <div class="preview-toolbar-status">
+        Mode: <span data-preview-label>Desktop</span>
+        <span class="preview-toolbar-size" data-preview-size>390x844</span>
+      </div>
+    </div>
+    <div class="preview-dim" aria-hidden="true"></div>
 
     <header class="site-header">
       <div class="container header-inner">
@@ -327,33 +341,38 @@
                   embedded map.
                 </p>
               </div>
-              <div class="map-wrapper" data-state="embed">
-                <iframe
-                  class="map-embed"
-                  title="Willow Grove community map"
-                  src="https://app.keepupcrm.com/embed/map-group/willow-grove"
-                  data-embed-default="https://app.keepupcrm.com/embed/map-group/willow-grove"
-                  data-embed-local="http://localhost:3000/embed/map-group/willow-grove"
-                  loading="lazy"
-                  scrolling="no"
-                  allowfullscreen
-                ></iframe>
-                <img
-                  class="map-placeholder"
-                  src="assets/map-placeholder.jpg"
-                  alt="Community map placeholder"
-                />
-                <div class="map-placeholder-overlay" aria-hidden="true">
-                  <div>
-                    <div class="map-placeholder-title">
-                      Map preview unavailable
-                    </div>
-                    <div class="map-placeholder-sub">
-                      Showing a placeholder while the embed loads.
+              <div class="preview-shell">
+                <div class="preview-device">
+                  <div class="map-wrapper" data-state="embed">
+                    <iframe
+                      class="map-embed"
+                      title="Willow Grove community map"
+                      src="https://app.keepupcrm.com/embed/map-group/willow-grove"
+                      data-embed-default="https://app.keepupcrm.com/embed/map-group/willow-grove"
+                      data-embed-local="http://localhost:3000/embed/map-group/willow-grove"
+                      loading="lazy"
+                      scrolling="no"
+                      allowfullscreen
+                    ></iframe>
+                    <img
+                      class="map-placeholder"
+                      src="assets/map-placeholder.jpg"
+                      alt="Community map placeholder"
+                    />
+                    <div class="map-placeholder-overlay" aria-hidden="true">
+                      <div>
+                        <div class="map-placeholder-title">
+                          Map preview unavailable
+                        </div>
+                        <div class="map-placeholder-sub">
+                          Showing a placeholder while the embed loads.
+                        </div>
+                      </div>
                     </div>
                   </div>
                 </div>
               </div>
+              <div class="preview-placeholder" aria-hidden="true"></div>
               <div class="map-meta">
                 Embed source:
                 <span class="map-url"
