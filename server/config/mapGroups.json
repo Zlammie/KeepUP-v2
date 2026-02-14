@@ -1,13 +1,15 @@
 {
+  "defaults": {
+    "features": {
+      "enableStatusFilter": false,
+      "enableFloorPlanFilter": true,
+      "enableStatusColorMode": true,
+      "enableFloorPlanColorMode": false
+    }
+  },
   "groups": {
     "willow-grove": {
       "baseMapCommunityId": "6960686cb3c0c05ae4e73497",
-      "features": {
-        "enableStatusFilter": false,
-        "enableFloorPlanFilter": true,
-        "enableStatusColorMode": true,
-        "enableFloorPlanColorMode": false
-      },
       "layers": [
         {
           "key": "townhomes",

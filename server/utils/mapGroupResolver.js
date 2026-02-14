@@ -165,10 +165,13 @@ const loadMapGroupConfig = () => {
 
 const getMapGroupConfig = (groupSlug) => {
   const slug = normalizeSlug(groupSlug);
-  if (!slug) return null;
+  if (!slug) return { group: null, defaults: {} };
   const cfg = loadMapGroupConfig();
   const groups = cfg?.groups || {};
-  return groups[slug] || null;
+  return {
+    group: groups[slug] || null,
+    defaults: cfg?.defaults || {}
+  };
 };
 
 const buildSlugPrefixRegex = (slug) => {
@@ -570,13 +573,13 @@ const fetchCommunityForLayer = async (communityId) => {
     .lean();
 };
 
-const buildPackageFromGroup = async (groupSlug, group, baseManifest) => {
+const buildPackageFromGroup = async (groupSlug, group, baseManifest, baseFeatures = null) => {
   const baseCommunityId = group.baseMapCommunityId;
   const links = loadLinks(baseCommunityId, baseManifest);
   const usedRegions = new Set();
   const statusPalette = await resolveStatusPalette(baseCommunityId);
-  // Defaults preserve legacy embeds; group config can selectively disable features per client.
-  const groupFeatures = resolveEmbedFeatures(group?.features);
+  // Defaults preserve legacy embeds; config can selectively disable features.
+  const groupFeatures = resolveEmbedFeatures(baseFeatures, group?.features);
 
   const layers = [];
   let resolvedLayerCount = 0;
@@ -626,7 +629,9 @@ const buildPackageFromGroup = async (groupSlug, group, baseManifest) => {
 };
 
 const buildMapGroupPackage = async (groupSlug) => {
-  let group = getMapGroupConfig(groupSlug);
+  const config = getMapGroupConfig(groupSlug);
+  const defaultFeatures = resolveEmbedFeatures(config?.defaults?.features);
+  let group = config?.group;
   let usedAuto = false;
   if (!group) {
     group = await buildAutoGroupConfig(groupSlug);
@@ -651,14 +656,24 @@ const buildMapGroupPackage = async (groupSlug) => {
   }
   if (!baseManifest?.overlayFile) return { error: 'Map not found for base community' };
 
-  const { payload, resolvedLayerCount } = await buildPackageFromGroup(groupSlug, group, baseManifest);
+  const { payload, resolvedLayerCount } = await buildPackageFromGroup(
+    groupSlug,
+    group,
+    baseManifest,
+    defaultFeatures
+  );
 
   if (!usedAuto && resolvedLayerCount === 0) {
     const autoGroup = await buildAutoGroupConfig(groupSlug);
     if (autoGroup?.baseMapCommunityId) {
       const autoManifest = readMapManifest(autoGroup.baseMapCommunityId);
       if (autoManifest?.overlayFile) {
-        const autoResult = await buildPackageFromGroup(groupSlug, autoGroup, autoManifest);
+        const autoResult = await buildPackageFromGroup(
+          groupSlug,
+          autoGroup,
+          autoManifest,
+          defaultFeatures
+        );
         if (autoResult.resolvedLayerCount > 0) {
           return autoResult.payload;
         }
