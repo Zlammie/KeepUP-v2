@@ -1,0 +1,10 @@
+{
+  "defaults": {
+    "features": {
+      "enableStatusFilter": false,
+      "enableFloorPlanFilter": true,
+      "enableStatusColorMode": true,
+      "enableFloorPlanColorMode": false
+    }
+  }
+}

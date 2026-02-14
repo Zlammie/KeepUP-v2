@@ -43,6 +43,18 @@ const buildLotKey = (lotNumber, block, phase) => {
   return `${lot}|${blk}|${ph}`;
 };
 
+const embedMapsConfigPath = path.join(__dirname, '..', 'config', 'embedMaps.json');
+const loadEmbedMapDefaults = () => {
+  if (!fs.existsSync(embedMapsConfigPath)) return {};
+  try {
+    const raw = fs.readFileSync(embedMapsConfigPath, 'utf8');
+    return JSON.parse(raw) || {};
+  } catch (err) {
+    console.warn('[embed-map] Failed to read embedMaps.json', err);
+    return {};
+  }
+};
+
 const readMapManifest = (communityId) => {
   const dir = path.join(mapsBaseDir, String(communityId));
   const manifestPath = path.join(dir, 'manifest.json');
@@ -566,8 +578,9 @@ router.get(['/maps/:communitySlug/package', '/maps/package'], async (req, res) =
       const company = await Company.findById(community.company).select('mapStatusPalette').lean();
       statusPalette = normalizeStatusPalette(company?.mapStatusPalette || {});
     }
-    // Defaults preserve existing embeds unless manifest features are provided.
-    const features = resolveEmbedFeatures(manifest?.features);
+    // Defaults preserve existing embeds unless config/manifest features are provided.
+    const embedDefaults = loadEmbedMapDefaults();
+    const features = resolveEmbedFeatures(embedDefaults?.defaults?.features, manifest?.features);
     const response = {
       community: {
         id: community._id ? String(community._id) : '',
