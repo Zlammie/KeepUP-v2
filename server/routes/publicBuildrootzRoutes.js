@@ -7,6 +7,7 @@ const Community = require('../models/Community');
 const Company = require('../models/Company');
 const FloorPlan = require('../models/FloorPlan');
 const { buildMapGroupPackage } = require('../utils/mapGroupResolver');
+const { resolveEmbedFeatures } = require('../utils/embedFeatures');
 
 const router = express.Router();
 
@@ -48,6 +49,7 @@ const readMapManifest = (communityId) => {
   if (!fs.existsSync(manifestPath)) return null;
   const data = JSON.parse(fs.readFileSync(manifestPath, 'utf8'));
   const files = data?.files || {};
+  const features = data?.features && typeof data.features === 'object' ? data.features : null;
   const overlayFiles = Array.isArray(files.overlays) && files.overlays.length
     ? files.overlays
     : (files.overlay ? [files.overlay] : []);
@@ -55,7 +57,8 @@ const readMapManifest = (communityId) => {
     basePath: `/public/maps/communities/${communityId}`,
     overlayFile: overlayFiles[0] || null,
     backgroundFile: files.background || null,
-    linksFile: files.links || null
+    linksFile: files.links || null,
+    features
   };
 };
 
@@ -563,6 +566,8 @@ router.get(['/maps/:communitySlug/package', '/maps/package'], async (req, res) =
       const company = await Company.findById(community.company).select('mapStatusPalette').lean();
       statusPalette = normalizeStatusPalette(company?.mapStatusPalette || {});
     }
+    // Defaults preserve existing embeds unless manifest features are provided.
+    const features = resolveEmbedFeatures(manifest?.features);
     const response = {
       community: {
         id: community._id ? String(community._id) : '',
@@ -570,6 +575,7 @@ router.get(['/maps/:communitySlug/package', '/maps/package'], async (req, res) =
         slug: communitySlug,
         planPalette
       },
+      features,
       map: {
         backgroundUrl: manifest.backgroundFile ? `${manifest.basePath}/${manifest.backgroundFile}` : null,
         overlaySvgUrl: manifest.overlayFile ? `${manifest.basePath}/${manifest.overlayFile}` : null

@@ -4,6 +4,7 @@ const mongoose = require('mongoose');
 const Community = require('../models/Community');
 const Company = require('../models/Company');
 const FloorPlan = require('../models/FloorPlan');
+const { resolveEmbedFeatures } = require('./embedFeatures');
 
 const mapGroupsPath = path.join(__dirname, '..', 'config', 'mapGroups.json');
 const mapsBaseDir = path.join(process.cwd(), 'public', 'maps', 'communities');
@@ -574,6 +575,8 @@ const buildPackageFromGroup = async (groupSlug, group, baseManifest) => {
   const links = loadLinks(baseCommunityId, baseManifest);
   const usedRegions = new Set();
   const statusPalette = await resolveStatusPalette(baseCommunityId);
+  // Defaults preserve legacy embeds; group config can selectively disable features per client.
+  const groupFeatures = resolveEmbedFeatures(group?.features);
 
   const layers = [];
   let resolvedLayerCount = 0;
@@ -589,10 +592,12 @@ const buildPackageFromGroup = async (groupSlug, group, baseManifest) => {
       layer.key,
       floorPlanMap
     );
+    const layerFeatures = resolveEmbedFeatures(groupFeatures, layer?.features);
     layers.push({
       key: layer.key,
       label: layer.label,
       communityId: layerCommunity?._id ? String(layerCommunity._id) : '',
+      features: layerFeatures,
       planPalette: normalizePlanPalette(layerCommunity?.planPalette || {}),
       lotIds: layerLots.lotIds,
       lotsById: layerLots.lotsById
@@ -604,6 +609,7 @@ const buildPackageFromGroup = async (groupSlug, group, baseManifest) => {
       group: {
         slug: slugify(groupSlug)
       },
+      features: groupFeatures,
       baseMap: {
         backgroundUrl: baseManifest.backgroundFile
           ? `${baseManifest.basePath}/${baseManifest.backgroundFile}`

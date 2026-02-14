@@ -4,6 +4,7 @@ import {
   resolveWpCommunitySlug,
   shouldShowWpUrlHint
 } from '../shared/wpInventory.js';
+import { resolveEmbedFeatures, resolveStyleMode } from '../shared/embedFeatures.js';
 
 (() => {
   const root = document.getElementById('embed-root');
@@ -14,6 +15,7 @@ import {
   const stageEl = document.getElementById('map-stage');
   const frameEl = document.getElementById('map-frame');
   const styleToggleEl = document.getElementById('map-style-toggle');
+  const styleFilterGroupEl = styleToggleEl?.closest('.embed-map-filter-group');
   const styleNonce = root?.dataset?.cspNonce || '';
   const zoomInBtn = frameEl?.querySelector('[data-zoom="in"]');
   const zoomOutBtn = frameEl?.querySelector('[data-zoom="out"]');
@@ -27,6 +29,68 @@ import {
   const summaryPrice = document.getElementById('lot-summary-price');
   const summaryStats = document.getElementById('lot-summary-stats');
   const summaryWpLink = document.getElementById('lot-summary-wp-link');
+
+  const parseFeatureData = (value) => {
+    if (!value) return null;
+    try {
+      return JSON.parse(value);
+    } catch (_) {
+      return null;
+    }
+  };
+
+  const readStorageValue = (key) => {
+    try {
+      return localStorage.getItem(key);
+    } catch (_) {
+      return null;
+    }
+  };
+
+  const writeStorageValue = (key, value) => {
+    try {
+      localStorage.setItem(key, value);
+    } catch (_) {
+      // Ignore storage failures (private mode, etc).
+    }
+  };
+
+  const getStyleStorageKey = (slug) => (
+    slug ? `embed-map-style-mode:${slug}` : 'embed-map-style-mode'
+  );
+
+  const isStyleModeAllowed = (mode, features) => {
+    if (mode === 'plan') return Boolean(features?.enableFloorPlanColorMode);
+    if (mode === 'status') return Boolean(features?.enableStatusColorMode);
+    return false;
+  };
+
+  // Defaults preserve legacy embeds; feature config can disable plan/color toggles per client.
+  let embedFeatures = resolveEmbedFeatures(parseFeatureData(root?.dataset?.features));
+
+  const applyEmbedFeatures = (features) => {
+    if (!styleToggleEl) return;
+    const planToggle = styleToggleEl.querySelector('[data-style="plan"]');
+    const statusToggle = styleToggleEl.querySelector('[data-style="status"]');
+    if (planToggle && !features.enableFloorPlanColorMode) planToggle.remove();
+    if (statusToggle && (!features.enableStatusFilter || !features.enableStatusColorMode)) {
+      statusToggle.remove();
+    }
+    const hasStyleToggle = Boolean(styleToggleEl.querySelector('[data-style]'));
+    if (!hasStyleToggle && styleFilterGroupEl) {
+      styleFilterGroupEl.remove();
+    }
+  };
+
+  const applyInitialStyleMode = (slug, features) => {
+    const storageKey = getStyleStorageKey(slug);
+    const storedMode = readStorageValue(storageKey);
+    const { next } = resolveStyleMode(storedMode, features);
+    if (next !== storedMode) {
+      writeStorageValue(storageKey, next);
+    }
+    applyStyleMode(next);
+  };
 
   const params = new URLSearchParams(window.location.search);
   const uiMode = params.get('ui');
@@ -1024,6 +1088,9 @@ import {
       const pkg = await loadPackage(slug);
       const communityName = pkg?.community?.name || 'Community map';
       if (communityNameEl) communityNameEl.textContent = communityName;
+      embedFeatures = resolveEmbedFeatures(embedFeatures, pkg?.features);
+      applyEmbedFeatures(embedFeatures);
+      applyInitialStyleMode(slug, embedFeatures);
       const statusPalette = normalizeStatusPalette(pkg?.statusPalette || {});
       applyStatusPalette(statusPalette);
       const serverPalette = normalizePalette(pkg?.community?.planPalette || pkg?.planPalette || {});
@@ -1070,7 +1137,9 @@ import {
     if (!(target instanceof HTMLElement)) return;
     const mode = target.dataset.style;
     if (!mode) return;
+    if (!isStyleModeAllowed(mode, embedFeatures)) return;
     applyStyleMode(mode);
+    writeStorageValue(getStyleStorageKey(getCommunitySlug()), mode);
   });
 
   lotWpLink?.addEventListener('click', (event) => {
@@ -1156,7 +1225,6 @@ import {
   };
 
   initLegendToggle();
-  applyStyleMode('status');
   let sheetDragStart = null;
   let sheetDragHandled = false;
 

@@ -4,6 +4,7 @@ import {
   resolveWpCommunitySlug,
   shouldShowWpUrlHint
 } from '../shared/wpInventory.js';
+import { resolveEmbedFeatures, resolveStyleMode } from '../shared/embedFeatures.js';
 
 (() => {
   const root = document.getElementById('embed-group-root');
@@ -16,6 +17,8 @@ import {
   const filtersEl = document.getElementById('layer-filters');
   const emptyMessageEl = document.getElementById('map-empty-message');
   const styleToggleEl = document.getElementById('map-style-toggle');
+  const styleFilterGroupEl = styleToggleEl?.closest('.embed-map-filter-group');
+  const layerFilterGroupEl = filtersEl?.closest('.embed-map-filter-group');
   const styleNonce = root?.dataset?.cspNonce || '';
   const zoomInBtn = document.querySelector('[data-zoom="in"]');
   const zoomOutBtn = document.querySelector('[data-zoom="out"]');
@@ -29,6 +32,73 @@ import {
   const summaryPrice = document.getElementById('lot-summary-price');
   const summaryStats = document.getElementById('lot-summary-stats');
   const summaryWpLink = document.getElementById('lot-summary-wp-link');
+
+  const parseFeatureData = (value) => {
+    if (!value) return null;
+    try {
+      return JSON.parse(value);
+    } catch (_) {
+      return null;
+    }
+  };
+
+  const readStorageValue = (key) => {
+    try {
+      return localStorage.getItem(key);
+    } catch (_) {
+      return null;
+    }
+  };
+
+  const writeStorageValue = (key, value) => {
+    try {
+      localStorage.setItem(key, value);
+    } catch (_) {
+      // Ignore storage failures (private mode, etc).
+    }
+  };
+
+  const getStyleStorageKey = (slug) => (
+    slug ? `embed-map-group-style-mode:${slug}` : 'embed-map-group-style-mode'
+  );
+
+  const isStyleModeAllowed = (mode, features) => {
+    if (mode === 'plan') return Boolean(features?.enableFloorPlanColorMode);
+    if (mode === 'status') return Boolean(features?.enableStatusColorMode);
+    return false;
+  };
+
+  // Defaults preserve legacy embeds; feature config can disable plan/color toggles or product filters per client.
+  let embedFeatures = resolveEmbedFeatures(parseFeatureData(root?.dataset?.features));
+
+  const applyEmbedFeatures = (features) => {
+    if (styleToggleEl) {
+      const planToggle = styleToggleEl.querySelector('[data-style="plan"]');
+      const statusToggle = styleToggleEl.querySelector('[data-style="status"]');
+      if (planToggle && !features.enableFloorPlanColorMode) planToggle.remove();
+      if (statusToggle && (!features.enableStatusFilter || !features.enableStatusColorMode)) {
+        statusToggle.remove();
+      }
+      const hasStyleToggle = Boolean(styleToggleEl.querySelector('[data-style]'));
+      if (!hasStyleToggle && styleFilterGroupEl) {
+        styleFilterGroupEl.remove();
+      }
+    }
+
+    if (!features.enableFloorPlanFilter && layerFilterGroupEl) {
+      layerFilterGroupEl.remove();
+    }
+  };
+
+  const applyInitialStyleMode = (slug, features) => {
+    const storageKey = getStyleStorageKey(slug);
+    const storedMode = readStorageValue(storageKey);
+    const { next } = resolveStyleMode(storedMode, features);
+    if (next !== storedMode) {
+      writeStorageValue(storageKey, next);
+    }
+    applyStyleMode(next);
+  };
 
   const params = new URLSearchParams(window.location.search);
   const uiMode = params.get('ui');
@@ -1131,6 +1201,9 @@ import {
       const pkg = await loadPackage(slug);
       const title = formatTitle(pkg?.group?.slug || slug);
       if (communityNameEl) communityNameEl.textContent = title;
+      embedFeatures = resolveEmbedFeatures(embedFeatures, pkg?.features);
+      applyEmbedFeatures(embedFeatures);
+      applyInitialStyleMode(slug, embedFeatures);
       const statusPalette = normalizeStatusPalette(pkg?.statusPalette || {});
       applyStatusPalette(statusPalette);
 
@@ -1143,7 +1216,9 @@ import {
       });
       buildLotIndex(layers);
       layers.forEach((layer) => activeLayers.add(layer.key));
-      renderFilters(layers);
+      if (embedFeatures.enableFloorPlanFilter) {
+        renderFilters(layers);
+      }
 
       const backgroundUrl = pkg?.baseMap?.backgroundUrl || '';
       if (bgImg) {
@@ -1182,7 +1257,9 @@ import {
     if (!(target instanceof HTMLElement)) return;
     const mode = target.dataset.style;
     if (!mode) return;
+    if (!isStyleModeAllowed(mode, embedFeatures)) return;
     applyStyleMode(mode);
+    writeStorageValue(getStyleStorageKey(getGroupSlug()), mode);
   });
 
   lotWpLink?.addEventListener('click', (event) => {
@@ -1268,7 +1345,6 @@ import {
   };
 
   initLegendToggle();
-  applyStyleMode('status');
   let sheetDragStart = null;
   let sheetDragHandled = false;
 
