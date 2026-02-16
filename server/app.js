@@ -261,7 +261,13 @@ app.use((req, res, next) => {
 
 // 4) Body parsing (must run before routes so POST bodies populate req.body)
 app.use(express.urlencoded({ extended: true }));
-app.use(express.json());
+app.use(express.json({
+  verify: (req, _res, buf) => {
+    if (buf && buf.length) {
+      req.rawBody = buf;
+    }
+  }
+}));
 
 // 5) Make logged-in user & nonce visible in EJS
 app.use((req, res, next) => {

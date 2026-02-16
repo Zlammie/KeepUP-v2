@@ -10,7 +10,10 @@
     INVALID_EMAIL: 'Skipped (invalid email)',
     OUTSIDE_SEND_WINDOW: 'Rescheduled (outside send window)',
     DAILY_CAP: 'Rescheduled (daily limit reached)',
-    RATE_LIMIT: 'Rescheduled (rate limited)'
+    DAILY_CAP_REACHED: 'Daily cap reached (resumes tomorrow)',
+    COMPANY_SENDING_PAUSED: 'Company sending paused (deliverability protection)',
+    RATE_LIMIT: 'Rescheduled (rate limited)',
+    UNSUBSCRIBE_CONFIG_MISSING: 'Blocked (unsubscribe link not configured)'
   };
 
   function getEmailErrorLabel(lastError) {

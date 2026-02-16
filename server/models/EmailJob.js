@@ -11,6 +11,11 @@ const STATUS = Object.freeze({
   SKIPPED: 'skipped'
 });
 
+const FROM_MODES = Object.freeze({
+  PLATFORM: 'platform',
+  USER_VERIFIED_DOMAIN: 'user_verified_domain'
+});
+
 const EmailJobSchema = new Schema(
   {
     companyId: { type: Schema.Types.ObjectId, ref: 'Company', required: true, index: true },
@@ -41,6 +46,16 @@ const EmailJobSchema = new Schema(
     lastError: { type: String, default: null },
     provider: { type: String, default: 'mock' },
     providerMessageId: { type: String, default: null },
+    senderUserId: { type: Schema.Types.ObjectId, ref: 'User', default: null },
+    senderEmail: { type: String, default: null, trim: true, lowercase: true },
+    senderName: { type: String, default: null, trim: true },
+    fromMode: {
+      type: String,
+      enum: Object.values(FROM_MODES),
+      default: FROM_MODES.PLATFORM
+    },
+    fromEmailUsed: { type: String, default: null, trim: true, lowercase: true },
+    replyToUsed: { type: String, default: null, trim: true, lowercase: true },
     meta: { type: Schema.Types.Mixed, default: {} }
   },
   { timestamps: true }
@@ -57,5 +72,6 @@ EmailJobSchema.index({ companyId: 1, recipientType: 1, realtorId: 1, status: 1, 
 const EmailJob = mongoose.model('EmailJob', EmailJobSchema);
 
 EmailJob.STATUS = STATUS;
+EmailJob.FROM_MODES = FROM_MODES;
 
 module.exports = EmailJob;

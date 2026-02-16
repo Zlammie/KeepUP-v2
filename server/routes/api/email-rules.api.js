@@ -67,6 +67,7 @@ router.post('/', requireRole(...MANAGE_ROLES), async (req, res) => {
       companyId: req.user.company,
       name,
       isEnabled: payload.isEnabled !== false,
+      createdBy: req.user?._id || null,
       trigger: {
         type: triggerType,
         config: payload.trigger?.config || {}
@@ -128,6 +129,10 @@ router.put('/:ruleId', requireRole(...MANAGE_ROLES), async (req, res) => {
       if (typeof payload.action.mustStillMatchAtSend === 'boolean') {
         rule.action.mustStillMatchAtSend = payload.action.mustStillMatchAtSend;
       }
+    }
+
+    if (!rule.createdBy && req.user?._id) {
+      rule.createdBy = req.user._id;
     }
 
     await rule.save();

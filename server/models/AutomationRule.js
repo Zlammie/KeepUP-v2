@@ -15,6 +15,7 @@ const AutomationRuleSchema = new Schema(
     companyId: { type: Schema.Types.ObjectId, ref: 'Company', required: true, index: true },
     name: { type: String, required: true, trim: true },
     isEnabled: { type: Boolean, default: true, index: true },
+    createdBy: { type: Schema.Types.ObjectId, ref: 'User', default: null },
     trigger: {
       type: {
         type: String,

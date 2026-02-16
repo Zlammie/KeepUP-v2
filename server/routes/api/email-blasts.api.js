@@ -538,6 +538,10 @@ router.post('/', requireRole(...ADMIN_ROLES), async (req, res) => {
       sentTodayCount
     });
 
+    const senderUserId = req.user?._id || null;
+    const senderEmail = normalizeEmail(req.user?.email) || null;
+    const senderName = [req.user?.firstName, req.user?.lastName].filter(Boolean).join(' ').trim() || senderEmail;
+
     let blast = null;
     try {
       blast = await EmailBlast.create({
@@ -602,6 +606,9 @@ router.post('/', requireRole(...ADMIN_ROLES), async (req, res) => {
           scheduledFor: pacingPlan.times[index] || scheduledFor,
           status: EmailJob.STATUS.QUEUED,
           provider: 'mock',
+          senderUserId,
+          senderEmail,
+          senderName,
           meta: {
             blastName: name
           }
@@ -619,6 +626,9 @@ router.post('/', requireRole(...ADMIN_ROLES), async (req, res) => {
         scheduledFor: pacingPlan.times[index] || scheduledFor,
         status: EmailJob.STATUS.QUEUED,
         provider: 'mock',
+        senderUserId,
+        senderEmail,
+        senderName,
         meta: {
           blastName: name
         }

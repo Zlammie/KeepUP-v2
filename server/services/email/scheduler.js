@@ -8,9 +8,36 @@ const AutomationRule = require('../../models/AutomationRule');
 const Contact = require('../../models/Contact');
 const Realtor = require('../../models/Realtor');
 const Company = require('../../models/Company');
-const { renderTemplate } = require('./renderTemplate');
+const { renderTemplate, renderString } = require('./renderTemplate');
 const provider = require('./provider');
+const { resolveSenderIdentity } = require('./resolveSenderIdentity');
+const { checkDailyCap } = require('./companyDailyCap');
+const { buildUnsubscribeUrl } = require('./unsubscribeToken');
+const { appendUnsubscribeFooter } = require('./unsubscribeFooter');
+
+const schedulerHeartbeat = { lastRunAt: null };
+
+const touchSchedulerHeartbeat = (value = new Date()) => {
+  schedulerHeartbeat.lastRunAt = value instanceof Date ? value : new Date();
+  return schedulerHeartbeat.lastRunAt;
+};
+
+const getSchedulerHeartbeat = () => ({
+  lastRunAt: schedulerHeartbeat.lastRunAt
+});
+
+const setSchedulerHeartbeat = (value) => {
+  schedulerHeartbeat.lastRunAt = value instanceof Date ? value : null;
+  return schedulerHeartbeat.lastRunAt;
+};
 const { normalizeEmail } = require('../../utils/normalizeEmail');
+const {
+  getEmailProviderName,
+  isEmailSendingEnabled,
+  isAllowlistEnabled,
+  isAllowlisted
+} = require('./emailConfig');
+const { BLOCKED_REASONS } = require('./blockedReasons');
 
 const DAY_MS = 24 * 60 * 60 * 1000;
 const STALE_PROCESSING_MS = Number(process.env.STALE_PROCESSING_MS) || 10 * 60 * 1000;
@@ -303,8 +330,11 @@ async function enqueueEmailJob({
   data = {},
   scheduledFor = null,
   delayMinutes = 0,
-  providerName = 'mock',
-  meta = {}
+  providerName = getEmailProviderName(),
+  meta = {},
+  senderUserId = null,
+  senderEmail = null,
+  senderName = null
 }) {
   if (!companyId) throw new Error('companyId is required');
   if (!templateId) throw new Error('templateId is required');
@@ -357,6 +387,9 @@ async function enqueueEmailJob({
     scheduledFor: targetDate,
     status: EmailJob.STATUS.QUEUED,
     provider: providerName || 'mock',
+    senderUserId,
+    senderEmail,
+    senderName,
     meta
   });
 
@@ -366,7 +399,15 @@ async function enqueueEmailJob({
 async function claimNextDueJob({ now = new Date(), workerId = getWorkerId() } = {}) {
   const filter = {
     status: EmailJob.STATUS.QUEUED,
-    lastError: { $ne: 'BLAST_PAUSED' },
+    // Exclude "hard blocked/held" jobs so they never get claimed (no churn)
+    $and: [
+      {
+        $or: [
+          { lastError: { $nin: BLOCKED_REASONS } },
+          { lastError: 'DAILY_CAP_REACHED', nextAttemptAt: { $lte: now } }
+        ]
+      }
+    ],
     scheduledFor: { $lte: now },
     $or: [
       { nextAttemptAt: { $exists: false } },
@@ -423,13 +464,16 @@ function buildProcessingFilter(jobId, workerId) {
 async function markJobQueued(
   jobId,
   workerId,
-  { scheduledFor, nextAttemptAt, lastError, attemptsDelta } = {}
+  { scheduledFor, nextAttemptAt, lastError, attemptsDelta, fromMode, fromEmailUsed, replyToUsed } = {}
 ) {
   const updates = {
     status: EmailJob.STATUS.QUEUED,
     lastError: lastError || null,
     nextAttemptAt: nextAttemptAt || null
   };
+  if (fromMode) updates.fromMode = fromMode;
+  if (fromEmailUsed !== undefined) updates.fromEmailUsed = fromEmailUsed;
+  if (replyToUsed !== undefined) updates.replyToUsed = replyToUsed;
   if (scheduledFor) updates.scheduledFor = scheduledFor;
   const updatePayload = { $set: updates, $unset: { processingAt: '', processingBy: '' } };
   if (attemptsDelta) {
@@ -469,31 +513,42 @@ async function markJobCanceled(jobId, workerId, reason) {
   );
 }
 
-async function markJobFailed(jobId, workerId, reason) {
+async function markJobFailed(jobId, workerId, reason, senderMeta = {}) {
+  const update = {
+    status: EmailJob.STATUS.FAILED,
+    lastError: reason || 'FAILED',
+    nextAttemptAt: null
+  };
+  if (senderMeta?.fromMode) update.fromMode = senderMeta.fromMode;
+  if (senderMeta?.fromEmailUsed !== undefined) update.fromEmailUsed = senderMeta.fromEmailUsed;
+  if (senderMeta?.replyToUsed !== undefined) update.replyToUsed = senderMeta.replyToUsed;
+
   return EmailJob.updateOne(
     buildProcessingFilter(jobId, workerId),
     {
-      $set: {
-        status: EmailJob.STATUS.FAILED,
-        lastError: reason || 'FAILED',
-        nextAttemptAt: null
-      },
+      $set: update,
       $unset: { processingAt: '', processingBy: '' }
     }
   );
 }
 
-async function markJobSent(jobId, workerId, { providerMessageId, sentAt } = {}) {
+async function markJobSent(jobId, workerId, { providerMessageId, sentAt, providerName, fromMode, fromEmailUsed, replyToUsed } = {}) {
+  const update = {
+    status: EmailJob.STATUS.SENT,
+    providerMessageId: providerMessageId || null,
+    lastError: null,
+    sentAt: sentAt || new Date(),
+    nextAttemptAt: null
+  };
+  if (providerName) update.provider = providerName;
+  if (fromMode) update.fromMode = fromMode;
+  if (fromEmailUsed !== undefined) update.fromEmailUsed = fromEmailUsed;
+  if (replyToUsed !== undefined) update.replyToUsed = replyToUsed;
+
   return EmailJob.updateOne(
     buildProcessingFilter(jobId, workerId),
     {
-      $set: {
-        status: EmailJob.STATUS.SENT,
-        providerMessageId: providerMessageId || null,
-        lastError: null,
-        sentAt: sentAt || new Date(),
-        nextAttemptAt: null
-      },
+      $set: update,
       $unset: { processingAt: '', processingBy: '' }
     }
   );
@@ -505,14 +560,17 @@ async function processDueEmailJobs({
   workerId = getWorkerId()
 } = {}) {
   const now = new Date();
+  touchSchedulerHeartbeat(now);
   const staleResult = await requeueStaleJobs({ now, staleMs });
   if (staleResult.requeued > 0) {
     logJobEvent('warn', '[email] stale jobs requeued', { count: staleResult.requeued });
   }
 
   const settingsCache = new Map();
+  const companyCache = new Map();
   const suppressionCache = new Map();
   let processed = 0;
+  const blockedRetryMinutes = 30;
 
   for (let i = 0; i < limit; i += 1) {
     const job = await claimNextDueJob({ now: new Date(), workerId });
@@ -528,6 +586,14 @@ async function processDueEmailJobs({
     if (!settings) {
       settings = await getEmailSettings(job.companyId);
       settingsCache.set(companyKey, settings);
+    }
+
+    let company = companyCache.get(companyKey);
+    if (!companyCache.has(companyKey)) {
+      company = await Company.findById(job.companyId)
+        .select('settings.timezone emailDailyCap emailDailyCapEnabled emailSendingPaused emailWarmup emailDomainVerifiedAt')
+        .lean();
+      companyCache.set(companyKey, company || null);
     }
 
     let contact = null;
@@ -616,6 +682,40 @@ async function processDueEmailJobs({
       continue;
     }
 
+    if (!isEmailSendingEnabled()) {
+      const retryAt = new Date(jobNow.getTime() + blockedRetryMinutes * 60 * 1000);
+      await markJobQueued(job._id, workerId, {
+        nextAttemptAt: retryAt,
+        lastError: 'SENDING_DISABLED',
+        attemptsDelta: -1
+      });
+      logJobEvent('warn', '[email] sending disabled, job requeued', { jobId: job._id });
+      continue;
+    }
+
+    if (isAllowlistEnabled() && !isAllowlisted(recipient)) {
+      const retryAt = new Date(jobNow.getTime() + blockedRetryMinutes * 60 * 1000);
+      await markJobQueued(job._id, workerId, {
+        nextAttemptAt: retryAt,
+        lastError: 'ALLOWLIST_BLOCKED',
+        attemptsDelta: -1
+      });
+      logJobEvent('warn', '[email] allowlist blocked', { jobId: job._id, recipient });
+      continue;
+    }
+
+    if (company?.emailSendingPaused) {
+      await markJobQueued(job._id, workerId, {
+        lastError: 'COMPANY_SENDING_PAUSED',
+        attemptsDelta: -1
+      });
+      logJobEvent('warn', '[email] company sending paused', {
+        jobId: job._id,
+        companyId: job.companyId
+      });
+      continue;
+    }
+
     const mergeData = {
       ...buildContactMergeData(contact),
       ...(job.data || {})
@@ -624,6 +724,35 @@ async function processDueEmailJobs({
       { subject: template.subject, html: template.html, text: template.text },
       mergeData
     );
+    let renderedHtml = rendered.html;
+    let renderedText = rendered.text;
+    let messageHeaders = null;
+
+    if (job.blastId) {
+      const unsubscribeUrl = buildUnsubscribeUrl({ companyId: job.companyId, email: recipient });
+      if (!unsubscribeUrl) {
+        await markJobQueued(job._id, workerId, {
+          lastError: 'UNSUBSCRIBE_CONFIG_MISSING',
+          attemptsDelta: -1
+        });
+        logJobEvent('warn', '[email] unsubscribe config missing for blast', {
+          jobId: job._id,
+          companyId: job.companyId
+        });
+        continue;
+      }
+
+      const withFooter = appendUnsubscribeFooter({
+        html: renderedHtml,
+        text: renderedText,
+        unsubscribeUrl
+      });
+      renderedHtml = withFooter.html;
+      renderedText = withFooter.text;
+      messageHeaders = {
+        'List-Unsubscribe': `<${unsubscribeUrl}>`
+      };
+    }
 
     if (!isWithinAllowedWindow(jobNow, settings)) {
       const nextTime = adjustToAllowedWindow(jobNow, settings);
@@ -639,6 +768,33 @@ async function processDueEmailJobs({
       continue;
     }
 
+    const capResult = await checkDailyCap({
+      company: company || { emailDailyCapEnabled: false, settings: { timezone: settings?.timezone } },
+      companyId: job.companyId,
+      now: jobNow,
+      fallbackTimeZone: settings?.timezone || 'America/Chicago'
+    });
+    if (capResult.blocked) {
+      const jitterMinutes = Math.floor(Math.random() * 5) + 1;
+      const nextAttemptAt = new Date(capResult.bounds.startOfNextDay.getTime() + jitterMinutes * 60000);
+      await markJobQueued(job._id, workerId, {
+        scheduledFor: nextAttemptAt,
+        nextAttemptAt,
+        lastError: 'DAILY_CAP_REACHED',
+        attemptsDelta: -1
+      });
+      logJobEvent('warn', '[email] daily cap reached', {
+        companyId: job.companyId,
+        jobId: job._id,
+        cap: capResult.cap,
+        baseCap: capResult.baseCap,
+        warmupActive: capResult.warmup?.active || false,
+        sentToday: capResult.sentCount,
+        nextAttemptAt
+      });
+      continue;
+    }
+
     const dailyCap = Number(settings?.dailyCap || 0);
     if (dailyCap > 0) {
       const { start, end } = getLocalDayBounds(jobNow, settings.timezone || 'UTC');
@@ -648,16 +804,18 @@ async function processDueEmailJobs({
         sentAt: { $gte: start, $lt: end }
       });
       if (sentCount >= dailyCap) {
-        const nextDay = new Date(end.getTime() + 1000);
-        const nextTime = adjustToAllowedWindow(nextDay, settings);
+        const jitterMinutes = Math.floor(Math.random() * 5) + 1;
+        const nextAttemptAt = new Date(end.getTime() + jitterMinutes * 60000);
         await markJobQueued(job._id, workerId, {
-          scheduledFor: nextTime,
-          lastError: 'DAILY_CAP'
+          scheduledFor: nextAttemptAt,
+          nextAttemptAt,
+          lastError: 'DAILY_CAP_REACHED',
+          attemptsDelta: -1
         });
         logJobEvent('info', '[email] job rescheduled', {
           jobId: job._id,
-          reason: 'DAILY_CAP',
-          scheduledFor: nextTime
+          reason: 'DAILY_CAP_REACHED',
+          nextAttemptAt
         });
         continue;
       }
@@ -686,20 +844,66 @@ async function processDueEmailJobs({
       }
     }
 
+    let senderMeta = null;
     try {
+      const previewText = renderString(template.previewText, mergeData);
+      const recipientId =
+        job.contactId || job.realtorId || job.lenderId || null;
+      const recipientType =
+        job.recipientType || (job.realtorId ? 'realtor' : 'contact');
+      const senderIdentity = await resolveSenderIdentity({
+        companyId: job.companyId,
+        senderEmail: job.senderEmail,
+        senderName: job.senderName
+      });
+      const fromPayload = senderIdentity?.fromEmail
+        ? { email: senderIdentity.fromEmail, name: senderIdentity.fromName }
+        : null;
+      const replyToPayload = senderIdentity?.replyTo
+        ? { email: senderIdentity.replyTo, name: job.senderName || undefined }
+        : null;
+      senderMeta = {
+        fromMode: senderIdentity?.mode || 'platform',
+        fromEmailUsed: senderIdentity?.fromEmail || null,
+        replyToUsed: senderIdentity?.replyTo || null
+      };
+      const customArgs = {
+        jobId: job._id ? String(job._id) : undefined,
+        blastId: job.blastId ? String(job.blastId) : undefined,
+        ruleId: job.ruleId ? String(job.ruleId) : undefined,
+        companyId: job.companyId ? String(job.companyId) : undefined,
+        recipientId: recipientId ? String(recipientId) : undefined,
+        recipientType
+      };
+      Object.keys(customArgs).forEach((key) => {
+        if (customArgs[key] == null || customArgs[key] === '') {
+          delete customArgs[key];
+        }
+      });
+
+      const providerName = job.provider && job.provider !== 'mock'
+        ? job.provider
+        : getEmailProviderName();
       const result = await provider.sendEmail(
         {
           to: recipient,
           subject: rendered.subject,
-          html: rendered.html,
-          text: rendered.text
+          html: renderedHtml,
+          text: renderedText,
+          previewText,
+          customArgs,
+          from: fromPayload,
+          replyTo: replyToPayload,
+          headers: messageHeaders
         },
-        job.provider
+        providerName
       );
 
       await markJobSent(job._id, workerId, {
         providerMessageId: result?.messageId || null,
-        sentAt: new Date()
+        providerName,
+        sentAt: new Date(),
+        ...senderMeta
       });
       logJobEvent('info', '[email] job sent', {
         jobId: job._id,
@@ -709,12 +913,25 @@ async function processDueEmailJobs({
       processed += 1;
     } catch (err) {
       const attempts = Number(job.attempts || 1);
+      if (!senderMeta) {
+        const senderIdentity = await resolveSenderIdentity({
+          companyId: job.companyId,
+          senderEmail: job.senderEmail,
+          senderName: job.senderName
+        });
+        senderMeta = {
+          fromMode: senderIdentity?.mode || 'platform',
+          fromEmailUsed: senderIdentity?.fromEmail || null,
+          replyToUsed: senderIdentity?.replyTo || null
+        };
+      }
       if (attempts < MAX_EMAIL_ATTEMPTS) {
         const backoffMinutes = Math.pow(2, Math.max(attempts - 1, 0));
         const nextAttemptAt = new Date(jobNow.getTime() + backoffMinutes * 60 * 1000);
         await markJobQueued(job._id, workerId, {
           nextAttemptAt,
-          lastError: truncateError(err?.message || 'Provider send failed')
+          lastError: truncateError(err?.message || 'Provider send failed'),
+          ...senderMeta
         });
         logJobEvent('warn', '[email] job send failed, retry scheduled', {
           jobId: job._id,
@@ -722,7 +939,12 @@ async function processDueEmailJobs({
           nextAttemptAt
         });
       } else {
-        await markJobFailed(job._id, workerId, truncateError(err?.message || 'Provider send failed'));
+        await markJobFailed(
+          job._id,
+          workerId,
+          truncateError(err?.message || 'Provider send failed'),
+          senderMeta
+        );
         logJobEvent('warn', '[email] job send failed (max attempts)', {
           jobId: job._id,
           attempts
@@ -743,5 +965,7 @@ module.exports = {
   adjustToAllowedWindow,
   isWithinAllowedWindow,
   buildContactMergeData,
-  getLocalDayBounds
+  getLocalDayBounds,
+  getSchedulerHeartbeat,
+  setSchedulerHeartbeat
 };

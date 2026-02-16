@@ -5,13 +5,18 @@
   "scripts": {
     "start": "node server/server.js",
     "dev": "nodemon server/server.js --watch server --watch client --watch assets --ext js,ejs,css,json --legacy-watch",
-    "seed": "node scripts/seed.js"
+    "seed": "node scripts/seed.js",
+    "test:email": "node --test --test-concurrency=1 tests/email/*.test.js",
+    "test:email:watch": "node --test --watch --test-concurrency=1 tests/email/*.test.js",
+    "test:email:ci": "node --test --test-concurrency=1 tests/email/*.test.js"
   },
   "keywords": [],
   "author": "",
   "license": "ISC",
   "description": "",
   "dependencies": {
+    "@napi-rs/canvas": "^0.1.65",
+    "@sendgrid/mail": "^7.7.0",
     "bcrypt": "^6.0.0",
     "body-parser": "^2.2.0",
     "connect-mongo": "^5.1.0",
@@ -29,11 +34,11 @@
     "nodemailer": "^7.0.10",
     "pdfjs-dist": "^3.11.174",
     "sharp": "^0.34.5",
-    "@napi-rs/canvas": "^0.1.65",
     "xlsx": "^0.18.5"
   },
   "devDependencies": {
     "@types/node": "^20.19.17",
+    "mongodb-memory-server": "^9.1.8",
     "nodemon": "^3.1.10"
   }
 }

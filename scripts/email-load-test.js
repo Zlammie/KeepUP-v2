@@ -1,3 +1,4 @@
+// Operational script. Do not duplicate email logic here.
 const mongoose = require('mongoose');
 const crypto = require('crypto');
 const fs = require('fs');

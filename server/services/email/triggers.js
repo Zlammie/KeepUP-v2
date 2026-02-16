@@ -1,7 +1,9 @@
 const AutomationRule = require('../../models/AutomationRule');
 const EmailJob = require('../../models/EmailJob');
 const Contact = require('../../models/Contact');
+const User = require('../../models/User');
 const { enqueueEmailJob, buildContactMergeData } = require('./scheduler');
+const { normalizeEmail } = require('../../utils/normalizeEmail');
 
 function normalizeStatus(value) {
   return String(value || '').trim().toLowerCase();
@@ -42,6 +44,24 @@ async function handleContactStatusChange({
   }).lean();
 
   if (!rules.length) return { enqueued: 0 };
+
+  const creatorIds = Array.from(
+    new Set(
+      rules
+        .map((rule) => rule.createdBy)
+        .filter(Boolean)
+        .map((id) => String(id))
+    )
+  );
+  const creatorsById = new Map();
+  if (creatorIds.length) {
+    const users = await User.find({ _id: { $in: creatorIds } })
+      .select('firstName lastName email')
+      .lean();
+    users.forEach((user) => {
+      creatorsById.set(String(user._id), user);
+    });
+  }
 
   const contact = await Contact.findOne({ _id: contactId, company: companyId })
     .select('firstName lastName email phone status communityIds doNotEmail')
@@ -117,6 +137,11 @@ async function handleContactStatusChange({
 
     const delayMinutes = Number(rule?.action?.delayMinutes || 0);
     const mergeData = buildContactMergeData(contact);
+    const creator = rule.createdBy ? creatorsById.get(String(rule.createdBy)) : null;
+    const senderEmail = creator?.email ? normalizeEmail(creator.email) : null;
+    const senderName = creator
+      ? [creator.firstName, creator.lastName].filter(Boolean).join(' ').trim() || senderEmail
+      : null;
     const result = await enqueueEmailJob({
       companyId,
       to: contact.email,
@@ -125,6 +150,9 @@ async function handleContactStatusChange({
       ruleId: rule._id,
       delayMinutes,
       data: mergeData,
+      senderUserId: rule.createdBy || null,
+      senderEmail,
+      senderName,
       meta: {
         trigger: rule.trigger,
         mustStillMatchAtSend: Boolean(rule.action?.mustStillMatchAtSend)

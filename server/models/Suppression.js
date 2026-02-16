@@ -5,6 +5,7 @@ const { Schema } = mongoose;
 const REASONS = Object.freeze({
   UNSUBSCRIBED: 'unsubscribed',
   BOUNCE: 'bounce',
+  SPAMREPORT: 'spamreport',
   MANUAL: 'manual'
 });
 
