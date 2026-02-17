@@ -43,6 +43,22 @@ const WebsiteMapEntitlementSchema = new Schema({
   trialDaysOverride: { type: Number, default: null }
 }, { _id: false });
 
+const WarmupScheduleSchema = new Schema({
+  day: { type: Number, min: 1 },
+  cap: { type: Number, min: 1 }
+}, { _id: false });
+
+const EmailWarmupSchema = new Schema({
+  enabled: { type: Boolean, default: false },
+  startedAt: { type: Date, default: null },
+  endedAt: { type: Date, default: null },
+  dayIndex: { type: Number, default: null },
+  daysTotal: { type: Number, default: 14, min: 1 },
+  capOverrideToday: { type: Number, default: null },
+  schedule: { type: [WarmupScheduleSchema], default: undefined },
+  lastComputedAt: { type: Date, default: null }
+}, { _id: false });
+
 const EntitlementsSchema = new Schema({
   websiteMap: { type: WebsiteMapEntitlementSchema, default: () => ({}) }
 }, { _id: false });
@@ -71,6 +87,7 @@ const BillingPolicySchema = new Schema({
 const SettingsSchema = new Schema({
   timezone: { type: String, default: 'America/Chicago' },
   locale:   { type: String, default: 'en-US' },
+  emailFromMode: { type: String, enum: ['platform', 'company_domain'], default: 'platform' },
   features: { type: Map, of: Boolean, default: {} }, // e.g. { contacts: true, competitions: true }
 }, { _id: false });
 
@@ -89,6 +106,25 @@ const CompanySchema = new Schema({
   // Config & branding (safe containers you can extend anytime)
   settings: { type: SettingsSchema, default: () => ({}) },
   branding: { type: BrandingSchema, default: () => ({}) },
+  // Email sending safety caps (per-company)
+  emailDailyCapEnabled: { type: Boolean, default: true },
+  emailDailyCap: { type: Number, default: 500, min: 0 },
+  emailDomainVerifiedAt: { type: Date, default: null },
+  emailWarmup: { type: EmailWarmupSchema, default: null },
+  // Deliverability protection (per-company)
+  emailSendingPaused: { type: Boolean, default: false },
+  emailSendingPausedAt: { type: Date, default: null },
+  emailSendingPausedBy: { type: Schema.Types.Mixed, default: null },
+  emailSendingPausedReason: {
+    type: String,
+    enum: ['spamreport', 'bounce_rate', 'manual'],
+    default: null
+  },
+  emailSendingPausedMeta: { type: Schema.Types.Mixed, default: null },
+  emailAutoPauseOnSpamReport: { type: Boolean, default: true },
+  emailAutoPauseOnBounceRate: { type: Boolean, default: true },
+  emailBounceRateThreshold: { type: Number, default: 0.05, min: 0, max: 1 },
+  emailBounceMinSentForEvaluation: { type: Number, default: 50, min: 0 },
 
   // Listing map status colors (status key -> hex color)
   mapStatusPalette: {
@@ -114,7 +150,7 @@ const CompanySchema = new Schema({
   buildrootzProfile: { type: BuildrootzProfileSchema, default: () => ({}) }
 }, { timestamps: true });
 
-// Helper: auto-generate slug from name on create (don’t clobber if provided)
+// Helper: auto-generate slug from name on create (don't clobber if provided)
 CompanySchema.pre('validate', function(next) {
   if (!this.slug && this.name) {
     this.slug = String(this.name)

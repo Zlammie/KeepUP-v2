@@ -159,6 +159,76 @@
             </div>
 
             <div class="col-12">
+              <h3 class="h6 text-uppercase text-muted mb-2">Email Sending Limits</h3>
+              <div class="row g-3 align-items-end">
+                <div class="col-md-4">
+                  <label class="form-label d-block">Daily cap</label>
+                  <div class="form-check form-switch mt-2">
+                    <input class="form-check-input" type="checkbox" id="companyEmailDailyCapEnabled" />
+                    <label class="form-check-label" for="companyEmailDailyCapEnabled">Enable daily cap</label>
+                  </div>
+                </div>
+                <div class="col-md-4">
+                  <label for="companyEmailDailyCap" class="form-label">Daily email cap</label>
+                  <input
+                    type="number"
+                    min="0"
+                    max="100000"
+                    step="1"
+                    id="companyEmailDailyCap"
+                    class="form-control"
+                    placeholder="500"
+                  />
+                  <div class="form-text">Max emails per day (server enforced).</div>
+                </div>
+              </div>
+            </div>
+
+            <div class="col-12">
+              <h3 class="h6 text-uppercase text-muted mb-2">Deliverability Protection</h3>
+              <div class="row g-3 align-items-end">
+                <div class="col-md-4">
+                  <div class="form-check form-switch">
+                    <input class="form-check-input" type="checkbox" id="companyAutoPauseSpamReport" />
+                    <label class="form-check-label" for="companyAutoPauseSpamReport">Auto-pause on spam report</label>
+                  </div>
+                  <div class="form-text">Pause sending if a recipient marks email as spam.</div>
+                </div>
+                <div class="col-md-4">
+                  <div class="form-check form-switch">
+                    <input class="form-check-input" type="checkbox" id="companyAutoPauseBounceRate" />
+                    <label class="form-check-label" for="companyAutoPauseBounceRate">Auto-pause on bounce rate</label>
+                  </div>
+                  <div class="form-text">Pause if bounce rate exceeds threshold.</div>
+                </div>
+                <div class="col-md-2">
+                  <label for="companyBounceRateThreshold" class="form-label">Bounce threshold (%)</label>
+                  <input
+                    type="number"
+                    min="0"
+                    max="100"
+                    step="0.1"
+                    id="companyBounceRateThreshold"
+                    class="form-control"
+                    placeholder="5.0"
+                  />
+                </div>
+                <div class="col-md-2">
+                  <label for="companyBounceMinSent" class="form-label">Min sent</label>
+                  <input
+                    type="number"
+                    min="0"
+                    max="100000"
+                    step="1"
+                    id="companyBounceMinSent"
+                    class="form-control"
+                    placeholder="50"
+                  />
+                </div>
+              </div>
+            </div>
+
+            <div class="col-12">
               <h3 class="h6 text-uppercase text-muted mb-2">Internal Notes</h3>
               <textarea id="companyNotes" name="notes" class="form-control" rows="4" placeholder="Keep internal reminders here."></textarea>
             </div>
@@ -171,6 +241,293 @@
               </div>
             </div>
           </form>
+
+          <div class="mt-5" id="company-email-deliverability">
+            <h3 class="h5 mb-2">Email Deliverability</h3>
+            <div class="card shadow-sm">
+              <div class="card-body">
+                <div class="d-flex flex-wrap justify-content-between align-items-start gap-2">
+                  <div>
+                    <h4 class="h6 mb-1">Status</h4>
+                    <p class="fw-semibold mb-1" id="deliverability-health-state">Loading...</p>
+                    <p class="text-muted small mb-0" id="deliverability-status-message"></p>
+                    <p class="text-muted small mb-0" id="deliverability-health-action"></p>
+                  </div>
+                  <span class="badge bg-secondary" id="deliverability-status-badge">Unknown</span>
+                </div>
+                <div class="small text-muted mt-2" id="deliverability-status-meta"></div>
+                <div class="small text-muted mt-2" id="deliverability-warmup-badge"></div>
+
+                <div class="alert alert-warning d-none mt-3" id="email-readiness-banner">
+                  <strong>Blast sending disabled:</strong>
+                  <span id="email-readiness-message"></span>
+                  <div class="small text-muted mt-1" id="email-readiness-details"></div>
+                </div>
+
+                <div class="row g-3 mt-3">
+                  <div class="col-md-3">
+                    <div class="text-muted small">Sent today</div>
+                    <div class="fw-semibold" id="deliverability-sent-today">--</div>
+                  </div>
+                  <div class="col-md-3">
+                    <div class="text-muted small">Bounces today</div>
+                    <div class="fw-semibold" id="deliverability-bounces-today">--</div>
+                  </div>
+                  <div class="col-md-3">
+                    <div class="text-muted small">Spam reports today</div>
+                    <div class="fw-semibold" id="deliverability-spamreports-today">--</div>
+                  </div>
+                  <div class="col-md-3">
+                    <div class="text-muted small">Remaining</div>
+                    <div class="fw-semibold" id="deliverability-remaining">--</div>
+                  </div>
+                </div>
+
+                <div class="row g-3 mt-3">
+                  <div class="col-md-3">
+                    <div class="text-muted small">Base cap</div>
+                    <div class="fw-semibold" id="deliverability-base-cap">--</div>
+                  </div>
+                  <div class="col-md-3">
+                    <div class="text-muted small">Effective cap</div>
+                    <div class="fw-semibold" id="deliverability-effective-cap">--</div>
+                  </div>
+                </div>
+
+                <div class="small text-muted mt-3" id="deliverability-reset">Reset: --</div>
+
+                <div class="mt-3 d-flex justify-content-end gap-2 flex-wrap">
+                  <button type="button" class="btn btn-danger d-none" id="deliverability-resume">
+                    Resume sending
+                  </button>
+                  <button type="button" class="btn btn-outline-primary d-none" id="deliverability-warmup-reset">
+                    Reset warm-up
+                  </button>
+                  <button type="button" class="btn btn-outline-secondary d-none" id="deliverability-warmup-disable">
+                    Disable warm-up
+                  </button>
+                  <button type="button" class="btn btn-outline-primary d-none" id="deliverability-warmup-enable">
+                    Enable warm-up
+                  </button>
+                  <button type="button" class="btn btn-outline-primary d-none" id="deliverability-verify-domain">
+                    Verify domain
+                  </button>
+                </div>
+
+                <div class="mt-4 border-top pt-3">
+                  <h5 class="h6 mb-2">Admin tools</h5>
+                  <div class="row g-2 align-items-center">
+                    <div class="col-md-6">
+                      <input type="email" class="form-control" id="email-tools-test-email" placeholder="test@example.com" />
+                    </div>
+                    <div class="col-md-6 d-flex gap-2 flex-wrap">
+                      <button type="button" class="btn btn-outline-primary btn-sm" id="email-tools-preview">
+                        Preview blast footer
+                      </button>
+                      <button type="button" class="btn btn-outline-secondary btn-sm" id="email-tools-generate">
+                        Generate test unsubscribe link
+                      </button>
+                    </div>
+                  </div>
+                  <div class="mt-3 d-none" id="email-tools-output">
+                    <div class="text-muted small">HTML</div>
+                    <div class="border rounded p-2 mb-2" id="email-tools-html"></div>
+                    <div class="text-muted small">Text</div>
+                    <pre class="border rounded p-2 mb-0" id="email-tools-text"></pre>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <div class="mt-4" id="company-email-system-check">
+            <h3 class="h5 mb-2">Email System Check</h3>
+            <div class="card shadow-sm">
+              <div class="card-header d-flex flex-wrap justify-content-between align-items-center gap-2">
+                <h4 class="h6 mb-0">Diagnostics</h4>
+                <div class="d-flex gap-2">
+                  <button type="button" class="btn btn-outline-secondary btn-sm" id="email-system-check-refresh">
+                    Refresh
+                  </button>
+                  <button
+                    class="btn btn-outline-secondary btn-sm"
+                    type="button"
+                    data-bs-toggle="collapse"
+                    data-bs-target="#email-system-check-body"
+                    aria-expanded="true"
+                    aria-controls="email-system-check-body"
+                  >
+                    Toggle
+                  </button>
+                </div>
+              </div>
+              <div id="email-system-check-body" class="collapse show">
+                <div class="card-body">
+                  <div class="mb-3">
+                    <h5 class="h6 text-uppercase text-muted mb-2">Environment</h5>
+                    <div class="d-flex align-items-center gap-2 mb-2">
+                      <span class="badge bg-secondary" id="email-check-sendgrid-key">Unknown</span>
+                      <span>SendGrid API key present</span>
+                    </div>
+                    <div class="d-flex align-items-center gap-2 mb-2">
+                      <span class="badge bg-secondary" id="email-check-webhook-secret">Unknown</span>
+                      <span>Webhook secret configured</span>
+                    </div>
+                    <div class="d-flex align-items-center gap-2 mb-2">
+                      <span class="badge bg-secondary" id="email-check-unsub-secret">Unknown</span>
+                      <span>Unsubscribe secret configured</span>
+                    </div>
+                    <div class="d-flex align-items-center gap-2">
+                      <span class="badge bg-secondary" id="email-check-base-url">Unknown</span>
+                      <span>Base URL resolved</span>
+                      <span class="text-muted small" id="email-check-base-url-value"></span>
+                    </div>
+                  </div>
+
+                  <div class="mb-3">
+                    <h5 class="h6 text-uppercase text-muted mb-2">Scheduler</h5>
+                    <div class="d-flex align-items-center gap-2 mb-2">
+                      <span class="badge bg-secondary" id="email-check-scheduler">Unknown</span>
+                      <span id="email-check-scheduler-text">Scheduler status</span>
+                    </div>
+                    <div class="small text-muted" id="email-check-scheduler-meta"></div>
+                  </div>
+
+                  <div>
+                    <h5 class="h6 text-uppercase text-muted mb-2">Sending Status</h5>
+                    <div class="d-flex align-items-center gap-2 mb-2">
+                      <span class="badge bg-secondary" id="email-check-transactional">Unknown</span>
+                      <span>Transactional enabled</span>
+                    </div>
+                    <div class="d-flex align-items-center gap-2 mb-2">
+                      <span class="badge bg-secondary" id="email-check-blast">Unknown</span>
+                      <span>Blast enabled</span>
+                    </div>
+                    <div class="small text-muted" id="email-check-blockers"></div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <div class="mt-5" id="company-email-queue-debug">
+            <h3 class="h5 mb-2">Email Queue Debug</h3>
+            <div class="card shadow-sm">
+              <div class="card-body">
+                <div class="d-flex flex-wrap justify-content-between align-items-center gap-2">
+                  <div>
+                    <h4 class="h6 mb-1">Blocked reasons</h4>
+                    <p class="text-muted small mb-0">Queued jobs currently blocked from sending.</p>
+                  </div>
+                  <button type="button" class="btn btn-outline-secondary btn-sm" id="email-queue-refresh">Refresh</button>
+                </div>
+
+                <div class="table-responsive mt-3">
+                  <table class="table table-sm align-middle mb-0">
+                    <thead class="table-light">
+                      <tr>
+                        <th scope="col">Reason</th>
+                        <th scope="col">Count</th>
+                        <th scope="col">Next attempt</th>
+                      </tr>
+                    </thead>
+                    <tbody id="email-queue-summary">
+                      <tr>
+                        <td colspan="3" class="text-center text-muted">Loading...</td>
+                      </tr>
+                    </tbody>
+                  </table>
+                </div>
+
+                <div class="mt-3">
+                  <h5 class="h6">Recent blocked jobs</h5>
+                  <div class="table-responsive">
+                    <table class="table table-sm align-middle mb-0">
+                      <thead class="table-light">
+                        <tr>
+                          <th scope="col">Email</th>
+                          <th scope="col">Reason</th>
+                        <th scope="col">Scheduled for</th>
+                        <th scope="col" class="text-end">Details</th>
+                      </tr>
+                    </thead>
+                    <tbody id="email-queue-samples">
+                      <tr>
+                        <td colspan="4" class="text-center text-muted">Loading...</td>
+                      </tr>
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+              </div>
+            </div>
+          </div>
+
+          <div class="mt-5" id="company-email-domain-section">
+            <h3 class="h5 mb-2">Email Sending Domain</h3>
+            <p class="text-muted mb-3">
+              Verify a domain to align KeepUP emails with your brand. This step does not change sending behavior yet.
+            </p>
+            <div class="card shadow-sm">
+              <div class="card-body">
+                <div class="d-flex flex-wrap justify-content-between align-items-start gap-2">
+                  <div>
+                    <h4 class="h6 mb-1">Domain verification</h4>
+                    <p class="text-muted mb-0">Add the DNS records SendGrid provides, then validate.</p>
+                  </div>
+                  <span class="badge bg-secondary" id="email-domain-status-badge">Not started</span>
+                </div>
+
+                <div id="email-domain-status-message" class="small text-muted mt-2"></div>
+
+                <form id="email-domain-form" class="row g-3 mt-2">
+                  <div class="col-md-5">
+                    <label for="emailDomainInput" class="form-label">Domain</label>
+                    <input type="text" class="form-control" id="emailDomainInput" placeholder="grenadierhomes.com" />
+                  </div>
+                  <div class="col-md-3">
+                    <label for="emailSubdomainInput" class="form-label">Subdomain</label>
+                    <input type="text" class="form-control" id="emailSubdomainInput" placeholder="email" value="email" />
+                    <div class="form-text">Creates email.yourdomain.com</div>
+                  </div>
+                  <div class="col-md-4">
+                    <label class="form-label d-block">Link branding</label>
+                    <div class="form-check mt-2">
+                      <input class="form-check-input" type="checkbox" id="emailLinkBranding" checked />
+                      <label class="form-check-label" for="emailLinkBranding">Brand links (recommended)</label>
+                    </div>
+                  </div>
+                  <div class="col-12 d-flex justify-content-end gap-2 flex-wrap">
+                    <button type="button" class="btn btn-outline-secondary" id="email-domain-remove">Remove</button>
+                    <button type="button" class="btn btn-outline-primary" id="email-domain-validate">Validate</button>
+                    <button type="submit" class="btn btn-primary" id="email-domain-start">Start verification</button>
+                  </div>
+                </form>
+
+                <div class="mt-3 d-none" id="email-domain-dns">
+                  <div class="table-responsive">
+                    <table class="table table-sm align-middle mb-0">
+                      <thead class="table-light">
+                        <tr>
+                          <th scope="col">Type</th>
+                          <th scope="col">Host</th>
+                          <th scope="col">Value</th>
+                          <th scope="col">Purpose</th>
+                          <th scope="col" class="text-end">Copy</th>
+                        </tr>
+                      </thead>
+                      <tbody id="email-domain-dns-body">
+                        <tr>
+                          <td colspan="5" class="text-center text-muted">No DNS records available.</td>
+                        </tr>
+                      </tbody>
+                    </table>
+                  </div>
+                  <div class="form-text mt-2">Add these records in DNS (Cloudflare). Set CNAME to DNS Only.</div>
+                </div>
+              </div>
+            </div>
+          </div>
         </section>
 
         <section id="admin-panel-users" class="admin-panel d-none" role="tabpanel" aria-labelledby="admin-tab-users">
@@ -906,7 +1263,7 @@
             <div class="col-12 col-lg-6">
               <label for="buildrootzLogo" class="form-label">Logo URL</label>
               <input type="url" id="buildrootzLogo" class="form-control" placeholder="https://example.com/logo.png" />
-              <div class="form-text">We’ll send this logo to your BuildRootz builder profile.</div>
+              <div class="form-text">We'll send this logo to your BuildRootz builder profile.</div>
               <div class="mt-2" id="buildrootzLogoPreviewWrapper">
                 <img id="buildrootzLogoPreview" src="" alt="Logo preview" style="max-height:60px; display:none;" />
               </div>
@@ -930,6 +1287,7 @@
     </div>
   </main>
 
+  <script defer src="/assets/js/shared/emailErrorLabels.js"></script>
   <script nonce="<%= cspNonce %>">
     document.addEventListener('DOMContentLoaded', () => {
       const tabButtons = Array.from(document.querySelectorAll('[data-admin-target]'));
@@ -956,6 +1314,23 @@
         company: {
           loading: false,
           saving: false,
+          data: null
+        },
+        emailDomain: {
+          loading: false,
+          saving: false,
+          data: null
+        },
+        emailDeliverability: {
+          loading: false,
+          data: null
+        },
+        emailSystemCheck: {
+          loading: false,
+          data: null
+        },
+        emailQueue: {
+          loading: false,
           data: null
         },
         buildrootz: {
@@ -1039,6 +1414,75 @@
       const companyStatusEl = document.getElementById('company-settings-status');
       const companySaveButton = document.getElementById('company-settings-save');
 
+      const emailDomainEls = {
+        section: document.getElementById('company-email-domain-section'),
+        form: document.getElementById('email-domain-form'),
+        statusBadge: document.getElementById('email-domain-status-badge'),
+        statusMessage: document.getElementById('email-domain-status-message'),
+        domain: document.getElementById('emailDomainInput'),
+        subdomain: document.getElementById('emailSubdomainInput'),
+        linkBranding: document.getElementById('emailLinkBranding'),
+        startButton: document.getElementById('email-domain-start'),
+        validateButton: document.getElementById('email-domain-validate'),
+        removeButton: document.getElementById('email-domain-remove'),
+        dnsWrapper: document.getElementById('email-domain-dns'),
+        dnsBody: document.getElementById('email-domain-dns-body')
+      };
+
+      const deliverabilityEls = {
+        section: document.getElementById('company-email-deliverability'),
+        statusBadge: document.getElementById('deliverability-status-badge'),
+        healthState: document.getElementById('deliverability-health-state'),
+        statusMessage: document.getElementById('deliverability-status-message'),
+        healthAction: document.getElementById('deliverability-health-action'),
+        statusMeta: document.getElementById('deliverability-status-meta'),
+        warmupBadge: document.getElementById('deliverability-warmup-badge'),
+        readinessBanner: document.getElementById('email-readiness-banner'),
+        readinessMessage: document.getElementById('email-readiness-message'),
+        readinessDetails: document.getElementById('email-readiness-details'),
+        resumeButton: document.getElementById('deliverability-resume'),
+        warmupResetButton: document.getElementById('deliverability-warmup-reset'),
+        warmupDisableButton: document.getElementById('deliverability-warmup-disable'),
+        warmupEnableButton: document.getElementById('deliverability-warmup-enable'),
+        verifyDomainButton: document.getElementById('deliverability-verify-domain'),
+        sentToday: document.getElementById('deliverability-sent-today'),
+        bouncesToday: document.getElementById('deliverability-bounces-today'),
+        spamreportsToday: document.getElementById('deliverability-spamreports-today'),
+        baseCap: document.getElementById('deliverability-base-cap'),
+        effectiveCap: document.getElementById('deliverability-effective-cap'),
+        remaining: document.getElementById('deliverability-remaining'),
+        reset: document.getElementById('deliverability-reset'),
+        toolsEmail: document.getElementById('email-tools-test-email'),
+        toolsPreview: document.getElementById('email-tools-preview'),
+        toolsGenerate: document.getElementById('email-tools-generate'),
+        toolsOutput: document.getElementById('email-tools-output'),
+        toolsHtml: document.getElementById('email-tools-html'),
+        toolsText: document.getElementById('email-tools-text')
+      };
+
+      const emailSystemCheckEls = {
+        section: document.getElementById('company-email-system-check'),
+        refresh: document.getElementById('email-system-check-refresh'),
+        sendgridKey: document.getElementById('email-check-sendgrid-key'),
+        webhookSecret: document.getElementById('email-check-webhook-secret'),
+        unsubSecret: document.getElementById('email-check-unsub-secret'),
+        baseUrl: document.getElementById('email-check-base-url'),
+        baseUrlValue: document.getElementById('email-check-base-url-value'),
+        scheduler: document.getElementById('email-check-scheduler'),
+        schedulerText: document.getElementById('email-check-scheduler-text'),
+        schedulerMeta: document.getElementById('email-check-scheduler-meta'),
+        transactional: document.getElementById('email-check-transactional'),
+        blast: document.getElementById('email-check-blast'),
+        blockers: document.getElementById('email-check-blockers')
+      };
+
+      const emailQueueEls = {
+        section: document.getElementById('company-email-queue-debug'),
+        refresh: document.getElementById('email-queue-refresh'),
+        summaryBody: document.getElementById('email-queue-summary'),
+        samplesBody: document.getElementById('email-queue-samples')
+      };
+
       const companyInputs = {
         name: document.getElementById('companyName'),
         street: document.getElementById('companyStreet'),
@@ -1052,7 +1496,13 @@
         primaryColor: document.getElementById('colorPrimary'),
         secondaryColor: document.getElementById('colorSecondary'),
         timezone: document.getElementById('companyTimezone'),
-        notes: document.getElementById('companyNotes')
+        notes: document.getElementById('companyNotes'),
+        emailDailyCapEnabled: document.getElementById('companyEmailDailyCapEnabled'),
+        emailDailyCap: document.getElementById('companyEmailDailyCap'),
+        emailAutoPauseSpamReport: document.getElementById('companyAutoPauseSpamReport'),
+        emailAutoPauseBounceRate: document.getElementById('companyAutoPauseBounceRate'),
+        emailBounceRateThreshold: document.getElementById('companyBounceRateThreshold'),
+        emailBounceMinSent: document.getElementById('companyBounceMinSent')
       };
       const companyViewOnlyMessage =
         'Company settings are view-only for Manager accounts. Contact a Company Admin to make changes.';
@@ -1160,6 +1610,16 @@
         }
       }
 
+      if (emailDomainEls.form && !canEditCompany) {
+        emailDomainEls.form.querySelectorAll('input, button').forEach((field) => {
+          field.setAttribute('disabled', 'disabled');
+        });
+        if (emailDomainEls.statusMessage) {
+          emailDomainEls.statusMessage.textContent = companyViewOnlyMessage;
+          emailDomainEls.statusMessage.classList.add('text-muted');
+        }
+      }
+
       if (buildrootzEls.form && !canEditCompany) {
         buildrootzEls.form.querySelectorAll('input, textarea, button').forEach((el) => {
           if (el.id === 'buildrootz-publish' || el.type === 'submit' || el.type === 'button') {
@@ -1177,6 +1637,34 @@
       const defaultPrimaryColor = companyInputs.primaryColor?.value || '#cc1d1d';
       const defaultSecondaryColor = companyInputs.secondaryColor?.value || '#1f3c88';
 
+      const updateDailyCapInputs = () => {
+        if (!companyInputs.emailDailyCap) return;
+        const enabled = companyInputs.emailDailyCapEnabled
+          ? companyInputs.emailDailyCapEnabled.checked
+          : true;
+        if (!canEditCompany) {
+          companyInputs.emailDailyCapEnabled?.setAttribute('disabled', 'disabled');
+          companyInputs.emailDailyCap?.setAttribute('disabled', 'disabled');
+          return;
+        }
+        companyInputs.emailDailyCap.disabled = !enabled;
+      };
+
+      const updateBounceRateInputs = () => {
+        if (!companyInputs.emailBounceRateThreshold || !companyInputs.emailBounceMinSent) return;
+        const enabled = companyInputs.emailAutoPauseBounceRate
+          ? companyInputs.emailAutoPauseBounceRate.checked
+          : true;
+        if (!canEditCompany) {
+          companyInputs.emailAutoPauseBounceRate?.setAttribute('disabled', 'disabled');
+          companyInputs.emailBounceRateThreshold?.setAttribute('disabled', 'disabled');
+          companyInputs.emailBounceMinSent?.setAttribute('disabled', 'disabled');
+          return;
+        }
+        companyInputs.emailBounceRateThreshold.disabled = !enabled;
+        companyInputs.emailBounceMinSent.disabled = !enabled;
+      };
+
       const escapeHtml = (value) =>
         String(value ?? '')
           .replace(/&/g, '&amp;')
@@ -1184,6 +1672,28 @@
           .replace(/>/g, '&gt;')
           .replace(/"/g, '&quot;')
           .replace(/'/g, '&#39;');
+
+      const copyText = async (text) => {
+        const value = String(text ?? '');
+        if (!value) return false;
+        if (navigator?.clipboard?.writeText) {
+          await navigator.clipboard.writeText(value);
+          return true;
+        }
+        const textarea = document.createElement('textarea');
+        textarea.value = value;
+        textarea.setAttribute('readonly', 'readonly');
+        textarea.style.position = 'absolute';
+        textarea.style.left = '-9999px';
+        document.body.appendChild(textarea);
+        textarea.select();
+        try {
+          document.execCommand('copy');
+          return true;
+        } finally {
+          document.body.removeChild(textarea);
+        }
+      };
 
       const formatPhoneNumber = (value) => {
         const raw = String(value ?? '').trim();
@@ -1222,6 +1732,31 @@
       };
 
       const clearCompanyStatus = () => setCompanyStatus('', 'muted');
+
+      const emailDomainStatusMeta = {
+        not_started: { label: 'Not started', badgeClass: 'bg-secondary' },
+        pending: { label: 'Pending', badgeClass: 'bg-warning text-dark' },
+        verified: { label: 'Verified', badgeClass: 'bg-success' },
+        failed: { label: 'Failed', badgeClass: 'bg-danger' },
+        removed: { label: 'Removed', badgeClass: 'bg-secondary' }
+      };
+
+      const setEmailDomainBadge = (status) => {
+        if (!emailDomainEls.statusBadge) return;
+        const meta = emailDomainStatusMeta[status] || emailDomainStatusMeta.not_started;
+        emailDomainEls.statusBadge.textContent = meta.label;
+        emailDomainEls.statusBadge.className = `badge ${meta.badgeClass}`;
+      };
+
+      const setEmailDomainStatus = (message, tone = 'muted') => {
+        if (!emailDomainEls.statusMessage) return;
+        emailDomainEls.statusMessage.textContent = message || '';
+        emailDomainEls.statusMessage.classList.remove('text-muted', 'text-success', 'text-danger');
+        const toneClass = tone === 'success' ? 'text-success' : tone === 'danger' ? 'text-danger' : 'text-muted';
+        emailDomainEls.statusMessage.classList.add(toneClass);
+      };
+
+      const clearEmailDomainStatus = () => setEmailDomainStatus('', 'muted');
 
       const setBuildrootzStatus = (message, tone = 'muted') => {
         if (!buildrootzEls.status) return;
@@ -1319,6 +1854,20 @@
         }
         if (!response.ok) {
           throw new Error(data?.error || `Request failed (${response.status})`);
+        }
+        return data;
+      };
+
+      const fetchEmailDomain = async (companyId) => {
+        if (!companyId) throw new Error('Missing company id.');
+        const response = await fetch(`/api/admin/company/${encodeURIComponent(companyId)}/email-domain`, {
+          headers: { Accept: 'application/json' },
+          credentials: 'same-origin'
+        });
+        const data = await readJsonResponse(response);
+        if (!response.ok) {
+          const message = data?.error || `Request failed (${response.status})`;
+          throw new Error(message);
         }
         return data;
       };
@@ -1530,13 +2079,49 @@
         const rows = communities
           .map((community) => {
             const communityId = community.id;
-            const map = community.websiteMap || {};
-            const displayStatus = map.displayStatus || map.status || 'inactive';
-            const meta = statusMeta[displayStatus] || statusMeta.inactive;
-            const pendingEnable = !!map.pendingEnable || displayStatus === 'pending_enable';
-            const pendingCancel = !!map.pendingCancel || displayStatus === 'pending_cancel';
-            const trialExpired = !!map.trialExpired || displayStatus === 'trial_expired';
-            const trialEligible = displayStatus === 'inactive' && !pendingEnable && !map.trialEndsAt && !trialExpired;
+// Website Map status resolution (merged)
+const map = community.websiteMap || {};
+const rawStatus = map.status || 'inactive';
+
+// If billing branch has a "pendingRequest" concept, it should override display
+const statusFromRequest = community.pendingRequest ? 'pending' : null;
+
+// Support displayStatus overrides (billing branch used rawStatus; email branch used displayStatus)
+const displayStatus = map.displayStatus || rawStatus;
+
+// Final status precedence:
+// 1) pendingRequest -> 'pending'
+// 2) displayStatus (supports pending_enable/pending_cancel/trial_expired/etc.)
+// 3) rawStatus fallback
+const status = statusFromRequest || displayStatus || rawStatus;
+
+const meta = statusMeta[status] || statusMeta.inactive;
+
+// Preserve email-branch flags (these are useful for UI decisions)
+const pendingEnable = !!map.pendingEnable || status === 'pending_enable';
+const pendingCancel = !!map.pendingCancel || status === 'pending_cancel';
+const trialExpired = !!map.trialExpired || status === 'trial_expired';
+
+// Keep billing branch trial label logic (but base it on rawStatus === 'trial')
+const daysRemaining = rawStatus === 'trial'
+  ? getTrialDaysRemaining(map.trialEndsAt, now)
+  : null;
+
+const trialLabel = rawStatus === 'trial'
+  ? daysRemaining == null
+    ? '--'
+    : daysRemaining <= 0
+      ? 'Expired'
+      : `${daysRemaining} day${daysRemaining === 1 ? '' : 's'} left`
+  : '--';
+
+// If you still need the email branch "trialEligible" concept, keep it too:
+const trialEligible =
+  status === 'inactive' &&
+  !pendingEnable &&
+  !map.trialEndsAt &&
+  !trialExpired;
+
 
             let trialLabel = '-';
             if (displayStatus === 'trial') {
@@ -1555,7 +2140,10 @@
               trialLabel = 'Expired';
             }
 
-            let actionMarkup = '<span class="text-muted small">?</span>';
+
+
+            let actionMarkup = '<span class="text-muted small">--</span>';
+
             if (!canManageBilling) {
               actionMarkup = '<span class="text-muted small">View only</span>';
             } else if (mode === 'cancel') {
@@ -2787,7 +3375,536 @@
           }
           companyInputs.timezone.value = tzValue;
         }
+        if (companyInputs.emailDailyCapEnabled) {
+          companyInputs.emailDailyCapEnabled.checked = payload.emailDailyCapEnabled !== false;
+        }
+        if (companyInputs.emailDailyCap) {
+          const capValue = Number(payload.emailDailyCap);
+          companyInputs.emailDailyCap.value = Number.isFinite(capValue) ? capValue : 500;
+        }
+        if (companyInputs.emailAutoPauseSpamReport) {
+          companyInputs.emailAutoPauseSpamReport.checked = payload.emailAutoPauseOnSpamReport !== false;
+        }
+        if (companyInputs.emailAutoPauseBounceRate) {
+          companyInputs.emailAutoPauseBounceRate.checked = payload.emailAutoPauseOnBounceRate !== false;
+        }
+        if (companyInputs.emailBounceRateThreshold) {
+          const threshold = Number(payload.emailBounceRateThreshold);
+          const percent = Number.isFinite(threshold) ? threshold * 100 : 5;
+          companyInputs.emailBounceRateThreshold.value = Number.isFinite(percent) ? percent : 5;
+        }
+        if (companyInputs.emailBounceMinSent) {
+          const minSent = Number(payload.emailBounceMinSentForEvaluation);
+          companyInputs.emailBounceMinSent.value = Number.isFinite(minSent) ? minSent : 50;
+        }
+        updateDailyCapInputs();
+        updateBounceRateInputs();
+        renderDeliverabilityStatus(payload);
         if (companyInputs.notes) companyInputs.notes.value = payload.notes || '';
+      };
+
+      const formatDateTime = (value) => {
+        if (!value) return '';
+        const date = new Date(value);
+        if (Number.isNaN(date.getTime())) return '';
+        return date.toLocaleString();
+      };
+
+      const formatPauseReason = (reason) => {
+        switch (String(reason || '').toLowerCase()) {
+          case 'spamreport':
+            return 'spam complaint';
+          case 'bounce_rate':
+            return 'high bounce rate';
+          case 'manual':
+            return 'manual pause';
+          default:
+            return 'deliverability protection';
+        }
+      };
+
+      const formatHealthState = (state) => {
+        switch (String(state || '').toUpperCase()) {
+          case 'ACTIVE':
+            return 'Active';
+          case 'PAUSED':
+            return 'Paused';
+          case 'WARMING_UP':
+            return 'Warming up';
+          case 'LIMITED':
+            return 'Limited';
+          case 'MISCONFIGURED':
+            return 'Misconfigured';
+          default:
+            return 'Unknown';
+        }
+      };
+
+      const setDeliverabilityStatusBadge = (status) => {
+        if (!deliverabilityEls.statusBadge) return;
+        deliverabilityEls.statusBadge.className = 'badge';
+        if (status === 'PAUSED') {
+          deliverabilityEls.statusBadge.classList.add('bg-danger');
+          deliverabilityEls.statusBadge.textContent = 'Paused';
+        } else if (status === 'WARMING_UP') {
+          deliverabilityEls.statusBadge.classList.add('bg-warning', 'text-dark');
+          deliverabilityEls.statusBadge.textContent = 'Warm-up';
+        } else if (status === 'LIMITED') {
+          deliverabilityEls.statusBadge.classList.add('bg-warning', 'text-dark');
+          deliverabilityEls.statusBadge.textContent = 'Limited';
+        } else if (status === 'MISCONFIGURED') {
+          deliverabilityEls.statusBadge.classList.add('bg-warning', 'text-dark');
+          deliverabilityEls.statusBadge.textContent = 'Needs setup';
+        } else if (status === 'ACTIVE') {
+          deliverabilityEls.statusBadge.classList.add('bg-success');
+          deliverabilityEls.statusBadge.textContent = 'Active';
+        } else {
+          deliverabilityEls.statusBadge.classList.add('bg-secondary');
+          deliverabilityEls.statusBadge.textContent = 'Unknown';
+        }
+      };
+
+      const getEmailErrorLabelSafe = (value) => {
+        if (typeof window !== 'undefined' && typeof window.getEmailErrorLabel === 'function') {
+          return window.getEmailErrorLabel(value);
+        }
+        return value;
+      };
+
+      const renderDeliverabilityStatus = (payload) => {
+        if (!deliverabilityEls.section || !payload) return;
+        const fallbackHealth = payload.sendingPaused
+          ? {
+            state: payload.sendingPaused.paused ? 'PAUSED' : 'ACTIVE',
+            reason: payload.sendingPaused.reason || '',
+            recommendedAction: payload.sendingPaused.paused
+              ? 'Review deliverability and resume when ready.'
+              : 'No action needed.'
+          }
+          : {
+            state: payload.emailSendingPaused ? 'PAUSED' : 'ACTIVE',
+            reason: payload.emailSendingPausedReason || (payload.emailSendingPaused ? '' : 'Sending active.'),
+            recommendedAction: payload.emailSendingPaused
+              ? 'Review deliverability and resume when ready.'
+              : 'No action needed.'
+          };
+        const health = payload.health || fallbackHealth;
+        const state = String(health.state || 'UNKNOWN').toUpperCase();
+        const rawReason = health.reason || '';
+        let reason = rawReason;
+        if (state === 'PAUSED' && rawReason) {
+          reason = `Paused due to ${formatPauseReason(rawReason)}.`;
+        }
+        const action = health.recommendedAction || '';
+
+        setDeliverabilityStatusBadge(state);
+        if (deliverabilityEls.healthState) {
+          deliverabilityEls.healthState.textContent = formatHealthState(state);
+        }
+        if (deliverabilityEls.statusMessage) {
+          deliverabilityEls.statusMessage.textContent = reason || '';
+        }
+        if (deliverabilityEls.healthAction) {
+          deliverabilityEls.healthAction.textContent = action || '';
+        }
+
+        const pausedMetaSource = payload.sendingPaused?.meta || payload.emailSendingPausedMeta || null;
+        if (deliverabilityEls.statusMeta) {
+          const metaParts = [];
+          if (pausedMetaSource?.recipientEmail) metaParts.push(`Recipient: ${pausedMetaSource.recipientEmail}`);
+          if (pausedMetaSource?.bounceRate != null) {
+            const ratePct = Math.round(Number(pausedMetaSource.bounceRate || 0) * 1000) / 10;
+            metaParts.push(`Bounce rate: ${ratePct}%`);
+          }
+          deliverabilityEls.statusMeta.textContent = metaParts.join(' - ');
+        }
+
+        const warmup = payload.warmup || null;
+        if (deliverabilityEls.warmupBadge) {
+          if (warmup?.active) {
+            const dayIndex = warmup.dayIndex || 1;
+            const daysTotal = warmup.daysTotal || 14;
+            const cap = warmup.capOverrideToday || warmup.capOverride || warmup.cap || '--';
+            deliverabilityEls.warmupBadge.textContent = `Warm-up Day ${dayIndex}/${daysTotal} - Today cap: ${cap}`;
+          } else {
+            deliverabilityEls.warmupBadge.textContent = '';
+          }
+        }
+
+        if (deliverabilityEls.resumeButton) {
+          const shouldShowResume = state === 'PAUSED' && canEditCompany;
+          deliverabilityEls.resumeButton.classList.toggle('d-none', !shouldShowResume);
+          deliverabilityEls.resumeButton.disabled = !canEditCompany;
+        }
+      };
+
+      const renderDeliverabilityMetrics = (payload) => {
+        if (!deliverabilityEls.section || !payload) return;
+        const sentToday = Number(payload.dailyCap?.sentToday || 0);
+        const bouncesToday = Number(payload.eventsToday?.bounces || 0);
+        const spamreportsToday = Number(payload.eventsToday?.spamreports || 0);
+        const capEnabled = payload.dailyCap?.enabled !== false;
+        const baseCap = Number(payload.dailyCap?.baseCap ?? payload.dailyCap?.cap ?? 0);
+        const effectiveCap = Number(payload.dailyCap?.effectiveCap ?? payload.dailyCap?.cap ?? 0);
+        const remaining = capEnabled ? Math.max(0, Number(payload.dailyCap?.remaining || 0)) : null;
+
+        if (deliverabilityEls.sentToday) deliverabilityEls.sentToday.textContent = String(sentToday);
+        if (deliverabilityEls.bouncesToday) deliverabilityEls.bouncesToday.textContent = String(bouncesToday);
+        if (deliverabilityEls.spamreportsToday) deliverabilityEls.spamreportsToday.textContent = String(spamreportsToday);
+
+        if (deliverabilityEls.baseCap) {
+          deliverabilityEls.baseCap.textContent = capEnabled ? String(baseCap) : 'Disabled';
+        }
+        if (deliverabilityEls.effectiveCap) {
+          deliverabilityEls.effectiveCap.textContent = capEnabled ? String(effectiveCap) : 'Disabled';
+        }
+        if (deliverabilityEls.remaining) {
+          deliverabilityEls.remaining.textContent = capEnabled ? String(remaining) : 'Disabled';
+        }
+
+        if (deliverabilityEls.reset) {
+          const resetAt = payload.day?.resetAt;
+          const tz = payload.timezone || payload.day?.timeZone || 'UTC';
+          if (resetAt) {
+            const resetDate = new Date(resetAt);
+            const resetText = Number.isNaN(resetDate.getTime())
+              ? 'Reset: --'
+              : `Reset: ${resetDate.toLocaleString('en-US', { timeZone: tz })} (${tz})`;
+            deliverabilityEls.reset.textContent = resetText;
+          } else {
+            deliverabilityEls.reset.textContent = 'Reset: --';
+          }
+        }
+      };
+
+      const renderEmailReadiness = (payload) => {
+        if (!deliverabilityEls.readinessBanner) return;
+        const readiness = payload?.emailReadiness;
+        const blockers = Array.isArray(readiness?.blast?.blockers) ? readiness.blast.blockers : [];
+        if (!readiness || readiness.blast?.enabled || blockers.length === 0) {
+          deliverabilityEls.readinessBanner.classList.add('d-none');
+          if (deliverabilityEls.readinessMessage) deliverabilityEls.readinessMessage.textContent = '';
+          if (deliverabilityEls.readinessDetails) deliverabilityEls.readinessDetails.textContent = '';
+          return;
+        }
+
+        const blockerText = blockers.map((blocker) => blocker.message).filter(Boolean).join(' ');
+        if (deliverabilityEls.readinessMessage) {
+          deliverabilityEls.readinessMessage.textContent = blockerText || 'Configuration missing.';
+        }
+
+        const baseUrlSource = readiness.blast?.unsubscribe?.baseUrlSource || null;
+        const baseSourceLabel =
+          baseUrlSource === 'email_unsubscribe_base_url'
+            ? 'EMAIL_UNSUBSCRIBE_BASE_URL'
+            : baseUrlSource === 'base_url'
+              ? 'BASE_URL'
+              : null;
+        const detailParts = [];
+        if (baseSourceLabel) detailParts.push(`Base URL source: ${baseSourceLabel}.`);
+        if (blockers.length) {
+          const codes = blockers.map((blocker) => blocker.code).filter(Boolean).join(', ');
+          if (codes) detailParts.push(`Blockers: ${codes}.`);
+        }
+        if (deliverabilityEls.readinessDetails) {
+          deliverabilityEls.readinessDetails.textContent = detailParts.join(' ');
+        }
+
+        deliverabilityEls.readinessBanner.classList.remove('d-none');
+      };
+
+      const renderDeliverabilityActions = (payload) => {
+        if (!deliverabilityEls.section) return;
+        const healthState = String(payload?.health?.state || '').toUpperCase();
+        const ctaAction = String(payload?.health?.cta?.action || '').toLowerCase();
+        const warmup = payload?.warmup || {};
+        const domainStatus = String(payload?.domain?.status || '').toLowerCase();
+
+        if (deliverabilityEls.warmupResetButton) {
+          const show = Boolean(warmup?.enabled && warmup?.active && canEditCompany);
+          deliverabilityEls.warmupResetButton.classList.toggle('d-none', !show);
+          deliverabilityEls.warmupResetButton.disabled = !show;
+        }
+        if (deliverabilityEls.warmupDisableButton) {
+          const show = Boolean(warmup?.enabled && warmup?.active && canEditCompany);
+          deliverabilityEls.warmupDisableButton.classList.toggle('d-none', !show);
+          deliverabilityEls.warmupDisableButton.disabled = !show;
+        }
+        if (deliverabilityEls.warmupEnableButton) {
+          const show = Boolean(!warmup?.enabled && domainStatus === 'verified' && canEditCompany);
+          deliverabilityEls.warmupEnableButton.classList.toggle('d-none', !show);
+          deliverabilityEls.warmupEnableButton.disabled = !show;
+        }
+        if (deliverabilityEls.verifyDomainButton) {
+          const show = healthState === 'MISCONFIGURED' || ctaAction === 'verify_domain';
+          deliverabilityEls.verifyDomainButton.classList.toggle('d-none', !show);
+        }
+      };
+
+      const renderEmailQueueSummary = (payload) => {
+        if (!emailQueueEls.section || !emailQueueEls.summaryBody) return;
+        const rows = Array.isArray(payload?.summary) ? payload.summary : [];
+        if (!rows.length) {
+          emailQueueEls.summaryBody.innerHTML =
+            '<tr><td colspan="3" class="text-center text-muted">No blocked jobs.</td></tr>';
+          return;
+        }
+        emailQueueEls.summaryBody.innerHTML = rows
+          .map((row) => {
+            const label = getEmailErrorLabelSafe(row.reason) || row.reason || 'Unknown';
+            const nextAttempt = row.nextAttemptAt ? formatDateTime(row.nextAttemptAt) : '--';
+            return `
+              <tr>
+                <td>${escapeHtml(label)}</td>
+                <td>${Number(row.count || 0)}</td>
+                <td>${escapeHtml(nextAttempt)}</td>
+              </tr>
+            `;
+          })
+          .join('');
+      };
+
+      const renderEmailQueueSamples = (payload) => {
+        if (!emailQueueEls.section || !emailQueueEls.samplesBody) return;
+        const rows = Array.isArray(payload?.samples) ? payload.samples : [];
+        if (!rows.length) {
+          emailQueueEls.samplesBody.innerHTML =
+            '<tr><td colspan="4" class="text-center text-muted">No blocked jobs.</td></tr>';
+          return;
+        }
+        emailQueueEls.samplesBody.innerHTML = rows
+          .map((row) => {
+            const label = getEmailErrorLabelSafe(row.lastError) || row.lastError || 'Unknown';
+            const scheduledFor = row.scheduledFor ? formatDateTime(row.scheduledFor) : '--';
+            const createdAt = row.createdAt ? formatDateTime(row.createdAt) : '--';
+            const nextAttemptAt = row.nextAttemptAt ? formatDateTime(row.nextAttemptAt) : '--';
+            const details = [
+              `Reason: ${escapeHtml(label)}`,
+              `Created: ${escapeHtml(createdAt)}`,
+              `Scheduled: ${escapeHtml(scheduledFor)}`,
+              `Next attempt: ${escapeHtml(nextAttemptAt)}`,
+              `From mode: ${escapeHtml(row.fromMode || '--')}`,
+              `From email: ${escapeHtml(row.fromEmailUsed || '--')}`,
+              `Reply-to: ${escapeHtml(row.replyToUsed || '--')}`
+            ].join('<br />');
+            return `
+              <tr data-email-row="${row.id}">
+                <td>${escapeHtml(row.to || '')}</td>
+                <td>${escapeHtml(label)}</td>
+                <td>${escapeHtml(scheduledFor)}</td>
+                <td class="text-end">
+                  <button type="button" class="btn btn-link btn-sm" data-action="toggle-email-details" data-job-id="${row.id}">
+                    Details
+                  </button>
+                </td>
+              </tr>
+              <tr class="d-none" data-email-details="${row.id}">
+                <td colspan="4">
+                  <div class="small text-muted">${details}</div>
+                </td>
+              </tr>
+            `;
+          })
+          .join('');
+      };
+
+      const setSystemCheckBadge = (el, ok, labels = {}) => {
+        if (!el) return;
+        const okLabel = labels.ok || 'OK';
+        const badLabel = labels.bad || 'Missing';
+        const unknownLabel = labels.unknown || 'Unknown';
+        el.className = 'badge';
+        if (ok === true) {
+          el.classList.add('bg-success');
+          el.textContent = okLabel;
+        } else if (ok === false) {
+          el.classList.add('bg-danger');
+          el.textContent = badLabel;
+        } else {
+          el.classList.add('bg-secondary');
+          el.textContent = unknownLabel;
+        }
+      };
+
+      const renderEmailSystemCheck = (payload) => {
+        if (!emailSystemCheckEls.section || !payload) return;
+        const sendgrid = payload.sendgrid || {};
+        const unsubscribe = payload.unsubscribe || {};
+        const scheduler = payload.scheduler || {};
+        const readiness = payload.readiness || {};
+
+        setSystemCheckBadge(emailSystemCheckEls.sendgridKey, sendgrid.apiKeyPresent);
+        setSystemCheckBadge(emailSystemCheckEls.webhookSecret, sendgrid.webhookSecretPresent);
+        setSystemCheckBadge(emailSystemCheckEls.unsubSecret, unsubscribe.secretPresent);
+        setSystemCheckBadge(emailSystemCheckEls.baseUrl, unsubscribe.baseUrlResolved);
+
+        if (emailSystemCheckEls.baseUrlValue) {
+          emailSystemCheckEls.baseUrlValue.textContent = unsubscribe.effectiveBaseUrl
+            ? `(${unsubscribe.effectiveBaseUrl})`
+            : '';
+        }
+
+        setSystemCheckBadge(emailSystemCheckEls.scheduler, scheduler.heartbeatOk, {
+          ok: 'Running',
+          bad: 'Not running'
+        });
+        if (emailSystemCheckEls.schedulerText) {
+          emailSystemCheckEls.schedulerText.textContent = scheduler.heartbeatOk
+            ? 'Scheduler running'
+            : 'Scheduler not running';
+        }
+        if (emailSystemCheckEls.schedulerMeta) {
+          const lastRun = scheduler.lastRunAt ? formatDateTime(scheduler.lastRunAt) : '--';
+          const minutes = Number.isFinite(scheduler.minutesSinceLastRun)
+            ? `${scheduler.minutesSinceLastRun} min ago`
+            : 'n/a';
+          emailSystemCheckEls.schedulerMeta.textContent = `Last run: ${lastRun} (${minutes})`;
+        }
+
+        setSystemCheckBadge(emailSystemCheckEls.transactional, readiness.transactionalEnabled, {
+          ok: 'Enabled',
+          bad: 'Disabled'
+        });
+        setSystemCheckBadge(emailSystemCheckEls.blast, readiness.blastEnabled, {
+          ok: 'Enabled',
+          bad: 'Disabled'
+        });
+
+        if (emailSystemCheckEls.blockers) {
+          const blockers = Array.isArray(readiness.blockers) ? readiness.blockers : [];
+          emailSystemCheckEls.blockers.textContent = blockers.length
+            ? blockers
+              .map((blocker) => `${blocker.code || 'UNKNOWN'}: ${blocker.message || ''}`.trim())
+              .join(' | ')
+            : 'No blockers detected.';
+        }
+      };
+
+      const fetchEmailDeliverability = async (companyId) => {
+        const response = await fetch(`/api/admin/company/${encodeURIComponent(companyId)}/email-deliverability`, {
+          headers: { Accept: 'application/json' },
+          credentials: 'same-origin'
+        });
+        const data = await readJsonResponse(response);
+        if (!response.ok) {
+          throw new Error(data?.error || `Request failed (${response.status})`);
+        }
+        return data;
+      };
+
+      const fetchEmailSystemCheck = async (companyId) => {
+        const response = await fetch(`/api/admin/company/${encodeURIComponent(companyId)}/email-system-check`, {
+          headers: { Accept: 'application/json' },
+          credentials: 'same-origin'
+        });
+        const data = await readJsonResponse(response);
+        if (!response.ok) {
+          throw new Error(data?.error || `Request failed (${response.status})`);
+        }
+        return data;
+      };
+
+      const fetchEmailQueueDebug = async (companyId) => {
+        const response = await fetch(
+          `/api/admin/company/${encodeURIComponent(companyId)}/email-jobs/blocked?limit=15`,
+          {
+            headers: { Accept: 'application/json' },
+            credentials: 'same-origin'
+          }
+        );
+        const data = await readJsonResponse(response);
+        if (!response.ok) {
+          throw new Error(data?.error || `Request failed (${response.status})`);
+        }
+        return data;
+      };
+
+      const renderEmailDomainDns = (records = []) => {
+        if (!emailDomainEls.dnsBody) return;
+        if (!records.length) {
+          emailDomainEls.dnsBody.innerHTML = `
+            <tr>
+              <td colspan="5" class="text-center text-muted">No DNS records available.</td>
+            </tr>
+          `;
+          return;
+        }
+
+        emailDomainEls.dnsBody.innerHTML = records
+          .map((record) => `
+            <tr>
+              <td>${escapeHtml(record.type || '')}</td>
+              <td>${escapeHtml(record.host || '')}</td>
+              <td class="text-break">${escapeHtml(record.value || record.data || '')}</td>
+              <td>${escapeHtml(record.purpose || '')}</td>
+              <td class="text-end">
+                <div class="btn-group btn-group-sm" role="group">
+                  <button type="button" class="btn btn-outline-secondary" data-copy="${escapeHtml(record.host || '')}">Host</button>
+                  <button type="button" class="btn btn-outline-secondary" data-copy="${escapeHtml(record.value || record.data || '')}">Value</button>
+                </div>
+              </td>
+            </tr>
+          `)
+          .join('');
+      };
+
+      const renderEmailDomain = () => {
+        if (!emailDomainEls.section) return;
+        const data = state.emailDomain.data || { status: 'not_started' };
+        const status = data.status || 'not_started';
+        const hasStarted = status !== 'not_started' && status !== 'removed' && data.domain;
+
+        setEmailDomainBadge(status);
+
+        if (emailDomainEls.domain) emailDomainEls.domain.value = data.domain || '';
+        if (emailDomainEls.subdomain) emailDomainEls.subdomain.value = data.subdomain || 'email';
+        if (emailDomainEls.linkBranding) {
+          emailDomainEls.linkBranding.checked = data.linkBranding !== false;
+        }
+
+        const lockInputs = hasStarted;
+        [emailDomainEls.domain, emailDomainEls.subdomain, emailDomainEls.linkBranding].forEach((el) => {
+          if (!el) return;
+          if (!canEditCompany) {
+            el.setAttribute('disabled', 'disabled');
+          } else {
+            el.toggleAttribute('disabled', lockInputs);
+          }
+        });
+
+        if (emailDomainEls.startButton) {
+          const canStart = canEditCompany && !hasStarted;
+          emailDomainEls.startButton.disabled = !canStart;
+        }
+        if (emailDomainEls.validateButton) {
+          emailDomainEls.validateButton.disabled = !canEditCompany || !hasStarted;
+        }
+        if (emailDomainEls.removeButton) {
+          emailDomainEls.removeButton.disabled = !canEditCompany || !hasStarted;
+          emailDomainEls.removeButton.classList.toggle('d-none', !hasStarted);
+        }
+
+        if (emailDomainEls.dnsWrapper) {
+          emailDomainEls.dnsWrapper.classList.toggle('d-none', !hasStarted);
+        }
+        if (hasStarted) {
+          renderEmailDomainDns(data.dnsRecords || []);
+        }
+
+        let statusMessage = '';
+        if (status === 'verified') {
+          statusMessage = `Verified ${formatDateTime(data.verifiedAt) || ''}`.trim();
+        } else if (status === 'pending') {
+          statusMessage = 'Pending verification. Add the DNS records below and click Validate.';
+        } else if (status === 'failed') {
+          const errorText = data?.lastValidation?.results?.errors?.[0]?.message;
+          statusMessage = errorText
+            ? `Validation failed: ${errorText}`
+            : 'Validation failed. Check your DNS records and try again.';
+        } else if (status === 'removed' || status === 'not_started') {
+          statusMessage = 'No domain configured yet.';
+        }
+        setEmailDomainStatus(statusMessage || '', status === 'failed' ? 'danger' : 'muted');
       };
 
       const loadCompanyPanel = async ({ force = false } = {}) => {
@@ -2795,6 +3912,28 @@
         if (state.company.loading) return;
         if (!force && state.loadedPanels.has('company') && state.company.data) {
           populateCompanyForm(state.company.data);
+          if (state.emailDomain.data) {
+            renderEmailDomain();
+          }
+          if (state.emailDeliverability.data) {
+            renderDeliverabilityStatus(state.emailDeliverability.data);
+            renderDeliverabilityMetrics(state.emailDeliverability.data);
+            renderDeliverabilityActions(state.emailDeliverability.data);
+            renderEmailReadiness(state.emailDeliverability.data);
+          } else {
+            loadEmailDeliverabilityPanel();
+          }
+          if (state.emailSystemCheck.data) {
+            renderEmailSystemCheck(state.emailSystemCheck.data);
+          } else {
+            loadEmailSystemCheckPanel();
+          }
+          if (state.emailQueue.data) {
+            renderEmailQueueSummary(state.emailQueue.data);
+            renderEmailQueueSamples(state.emailQueue.data);
+          } else {
+            loadEmailQueuePanel();
+          }
           return;
         }
 
@@ -2809,6 +3948,10 @@
           state.company.data = payload;
           state.loadedPanels.add('company');
           populateCompanyForm(payload);
+          await loadEmailDomainPanel();
+          await loadEmailDeliverabilityPanel();
+          await loadEmailSystemCheckPanel();
+          await loadEmailQueuePanel();
           if (canEditCompany) {
             clearCompanyStatus();
           } else if (companyStatusEl) {
@@ -2823,6 +3966,415 @@
           state.company.loading = false;
           if (companySaveButton && !state.company.saving && canEditCompany) {
             companySaveButton.disabled = false;
+          }
+        }
+      };
+
+      const loadEmailDomainPanel = async () => {
+        if (!emailDomainEls.section) return;
+        if (state.emailDomain.loading) return;
+        const companyId = state.company.data?.companyId;
+        if (!companyId) return;
+
+        state.emailDomain.loading = true;
+        setEmailDomainStatus('Loading email domain settings...', 'muted');
+        if (emailDomainEls.startButton) emailDomainEls.startButton.disabled = true;
+        if (emailDomainEls.validateButton) emailDomainEls.validateButton.disabled = true;
+        if (emailDomainEls.removeButton) emailDomainEls.removeButton.disabled = true;
+
+        try {
+          const payload = await fetchEmailDomain(companyId);
+          state.emailDomain.data = payload;
+          renderEmailDomain();
+        } catch (err) {
+          console.error('Failed to load email domain settings', err);
+          setEmailDomainStatus(err.message || 'Unable to load email domain settings.', 'danger');
+        } finally {
+          state.emailDomain.loading = false;
+        }
+      };
+
+      const loadEmailDeliverabilityPanel = async () => {
+        if (!deliverabilityEls.section) return;
+        if (state.emailDeliverability.loading) return;
+        const companyId = state.company.data?.companyId;
+        if (!companyId) return;
+
+        state.emailDeliverability.loading = true;
+        if (deliverabilityEls.statusMessage) {
+          deliverabilityEls.statusMessage.textContent = 'Loading deliverability stats...';
+        }
+        if (deliverabilityEls.healthState) {
+          deliverabilityEls.healthState.textContent = 'Loading...';
+        }
+        try {
+          const payload = await fetchEmailDeliverability(companyId);
+          state.emailDeliverability.data = payload;
+          renderDeliverabilityStatus(payload);
+          renderDeliverabilityMetrics(payload);
+          renderDeliverabilityActions(payload);
+          renderEmailReadiness(payload);
+        } catch (err) {
+          console.error('Failed to load deliverability stats', err);
+          if (deliverabilityEls.statusMessage) {
+            deliverabilityEls.statusMessage.textContent = err.message || 'Could not load deliverability stats.';
+          }
+        } finally {
+          state.emailDeliverability.loading = false;
+        }
+      };
+
+      const loadEmailSystemCheckPanel = async () => {
+        if (!emailSystemCheckEls.section) return;
+        if (state.emailSystemCheck.loading) return;
+        const companyId = state.company.data?.companyId;
+        if (!companyId) return;
+
+        state.emailSystemCheck.loading = true;
+        if (emailSystemCheckEls.schedulerText) {
+          emailSystemCheckEls.schedulerText.textContent = 'Loading system check...';
+        }
+        try {
+          const payload = await fetchEmailSystemCheck(companyId);
+          state.emailSystemCheck.data = payload;
+          renderEmailSystemCheck(payload);
+        } catch (err) {
+          console.error('Failed to load email system check', err);
+          if (emailSystemCheckEls.schedulerText) {
+            emailSystemCheckEls.schedulerText.textContent = 'Unable to load system check.';
+          }
+        } finally {
+          state.emailSystemCheck.loading = false;
+        }
+      };
+
+      const loadEmailQueuePanel = async () => {
+        if (!emailQueueEls.section) return;
+        if (state.emailQueue.loading) return;
+        const companyId = state.company.data?.companyId;
+        if (!companyId) return;
+
+        state.emailQueue.loading = true;
+        if (emailQueueEls.summaryBody) {
+          emailQueueEls.summaryBody.innerHTML =
+            '<tr><td colspan="3" class="text-center text-muted">Loading...</td></tr>';
+        }
+        if (emailQueueEls.samplesBody) {
+          emailQueueEls.samplesBody.innerHTML =
+            '<tr><td colspan="4" class="text-center text-muted">Loading...</td></tr>';
+        }
+
+        try {
+          const payload = await fetchEmailQueueDebug(companyId);
+          state.emailQueue.data = payload;
+          renderEmailQueueSummary(payload);
+          renderEmailQueueSamples(payload);
+        } catch (err) {
+          console.error('Failed to load email queue debug', err);
+          if (emailQueueEls.summaryBody) {
+            emailQueueEls.summaryBody.innerHTML =
+              '<tr><td colspan="3" class="text-center text-muted">Unable to load.</td></tr>';
+          }
+          if (emailQueueEls.samplesBody) {
+            emailQueueEls.samplesBody.innerHTML =
+              '<tr><td colspan="4" class="text-center text-muted">Unable to load.</td></tr>';
+          }
+        } finally {
+          state.emailQueue.loading = false;
+        }
+      };
+
+      const startEmailDomain = async (event) => {
+        event.preventDefault();
+        if (!canEditCompany || state.emailDomain.loading || state.emailDomain.saving) return;
+        const companyId = state.company.data?.companyId;
+        if (!companyId) return;
+
+        const domain = getInputValue(emailDomainEls.domain);
+        const subdomain = getInputValue(emailDomainEls.subdomain);
+        const linkBranding = Boolean(emailDomainEls.linkBranding?.checked);
+
+        if (!domain) {
+          setEmailDomainStatus('Domain is required.', 'danger');
+          return;
+        }
+
+        state.emailDomain.saving = true;
+        setEmailDomainStatus('Starting verification...', 'muted');
+        if (emailDomainEls.startButton) emailDomainEls.startButton.disabled = true;
+
+        try {
+          const response = await fetch(
+            `/api/admin/company/${encodeURIComponent(companyId)}/email-domain/start`,
+            {
+              method: 'POST',
+              headers: {
+                'Content-Type': 'application/json',
+                Accept: 'application/json'
+              },
+              credentials: 'same-origin',
+              body: JSON.stringify({ domain, subdomain, linkBranding })
+            }
+          );
+          const data = await readJsonResponse(response);
+          if (!response.ok) {
+            throw new Error(data?.error || `Request failed (${response.status})`);
+          }
+          state.emailDomain.data = data;
+          renderEmailDomain();
+          setEmailDomainStatus('Verification started. Add DNS records below.', 'success');
+        } catch (err) {
+          console.error('Email domain start failed', err);
+          setEmailDomainStatus(err.message || 'Failed to start verification.', 'danger');
+        } finally {
+          state.emailDomain.saving = false;
+        }
+      };
+
+      const validateEmailDomain = async () => {
+        if (!canEditCompany || state.emailDomain.loading || state.emailDomain.saving) return;
+        const companyId = state.company.data?.companyId;
+        if (!companyId) return;
+
+        state.emailDomain.saving = true;
+        setEmailDomainStatus('Validating...', 'muted');
+        if (emailDomainEls.validateButton) emailDomainEls.validateButton.disabled = true;
+
+        try {
+          const response = await fetch(
+            `/api/admin/company/${encodeURIComponent(companyId)}/email-domain/validate`,
+            {
+              method: 'POST',
+              headers: { Accept: 'application/json' },
+              credentials: 'same-origin'
+            }
+          );
+          const data = await readJsonResponse(response);
+          if (!response.ok) {
+            throw new Error(data?.error || `Request failed (${response.status})`);
+          }
+          state.emailDomain.data = data;
+          renderEmailDomain();
+          if (data.status === 'verified') {
+            setEmailDomainStatus('Domain verified.', 'success');
+          } else if (data.status === 'failed') {
+            setEmailDomainStatus('Validation failed. Check DNS records.', 'danger');
+          } else {
+            setEmailDomainStatus('Validation pending. DNS may still be propagating.', 'muted');
+          }
+        } catch (err) {
+          console.error('Email domain validation failed', err);
+          setEmailDomainStatus(err.message || 'Validation failed.', 'danger');
+        } finally {
+          state.emailDomain.saving = false;
+        }
+      };
+
+      const removeEmailDomain = async () => {
+        if (!canEditCompany || state.emailDomain.loading || state.emailDomain.saving) return;
+        const companyId = state.company.data?.companyId;
+        if (!companyId) return;
+
+        const confirmed = window.confirm('Remove this email domain configuration?');
+        if (!confirmed) return;
+
+        state.emailDomain.saving = true;
+        setEmailDomainStatus('Removing...', 'muted');
+        if (emailDomainEls.removeButton) emailDomainEls.removeButton.disabled = true;
+
+        try {
+          const response = await fetch(
+            `/api/admin/company/${encodeURIComponent(companyId)}/email-domain`,
+            {
+              method: 'DELETE',
+              headers: { Accept: 'application/json' },
+              credentials: 'same-origin'
+            }
+          );
+          const data = await readJsonResponse(response);
+          if (!response.ok) {
+            throw new Error(data?.error || `Request failed (${response.status})`);
+          }
+          state.emailDomain.data = data;
+          renderEmailDomain();
+          setEmailDomainStatus('Email domain removed.', 'muted');
+        } catch (err) {
+          console.error('Email domain removal failed', err);
+          setEmailDomainStatus(err.message || 'Failed to remove email domain.', 'danger');
+        } finally {
+          state.emailDomain.saving = false;
+        }
+      };
+
+      const resumeEmailSending = async () => {
+        if (!canEditCompany) return;
+        const companyId = state.company.data?.companyId;
+        if (!companyId) return;
+
+        const confirmed = window.prompt('Type RESUME to confirm resuming email sending.');
+        if (confirmed !== 'RESUME') return;
+
+        if (deliverabilityEls.resumeButton) deliverabilityEls.resumeButton.disabled = true;
+        if (deliverabilityEls.statusMessage) {
+          deliverabilityEls.statusMessage.textContent = 'Resuming sending...';
+        }
+
+        try {
+          const response = await fetch(
+            `/api/admin/company/${encodeURIComponent(companyId)}/email-sending/resume`,
+            {
+              method: 'POST',
+              headers: { Accept: 'application/json' },
+              credentials: 'same-origin'
+            }
+          );
+          const data = await readJsonResponse(response);
+          if (!response.ok) {
+            throw new Error(data?.error || `Request failed (${response.status})`);
+          }
+          state.company.data = data;
+          populateCompanyForm(data);
+          await loadEmailDeliverabilityPanel();
+          setCompanyStatus('Email sending resumed.', 'success');
+          setTimeout(() => {
+            if (!state.company.saving) clearCompanyStatus();
+          }, 4000);
+        } catch (err) {
+          console.error('Resume sending failed', err);
+          if (deliverabilityEls.statusMessage) {
+            deliverabilityEls.statusMessage.textContent = err.message || 'Unable to resume sending.';
+          }
+        } finally {
+          if (deliverabilityEls.resumeButton) deliverabilityEls.resumeButton.disabled = false;
+        }
+      };
+
+      const runWarmupAction = async (action) => {
+        if (!canEditCompany) return;
+        const companyId = state.company.data?.companyId;
+        if (!companyId) return;
+
+        if (deliverabilityEls.statusMessage) {
+          deliverabilityEls.statusMessage.textContent = 'Updating warm-up settings...';
+        }
+
+        try {
+          const response = await fetch(
+            `/api/admin/company/${encodeURIComponent(companyId)}/email-warmup`,
+            {
+              method: 'POST',
+              headers: {
+                'Content-Type': 'application/json',
+                Accept: 'application/json'
+              },
+              credentials: 'same-origin',
+              body: JSON.stringify({ action })
+            }
+          );
+          const data = await readJsonResponse(response);
+          if (!response.ok) {
+            throw new Error(data?.error || `Request failed (${response.status})`);
+          }
+          await loadEmailDeliverabilityPanel();
+          if (deliverabilityEls.statusMessage) {
+            deliverabilityEls.statusMessage.textContent = 'Warm-up settings updated.';
+          }
+        } catch (err) {
+          console.error('Warm-up action failed', err);
+          if (deliverabilityEls.statusMessage) {
+            deliverabilityEls.statusMessage.textContent = err.message || 'Unable to update warm-up settings.';
+          }
+        }
+      };
+
+      const focusEmailDomainSection = () => {
+        if (!emailDomainEls.section) return;
+        emailDomainEls.section.scrollIntoView({ behavior: 'smooth', block: 'start' });
+      };
+
+      const getToolsEmailValue = () => {
+        const value = getInputValue(deliverabilityEls.toolsEmail);
+        return value || 'test@example.com';
+      };
+
+      const previewBlastFooter = async () => {
+        if (!canEditCompany) return;
+        const companyId = state.company.data?.companyId;
+        if (!companyId) return;
+
+        const email = getToolsEmailValue();
+        if (deliverabilityEls.toolsOutput) {
+          deliverabilityEls.toolsOutput.classList.add('d-none');
+        }
+        if (deliverabilityEls.statusMessage) {
+          deliverabilityEls.statusMessage.textContent = 'Generating footer preview...';
+        }
+
+        try {
+          const response = await fetch(
+            `/api/admin/company/${encodeURIComponent(companyId)}/email-tools/footer-preview?email=${encodeURIComponent(email)}`,
+            {
+              headers: { Accept: 'application/json' },
+              credentials: 'same-origin'
+            }
+          );
+          const data = await readJsonResponse(response);
+          if (!response.ok) {
+            throw new Error(data?.error || `Request failed (${response.status})`);
+          }
+          if (deliverabilityEls.toolsHtml) {
+            deliverabilityEls.toolsHtml.innerHTML = data?.html || '';
+          }
+          if (deliverabilityEls.toolsText) {
+            deliverabilityEls.toolsText.textContent = data?.text || '';
+          }
+          if (deliverabilityEls.toolsOutput) {
+            deliverabilityEls.toolsOutput.classList.remove('d-none');
+          }
+          if (deliverabilityEls.statusMessage) {
+            deliverabilityEls.statusMessage.textContent = 'Footer preview ready.';
+          }
+        } catch (err) {
+          console.error('Footer preview failed', err);
+          if (deliverabilityEls.statusMessage) {
+            deliverabilityEls.statusMessage.textContent = err.message || 'Unable to preview footer.';
+          }
+        }
+      };
+
+      const generateTestUnsubscribeLink = async () => {
+        if (!canEditCompany) return;
+        const companyId = state.company.data?.companyId;
+        if (!companyId) return;
+
+        const email = getToolsEmailValue();
+        if (deliverabilityEls.statusMessage) {
+          deliverabilityEls.statusMessage.textContent = 'Generating unsubscribe link...';
+        }
+
+        try {
+          const response = await fetch(
+            `/api/admin/company/${encodeURIComponent(companyId)}/email-tools/test-unsubscribe?email=${encodeURIComponent(email)}`,
+            {
+              headers: { Accept: 'application/json' },
+              credentials: 'same-origin'
+            }
+          );
+          const data = await readJsonResponse(response);
+          if (!response.ok) {
+            throw new Error(data?.error || `Request failed (${response.status})`);
+          }
+          const url = data?.unsubscribeUrl;
+          if (url) {
+            window.open(url, '_blank', 'noopener,noreferrer');
+          }
+          if (deliverabilityEls.statusMessage) {
+            deliverabilityEls.statusMessage.textContent = 'Unsubscribe link generated.';
+          }
+        } catch (err) {
+          console.error('Generate unsubscribe link failed', err);
+          if (deliverabilityEls.statusMessage) {
+            deliverabilityEls.statusMessage.textContent = err.message || 'Unable to generate unsubscribe link.';
           }
         }
       };
@@ -2879,7 +4431,19 @@
             secondaryColor: companyInputs.secondaryColor?.value || ''
           },
           timezone: getInputValue(companyInputs.timezone),
-          notes: getInputValue(companyInputs.notes)
+          notes: getInputValue(companyInputs.notes),
+          emailDailyCapEnabled: Boolean(companyInputs.emailDailyCapEnabled?.checked),
+          emailDailyCap: companyInputs.emailDailyCap?.value != null && companyInputs.emailDailyCap.value !== ''
+            ? Number(companyInputs.emailDailyCap.value)
+            : null,
+          emailAutoPauseOnSpamReport: Boolean(companyInputs.emailAutoPauseSpamReport?.checked),
+          emailAutoPauseOnBounceRate: Boolean(companyInputs.emailAutoPauseBounceRate?.checked),
+          emailBounceRateThreshold: companyInputs.emailBounceRateThreshold?.value != null && companyInputs.emailBounceRateThreshold.value !== ''
+            ? Number(companyInputs.emailBounceRateThreshold.value) / 100
+            : null,
+          emailBounceMinSentForEvaluation: companyInputs.emailBounceMinSent?.value != null && companyInputs.emailBounceMinSent.value !== ''
+            ? Number(companyInputs.emailBounceMinSent.value)
+            : null
         };
 
         state.company.saving = true;
@@ -2912,6 +4476,7 @@
           state.company.data = data;
           state.loadedPanels.add('company');
           populateCompanyForm(data);
+          await loadEmailDeliverabilityPanel();
           setCompanyStatus('Company settings saved.', 'success');
           setTimeout(() => {
             if (!state.company.saving) clearCompanyStatus();
@@ -3900,6 +5465,112 @@
             populateCompanyForm(state.company.data);
           }
           clearCompanyStatus();
+        });
+      }
+      if (companyInputs.emailDailyCapEnabled) {
+        companyInputs.emailDailyCapEnabled.addEventListener('change', updateDailyCapInputs);
+      }
+      if (companyInputs.emailAutoPauseBounceRate) {
+        companyInputs.emailAutoPauseBounceRate.addEventListener('change', updateBounceRateInputs);
+      }
+      if (deliverabilityEls.resumeButton) {
+        deliverabilityEls.resumeButton.addEventListener('click', (event) => {
+          event.preventDefault();
+          resumeEmailSending();
+        });
+      }
+      if (deliverabilityEls.warmupResetButton) {
+        deliverabilityEls.warmupResetButton.addEventListener('click', (event) => {
+          event.preventDefault();
+          runWarmupAction('reset');
+        });
+      }
+      if (deliverabilityEls.warmupDisableButton) {
+        deliverabilityEls.warmupDisableButton.addEventListener('click', (event) => {
+          event.preventDefault();
+          runWarmupAction('disable');
+        });
+      }
+      if (deliverabilityEls.warmupEnableButton) {
+        deliverabilityEls.warmupEnableButton.addEventListener('click', (event) => {
+          event.preventDefault();
+          runWarmupAction('enable');
+        });
+      }
+      if (deliverabilityEls.verifyDomainButton) {
+        deliverabilityEls.verifyDomainButton.addEventListener('click', (event) => {
+          event.preventDefault();
+          focusEmailDomainSection();
+        });
+      }
+      if (deliverabilityEls.toolsPreview) {
+        deliverabilityEls.toolsPreview.addEventListener('click', (event) => {
+          event.preventDefault();
+          previewBlastFooter();
+        });
+      }
+      if (deliverabilityEls.toolsGenerate) {
+        deliverabilityEls.toolsGenerate.addEventListener('click', (event) => {
+          event.preventDefault();
+          generateTestUnsubscribeLink();
+        });
+      }
+      if (emailSystemCheckEls.refresh) {
+        emailSystemCheckEls.refresh.addEventListener('click', (event) => {
+          event.preventDefault();
+          loadEmailSystemCheckPanel();
+        });
+      }
+      if (emailQueueEls.refresh) {
+        emailQueueEls.refresh.addEventListener('click', (event) => {
+          event.preventDefault();
+          loadEmailQueuePanel();
+        });
+      }
+      if (emailQueueEls.samplesBody) {
+        emailQueueEls.samplesBody.addEventListener('click', (event) => {
+          const button = event.target.closest('button[data-action="toggle-email-details"]');
+          if (!button) return;
+          const jobId = button.dataset.jobId;
+          if (!jobId) return;
+          const detailRow = emailQueueEls.samplesBody.querySelector(`tr[data-email-details="${jobId}"]`);
+          if (!detailRow) return;
+          detailRow.classList.toggle('d-none');
+        });
+      }
+
+      if (emailDomainEls.form) {
+        emailDomainEls.form.addEventListener('submit', startEmailDomain);
+      }
+      if (emailDomainEls.validateButton) {
+        emailDomainEls.validateButton.addEventListener('click', (event) => {
+          event.preventDefault();
+          validateEmailDomain();
+        });
+      }
+      if (emailDomainEls.removeButton) {
+        emailDomainEls.removeButton.addEventListener('click', (event) => {
+          event.preventDefault();
+          removeEmailDomain();
+        });
+      }
+      if (emailDomainEls.dnsBody) {
+        emailDomainEls.dnsBody.addEventListener('click', async (event) => {
+          const button = event.target.closest('button[data-copy]');
+          if (!button) return;
+          const value = button.dataset.copy || '';
+          try {
+            await copyText(value);
+            setEmailDomainStatus('Copied to clipboard.', 'success');
+            setTimeout(() => {
+              if (!state.emailDomain.saving && !state.emailDomain.loading) {
+                renderEmailDomain();
+              }
+            }, 1200);
+          } catch (err) {
+            console.error('Copy failed', err);
+            setEmailDomainStatus('Failed to copy.', 'danger');
+          }
         });
       }
 

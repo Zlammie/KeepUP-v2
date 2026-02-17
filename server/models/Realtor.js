@@ -23,6 +23,11 @@ const RealtorSchema = new Schema({
   licenseId:  { type: String, set: toTrim, default: '' },
   office:     { type: String, set: toTrim, default: '' },
 
+  // email pause (blast + automation guardrail)
+  emailPaused:   { type: Boolean, default: false },
+  emailPausedAt: { type: Date, default: null },
+  emailPausedBy: { type: Schema.Types.ObjectId, ref: 'User', default: null },
+
   // lifecycle
   isActive:   { type: Boolean, default: true }
 }, { timestamps: true });

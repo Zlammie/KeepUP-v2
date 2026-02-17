@@ -289,6 +289,20 @@ const buildAutoFollowUpSchedules = () => {
 };
 
 const DEFAULT_STAGE_OPTIONS = ['New Lead', 'Warm Nurture', 'Appointment Scheduled', 'Under Contract', 'Post Close'];
+const CONTACT_STATUS_OPTIONS = [
+  'New',
+  'Target',
+  'Possible',
+  'Hot',
+  'Negotiating',
+  'Be-Back',
+  'Cold',
+  'Purchased',
+  'Closed',
+  'Not-Interested',
+  'Deal-Lost',
+  'Bust'
+];
 const DEFAULT_OWNER_OPTIONS = ['Online Sales Concierge', 'Community Representative', 'Sales Manager', 'Marketing Assist'];
 const DEFAULT_CHANNEL_OPTIONS = ['SMS', 'Email', 'Call', 'Reminder', 'Meeting'];
 const DEFAULT_BUILDER_STEPS = [
@@ -361,7 +375,8 @@ const buildScheduleBuilderPreset = (overrides = {}) => {
     channelOptions,
     defaultStage: overrides.defaultStage || stageOptions[0],
     defaultOwner: overrides.defaultOwner || ownerOptions[0],
-    steps: normalizedSteps
+    steps: normalizedSteps,
+    stopOnStatuses: Array.isArray(overrides.stopOnStatuses) ? overrides.stopOnStatuses : []
   };
 };
 
@@ -382,6 +397,7 @@ const transformScheduleDocForView = (schedule) => {
     targetStage: schedule.stage || 'General',
     defaultOwner: schedule.defaultOwnerRole || 'Team',
     tags: Array.isArray(schedule.tags) ? schedule.tags : [],
+    stopOnStatuses: Array.isArray(schedule.stopOnStatuses) ? schedule.stopOnStatuses : [],
     metrics: {
       durationDays,
       touchpoints
@@ -394,7 +410,8 @@ const transformScheduleDocForView = (schedule) => {
       title: step.title || `Step ${index + 1}`,
       ownerRole: step.ownerRole || schedule.defaultOwnerRole || 'Team',
       instructions: step.instructions || '',
-      waitForReply: Boolean(step.waitForReply)
+      waitForReply: Boolean(step.waitForReply),
+      templateId: step.templateRef ? String(step.templateRef) : null
     }))
   };
 };
@@ -512,9 +529,24 @@ router.get(
           builderPreset: scheduleBuilderPreset,
           stats: autoFollowUpStats,
           teamAssignments: teamScheduleAssignments,
+          canManageAutomations: isCompanyAdmin(req) || isSuper(req),
+          currentUserEmail: req.user?.email || '',
           endpoints: {
             schedules: '/api/task-schedules',
             assignments: '/api/task-schedules/assignments'
+          },
+          emailEndpoints: {
+            templates: '/api/email/templates',
+            rules: '/api/email/rules',
+            queue: '/api/email/queue',
+            settings: '/api/email/settings',
+            audiencePreview: '/api/email/audience/preview',
+            schedulesApply: '/api/email/schedules/apply',
+            suppressions: '/api/email/suppressions',
+            contacts: '/api/contacts',
+            commonAutomations: '/api/email/common-automations',
+            health: '/api/email/health',
+            blasts: '/api/email/blasts'
           }
         };
 
@@ -525,7 +557,8 @@ router.get(
           scheduleBuilderPreset,
           autoFollowUpStats,
           teamScheduleAssignments,
-          taskSettingsData
+          taskSettingsData,
+          automationStatusOptions: CONTACT_STATUS_OPTIONS
         });
       }
 
@@ -645,7 +678,7 @@ router.get(
             { key: 'new', label: 'New' },
             { key: 'target', label: 'Target' },
             { key: 'possible', label: 'Possible' },
-            { key: 'negotiation', label: 'Negotiation' },
+            { key: 'negotiating', label: 'Negotiating' },
             { key: 'beback', label: 'Be-Back' }
           ];
           const bucketLabels = new Map(
@@ -1559,8 +1592,8 @@ router.get('/contact-details', ensureAuth, requireRole('READONLY','USER','MANAGE
       const id = req.query.id;
       if (!isId(id)) return res.status(400).send('Invalid contact ID');
 
-      const contact = await Contact.findOne({ _id: id, ...base(req) })
-        .select('firstName lastName email phone visitDate status notes source communityIds realtorId lenderId lenderStatus lenderInviteDate lenderApprovedDate linkedLot lotLineUp buyTime buyMonth facing living investor renting ownSelling ownNotSelling financeType fundsVerified fundsVerifiedDate')
+        const contact = await Contact.findOne({ _id: id, ...base(req) })
+          .select('firstName lastName email phone visitDate status notes source communityIds realtorId lenderId lenderStatus lenderInviteDate lenderApprovedDate linkedLot lotLineUp buyTime buyMonth facing living investor renting ownSelling ownNotSelling financeType fundsVerified fundsVerifiedDate emailPaused emailPausedAt')
         .populate('realtorId', 'firstName lastName brokerage')
         .populate('lenderId',  'firstName lastName lenderBrokerage')
         .lean();
@@ -1889,6 +1922,19 @@ router.post('/admin/companies',
       }
       next(err);
     }
+  }
+);
+
+router.get(
+  '/email/blasts/:id',
+  ensureAuth,
+  requireRole('COMPANY_ADMIN', 'SUPER_ADMIN'),
+  async (req, res) => {
+    const blastId = req.params.id;
+    res.render('pages/email-blast-details', {
+      active: 'task',
+      blastId
+    });
   }
 );
 

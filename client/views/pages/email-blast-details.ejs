@@ -1,0 +1,86 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Blast Details</title>
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet" />
+  <link rel="stylesheet" href="/assets/css/main.css" />
+  <style>
+    .blast-details-page .stat-card {
+      border-radius: 0.9rem;
+      border: 1px solid rgba(15, 26, 58, 0.12);
+      background: #ffffff;
+      padding: 1rem;
+    }
+  </style>
+</head>
+<body>
+  <%- include('../partials/nav') %>
+  <%- include('../partials/top-nav-task', { activeTab: 'settings' }) %>
+
+  <main class="container py-4 blast-details-page">
+    <div class="d-flex flex-wrap justify-content-between align-items-start gap-3 mb-4">
+      <div>
+        <p class="text-uppercase text-muted fw-semibold small mb-1">Blasts</p>
+        <div class="d-flex align-items-center gap-2 mb-2">
+          <h1 class="h3 mb-0" data-blast-name>Blast Details</h1>
+          <span class="badge bg-light text-dark border text-uppercase" data-blast-status>--</span>
+        </div>
+        <p class="text-muted mb-0" data-blast-meta>Loading...</p>
+        <p class="text-muted small mb-0" data-blast-pacing hidden></p>
+      </div>
+      <div class="d-flex gap-2">
+        <a class="btn btn-outline-secondary btn-sm" data-open-queue href="#">Open Queue (filtered)</a>
+        <button type="button" class="btn btn-outline-warning btn-sm d-none" data-pause-blast>Pause blast</button>
+        <button type="button" class="btn btn-outline-success btn-sm d-none" data-resume-blast>Resume blast</button>
+        <button type="button" class="btn btn-outline-danger btn-sm" data-cancel-blast>Cancel blast</button>
+      </div>
+    </div>
+
+    <div class="row g-3 mb-4" data-blast-counts></div>
+
+    <div class="row g-3">
+      <div class="col-lg-4">
+        <div class="card shadow-sm h-100">
+          <div class="card-body">
+            <p class="text-uppercase text-muted fw-semibold small mb-1">Recent Sent</p>
+            <div class="small text-muted" data-recent-sent>Loading...</div>
+          </div>
+        </div>
+      </div>
+      <div class="col-lg-4">
+        <div class="card shadow-sm h-100">
+          <div class="card-body">
+            <p class="text-uppercase text-muted fw-semibold small mb-1">Recent Failed</p>
+            <div class="small text-muted" data-recent-failed>Loading...</div>
+          </div>
+        </div>
+      </div>
+      <div class="col-lg-4">
+        <div class="card shadow-sm h-100">
+          <div class="card-body">
+            <p class="text-uppercase text-muted fw-semibold small mb-1">Recent Skipped</p>
+            <div class="small text-muted" data-recent-skipped>Loading...</div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="visually-hidden" aria-live="polite" data-blast-toast></div>
+  </main>
+
+  <% const blastDetailsJson = {
+    blastId,
+    endpoints: {
+      blast: '/api/email/blasts',
+      queue: '/task?view=settings&tab=queue'
+    }
+  }; %>
+  <script id="blast-details-data" type="application/json">
+    <%- JSON.stringify(blastDetailsJson) %>
+  </script>
+  <script defer src="/assets/js/shared/emailErrorLabels.js"></script>
+  <script defer src="/assets/js/pages/email/blast-details.js"></script>
+</body>
+</html>

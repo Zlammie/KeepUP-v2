@@ -26,6 +26,7 @@ export const dom = {
     bCity:     $('#realtorBrokerageCity'),
     bState:    $('#realtorBrokerageState'),
     bZip:      $('#realtorBrokerageZip'),
+    emailPaused: $('#realtorEmailPaused')
   },
 
   // Filters / table

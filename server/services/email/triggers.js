@@ -1,0 +1,168 @@
+const AutomationRule = require('../../models/AutomationRule');
+const EmailJob = require('../../models/EmailJob');
+const Contact = require('../../models/Contact');
+const User = require('../../models/User');
+const { enqueueEmailJob, buildContactMergeData } = require('./scheduler');
+const { normalizeEmail } = require('../../utils/normalizeEmail');
+
+function normalizeStatus(value) {
+  return String(value || '').trim().toLowerCase();
+}
+
+function ruleMatchesContact(rule, { previousStatus, nextStatus, communityIds }) {
+  const config = rule?.trigger?.config || {};
+  const fromStatus = normalizeStatus(config.fromStatus);
+  const toStatus = normalizeStatus(config.toStatus);
+  const next = normalizeStatus(nextStatus);
+  const prev = normalizeStatus(previousStatus);
+
+  if (toStatus && next !== toStatus) return false;
+  if (fromStatus && prev !== fromStatus) return false;
+
+  const communityId = config.communityId ? String(config.communityId) : '';
+  if (communityId) {
+    const contactCommunities = Array.isArray(communityIds)
+      ? communityIds.map((id) => String(id))
+      : [];
+    if (!contactCommunities.includes(communityId)) return false;
+  }
+
+  return true;
+}
+
+async function handleContactStatusChange({
+  companyId,
+  contactId,
+  previousStatus,
+  nextStatus
+}) {
+  if (!companyId || !contactId) return { enqueued: 0 };
+  const rules = await AutomationRule.find({
+    companyId,
+    isEnabled: true,
+    'trigger.type': AutomationRule.TRIGGER_TYPES.CONTACT_STATUS_CHANGED
+  }).lean();
+
+  if (!rules.length) return { enqueued: 0 };
+
+  const creatorIds = Array.from(
+    new Set(
+      rules
+        .map((rule) => rule.createdBy)
+        .filter(Boolean)
+        .map((id) => String(id))
+    )
+  );
+  const creatorsById = new Map();
+  if (creatorIds.length) {
+    const users = await User.find({ _id: { $in: creatorIds } })
+      .select('firstName lastName email')
+      .lean();
+    users.forEach((user) => {
+      creatorsById.set(String(user._id), user);
+    });
+  }
+
+  const contact = await Contact.findOne({ _id: contactId, company: companyId })
+    .select('firstName lastName email phone status communityIds doNotEmail')
+    .lean();
+
+  if (!contact) return { enqueued: 0 };
+
+  const prevNormalized = normalizeStatus(previousStatus);
+  const nextNormalized = normalizeStatus(nextStatus);
+  let enqueued = 0;
+  const now = Date.now();
+
+  if (prevNormalized && prevNormalized !== nextNormalized) {
+    const exitRuleIds = rules
+      .filter((rule) => {
+        const targetStatus = normalizeStatus(rule?.trigger?.config?.toStatus);
+        if (!targetStatus || targetStatus !== prevNormalized) return false;
+        return Boolean(rule?.action?.mustStillMatchAtSend);
+      })
+      .map((rule) => rule._id);
+
+    if (exitRuleIds.length) {
+      await EmailJob.updateMany(
+        {
+          companyId,
+          contactId,
+          ruleId: { $in: exitRuleIds },
+          status: EmailJob.STATUS.QUEUED
+        },
+        {
+          $set: {
+            status: EmailJob.STATUS.CANCELED,
+            lastError: 'RULE_STATUS_EXIT'
+          }
+        }
+      );
+    }
+  }
+
+  for (const rule of rules) {
+    if (!ruleMatchesContact(rule, { previousStatus, nextStatus, communityIds: contact.communityIds })) {
+      continue;
+    }
+
+    const existing = await EmailJob.findOne({
+      companyId,
+      contactId,
+      ruleId: rule._id,
+      status: {
+        $in: [EmailJob.STATUS.QUEUED, EmailJob.STATUS.PROCESSING]
+      }
+    }).lean();
+    if (existing) {
+      continue;
+    }
+
+    const cooldownMinutes = Number(rule?.action?.cooldownMinutes || 0);
+    if (cooldownMinutes > 0) {
+      const since = new Date(now - cooldownMinutes * 60000);
+      const recent = await EmailJob.findOne({
+        companyId,
+        contactId,
+        ruleId: rule._id,
+        status: {
+          $in: [EmailJob.STATUS.QUEUED, EmailJob.STATUS.PROCESSING, EmailJob.STATUS.SENT]
+        },
+        createdAt: { $gte: since }
+      }).lean();
+      if (recent) {
+        continue;
+      }
+    }
+
+    const delayMinutes = Number(rule?.action?.delayMinutes || 0);
+    const mergeData = buildContactMergeData(contact);
+    const creator = rule.createdBy ? creatorsById.get(String(rule.createdBy)) : null;
+    const senderEmail = creator?.email ? normalizeEmail(creator.email) : null;
+    const senderName = creator
+      ? [creator.firstName, creator.lastName].filter(Boolean).join(' ').trim() || senderEmail
+      : null;
+    const result = await enqueueEmailJob({
+      companyId,
+      to: contact.email,
+      contactId,
+      templateId: rule.action.templateId,
+      ruleId: rule._id,
+      delayMinutes,
+      data: mergeData,
+      senderUserId: rule.createdBy || null,
+      senderEmail,
+      senderName,
+      meta: {
+        trigger: rule.trigger,
+        mustStillMatchAtSend: Boolean(rule.action?.mustStillMatchAtSend)
+      }
+    });
+
+    if (result?.job) enqueued += 1;
+  }
+
+  return { enqueued };
+}
+
+module.exports = { handleContactStatusChange };

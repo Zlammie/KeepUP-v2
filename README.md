@@ -24,6 +24,11 @@ If you already manage Zoho credentials elsewhere, you can also define the equiva
 
 Forgot-password and invite emails reuse the same SMTP credentials (preferring `SMTP_*`, then `BETA_SMTP_*`/`ZOHO_SMTP_*`). Make sure `BASE_URL` matches your public app domain so the reset links open correctly. Set `SMTP_FROM` to the from-address you want (defaults to `noreply@keepupcrm.com` if unset).
 
+## Email automations (MVP)
+
+- Status-change triggers are wired in `server/routes/contactRoutes.js` inside the `PUT /api/contacts/:id` handler (after the contact update succeeds).
+- The dev email job processor runs in `server/server.js` on an interval (set `EMAIL_JOB_PROCESSOR=true` to force enable, or `EMAIL_JOB_POLL_MS` to adjust).
+
 ## BuildRootz publishing
 
 - Set `BUILDROOTZ_MONGODB_URI` to the BuildRootz Mongo connection string (runs on a separate cluster/DB from `MONGO_URI`).

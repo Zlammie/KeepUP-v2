@@ -13,7 +13,7 @@ const ContactAssignmentSchema = new Schema({
   communityId:{ type: Schema.Types.ObjectId, ref: 'Community', required: true, index: true },
 
   // Context that differs per user/community:
-  status:     { type: String, enum: ['New','Target','Possible','Negotiation','Be-Back','Cold','Purchased','Closed'], default: 'New' },
+  status:     { type: String, enum: ['New','Target','Possible','Negotiating','Be-Back','Cold','Purchased','Closed'], default: 'New' },
   notes:      { type: String, trim: true },
 
   // Optional context you already track:

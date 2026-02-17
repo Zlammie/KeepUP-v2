@@ -69,6 +69,8 @@ function normalizeSteps(rawSteps) {
       throw new Error(`Invalid channel "${step.channel}" supplied for step ${index + 1}.`);
     }
 
+    const templateRef = ensureObjectId(step.templateId || step.templateRef);
+
     return {
       stepId:
         typeof step.stepId === 'string' && step.stepId.trim()
@@ -82,6 +84,7 @@ function normalizeSteps(rawSteps) {
       ownerRole: ownerRole || undefined,
       waitForReply,
       autoCompleteRule: autoRule,
+      templateRef: templateRef || undefined,
       metadata: step.metadata || undefined
     };
   });
@@ -128,6 +131,7 @@ function serializeSchedule(schedule) {
       totalSteps,
       durationDays: deriveDurationDays(steps)
     },
+    stopOnStatuses: Array.isArray(source.stopOnStatuses) ? source.stopOnStatuses : [],
     steps: steps.map((step) => ({
       stepId: step.stepId || (step._id ? String(step._id) : ''),
       order: typeof step.order === 'number' ? step.order : 0,
@@ -138,6 +142,7 @@ function serializeSchedule(schedule) {
       ownerRole: step.ownerRole || '',
       waitForReply: Boolean(step.waitForReply),
       autoCompleteRule: step.autoCompleteRule || normalizeAutoRule(null, step.waitForReply),
+      templateId: step.templateRef ? String(step.templateRef) : null,
       metadata: step.metadata || null
     }))
   };
@@ -283,6 +288,9 @@ router.post(
         createdBy: req.user._id,
         updatedBy: req.user._id,
         steps,
+        stopOnStatuses: Array.isArray(payload.stopOnStatuses)
+          ? payload.stopOnStatuses.map((status) => String(status).trim()).filter(Boolean)
+          : [],
         metadata: payload.metadata || undefined
       });
 
@@ -351,6 +359,13 @@ router.put(
 
       if (Object.prototype.hasOwnProperty.call(payload, 'steps')) {
         schedule.steps = normalizeSteps(payload.steps);
+        hasChanges = true;
+      }
+
+      if (Object.prototype.hasOwnProperty.call(payload, 'stopOnStatuses')) {
+        schedule.stopOnStatuses = Array.isArray(payload.stopOnStatuses)
+          ? payload.stopOnStatuses.map((status) => String(status).trim()).filter(Boolean)
+          : [];
         hasChanges = true;
       }
 

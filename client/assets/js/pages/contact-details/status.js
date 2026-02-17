@@ -13,6 +13,7 @@ const STATUS_BG = {
   'target': '#6A0DAD',
   'possible': '#B57EDC',
   'negotiating': '#3CB371',
+  'negotiation': '#3CB371',
   'purchased': '#2E8B57',
   'closed': '#495057',
   'not-interested': '#FF6F61',

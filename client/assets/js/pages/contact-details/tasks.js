@@ -2,9 +2,10 @@ import { getContact, setContact } from './state.js';
 import {
   assignFollowUpSchedule,
   createTask,
+  enqueueFollowUpEmails,
   fetchFollowUpSchedules,
   fetchTasks,
-  unassignFollowUpSchedule,
+  unenrollFollowUpSchedule,
   updateTask
 } from './api.js';
 import { on } from './events.js';
@@ -927,6 +928,8 @@ function createTaskPanel({
     setComposerError('');
     setComposerLoading(true);
 
+      let emailQueueFailed = false;
+      let enqueueSummary = null;
     try {
       const res = await fetch('/api/comments', {
         method: 'POST',
@@ -1489,9 +1492,31 @@ function createTaskPanel({
         replaceTask(normalized);
       }
 
+      if (contextContactId) {
+          try {
+            enqueueSummary = await enqueueFollowUpEmails(contextContactId, scheduleKey);
+          } catch (emailErr) {
+            console.error('[tasks] failed to enqueue follow-up emails', emailErr);
+            emailQueueFailed = true;
+            setAutomationStatus(
+              'Tasks were created, but automated emails could not be queued.',
+              'error'
+            );
+          }
+        }
+
       refresh();
       followupAutomation.select.value = '';
-      setAutomationStatus(`Applied "${schedule.name}". Tasks were added below.`, 'success');
+        if (!emailQueueFailed) {
+          const canceledCount = Number(enqueueSummary?.canceledCount || 0);
+          const enqueuedCount = Number(enqueueSummary?.enqueued || 0);
+          const summaryBits = [];
+          if (canceledCount) summaryBits.push(`canceled ${canceledCount}`);
+          summaryBits.push(`queued ${enqueuedCount}`);
+          const suffix = summaryBits.length ? ` (${summaryBits.join(', ')})` : '';
+          setAutomationStatus(`Applied "${schedule.name}". Tasks were added below.${suffix}`, 'success');
+          window.dispatchEvent(new CustomEvent('email-activity:refresh'));
+        }
       if (contextContactId) {
         try {
           const response = await assignFollowUpSchedule(contextContactId, scheduleKey, {
@@ -2327,7 +2352,7 @@ function createTaskPanel({
 
   const handleUnassignSchedule = async () => {
     if (!contextContactId) {
-      setAutomationStatus('Save this contact before unassigning a schedule.', 'error');
+      setAutomationStatus('Save this contact before un-enrolling from a schedule.', 'error');
       return;
     }
     const current = getContact()?.followUpSchedule;
@@ -2335,28 +2360,33 @@ function createTaskPanel({
       setAutomationStatus('There is no schedule assigned to this contact.', 'error');
       return;
     }
+    const confirmed = window.confirm(
+      'Un-enroll will cancel all scheduled follow-up emails for this contact. Continue?'
+    );
+    if (!confirmed) return;
     const button = followupAutomation.unassign;
     if (button) {
       button.disabled = true;
-      button.textContent = 'Removing...';
+      button.textContent = 'Un-enrolling...';
     }
     try {
-      const response = await unassignFollowUpSchedule(contextContactId, { cleanup: true });
+      const response = await unenrollFollowUpSchedule(contextContactId, { cleanup: true });
       setContact({ followUpSchedule: null });
       updateFollowupAssignmentUI();
       const removed = response?.removedTasks || 0;
       if (removed > 0) {
-        setAutomationStatus(`Schedule removed. Deleted ${removed} follow-up tasks.`, 'success');
+        setAutomationStatus(`Un-enrolled. Deleted ${removed} follow-up tasks.`, 'success');
       } else {
-        setAutomationStatus('Schedule removed.', 'success');
+        setAutomationStatus('Un-enrolled from schedule.', 'success');
       }
+      window.dispatchEvent(new CustomEvent('email-activity:refresh'));
       await loadTasksForContext();
     } catch (err) {
-      console.error('[tasks] failed to unassign schedule', err);
-      setAutomationStatus(err?.message || 'Unable to unassign that schedule.', 'error');
+      console.error('[tasks] failed to unenroll schedule', err);
+      setAutomationStatus(err?.message || 'Unable to un-enroll from that schedule.', 'error');
     } finally {
       if (button) {
-        button.textContent = 'Unassign';
+        button.textContent = 'Un-enroll';
         button.disabled = false;
       }
     }

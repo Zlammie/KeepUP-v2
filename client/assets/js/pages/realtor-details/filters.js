@@ -9,7 +9,7 @@ import { renderTable, updateResultCount } from './table.js';
 /* ===== Canonicalization ===== */
 const CANON = new Map([
   ['new','New'], ['target','Target'], ['possible','Possible'],
-  ['negotiation','Negotiation'], ['be-back','Be-Back'], ['be back','Be-Back'],
+  ['negotiating','Negotiating'], ['be-back','Be-Back'], ['be back','Be-Back'],
   ['cold','Cold'], ['purchased','Purchased'], ['closed','Closed'],
   ['not-interested','Not-Interested'], ['not interested','Not-Interested'],
   ['deal-lost','Deal-Lost'], ['deal lost','Deal-Lost'],
@@ -37,7 +37,7 @@ function countByStatusNormalized(list) {
 }
 
 /* ===== Sets & UI mode ===== */
-const MAIN_SET = ['New','Target','Possible','Negotiation','Be-Back','Purchased','Closed','Deal-Lost'];
+const MAIN_SET = ['New','Target','Possible','Negotiating','Be-Back','Purchased','Closed','Deal-Lost'];
 const MORE_SET = ['Cold','Bust','Not-Interested'];
 let showMore = false; // false = MAIN_SET, true = MORE_SET
 
