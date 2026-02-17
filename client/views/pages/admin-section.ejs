@@ -2102,20 +2102,6 @@ const pendingEnable = !!map.pendingEnable || status === 'pending_enable';
 const pendingCancel = !!map.pendingCancel || status === 'pending_cancel';
 const trialExpired = !!map.trialExpired || status === 'trial_expired';
 
-// Keep billing branch trial label logic (but base it on rawStatus === 'trial')
-const daysRemaining = rawStatus === 'trial'
-  ? getTrialDaysRemaining(map.trialEndsAt, now)
-  : null;
-
-const trialLabel = rawStatus === 'trial'
-  ? daysRemaining == null
-    ? '--'
-    : daysRemaining <= 0
-      ? 'Expired'
-      : `${daysRemaining} day${daysRemaining === 1 ? '' : 's'} left`
-  : '--';
-
-// If you still need the email branch "trialEligible" concept, keep it too:
 const trialEligible =
   status === 'inactive' &&
   !pendingEnable &&
