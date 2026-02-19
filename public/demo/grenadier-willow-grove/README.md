@@ -39,28 +39,41 @@ To switch back to local, set the iframe `src` in `demo/grenadier-willow-grove/in
 http://localhost:3000/embed/map-group/willow-grove
 ```
 
-Note: the demo map frame is capped to 75vh (60vh on mobile) with minimum heights of 520px (desktop) / 420px (mobile) to avoid layout overflow. The iframe can scroll internally if the embed content exceeds that height.
+Note: the demo map frame is capped to 75vh on desktop and 45vh on mobile, with minimum heights of 520px (desktop) / 320px (mobile), to keep the section usable above the fold.
 
-## Mobile preview toggle
+## Responsive behavior
 
-- Use the floating Preview toolbar (top-right) to switch between Desktop and Mobile.
-- Mobile preview constrains the map to a 390x844 device frame and appends `?ui=mobile` to the embed URL.
-- The selected mode is saved in localStorage so refresh keeps the same view.
+- Desktop (`>= 900px`): the map is shown inline in the Community Map section.
+- Mobile (`< 900px`): an inline map preview is shown with a `Tap to expand map` overlay; tapping opens a full-screen map modal.
+- Mobile modal automatically uses `ui=mobile`.
+- Desktop inline map uses the same embed URL without forcing `ui=mobile`.
 
 ## Embed UI override
 
 - Add `?ui=mobile` to the embed URL to force the mobile layout even on wide screens.
 
+## Map modal
+
+- Modal includes a title bar and close button.
+- Press `Escape` or tap the backdrop to close.
+- While open, page scroll is locked with a `no-scroll` body class.
+- If viewport resizes to desktop while modal is open, it closes automatically.
+
+## Optional dev controls
+
+- Dev controls are hidden by default.
+- Add `?devtools=1` (or `?devTools=1`) to show the `Show Embed / Show Placeholder` controls.
+
 ## Manual test checklist
 
-1. In the Preview toolbar, toggle Desktop and Mobile and confirm the label updates; Mobile shows 390x844.
-2. When Mobile, confirm the device frame is centered and the page is dimmed.
-3. When Desktop, confirm the iframe returns to the normal full-width layout and the dim overlay is gone.
-4. In Mobile preview, confirm the iframe URL includes `ui=mobile` only once.
-5. Switch back to Desktop and confirm `ui=mobile` is removed while other params remain.
-6. In Mobile preview, tap a lot and confirm the panel auto-expands on first selection.
-7. Collapse the panel manually, select another lot, and confirm it stays collapsed unless you expand it.
-8. Confirm the "View Home" button is visible and tappable inside the panel.
+1. Desktop width (`>=900px`): inline map is fully interactive and no tap overlay appears.
+2. Mobile width (`<900px`): inline map preview is visible with a tap overlay.
+3. On mobile, open the modal and confirm map fills the viewport, then close via `X`.
+4. On mobile, open modal and close via `Esc` key and by tapping backdrop.
+5. While modal is open on mobile, background page should not scroll.
+6. Resize mobile to desktop while modal is open and confirm modal closes and inline map appears.
+7. Confirm modal iframe URL includes `ui=mobile` and desktop inline URL does not.
+8. Confirm mobile header + promo consume less vertical space than before.
 
 ## Fallback behavior
 

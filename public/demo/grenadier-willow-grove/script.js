@@ -1,21 +1,25 @@
 (() => {
-  const mapWrapper = document.querySelector(".map-wrapper");
-  const iframe = document.querySelector(".map-embed");
-  const placeholder = document.querySelector(".map-placeholder");
-  const status = document.querySelector(".dev-toggle-status");
-  const mapUrlLabel = document.querySelector(".map-url");
-  const toggleButtons = document.querySelectorAll(".dev-toggle [data-mode]");
-  const previewButtons = document.querySelectorAll(
-    ".preview-toolbar [data-preview]"
-  );
-  const previewLabel = document.querySelector("[data-preview-label]");
-  const previewSize = document.querySelector("[data-preview-size]");
-  const previewStorageKey = "keepup-demo-preview";
-  const previewSizeValue = "390x844";
+  const mapWrapper = document.querySelector('.map-wrapper');
+  const inlineIframe = document.getElementById('map-embed-inline');
+  const modalIframe = document.getElementById('map-embed-modal');
+  const placeholder = document.querySelector('.map-placeholder');
+  const status = document.querySelector('.dev-toggle-status');
+  const mapUrlLabel = document.querySelector('.map-url');
+  const toggleButtons = document.querySelectorAll('.dev-toggle [data-mode]');
+  const openMapModalButton = document.getElementById('open-map-modal');
+  const mapPreviewOverlay = document.getElementById('map-preview-overlay');
+  const closeMapModalButton = document.getElementById('close-map-modal');
+  const mapModal = document.getElementById('map-modal');
+  const mapModalCloseTargets = document.querySelectorAll('[data-map-close]');
 
-  if (!mapWrapper || !iframe || !placeholder) {
+  if (!mapWrapper || !inlineIframe || !modalIframe || !mapModal) {
     return;
   }
+
+  const MOBILE_BREAKPOINT = 900;
+  const params = new URLSearchParams(window.location.search);
+  const showDevTools = params.get('devtools') === '1' || params.get('devTools') === '1';
+  document.body.classList.toggle('show-dev-tools', showDevTools);
 
   const fallbackSvg = `data:image/svg+xml;charset=UTF-8,${encodeURIComponent(
     `<svg xmlns="http://www.w3.org/2000/svg" width="1400" height="840" viewBox="0 0 1400 840">
@@ -32,124 +36,77 @@
     </svg>`
   )}`;
 
-  placeholder.addEventListener("error", () => {
+  placeholder.addEventListener('error', () => {
     placeholder.src = fallbackSvg;
   });
 
-  const params = new URLSearchParams(window.location.search);
-  const embedDefault = iframe.dataset.embedDefault || iframe.src;
-  const embedLocal = iframe.dataset.embedLocal || "";
-  const embedUrlParam = params.get("embedUrl");
-  const embedMode = params.get("embed");
-  let resolvedEmbedUrl = embedDefault;
-
-  if (embedUrlParam) {
-    resolvedEmbedUrl = embedUrlParam;
-  } else if (embedMode === "local" && embedLocal) {
-    resolvedEmbedUrl = embedLocal;
-  }
-
   const splitUrlParts = (url) => {
-    const [baseWithQuery, hash = ""] = String(url).split("#");
-    const [base, query = ""] = baseWithQuery.split("?");
+    const [baseWithQuery, hash = ''] = String(url).split('#');
+    const [base, query = ''] = baseWithQuery.split('?');
     return { base, query, hash };
   };
 
-  const updateQueryParam = (url, mode) => {
-    if (!url) return "";
+  const updateUiParam = (url, mobileMode) => {
+    if (!url) return '';
     try {
       const parsed = new URL(url, window.location.origin);
-      if (mode === "mobile") {
-        parsed.searchParams.set("ui", "mobile");
-      } else {
-        parsed.searchParams.delete("ui");
-      }
+      if (mobileMode) parsed.searchParams.set('ui', 'mobile');
+      else parsed.searchParams.delete('ui');
       return parsed.toString();
-    } catch (error) {
+    } catch (_) {
       const { base, query, hash } = splitUrlParts(url);
-      const params = new URLSearchParams(query);
-      if (mode === "mobile") {
-        params.set("ui", "mobile");
-      } else {
-        params.delete("ui");
-      }
-      const qs = params.toString();
-      const hashPart = hash ? `#${hash}` : "";
-      return `${base}${qs ? `?${qs}` : ""}${hashPart}`;
+      const urlParams = new URLSearchParams(query);
+      if (mobileMode) urlParams.set('ui', 'mobile');
+      else urlParams.delete('ui');
+      const qs = urlParams.toString();
+      const hashPart = hash ? `#${hash}` : '';
+      return `${base}${qs ? `?${qs}` : ''}${hashPart}`;
     }
   };
 
-  const sanitizeEmbedUrl = (url) => updateQueryParam(url, "desktop");
-
-  const buildEmbedUrl = (url, mode) =>
-    updateQueryParam(url, mode === "mobile" ? "mobile" : "desktop");
-
-  const baseEmbedUrl = sanitizeEmbedUrl(resolvedEmbedUrl);
-  let previewMode = "desktop";
-
-  const setPreviewMode = (mode, persist = true) => {
-    previewMode = mode === "mobile" ? "mobile" : "desktop";
-    document.body.classList.toggle(
-      "is-preview-mobile",
-      previewMode === "mobile"
-    );
-    previewButtons.forEach((button) => {
-      const isActive = button.dataset.preview === previewMode;
-      button.classList.toggle("is-active", isActive);
-    });
-    if (persist) {
-      try {
-        localStorage.setItem(previewStorageKey, previewMode);
-      } catch (error) {
-        // no-op
-      }
-    }
-
-    if (previewLabel) {
-      previewLabel.textContent =
-        previewMode === "mobile" ? "Mobile" : "Desktop";
-    }
-    if (previewSize) {
-      previewSize.textContent = previewSizeValue;
-    }
-
-    const nextEmbedUrl = buildEmbedUrl(baseEmbedUrl, previewMode);
-    if (nextEmbedUrl && iframe.src !== nextEmbedUrl) {
-      iframe.src = nextEmbedUrl;
-    }
-    if (mapUrlLabel && nextEmbedUrl) {
-      mapUrlLabel.textContent = nextEmbedUrl;
-    }
+  const setIframeSrc = (iframe, nextUrl) => {
+    if (!iframe) return;
+    if (iframe.src === nextUrl) return;
+    iframe.src = nextUrl;
   };
-
-  try {
-    const stored = localStorage.getItem(previewStorageKey);
-    if (stored) previewMode = stored;
-  } catch (error) {
-    // no-op
-  }
-
-  setPreviewMode(previewMode, false);
-
-  let autoState = "embed";
-  let manualState = null;
 
   const setStickyOffsets = () => {
-    const header = document.querySelector(".site-header");
-    const promo = document.querySelector(".promo-banner");
+    const header = document.querySelector('.site-header');
+    const promo = document.querySelector('.promo-banner');
     if (!header || !promo) {
       return;
     }
     const headerHeight = header.offsetHeight || 0;
     const promoHeight = promo.offsetHeight || 0;
-    document.documentElement.style.setProperty(
-      "--header-offset",
-      `${headerHeight}px`
-    );
-    document.documentElement.style.setProperty(
-      "--sticky-offset",
-      `${headerHeight + promoHeight + 16}px`
-    );
+    document.documentElement.style.setProperty('--header-offset', `${headerHeight}px`);
+    document.documentElement.style.setProperty('--sticky-offset', `${headerHeight + promoHeight + 16}px`);
+  };
+
+  const embedDefault = inlineIframe.dataset.embedDefault || inlineIframe.src;
+  const embedLocal = inlineIframe.dataset.embedLocal || '';
+  const embedUrlParam = params.get('embedUrl');
+  const embedMode = params.get('embed');
+
+  let resolvedEmbedUrl = embedDefault;
+  if (embedUrlParam) {
+    resolvedEmbedUrl = embedUrlParam;
+  } else if (embedMode === 'local' && embedLocal) {
+    resolvedEmbedUrl = embedLocal;
+  }
+
+  const desktopEmbedUrl = updateUiParam(resolvedEmbedUrl, false);
+  const mobileEmbedUrl = updateUiParam(desktopEmbedUrl, true);
+
+  let autoState = 'embed';
+  let manualState = null;
+  let inlineLoadTimer = null;
+
+  const isMobileLayout = () => window.innerWidth < MOBILE_BREAKPOINT;
+  const isModalOpen = () => mapModal.classList.contains('is-open');
+
+  const updateMapUrlLabel = (url) => {
+    if (!mapUrlLabel) return;
+    mapUrlLabel.textContent = url;
   };
 
   const updateState = (reason) => {
@@ -157,56 +114,113 @@
     mapWrapper.dataset.state = state;
 
     if (status) {
-      const source = manualState ? "Manual" : "Auto";
-      const suffix = reason ? ` (${reason})` : "";
+      const source = manualState ? 'Manual' : 'Auto';
+      const suffix = reason ? ` (${reason})` : '';
       status.textContent = `State: ${source} ${state}${suffix}`;
     }
   };
 
-  const detectBlocked = () => {
+  const clearInlineLoadTimer = () => {
+    if (!inlineLoadTimer) return;
+    window.clearTimeout(inlineLoadTimer);
+    inlineLoadTimer = null;
+  };
+
+  const detectInlineBlocked = () => {
     try {
-      const doc = iframe.contentDocument || iframe.contentWindow?.document;
-      if (!doc || !doc.location) {
-        return false;
-      }
-      return doc.location.href === "about:blank";
-    } catch (error) {
+      const doc = inlineIframe.contentDocument || inlineIframe.contentWindow?.document;
+      if (!doc || !doc.location) return false;
+      return doc.location.href === 'about:blank';
+    } catch (_) {
       return false;
     }
   };
 
-  const loadTimer = window.setTimeout(() => {
-    autoState = "placeholder";
-    updateState("timeout");
-  }, 4000);
+  const startInlineLoadWatch = () => {
+    clearInlineLoadTimer();
+    inlineLoadTimer = window.setTimeout(() => {
+      autoState = 'placeholder';
+      updateState('timeout');
+    }, 4000);
+  };
 
-  iframe.addEventListener("load", () => {
-    window.clearTimeout(loadTimer);
-    autoState = detectBlocked() ? "placeholder" : "embed";
-    updateState(autoState === "embed" ? "loaded" : "blocked");
+  const closeMapModal = () => {
+    if (!isModalOpen()) return;
+    mapModal.classList.remove('is-open');
+    mapModal.setAttribute('aria-hidden', 'true');
+    document.body.classList.remove('no-scroll');
+  };
+
+  const openMapModal = () => {
+    if (!isMobileLayout()) return;
+    setIframeSrc(modalIframe, mobileEmbedUrl);
+    mapModal.classList.add('is-open');
+    mapModal.setAttribute('aria-hidden', 'false');
+    document.body.classList.add('no-scroll');
+    closeMapModalButton?.focus();
+  };
+
+  const syncLayoutOnResize = () => {
+    const mobile = isMobileLayout();
+
+    if (!mobile && isModalOpen()) {
+      closeMapModal();
+    }
+
+    if (mobile) {
+      setIframeSrc(inlineIframe, mobileEmbedUrl);
+      updateMapUrlLabel(mobileEmbedUrl);
+      autoState = 'embed';
+      updateState('mobile');
+      startInlineLoadWatch();
+      return;
+    }
+
+    setIframeSrc(inlineIframe, desktopEmbedUrl);
+    updateMapUrlLabel(desktopEmbedUrl);
+    autoState = 'embed';
+    updateState('desktop');
+    startInlineLoadWatch();
+  };
+
+  inlineIframe.addEventListener('load', () => {
+    clearInlineLoadTimer();
+    autoState = detectInlineBlocked() ? 'placeholder' : 'embed';
+    updateState(autoState === 'embed' ? 'loaded' : 'blocked');
   });
 
-  iframe.addEventListener("error", () => {
-    window.clearTimeout(loadTimer);
-    autoState = "placeholder";
-    updateState("error");
+  inlineIframe.addEventListener('error', () => {
+    clearInlineLoadTimer();
+    autoState = 'placeholder';
+    updateState('error');
   });
 
   toggleButtons.forEach((button) => {
-    button.addEventListener("click", () => {
-      manualState = button.dataset.mode || "embed";
-      updateState("toggle");
+    button.addEventListener('click', () => {
+      manualState = button.dataset.mode || 'embed';
+      updateState('toggle');
     });
   });
 
-  previewButtons.forEach((button) => {
-    button.addEventListener("click", () => {
-      setPreviewMode(button.dataset.preview || "desktop");
-    });
+  openMapModalButton?.addEventListener('click', openMapModal);
+  mapPreviewOverlay?.addEventListener('click', openMapModal);
+  closeMapModalButton?.addEventListener('click', closeMapModal);
+  mapModalCloseTargets.forEach((target) => {
+    target.addEventListener('click', closeMapModal);
+  });
+
+  document.addEventListener('keydown', (event) => {
+    if (event.key === 'Escape') {
+      closeMapModal();
+    }
+  });
+
+  window.addEventListener('resize', () => {
+    setStickyOffsets();
+    syncLayoutOnResize();
   });
 
   setStickyOffsets();
-  window.addEventListener("resize", setStickyOffsets);
-
-  updateState("init");
+  syncLayoutOnResize();
+  updateState('init');
 })();

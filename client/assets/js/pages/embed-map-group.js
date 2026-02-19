@@ -134,6 +134,7 @@ import { resolveEmbedFeatures, resolveStyleMode } from '../shared/embedFeatures.
   const MAX_SCALE = 3;
   const ZOOM_STEP = 0.2;
   const DRAG_THRESHOLD = 6;
+  const TAP_THRESHOLD = 10;
 
   let activeShape = null;
   let styleMode = 'status';
@@ -141,9 +142,20 @@ import { resolveEmbedFeatures, resolveStyleMode } from '../shared/embedFeatures.
   const layerMeta = new Map();
   const activeLayers = new Set();
   const lotIndex = new Map();
+  let overlaySvgEl = null;
+  const selectableShapes = [];
   const planClasses = new Set();
   const paletteStyleId = 'embed-group-plan-palette-style';
   let planPalette = {};
+  const debugTapEnabled = params.get('debugTap') === '1' || readStorageValue('embed-map-debug-tap') === '1';
+  const tapState = {
+    pointerId: null,
+    startClientX: 0,
+    startClientY: 0,
+    moved: false,
+    multiTouch: false,
+    startedOnOverlayControl: false
+  };
   const viewState = {
     scale: 1,
     translateX: 0,
@@ -155,7 +167,6 @@ import { resolveEmbedFeatures, resolveStyleMode } from '../shared/embedFeatures.
     isDragging: false,
     dragStart: null,
     dragOrigin: null,
-    suppressClick: false,
     pointers: new Map(),
     pinchStart: null,
     frame: {
@@ -168,6 +179,23 @@ import { resolveEmbedFeatures, resolveStyleMode } from '../shared/embedFeatures.
       paddingRight: 0,
       paddingBottom: 0
     }
+  };
+
+  const debugTapLog = (payload) => {
+    if (!debugTapEnabled) return;
+    console.debug('[embed-map-group debugTap]', payload);
+  };
+
+  const placeDebugDot = (localX, localY) => {
+    if (!debugTapEnabled || !frameEl) return;
+    let dot = frameEl.querySelector('.embed-map-debug-dot');
+    if (!dot) {
+      dot = document.createElement('div');
+      dot.className = 'embed-map-debug-dot';
+      frameEl.appendChild(dot);
+    }
+    dot.style.left = `${Math.round(localX)}px`;
+    dot.style.top = `${Math.round(localY)}px`;
   };
 
   const PLAN_PALETTE = [
@@ -568,6 +596,115 @@ import { resolveEmbedFeatures, resolveStyleMode } from '../shared/embedFeatures.
     };
   };
 
+  const getMapPointFromEvent = (event) => {
+    updateFrameMetrics();
+    const localX = event.clientX - viewState.frame.left - viewState.frame.paddingLeft;
+    const localY = event.clientY - viewState.frame.top - viewState.frame.paddingTop;
+    if (localX < 0 || localY < 0 || localX > viewState.frame.width || localY > viewState.frame.height) {
+      return null;
+    }
+    const mapX = (localX - viewState.translateX) / viewState.scale;
+    const mapY = (localY - viewState.translateY) / viewState.scale;
+    return {
+      localX,
+      localY,
+      mapX,
+      mapY
+    };
+  };
+
+  const isSelectableShape = (shape) => {
+    if (!shape) return false;
+    if (!shape.classList.contains('lot-linked')) return false;
+    if (shape.classList.contains('lot-unassigned')) return false;
+    if (shape.classList.contains('lot-dim')) return false;
+    const layerKey = shape.dataset.layer;
+    if (layerKey && !activeLayers.has(layerKey)) return false;
+    return true;
+  };
+
+  const selectShape = (shape) => {
+    if (!shape) return null;
+    if (!isSelectableShape(shape)) return null;
+    const regionId = shape.id;
+    const entry = lotIndex.get(regionId);
+    if (!regionId || !entry) return null;
+    if (activeShape && activeShape !== shape) activeShape.classList.remove('lot-selected');
+    activeShape = shape;
+    shape.classList.add('lot-selected');
+    renderLotPanel(entry, regionId);
+    return regionId;
+  };
+
+  const findShapeAtMapPoint = (mapX, mapY) => {
+    if (!overlaySvgEl || !overlayEl) return null;
+    const overlayWidth = overlayEl.clientWidth;
+    const overlayHeight = overlayEl.clientHeight;
+    const viewBox = overlaySvgEl.viewBox?.baseVal;
+    if (!overlayWidth || !overlayHeight || !viewBox?.width || !viewBox?.height) return null;
+    const svgPoint = overlaySvgEl.createSVGPoint();
+    const svgX = viewBox.x + ((mapX / overlayWidth) * viewBox.width);
+    const svgY = viewBox.y + ((mapY / overlayHeight) * viewBox.height);
+    svgPoint.x = svgX;
+    svgPoint.y = svgY;
+
+    for (let i = selectableShapes.length - 1; i >= 0; i -= 1) {
+      const shape = selectableShapes[i];
+      if (!isSelectableShape(shape)) continue;
+      try {
+        if (typeof shape.isPointInFill === 'function' && shape.isPointInFill(svgPoint)) {
+          return shape;
+        }
+        if (typeof shape.isPointInStroke === 'function' && shape.isPointInStroke(svgPoint)) {
+          return shape;
+        }
+      } catch (_) {
+        // Continue to bbox fallback.
+      }
+      try {
+        const bbox = shape.getBBox();
+        if (
+          svgX >= bbox.x &&
+          svgX <= (bbox.x + bbox.width) &&
+          svgY >= bbox.y &&
+          svgY <= (bbox.y + bbox.height)
+        ) {
+          return shape;
+        }
+      } catch (_) {
+        // Ignore invalid SVG geometry and keep scanning.
+      }
+    }
+    return null;
+  };
+
+  const selectLotAtEvent = (event) => {
+    const point = getMapPointFromEvent(event);
+    if (!point) return null;
+    placeDebugDot(point.localX, point.localY);
+    const shape = findShapeAtMapPoint(point.mapX, point.mapY);
+    const regionId = selectShape(shape);
+    debugTapLog({
+      type: event.type,
+      target: event.target?.tagName || null,
+      frameRect: {
+        left: Number(viewState.frame.left.toFixed(2)),
+        top: Number(viewState.frame.top.toFixed(2)),
+        width: Number(viewState.frame.width.toFixed(2)),
+        height: Number(viewState.frame.height.toFixed(2))
+      },
+      localX: Number(point.localX.toFixed(2)),
+      localY: Number(point.localY.toFixed(2)),
+      scale: Number(viewState.scale.toFixed(3)),
+      translateX: Number(viewState.translateX.toFixed(2)),
+      translateY: Number(viewState.translateY.toFixed(2)),
+      mapX: Number(point.mapX.toFixed(2)),
+      mapY: Number(point.mapY.toFixed(2)),
+      selectedRegionId: regionId || null
+    });
+    return regionId;
+  };
+
   const zoomToPoint = (nextScale, center, baseScale = viewState.scale, baseX = viewState.translateX, baseY = viewState.translateY) => {
     const scale = clampScale(nextScale);
     const worldX = (center.x - baseX) / baseScale;
@@ -607,13 +744,40 @@ import { resolveEmbedFeatures, resolveStyleMode } from '../shared/embedFeatures.
       applyTransform();
     }
 
+    const clearTapState = () => {
+      tapState.pointerId = null;
+      tapState.startClientX = 0;
+      tapState.startClientY = 0;
+      tapState.moved = false;
+      tapState.multiTouch = false;
+      tapState.startedOnOverlayControl = false;
+    };
+
     const handlePointerDown = (event) => {
       if (event.button && event.button !== 0) return;
-      if (event.target.closest('.embed-map-zoom')) return;
+      const target = event.target instanceof Element ? event.target : null;
+      const startedOnOverlayControl = Boolean(target?.closest('.embed-map-zoom-wrap'));
+      if (startedOnOverlayControl) return;
       collapseSheetIfExpanded();
       updateFrameMetrics();
       const point = getFramePoint(event);
+      const hadPointers = viewState.pointers.size;
       viewState.pointers.set(event.pointerId, point);
+      frameEl.setPointerCapture?.(event.pointerId);
+
+      if (hadPointers === 0) {
+        tapState.pointerId = event.pointerId;
+        tapState.startClientX = event.clientX;
+        tapState.startClientY = event.clientY;
+        tapState.moved = false;
+        tapState.multiTouch = false;
+        tapState.startedOnOverlayControl = startedOnOverlayControl;
+      } else {
+        tapState.multiTouch = true;
+      }
+      if (viewState.pointers.size > 1) {
+        tapState.multiTouch = true;
+      }
 
       if (viewState.pointers.size === 1) {
         viewState.isDragging = false;
@@ -644,8 +808,19 @@ import { resolveEmbedFeatures, resolveStyleMode } from '../shared/embedFeatures.
       const point = getFramePoint(event);
       viewState.pointers.set(event.pointerId, point);
 
+      if (tapState.pointerId === event.pointerId) {
+        const distance = Math.hypot(
+          event.clientX - tapState.startClientX,
+          event.clientY - tapState.startClientY
+        );
+        if (distance > TAP_THRESHOLD) {
+          tapState.moved = true;
+        }
+      }
+
       if (viewState.pointers.size === 2 && viewState.pinchStart) {
         event.preventDefault();
+        tapState.multiTouch = true;
         const points = Array.from(viewState.pointers.values());
         const [p1, p2] = points;
         const distance = Math.hypot(p2.x - p1.x, p2.y - p1.y);
@@ -668,7 +843,7 @@ import { resolveEmbedFeatures, resolveStyleMode } from '../shared/embedFeatures.
       const dy = point.y - viewState.dragStart.y;
       if (!viewState.isDragging && Math.hypot(dx, dy) > DRAG_THRESHOLD) {
         viewState.isDragging = true;
-        viewState.suppressClick = true;
+        tapState.moved = true;
         frameEl.classList.add('is-dragging');
       }
 
@@ -681,10 +856,20 @@ import { resolveEmbedFeatures, resolveStyleMode } from '../shared/embedFeatures.
       }
     };
 
-    const handlePointerUp = (event) => {
+    const handlePointerEnd = (event, isCancel = false) => {
+      const wasDragging = viewState.isDragging;
+      const shouldSelect =
+        !isCancel &&
+        tapState.pointerId === event.pointerId &&
+        !tapState.moved &&
+        !tapState.multiTouch &&
+        !tapState.startedOnOverlayControl &&
+        !wasDragging;
+
       if (viewState.pointers.has(event.pointerId)) {
         viewState.pointers.delete(event.pointerId);
       }
+      frameEl.releasePointerCapture?.(event.pointerId);
       if (viewState.pointers.size < 2) {
         viewState.pinchStart = null;
       }
@@ -705,23 +890,19 @@ import { resolveEmbedFeatures, resolveStyleMode } from '../shared/embedFeatures.
         frameEl.classList.remove('is-dragging');
         sharpenMap();
       }
+
+      if (shouldSelect) {
+        selectLotAtEvent(event);
+      }
+      if (tapState.pointerId === event.pointerId || viewState.pointers.size === 0 || isCancel) {
+        clearTapState();
+      }
     };
 
     frameEl.addEventListener('pointerdown', handlePointerDown);
     frameEl.addEventListener('pointermove', handlePointerMove);
-    frameEl.addEventListener('pointerup', handlePointerUp);
-    frameEl.addEventListener('pointercancel', handlePointerUp);
-    frameEl.addEventListener('pointerleave', handlePointerUp);
-    frameEl.addEventListener('click', (event) => {
-      if (!viewState.suppressClick) return;
-      if (event.target.closest('.embed-map-zoom')) {
-        viewState.suppressClick = false;
-        return;
-      }
-      event.preventDefault();
-      event.stopPropagation();
-      viewState.suppressClick = false;
-    });
+    frameEl.addEventListener('pointerup', (event) => handlePointerEnd(event, false));
+    frameEl.addEventListener('pointercancel', (event) => handlePointerEnd(event, true));
 
     zoomInBtn?.addEventListener('click', () => {
       if (!updateBounds()) return;
@@ -1115,11 +1296,12 @@ import { resolveEmbedFeatures, resolveStyleMode } from '../shared/embedFeatures.
   const bindOverlay = (svgText) => {
     if (!overlayEl) return;
     overlayEl.innerHTML = svgText;
-    const svgEl = overlayEl.querySelector('svg');
-    if (!svgEl) throw new Error('Overlay missing <svg>');
-    normalizeSvgViewport(svgEl);
+    overlaySvgEl = overlayEl.querySelector('svg');
+    if (!overlaySvgEl) throw new Error('Overlay missing <svg>');
+    normalizeSvgViewport(overlaySvgEl);
+    selectableShapes.length = 0;
 
-    const shapes = svgEl.querySelectorAll('path[id], polygon[id], rect[id]');
+    const shapes = overlaySvgEl.querySelectorAll('path[id], polygon[id], rect[id]');
     const allowLabels = lotIndex.size > 0 && lotIndex.size <= MAX_ADDRESS_LABELS;
     shapes.forEach((shape) => {
       const regionId = shape.id;
@@ -1143,24 +1325,12 @@ import { resolveEmbedFeatures, resolveStyleMode } from '../shared/embedFeatures.
 
       if (allowLabels) {
         const addressNumber = getAddressNumber(entry.address);
-        if (addressNumber) addAddressLabel(svgEl, shape, addressNumber, entry.layerKey);
+        if (addressNumber) addAddressLabel(overlaySvgEl, shape, addressNumber, entry.layerKey);
       }
 
       if (!layerShapes.has(entry.layerKey)) layerShapes.set(entry.layerKey, []);
       layerShapes.get(entry.layerKey).push(shape);
-
-      shape.addEventListener('click', (event) => {
-        event.preventDefault();
-        if (viewState.suppressClick) {
-          viewState.suppressClick = false;
-          return;
-        }
-        if (!activeLayers.has(entry.layerKey)) return;
-        if (activeShape && activeShape !== shape) activeShape.classList.remove('lot-selected');
-        activeShape = shape;
-        shape.classList.add('lot-selected');
-        renderLotPanel(entry, regionId);
-      });
+      selectableShapes.push(shape);
     });
 
     applyPlanPalette();

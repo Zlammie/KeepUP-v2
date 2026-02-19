@@ -13,7 +13,7 @@
     <link rel="stylesheet" href="styles.css" />
   </head>
   <body>
-    <div class="dev-toggle" role="region" aria-label="Embed demo controls">
+    <div class="dev-toggle is-dev-only" role="region" aria-label="Embed demo controls">
       <div class="dev-toggle-title">Demo Controls</div>
       <div class="dev-toggle-buttons">
         <button type="button" data-mode="embed">Show Embed</button>
@@ -21,20 +21,6 @@
       </div>
       <div class="dev-toggle-status">State: Auto</div>
     </div>
-    <div class="preview-toolbar" role="region" aria-label="Embed preview mode">
-      <div class="preview-toolbar-title">Preview</div>
-      <div class="preview-toolbar-buttons">
-        <button type="button" data-preview="desktop" class="is-active">
-          Desktop
-        </button>
-        <button type="button" data-preview="mobile">Mobile</button>
-      </div>
-      <div class="preview-toolbar-status">
-        Mode: <span data-preview-label>Desktop</span>
-        <span class="preview-toolbar-size" data-preview-size>390x844</span>
-      </div>
-    </div>
-    <div class="preview-dim" aria-hidden="true"></div>
 
     <header class="site-header">
       <div class="container header-inner">
@@ -341,38 +327,58 @@
                   embedded map.
                 </p>
               </div>
-              <div class="preview-shell">
-                <div class="preview-device">
-                  <div class="map-wrapper" data-state="embed">
-                    <iframe
-                      class="map-embed"
-                      title="Willow Grove community map"
-                      src="https://app.keepupcrm.com/embed/map-group/willow-grove"
-                      data-embed-default="https://app.keepupcrm.com/embed/map-group/willow-grove"
-                      data-embed-local="http://localhost:3000/embed/map-group/willow-grove"
-                      loading="lazy"
-                      scrolling="no"
-                      allowfullscreen
-                    ></iframe>
-                    <img
-                      class="map-placeholder"
-                      src="assets/map-placeholder.jpg"
-                      alt="Community map placeholder"
-                    />
-                    <div class="map-placeholder-overlay" aria-hidden="true">
-                      <div>
-                        <div class="map-placeholder-title">
-                          Map preview unavailable
-                        </div>
-                        <div class="map-placeholder-sub">
-                          Showing a placeholder while the embed loads.
-                        </div>
+              <div class="map-inline-shell" id="map-inline-shell">
+                <div class="map-wrapper" data-state="embed">
+                  <iframe
+                    class="map-embed map-embed-inline"
+                    id="map-embed-inline"
+                    title="Willow Grove community map"
+                    src="https://app.keepupcrm.com/embed/map-group/willow-grove"
+                    data-embed-default="https://app.keepupcrm.com/embed/map-group/willow-grove"
+                    data-embed-local="http://localhost:3000/embed/map-group/willow-grove"
+                    loading="lazy"
+                    scrolling="no"
+                    allowfullscreen
+                  ></iframe>
+                  <img
+                    class="map-placeholder"
+                    src="assets/map-placeholder.jpg"
+                    alt="Community map placeholder"
+                  />
+                  <div class="map-placeholder-overlay" aria-hidden="true">
+                    <div>
+                      <div class="map-placeholder-title">
+                        Map preview unavailable
+                      </div>
+                      <div class="map-placeholder-sub">
+                        Showing a placeholder while the embed loads.
                       </div>
                     </div>
                   </div>
+                  <button
+                    type="button"
+                    class="map-preview-overlay"
+                    id="map-preview-overlay"
+                    aria-label="Open interactive map"
+                  >
+                    <span class="map-preview-overlay__content">
+                      <span class="map-preview-overlay__text">Tap to open interactive map</span>
+                      <span class="map-preview-overlay__icon" aria-hidden="true">&#8250;</span>
+                    </span>
+                  </button>
                 </div>
               </div>
-              <div class="preview-placeholder" aria-hidden="true"></div>
+              <div class="map-mobile-cta-wrap">
+                <button
+                  type="button"
+                  class="map-mobile-cta"
+                  id="open-map-modal"
+                  aria-haspopup="dialog"
+                  aria-controls="map-modal"
+                >
+                  View Interactive Map
+                </button>
+              </div>
               <div class="map-meta">
                 Embed source:
                 <span class="map-url"
@@ -483,6 +489,38 @@
         <span>Willow Grove | Grenadier Homes</span>
       </div>
     </footer>
+
+    <div class="map-modal" id="map-modal" aria-hidden="true">
+      <div class="map-modal__backdrop" data-map-close></div>
+      <div
+        class="map-modal__panel"
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="map-modal-title"
+      >
+        <header class="map-modal__header">
+          <h2 id="map-modal-title">Willow Grove Map</h2>
+          <button
+            type="button"
+            class="map-modal__close"
+            id="close-map-modal"
+            aria-label="Close map"
+          >
+            &times;
+          </button>
+        </header>
+        <div class="map-modal__body">
+          <iframe
+            class="map-embed map-embed-modal"
+            id="map-embed-modal"
+            title="Willow Grove map modal view"
+            loading="lazy"
+            scrolling="no"
+            allowfullscreen
+          ></iframe>
+        </div>
+      </div>
+    </div>
 
     <script src="script.js"></script>
   </body>

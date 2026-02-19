@@ -635,6 +635,7 @@
     </div>
   </main>
 
+  <script id="admin-permissions-json" type="application/json"><%- JSON.stringify(permissions || {}) %></script>
   <script nonce="<%= cspNonce %>">
     document.addEventListener('DOMContentLoaded', () => {
       const tabButtons = Array.from(document.querySelectorAll('[data-admin-target]'));
@@ -651,7 +652,15 @@
         return response.json();
       };
 
-      const permissions = <%- JSON.stringify(permissions || {}) %>;
+      const permissions = (() => {
+        const el = document.getElementById('admin-permissions-json');
+        if (!el) return {};
+        try {
+          return JSON.parse(el.textContent || '{}');
+        } catch {
+          return {};
+        }
+      })();
       const canEditCompany = !!(permissions && permissions.canEditCompany);
       const canManageUsers = !!(permissions && permissions.canManageUsers);
       const canManageBilling = canEditCompany;
