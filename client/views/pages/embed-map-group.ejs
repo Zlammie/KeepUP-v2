@@ -91,17 +91,27 @@
 
       <aside class="embed-map-panel" id="lot-panel">
         <div class="lot-sheet" id="lot-sheet" data-state="collapsed">
-          <button
-            type="button"
-            class="lot-sheet__handle"
-            id="lot-sheet-toggle"
-            aria-expanded="false"
-            aria-controls="lot-sheet-details"
-          >
-            <span class="lot-sheet__grip" aria-hidden="true"></span>
-            <span class="lot-sheet__label">Lot details</span>
-            <span class="lot-sheet__chevron" aria-hidden="true"></span>
-          </button>
+          <div class="lot-sheet__handle">
+            <button
+              type="button"
+              class="lot-sheet__toggle"
+              id="lot-sheet-toggle"
+              aria-expanded="false"
+              aria-controls="lot-sheet-details"
+            >
+              <span class="lot-sheet__grip" aria-hidden="true"></span>
+              <span class="lot-sheet__label">Lot details</span>
+              <span class="lot-sheet__chevron" aria-hidden="true"></span>
+            </button>
+            <div class="lot-sheet__actions">
+              <button type="button" class="lot-sheet__action lot-sheet__back" id="lot-sheet-back">
+                Back to map
+              </button>
+              <button type="button" class="lot-sheet__action lot-sheet__clear is-hidden" id="lot-sheet-clear">
+                Clear
+              </button>
+            </div>
+          </div>
 
           <div class="lot-sheet__summary" id="lot-summary">
             <div class="lot-summary__row">

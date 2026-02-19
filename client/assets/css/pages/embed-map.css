@@ -490,11 +490,72 @@ body {
   justify-content: space-between;
   gap: 0.6rem;
   width: 100%;
+  min-height: 46px;
+  padding: 0.15rem 0.4rem;
+}
+
+.lot-sheet__toggle {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.6rem;
+  flex: 1;
+  min-width: 0;
   min-height: 44px;
-  padding: 0.25rem 0.8rem;
+  padding: 0.25rem 0.4rem;
   border: none;
   background: transparent;
   cursor: pointer;
+}
+
+.lot-sheet__toggle:focus-visible {
+  outline: 2px solid var(--embed-accent);
+  outline-offset: 2px;
+}
+
+.lot-sheet__actions {
+  display: none;
+  align-items: center;
+  gap: 0.35rem;
+  flex-shrink: 0;
+}
+
+.lot-sheet__action {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 32px;
+  padding: 0.2rem 0.55rem;
+  border-radius: 999px;
+  border: 1px solid var(--embed-border);
+  background: #fff;
+  color: var(--embed-ink);
+  font-size: 0.65rem;
+  font-weight: 600;
+  line-height: 1;
+  white-space: nowrap;
+  cursor: pointer;
+}
+
+.lot-sheet__clear {
+  min-width: 52px;
+}
+
+.lot-sheet__action:focus-visible {
+  outline: 2px solid var(--embed-accent);
+  outline-offset: 2px;
+}
+
+.lot-sheet.has-selection .lot-sheet__actions {
+  display: inline-flex;
+}
+
+.lot-sheet[data-state="collapsed"] .lot-sheet__back,
+.lot-sheet[data-state="hidden"] .lot-sheet__back {
+  display: none;
+}
+
+.lot-sheet[data-state="expanded"] .lot-sheet__back {
+  display: inline-flex;
 }
 
 .lot-sheet__grip {
@@ -506,6 +567,7 @@ body {
 }
 
 .lot-sheet__label {
+  margin-right: auto;
   font-size: 0.75rem;
   font-weight: 600;
   text-transform: uppercase;

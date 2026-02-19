@@ -26,6 +26,8 @@ import { resolveEmbedFeatures, resolveStyleMode } from '../shared/embedFeatures.
   const zoomLabel = document.querySelector('[data-zoom="label"]');
   const sheetEl = document.getElementById('lot-sheet');
   const sheetToggle = document.getElementById('lot-sheet-toggle');
+  const sheetBack = document.getElementById('lot-sheet-back');
+  const sheetClear = document.getElementById('lot-sheet-clear');
   const sheetDetails = document.getElementById('lot-sheet-details');
   const summaryAddress = document.getElementById('lot-summary-address');
   const summaryStatus = document.getElementById('lot-summary-status');
@@ -737,6 +739,21 @@ import { resolveEmbedFeatures, resolveStyleMode } from '../shared/embedFeatures.
     setSheetState('collapsed');
   };
 
+  const collapseSheetToMap = () => {
+    if (!sheetEl) return;
+    setSheetState('collapsed', { manual: true });
+  };
+
+  const clearSelection = () => {
+    if (activeShape) {
+      activeShape.classList.remove('lot-selected');
+      activeShape = null;
+    }
+    lastSelectedId = null;
+    showEmptyPanel('Select a lot');
+    setSheetState('hidden', { manual: true });
+  };
+
   const initPanZoom = () => {
     if (!frameEl || !stageEl) return;
     if (updateBounds()) {
@@ -979,6 +996,8 @@ import { resolveEmbedFeatures, resolveStyleMode } from '../shared/embedFeatures.
       summaryStats.classList.add('is-hidden');
     }
     if (summaryWpLink) summaryWpLink.classList.add('is-hidden');
+    if (sheetEl) sheetEl.classList.remove('has-selection');
+    if (sheetClear) sheetClear.classList.add('is-hidden');
     setSheetState('collapsed');
   };
 
@@ -1076,11 +1095,15 @@ import { resolveEmbedFeatures, resolveStyleMode } from '../shared/embedFeatures.
 
     if (shouldAutoExpand) {
       setSheetState('expanded');
+    } else if (sheetEl?.dataset?.state === 'hidden') {
+      setSheetState('collapsed');
     }
     hasFirstSelection = true;
     if (selectionKey) {
       lastSelectedId = selectionKey;
     }
+    if (sheetEl) sheetEl.classList.add('has-selection');
+    if (sheetClear) sheetClear.classList.remove('is-hidden');
     const labelText = entry.address || 'Selected lot';
     if (lotTitle) lotTitle.textContent = labelText;
     if (lotStatus) {
@@ -1547,6 +1570,16 @@ import { resolveEmbedFeatures, resolveStyleMode } from '../shared/embedFeatures.
   sheetToggle?.addEventListener('pointercancel', () => {
     sheetDragStart = null;
     sheetDragHandled = false;
+  });
+
+  sheetBack?.addEventListener('click', (event) => {
+    event.preventDefault();
+    collapseSheetToMap();
+  });
+
+  sheetClear?.addEventListener('click', (event) => {
+    event.preventDefault();
+    clearSelection();
   });
 
   setSheetState('collapsed');
