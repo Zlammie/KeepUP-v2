@@ -29,12 +29,13 @@ body {
 
 .embed-map-page {
   color: var(--embed-ink);
-  height: 100%;
+  min-height: 100vh;
+  height: 100vh;
   overflow: hidden;
 }
 
 .embed-map-shell {
-  min-height: 100%;
+  min-height: 0;
   height: 100%;
   display: flex;
   flex-direction: column;
@@ -42,6 +43,7 @@ body {
 }
 
 .embed-map-header {
+  flex: 0 0 auto;
   display: flex;
   align-items: center;
   justify-content: space-between;
@@ -49,6 +51,7 @@ body {
   padding: 0.6rem 0.9rem;
   border-bottom: 1px solid var(--embed-border);
   background: var(--embed-panel-bg);
+  overflow: visible;
 }
 
 .embed-map-controls {
@@ -152,11 +155,19 @@ body {
 }
 
 .embed-map-body {
-  flex: 1;
+  flex: 1 1 auto;
   display: flex;
   gap: 0.75rem;
   padding: 0.75rem;
   min-height: 0;
+  overflow: hidden;
+}
+
+@supports (height: 100dvh) {
+  .embed-map-page {
+    min-height: 100dvh;
+    height: 100dvh;
+  }
 }
 
 .embed-map-canvas {
@@ -1792,4 +1803,74 @@ body {
 
 .embed-map-page.ui-mobile .lot-sheet #lot-price-field {
   display: none;
+}
+
+@media (max-width: 720px) {
+  .embed-map-shell {
+    min-height: 0;
+    height: 100%;
+  }
+
+  .embed-map-header {
+    flex: 0 0 auto;
+    overflow: visible;
+    padding-top: calc(0.6rem + env(safe-area-inset-top, 0px));
+  }
+
+  .embed-map-body {
+    flex: 1 1 auto;
+    min-height: 0;
+    overflow: hidden;
+  }
+
+  .lot-sheet__details {
+    display: flex;
+    flex-direction: column;
+    min-height: 0;
+    overflow-x: hidden;
+    overflow-y: auto;
+    -webkit-overflow-scrolling: touch;
+  }
+
+  .panel-body {
+    min-height: 0;
+  }
+
+  .panel-actions {
+    flex-shrink: 0;
+  }
+}
+
+.embed-map-page.ui-mobile .embed-map-shell {
+  min-height: 0;
+  height: 100%;
+}
+
+.embed-map-page.ui-mobile .embed-map-header {
+  flex: 0 0 auto;
+  overflow: visible;
+  padding-top: calc(0.6rem + env(safe-area-inset-top, 0px));
+}
+
+.embed-map-page.ui-mobile .embed-map-body {
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow: hidden;
+}
+
+.embed-map-page.ui-mobile .lot-sheet__details {
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  overflow-x: hidden;
+  overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
+}
+
+.embed-map-page.ui-mobile .panel-body {
+  min-height: 0;
+}
+
+.embed-map-page.ui-mobile .panel-actions {
+  flex-shrink: 0;
 }
