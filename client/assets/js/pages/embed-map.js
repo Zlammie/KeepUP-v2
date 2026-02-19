@@ -1455,15 +1455,34 @@ import { resolveEmbedFeatures, resolveStyleMode } from '../shared/embedFeatures.
     sheetDragHandled = false;
   });
 
-  sheetBack?.addEventListener('click', (event) => {
-    event.preventDefault();
-    collapseSheetToMap();
+  const handleSheetAction = (event) => {
+    const target = event.target instanceof Element
+      ? event.target.closest('button')
+      : null;
+    if (!target) return;
+    if (target === sheetBack) {
+      event.preventDefault();
+      event.stopPropagation();
+      collapseSheetToMap();
+      return;
+    }
+    if (target === sheetClear) {
+      event.preventDefault();
+      event.stopPropagation();
+      clearSelection();
+    }
+  };
+
+  [sheetBack, sheetClear].forEach((actionButton) => {
+    actionButton?.addEventListener('pointerdown', (event) => {
+      event.stopPropagation();
+    });
+    actionButton?.addEventListener('pointerup', (event) => {
+      event.stopPropagation();
+    });
   });
 
-  sheetClear?.addEventListener('click', (event) => {
-    event.preventDefault();
-    clearSelection();
-  });
+  sheetEl?.addEventListener('click', handleSheetAction);
 
   setSheetState('collapsed');
   initPanZoom();

@@ -100,8 +100,15 @@
               <button type="button" class="lot-sheet__action lot-sheet__back" id="lot-sheet-back">
                 Back to map
               </button>
-              <button type="button" class="lot-sheet__action lot-sheet__clear is-hidden" id="lot-sheet-clear">
-                Clear
+              <button
+                type="button"
+                class="lot-sheet__action lot-sheet__clear is-hidden"
+                id="lot-sheet-clear"
+                aria-label="Clear selection"
+                title="Clear selection"
+              >
+                <span class="lot-sheet__clear-icon" aria-hidden="true">&times;</span>
+                <span class="lot-sheet__sr-only">Clear selection</span>
               </button>
             </div>
           </div>
