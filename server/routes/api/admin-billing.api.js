@@ -7,6 +7,11 @@ const FeatureRequest = require('../../models/FeatureRequest');
 const { getSeatCounts } = require('../../utils/seatCounts');
 const { pricingConfig, formatCents } = require('../../config/pricingConfig');
 const { computeEstimatedMonthlySummary, isTrialExpired, getTrialCountdown } = require('../../utils/billingMath');
+const {
+  KEEPUP_MANAGED_BILLING_MESSAGE,
+  deriveStripeBillability,
+  isSelfServeBillingBlocked
+} = require('../../utils/stripeBillingPolicy');
 
 const router = express.Router();
 
@@ -21,6 +26,44 @@ const resolveCompanyId = (req, rawCompanyId) => {
 };
 
 const normalizeFeature = (value) => String(value || '').trim();
+const normalizeStripeStatus = (status) => String(status || '').trim().toLowerCase();
+const canceledLikeStatuses = new Set(['canceled', 'incomplete_expired']);
+const addonBillableStatuses = new Set(['active', 'trialing', 'past_due']);
+
+const isBuildrootzActiveForStripe = (company) => {
+  const feature = company?.features?.buildrootz || {};
+  const status = normalizeStripeStatus(feature.status);
+  if (status) return status === 'active';
+  return !!feature.enabled;
+};
+
+const computeStripeSubscriptionDisplay = ({
+  selfServeEligible,
+  hasStoredSubscriptionId,
+  normalizedSubscriptionStatus,
+  hasBillableActiveAddons
+}) => {
+  if (selfServeEligible) {
+    if (hasStoredSubscriptionId) {
+      return normalizedSubscriptionStatus || 'unknown';
+    }
+    return 'Not started';
+  }
+
+  if (!hasStoredSubscriptionId) {
+    return 'No subscription (managed seats)';
+  }
+
+  if (canceledLikeStatuses.has(normalizedSubscriptionStatus) && !hasBillableActiveAddons) {
+    return 'No subscription (managed seats)';
+  }
+
+  if (hasBillableActiveAddons && addonBillableStatuses.has(normalizedSubscriptionStatus)) {
+    return normalizedSubscriptionStatus;
+  }
+
+  return normalizedSubscriptionStatus || 'No subscription (managed seats)';
+};
 
 router.get(
   '/overview',
@@ -147,6 +190,33 @@ router.get(
         || billingPolicy.addons?.buildrootz === 'comped'
         || billingPolicy.addons?.websiteMap === 'comped'
       );
+      const stripeManagedByKeepUp = isSelfServeBillingBlocked(company);
+      const selfServeEligible = !stripeManagedByKeepUp;
+      const stripeBilling = company.billing || {};
+      const normalizedSubscriptionStatus = normalizeStripeStatus(stripeBilling.stripeSubscriptionStatus);
+      const hasStoredSubscriptionId = !!String(stripeBilling.stripeSubscriptionId || '').trim();
+      const hasActiveSubscriptionLink = hasStoredSubscriptionId && !canceledLikeStatuses.has(normalizedSubscriptionStatus);
+
+      const websiteMapActiveQty = communities.reduce((count, community) => {
+        const rawStatus = normalizeStripeStatus(community?.websiteMap?.status);
+        return count + (rawStatus === 'active' ? 1 : 0);
+      }, 0);
+      const billability = deriveStripeBillability(company, {
+        activeUsers: Number(seatCounts.active || 0),
+        buildrootzActive: isBuildrootzActiveForStripe(company),
+        websiteMapActiveQty
+      });
+      const hasBillableActiveAddons = !!(billability.buildrootzBillable || billability.websiteMapBillable);
+      const subscriptionStatusDisplay = computeStripeSubscriptionDisplay({
+        selfServeEligible,
+        hasStoredSubscriptionId,
+        normalizedSubscriptionStatus,
+        hasBillableActiveAddons
+      });
+      const isStaleCanceledSubscription = !selfServeEligible
+        && hasStoredSubscriptionId
+        && canceledLikeStatuses.has(normalizedSubscriptionStatus)
+        && !hasBillableActiveAddons;
 
       return res.json({
         companyId: String(companyId),
@@ -213,6 +283,26 @@ router.get(
                 ? null
                 : Number(websiteMapEntitlements.trialDaysOverride || 0)
           }
+        },
+        billing: {
+          seatsPurchased: stripeBilling.seatsPurchased ?? null,
+          stripeCustomerId: stripeBilling.stripeCustomerId || null,
+          stripeSubscriptionId: stripeBilling.stripeSubscriptionId || null,
+          stripeSubscriptionStatus: stripeBilling.stripeSubscriptionStatus || null,
+          currentPeriodEnd: stripeBilling.currentPeriodEnd || null,
+          hasStripe: !!stripeBilling.hasStripe,
+          lastStripeSyncAt: stripeBilling.lastStripeSyncAt || null
+        },
+        stripe: {
+          managedByKeepUp: stripeManagedByKeepUp,
+          selfServeEligible,
+          managedMessage: stripeManagedByKeepUp ? KEEPUP_MANAGED_BILLING_MESSAGE : null,
+          hasCustomer: !!stripeBilling.stripeCustomerId,
+          hasSubscription: hasActiveSubscriptionLink,
+          subscriptionStatus: stripeBilling.stripeSubscriptionStatus || null,
+          subscriptionStatusDisplay,
+          hasPaymentMethodOnFile: !!stripeBilling.hasPaymentMethodOnFile,
+          isStaleCanceledSubscription
         },
         billingPolicy: {
           seats: {

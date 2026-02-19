@@ -69,7 +69,33 @@ const FeatureSchema = new Schema({
 }, { _id: false });
 
 const BillingSchema = new Schema({
-  seatsPurchased: { type: Number }
+  seatsPurchased: { type: Number },
+  stripeCustomerId: { type: String, default: null, trim: true },
+  stripeSubscriptionId: { type: String, default: null, trim: true },
+  stripeSubscriptionStatus: { type: String, default: null, trim: true },
+  hasPaymentMethodOnFile: { type: Boolean, default: false },
+  stripeDefaultPaymentMethodId: { type: String, default: null, trim: true },
+  stripeLastPaymentMethodCheckAt: { type: Date, default: null },
+  currentPeriodEnd: { type: Date, default: null },
+  hasStripe: { type: Boolean, default: false },
+  lastStripeSyncAt: { type: Date, default: null },
+  stripeLastSyncAt: { type: Date, default: null },
+  stripeLastSyncStatus: {
+    type: String,
+    enum: ['success', 'noop', 'error', null],
+    default: null,
+    trim: true
+  },
+  stripeLastSyncMessage: { type: String, default: null, trim: true },
+  stripeLastSyncUpdatedItems: {
+    type: [{
+      priceId: { type: String, default: null, trim: true },
+      oldQty: { type: Number, default: null },
+      newQty: { type: Number, default: null },
+      action: { type: String, default: null, trim: true }
+    }],
+    default: undefined
+  }
 }, { _id: false });
 
 const BillingPolicySchema = new Schema({
@@ -164,5 +190,7 @@ CompanySchema.pre('validate', function(next) {
 // Useful indexes for lookups
 // Useful indexes for lookups (slug is already unique via the field definition)
 CompanySchema.index({ isActive: 1 });
+CompanySchema.index({ 'billing.stripeCustomerId': 1 });
+CompanySchema.index({ 'billing.stripeSubscriptionId': 1 });
 
 module.exports = mongoose.model('Company', CompanySchema);

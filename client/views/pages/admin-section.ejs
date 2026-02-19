@@ -769,6 +769,23 @@
 
       <section id="admin-panel-billing" class="admin-panel d-none" role="tabpanel" aria-labelledby="admin-tab-billing">
         <h2 class="h4 mb-3">Billing Overview</h2>
+        <div id="billingStripeNotice" class="alert d-none py-2 mb-3" role="status" aria-live="polite">
+          <div class="d-flex justify-content-between align-items-center gap-3">
+            <span id="billingStripeNoticeText"></span>
+            <button type="button" class="btn btn-sm btn-outline-secondary" id="billingStripeNoticeDismiss">Dismiss</button>
+          </div>
+        </div>
+        <div id="billingStripeConfirmNotice" class="alert alert-info d-none py-2 mb-3" role="status" aria-live="polite">
+          <div class="d-flex justify-content-between align-items-center gap-3">
+            <div>
+              <div class="fw-semibold">Confirming subscription...</div>
+              <div id="billingStripeConfirmNoticeText">
+                We're still confirming your subscription with Stripe. If this doesn't update in 30 seconds, contact support.
+              </div>
+            </div>
+            <button type="button" class="btn btn-sm btn-outline-secondary" id="billingStripeConfirmNoticeDismiss">Dismiss</button>
+          </div>
+        </div>
         <p class="text-muted mb-4">
           Company Admins can confirm addresses, monitor seat usage, and request upgrades. Platform-level billing stays locked down.
         </p>
@@ -807,6 +824,18 @@
                 <div class="col-md-4">
                   <label for="billingStatus" class="form-label">Billing Status</label>
                   <input type="text" id="billingStatus" name="billingStatus" class="form-control" value="Active" readonly />
+                </div>
+                <div class="col-md-4">
+                  <label for="billingStripeStatus" class="form-label">Stripe Subscription</label>
+                  <input type="text" id="billingStripeStatus" name="billingStripeStatus" class="form-control" value="Not started" readonly />
+                  <div class="form-text">Status reflects latest webhook sync.</div>
+                </div>
+                <div class="col-12">
+                  <div class="alert alert-warning d-none py-2 mb-2" id="billingStripeWarning"></div>
+                  <div class="d-flex justify-content-between align-items-center flex-wrap gap-2">
+                    <div class="small text-muted" id="billingStripeActionStatus"></div>
+                    <button type="button" class="btn btn-primary btn-sm d-none" id="billingStripeActionButton"></button>
+                  </div>
                 </div>
               </div>
             </div>
@@ -864,7 +893,7 @@
                   </div>
                   <div class="d-flex align-items-center justify-content-between flex-wrap gap-2">
                     <span class="fw-semibold">Estimated Monthly Total: <span id="billing-summary-total">--</span></span>
-                    <span class="small text-muted">Billing is managed by the KeepUp team.</span>
+                    <span class="small text-muted" id="billingStripeSummaryNote">Billing is managed by the KeepUp team.</span>
                   </div>
                 </div>
               </div>
@@ -1029,10 +1058,22 @@
                       <div>
                         <h3 class="h5 mb-1" id="platform-company-name">Company</h3>
                         <div class="text-muted small" id="platform-company-updated"></div>
+                        <div class="text-muted small" id="platform-stripe-sync-status"></div>
+                        <div class="small d-flex align-items-center gap-2 flex-wrap" id="platform-stripe-last-sync-row">
+                          <span class="text-muted">Last synced with Stripe: <span id="platform-stripe-last-sync-at">Never</span></span>
+                          <span class="badge d-none" id="platform-stripe-last-sync-badge"></span>
+                        </div>
+                        <div class="text-muted small" id="platform-stripe-last-sync-message"></div>
+                        <div class="text-info small d-none" id="platform-stripe-addons-only-note"></div>
                       </div>
-                      <button type="button" class="btn btn-outline-secondary btn-sm" id="platform-company-reload">
-                        Reload
-                      </button>
+                      <div class="d-flex gap-2">
+                        <button type="button" class="btn btn-outline-primary btn-sm" id="platform-stripe-sync">
+                          Sync Stripe quantities
+                        </button>
+                        <button type="button" class="btn btn-outline-secondary btn-sm" id="platform-company-reload">
+                          Reload
+                        </button>
+                      </div>
                     </div>
 
                     <div class="row g-3 mb-3">
@@ -1288,6 +1329,7 @@
   </main>
 
   <script defer src="/assets/js/shared/emailErrorLabels.js"></script>
+  <script id="admin-permissions-json" type="application/json"><%- JSON.stringify(permissions || {}) %></script>
   <script nonce="<%= cspNonce %>">
     document.addEventListener('DOMContentLoaded', () => {
       const tabButtons = Array.from(document.querySelectorAll('[data-admin-target]'));
@@ -1304,10 +1346,21 @@
         return response.json();
       };
 
-      const permissions = <%- JSON.stringify(permissions || {}) %>;
+      const permissions = (() => {
+        const el = document.getElementById('admin-permissions-json');
+        if (!el) return {};
+        try {
+          return JSON.parse(el.textContent || '{}');
+        } catch {
+          return {};
+        }
+      })();
       const canEditCompany = !!(permissions && permissions.canEditCompany);
       const canManageUsers = !!(permissions && permissions.canManageUsers);
       const canManageBilling = canEditCompany;
+      const initialUrlParams = new URLSearchParams(window.location.search);
+      const initialStripeResult = (initialUrlParams.get('stripe') || '').trim().toLowerCase();
+      const stripeRedirectResults = ['success', 'cancel', 'setup_success', 'setup_cancel'];
 
       const state = {
         loadedPanels: new Set(),
@@ -1341,7 +1394,14 @@
         billing: {
           loading: false,
           data: null,
-          websiteMapPanelMode: 'enable'
+          websiteMapPanelMode: 'enable',
+          stripeAction: null,
+          stripeQueryResult: stripeRedirectResults.includes(initialStripeResult) ? initialStripeResult : '',
+          stripeNoticeDismissed: false,
+          stripeConfirmNoticeDismissed: false,
+          stripeRetryScheduled: false,
+          stripeRetryDone: false,
+          stripeQueryCleaned: false
         },
         platformBilling: {
           loading: false,
@@ -1352,7 +1412,8 @@
           selectedCompany: null,
           requests: [],
           audits: [],
-          selectedPresetKey: ''
+          selectedPresetKey: '',
+          stripePriceLabels: {}
         },
         users: {
           loading: false,
@@ -1523,6 +1584,18 @@
       };
 
       const billingEls = {
+        stripeNotice: document.getElementById('billingStripeNotice'),
+        stripeNoticeText: document.getElementById('billingStripeNoticeText'),
+        stripeNoticeDismiss: document.getElementById('billingStripeNoticeDismiss'),
+        stripeConfirmNotice: document.getElementById('billingStripeConfirmNotice'),
+        stripeConfirmNoticeText: document.getElementById('billingStripeConfirmNoticeText'),
+        stripeConfirmNoticeDismiss: document.getElementById('billingStripeConfirmNoticeDismiss'),
+        billingStatus: document.getElementById('billingStatus'),
+        stripeStatus: document.getElementById('billingStripeStatus'),
+        stripeWarning: document.getElementById('billingStripeWarning'),
+        stripeActionStatus: document.getElementById('billingStripeActionStatus'),
+        stripeActionButton: document.getElementById('billingStripeActionButton'),
+        stripeSummaryNote: document.getElementById('billingStripeSummaryNote'),
         summaryBody: document.getElementById('billing-summary-body'),
         summaryTotal: document.getElementById('billing-summary-total'),
         policyBanner: document.getElementById('billing-policy-banner'),
@@ -1564,6 +1637,13 @@
         companyEmpty: document.getElementById('platform-company-empty'),
         companyName: document.getElementById('platform-company-name'),
         companyUpdated: document.getElementById('platform-company-updated'),
+        stripeSyncStatus: document.getElementById('platform-stripe-sync-status'),
+        stripeLastSyncRow: document.getElementById('platform-stripe-last-sync-row'),
+        stripeLastSyncAt: document.getElementById('platform-stripe-last-sync-at'),
+        stripeLastSyncBadge: document.getElementById('platform-stripe-last-sync-badge'),
+        stripeLastSyncMessage: document.getElementById('platform-stripe-last-sync-message'),
+        stripeAddonsOnlyNote: document.getElementById('platform-stripe-addons-only-note'),
+        stripeSyncButton: document.getElementById('platform-stripe-sync'),
         companyReload: document.getElementById('platform-company-reload'),
         billingContact: document.getElementById('platform-billing-contact'),
         primaryContact: document.getElementById('platform-primary-contact'),
@@ -1898,6 +1978,60 @@
         return data;
       };
 
+      const createStripeCheckoutSession = async () => {
+        const response = await fetch('/api/admin/billing/stripe/checkout', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            Accept: 'application/json'
+          },
+          credentials: 'same-origin',
+          body: JSON.stringify({})
+        });
+        const data = await readJsonResponse(response);
+        if (!response.ok) {
+          const message = data?.error || `Request failed (${response.status})`;
+          throw new Error(message);
+        }
+        return data;
+      };
+
+      const createStripeSetupSession = async () => {
+        const response = await fetch('/api/admin/billing/stripe/setup', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            Accept: 'application/json'
+          },
+          credentials: 'same-origin',
+          body: JSON.stringify({})
+        });
+        const data = await readJsonResponse(response);
+        if (!response.ok) {
+          const message = data?.error || `Request failed (${response.status})`;
+          throw new Error(message);
+        }
+        return data;
+      };
+
+      const createStripePortalSession = async () => {
+        const response = await fetch('/api/admin/billing/stripe/portal', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            Accept: 'application/json'
+          },
+          credentials: 'same-origin',
+          body: JSON.stringify({})
+        });
+        const data = await readJsonResponse(response);
+        if (!response.ok) {
+          const message = data?.error || `Request failed (${response.status})`;
+          throw new Error(message);
+        }
+        return data;
+      };
+
       const setStatusBadge = (element, status) => {
         if (!element) return;
         const meta = statusMeta[status] || statusMeta.inactive;
@@ -1939,6 +2073,118 @@
           const map = pricing.websiteMap?.monthlyFormatted || 'Pricing';
           billingEls.websiteMapPriceLabel.textContent = `${map} / community / month`;
         }
+      };
+
+      const formatStripeStatusLabel = (statusValue) => {
+        const normalized = String(statusValue || '').trim().toLowerCase();
+        if (!normalized) return 'Not started';
+        if (normalized === 'past_due') return 'Past due';
+        if (normalized === 'trialing') return 'Trialing';
+        if (normalized === 'active') return 'Active';
+        if (normalized === 'canceled') return 'Canceled';
+        if (normalized === 'incomplete') return 'Incomplete';
+        if (normalized === 'incomplete_expired') return 'Incomplete expired';
+        if (normalized === 'unpaid') return 'Unpaid';
+        return normalized.replace(/_/g, ' ');
+      };
+
+      const renderStripeBillingControls = () => {
+        const payload = state.billing.data || {};
+        const billing = payload.billing || {};
+        const stripe = payload.stripe || {};
+        const selfServeEligible = stripe.selfServeEligible !== false;
+        const managedByKeepUp = !selfServeEligible || !!stripe.managedByKeepUp;
+        const subscriptionId = billing.stripeSubscriptionId || null;
+        const status = String(billing.stripeSubscriptionStatus || '').trim().toLowerCase();
+        const hasSubscription = stripe.hasSubscription === true
+          || (!!subscriptionId && status !== 'canceled' && status !== 'incomplete_expired');
+        const subscriptionStatusDisplay = String(stripe.subscriptionStatusDisplay || '').trim();
+        const hasPaymentMethodOnFile = !!stripe.hasPaymentMethodOnFile;
+
+        if (billingEls.billingStatus) {
+          billingEls.billingStatus.value = managedByKeepUp
+            ? 'Seats managed internally'
+            : hasSubscription
+              ? 'Self-serve (Stripe)'
+              : 'Self-serve available';
+        }
+        if (billingEls.stripeStatus) {
+          billingEls.stripeStatus.value = subscriptionStatusDisplay || formatStripeStatusLabel(status);
+        }
+
+        if (billingEls.stripeSummaryNote) {
+          if (hasSubscription) {
+            billingEls.stripeSummaryNote.textContent =
+              'Stripe subscription active - quantities sync based on usage (next invoice).';
+          } else if (managedByKeepUp && hasPaymentMethodOnFile) {
+            billingEls.stripeSummaryNote.textContent =
+              'Billing is managed by KeepUp. Payment method on file for add-on charges.';
+          } else if (managedByKeepUp) {
+            billingEls.stripeSummaryNote.textContent =
+              stripe.managedMessage || 'Billing is managed by KeepUp. Add a payment method for add-on charges.';
+          } else {
+            billingEls.stripeSummaryNote.textContent = 'Billing can be managed in Stripe.';
+          }
+        }
+
+        if (billingEls.stripeWarning) {
+          const showPastDue = status === 'past_due' && selfServeEligible;
+          billingEls.stripeWarning.classList.toggle('d-none', !showPastDue);
+          billingEls.stripeWarning.textContent = showPastDue
+            ? 'Payment is past due. Open Stripe Billing to update your payment method.'
+            : '';
+        }
+
+        if (!billingEls.stripeActionButton) return;
+        let actionMode = null;
+
+        if (!canManageBilling) {
+          billingEls.stripeActionButton.classList.add('d-none');
+          setBillingStatusMessage(billingEls.stripeActionStatus, billingViewOnlyMessage, 'muted');
+          state.billing.stripeAction = null;
+          return;
+        }
+
+        if (managedByKeepUp) {
+          if (hasPaymentMethodOnFile) {
+            billingEls.stripeActionButton.classList.add('d-none');
+            setBillingStatusMessage(billingEls.stripeActionStatus, 'Payment method on file.', 'success');
+            state.billing.stripeAction = null;
+            return;
+          }
+
+          actionMode = 'setup';
+          billingEls.stripeActionButton.textContent = 'Set up billing (add payment method)';
+          billingEls.stripeActionButton.classList.remove('btn-outline-primary');
+          billingEls.stripeActionButton.classList.add('btn-primary');
+          setBillingStatusMessage(
+            billingEls.stripeActionStatus,
+            'Managed account: add a payment method so add-ons can be billed.',
+            'muted'
+          );
+          state.billing.stripeAction = actionMode;
+          billingEls.stripeActionButton.classList.remove('d-none');
+          billingEls.stripeActionButton.disabled = state.billing.loading;
+          return;
+        }
+
+        if (hasSubscription || status === 'past_due') {
+          actionMode = 'portal';
+          billingEls.stripeActionButton.textContent = 'Manage Billing';
+          billingEls.stripeActionButton.classList.remove('btn-primary');
+          billingEls.stripeActionButton.classList.add('btn-outline-primary');
+          setBillingStatusMessage(billingEls.stripeActionStatus, '', 'muted');
+        } else {
+          actionMode = 'checkout';
+          billingEls.stripeActionButton.textContent = 'Start Subscription';
+          billingEls.stripeActionButton.classList.remove('btn-outline-primary');
+          billingEls.stripeActionButton.classList.add('btn-primary');
+          setBillingStatusMessage(billingEls.stripeActionStatus, '', 'muted');
+        }
+
+        state.billing.stripeAction = actionMode;
+        billingEls.stripeActionButton.classList.remove('d-none');
+        billingEls.stripeActionButton.disabled = state.billing.loading;
       };
 
       const renderBillingSummary = () => {
@@ -2268,6 +2514,7 @@ const trialEligible =
       };
 
       const renderBillingPanel = () => {
+        renderStripeBillingControls();
         renderBillingCards();
         renderSeatCounts();
         renderPricingLabels();
@@ -2297,7 +2544,9 @@ const trialEligible =
           const payload = await fetchBillingOverview();
           state.billing.data = payload;
           state.loadedPanels.add('billing');
+          state.billing.loading = false;
           renderBillingPanel();
+          handleStripeRedirectState();
           if (!canManageBilling) {
             setBillingStatusMessage(billingEls.buildrootzRequestStatus, billingViewOnlyMessage, 'muted');
             setBillingStatusMessage(billingEls.buildrootzCancelStatus, billingViewOnlyMessage, 'muted');
@@ -2318,6 +2567,145 @@ const trialEligible =
           }
         } finally {
           state.billing.loading = false;
+        }
+      };
+
+      const renderStripeRedirectBanner = () => {
+        if (!billingEls.stripeNotice || !billingEls.stripeNoticeText) return;
+        const stripeResult = state.billing.stripeQueryResult;
+        const dismissed = state.billing.stripeNoticeDismissed;
+        if (!stripeResult || dismissed) {
+          billingEls.stripeNotice.classList.add('d-none');
+          return;
+        }
+
+        if (stripeResult === 'success') {
+          billingEls.stripeNotice.className = 'alert alert-success py-2 mb-3';
+          billingEls.stripeNoticeText.textContent =
+            'Subscription started! It may take a few seconds for Stripe status to update.';
+        } else if (stripeResult === 'cancel') {
+          billingEls.stripeNotice.className = 'alert alert-warning py-2 mb-3';
+          billingEls.stripeNoticeText.textContent = 'Checkout canceled. No changes were made.';
+        } else if (stripeResult === 'setup_success') {
+          billingEls.stripeNotice.className = 'alert alert-success py-2 mb-3';
+          billingEls.stripeNoticeText.textContent = 'Billing info saved!';
+        } else if (stripeResult === 'setup_cancel') {
+          billingEls.stripeNotice.className = 'alert alert-warning py-2 mb-3';
+          billingEls.stripeNoticeText.textContent = 'Billing setup canceled.';
+        } else {
+          billingEls.stripeNotice.classList.add('d-none');
+          return;
+        }
+        billingEls.stripeNotice.classList.remove('d-none');
+      };
+
+      const renderStripeConfirmingBanner = () => {
+        if (!billingEls.stripeConfirmNotice || !billingEls.stripeConfirmNoticeText) return;
+        const stripeResult = state.billing.stripeQueryResult;
+        const dismissed = state.billing.stripeConfirmNoticeDismissed;
+        const billing = state.billing.data?.billing || {};
+        const hasCustomerId = !!String(billing.stripeCustomerId || '').trim();
+        const hasSubscriptionId = !!String(billing.stripeSubscriptionId || '').trim();
+        const shouldShow = (
+          stripeResult === 'success'
+          && state.billing.stripeRetryDone
+          && !dismissed
+          && hasCustomerId
+          && !hasSubscriptionId
+        );
+
+        if (!shouldShow) {
+          billingEls.stripeConfirmNotice.classList.add('d-none');
+          return;
+        }
+
+        billingEls.stripeConfirmNoticeText.textContent =
+          "We're still confirming your subscription with Stripe. If this doesn't update in 30 seconds, contact support.";
+        billingEls.stripeConfirmNotice.classList.remove('d-none');
+      };
+
+      const clearStripeQueryParamFromUrl = () => {
+        if (state.billing.stripeQueryCleaned) return;
+        const params = new URLSearchParams(window.location.search);
+        if (!params.has('stripe')) {
+          state.billing.stripeQueryCleaned = true;
+          return;
+        }
+        params.delete('stripe');
+        const query = params.toString();
+        const nextUrl = `${window.location.pathname}${query ? `?${query}` : ''}${window.location.hash || ''}`;
+        window.history.replaceState({}, document.title, nextUrl);
+        state.billing.stripeQueryCleaned = true;
+      };
+
+      const queueStripeSuccessRetry = () => {
+        const retryable = new Set(['success', 'setup_success']);
+        if (!retryable.has(state.billing.stripeQueryResult)) return;
+        if (state.billing.stripeRetryScheduled || state.billing.stripeRetryDone) return;
+        state.billing.stripeRetryScheduled = true;
+        window.setTimeout(async () => {
+          if (state.billing.stripeRetryDone) return;
+          state.billing.stripeRetryDone = true;
+          await loadBillingPanel({ force: true });
+        }, 1500);
+      };
+
+      const handleStripeRedirectState = () => {
+        if (state.billing.stripeQueryResult === 'success') {
+          setBillingStatusMessage(billingEls.stripeActionStatus, 'Stripe checkout completed.', 'success');
+        } else if (state.billing.stripeQueryResult === 'cancel') {
+          setBillingStatusMessage(billingEls.stripeActionStatus, 'Stripe checkout canceled.', 'muted');
+        } else if (state.billing.stripeQueryResult === 'setup_success') {
+          setBillingStatusMessage(billingEls.stripeActionStatus, 'Billing info saved.', 'success');
+        } else if (state.billing.stripeQueryResult === 'setup_cancel') {
+          setBillingStatusMessage(billingEls.stripeActionStatus, 'Billing setup canceled.', 'muted');
+        }
+        renderStripeRedirectBanner();
+        renderStripeConfirmingBanner();
+        clearStripeQueryParamFromUrl();
+        queueStripeSuccessRetry();
+      };
+
+      const runStripeBillingAction = async () => {
+        if (!canManageBilling || !billingEls.stripeActionButton) return;
+        if (state.billing.loading) return;
+
+        const action = state.billing.stripeAction;
+        if (!action) return;
+
+        billingEls.stripeActionButton.disabled = true;
+        const actionLabel = action === 'checkout'
+          ? 'Creating checkout session...'
+          : action === 'setup'
+            ? 'Opening billing setup...'
+            : 'Opening billing portal...';
+        setBillingStatusMessage(
+          billingEls.stripeActionStatus,
+          actionLabel,
+          'muted'
+        );
+
+        try {
+          let data = null;
+          if (action === 'checkout') {
+            data = await createStripeCheckoutSession();
+          } else if (action === 'setup') {
+            data = await createStripeSetupSession();
+          } else {
+            data = await createStripePortalSession();
+          }
+          if (!data?.url) {
+            throw new Error('Stripe did not return a redirect URL.');
+          }
+          window.location.assign(data.url);
+        } catch (err) {
+          console.error('Stripe billing action failed', err);
+          setBillingStatusMessage(
+            billingEls.stripeActionStatus,
+            err.message || 'Unable to open Stripe billing.',
+            'danger'
+          );
+          billingEls.stripeActionButton.disabled = false;
         }
       };
 
@@ -2579,6 +2967,20 @@ const trialEligible =
         return data;
       };
 
+      const syncPlatformCompanyStripe = async (companyId) => {
+        const response = await fetch(`/api/platform/billing/company/${encodeURIComponent(companyId)}/stripe-sync`, {
+          method: 'POST',
+          headers: { Accept: 'application/json' },
+          credentials: 'same-origin'
+        });
+        const data = await readJsonResponse(response);
+        if (!response.ok) {
+          const message = data?.message || data?.error || `Request failed (${response.status})`;
+          throw new Error(message);
+        }
+        return data;
+      };
+
       const fetchPlatformRequests = async () => {
         const response = await fetch('/api/platform/billing/requests?status=pending', {
           headers: { Accept: 'application/json' },
@@ -2590,6 +2992,168 @@ const trialEligible =
           throw new Error(message);
         }
         return data;
+      };
+
+      const mergeStripePriceLabels = (source) => {
+        const fromPayload = source && typeof source === 'object' ? source : {};
+        state.platformBilling.stripePriceLabels = {
+          ...(state.platformBilling.stripePriceLabels || {}),
+          ...fromPayload
+        };
+      };
+
+      const formatPlatformSyncTimestamp = (value) => {
+        if (!value) return 'Never';
+        const parsed = new Date(value);
+        if (Number.isNaN(parsed.getTime())) return 'Never';
+        return parsed.toLocaleString();
+      };
+
+      const renderPlatformStripeLastSync = (billing = {}) => {
+        if (platformBillingEls.stripeLastSyncAt) {
+          platformBillingEls.stripeLastSyncAt.textContent = formatPlatformSyncTimestamp(billing?.stripeLastSyncAt);
+        }
+        if (platformBillingEls.stripeLastSyncBadge) {
+          const status = String(billing?.stripeLastSyncStatus || '').trim().toLowerCase();
+          const badgeMeta = status === 'success'
+            ? { text: 'Success', className: 'badge bg-success' }
+            : status === 'error'
+              ? { text: 'Error', className: 'badge bg-danger' }
+              : status === 'noop'
+                ? { text: 'No-op', className: 'badge bg-secondary' }
+                : null;
+          if (!badgeMeta) {
+            platformBillingEls.stripeLastSyncBadge.classList.add('d-none');
+            platformBillingEls.stripeLastSyncBadge.textContent = '';
+            platformBillingEls.stripeLastSyncBadge.className = 'badge d-none';
+          } else {
+            platformBillingEls.stripeLastSyncBadge.className = badgeMeta.className;
+            platformBillingEls.stripeLastSyncBadge.textContent = badgeMeta.text;
+            platformBillingEls.stripeLastSyncBadge.classList.remove('d-none');
+          }
+        }
+        if (platformBillingEls.stripeLastSyncMessage) {
+          const message = String(billing?.stripeLastSyncMessage || '').trim();
+          platformBillingEls.stripeLastSyncMessage.textContent = message;
+          platformBillingEls.stripeLastSyncMessage.classList.toggle('d-none', !message);
+        }
+      };
+
+      const updateSelectedCompanySyncMeta = (syncMeta = {}) => {
+        const selected = state.platformBilling.selectedCompany;
+        if (!selected?.company) return;
+        selected.company.billing = selected.company.billing || {};
+        selected.company.billing.stripeLastSyncAt = syncMeta.stripeLastSyncAt || null;
+        selected.company.billing.stripeLastSyncStatus = syncMeta.stripeLastSyncStatus || null;
+        selected.company.billing.stripeLastSyncMessage = syncMeta.stripeLastSyncMessage || null;
+      };
+
+      const ensureStripeToastContainer = () => {
+        let container = document.getElementById('platform-stripe-toast-container');
+        if (container) return container;
+        container = document.createElement('div');
+        container.id = 'platform-stripe-toast-container';
+        container.style.position = 'fixed';
+        container.style.right = '16px';
+        container.style.bottom = '16px';
+        container.style.zIndex = '1080';
+        container.style.display = 'flex';
+        container.style.flexDirection = 'column';
+        container.style.gap = '8px';
+        container.style.maxWidth = '360px';
+        document.body.appendChild(container);
+        return container;
+      };
+
+      const showStripeSyncToast = ({ title, lines = [], tone = 'info' }) => {
+        const container = ensureStripeToastContainer();
+        const card = document.createElement('div');
+        const className = tone === 'danger'
+          ? 'alert alert-danger shadow-sm mb-0'
+          : tone === 'success'
+            ? 'alert alert-success shadow-sm mb-0'
+            : 'alert alert-secondary shadow-sm mb-0';
+        card.className = className;
+        card.setAttribute('role', 'status');
+
+        const header = document.createElement('div');
+        header.className = 'd-flex justify-content-between align-items-start gap-2';
+        const titleEl = document.createElement('div');
+        titleEl.className = 'fw-semibold';
+        titleEl.textContent = title || 'Stripe sync';
+        const dismissBtn = document.createElement('button');
+        dismissBtn.type = 'button';
+        dismissBtn.className = 'btn-close btn-sm';
+        dismissBtn.setAttribute('aria-label', 'Dismiss');
+        dismissBtn.addEventListener('click', () => {
+          card.remove();
+        });
+        header.appendChild(titleEl);
+        header.appendChild(dismissBtn);
+        card.appendChild(header);
+
+        const normalizedLines = Array.isArray(lines) ? lines.filter(Boolean).slice(0, 3) : [];
+        if (normalizedLines.length) {
+          const body = document.createElement('div');
+          body.className = 'small mt-1';
+          normalizedLines.forEach((line) => {
+            const lineEl = document.createElement('div');
+            lineEl.textContent = `- ${line}`;
+            body.appendChild(lineEl);
+          });
+          card.appendChild(body);
+        }
+
+        container.appendChild(card);
+        window.setTimeout(() => {
+          card.remove();
+        }, 4000);
+      };
+
+      const resolveStripePriceLabel = (priceId) => {
+        const normalized = String(priceId || '').trim();
+        if (!normalized) return 'Stripe item';
+        const serverLabel = state.platformBilling.stripePriceLabels?.[normalized];
+        if (serverLabel) return serverLabel;
+        return 'Stripe item';
+      };
+
+      const buildStripeUpdateLines = (updatedItems = []) => {
+        if (!Array.isArray(updatedItems)) return [];
+        return updatedItems
+          .map((item) => {
+            const label = resolveStripePriceLabel(item?.priceId);
+            const action = String(item?.action || '').trim().toLowerCase();
+            const oldQty = Number(item?.oldQty);
+            const newQty = Number(item?.newQty);
+            const hasOld = Number.isFinite(oldQty);
+            const hasNew = Number.isFinite(newQty);
+
+            if (action === 'set' && hasOld && hasNew) {
+              return `${label} quantity ${oldQty} -> ${newQty}`;
+            }
+            if (action === 'add') {
+              if (label === 'BuildRootz') {
+                return `${label} enabled`;
+              }
+              if (hasNew) {
+                return `${label} quantity set to ${newQty}`;
+              }
+              return `${label} added`;
+            }
+            if (action === 'remove') {
+              if (label === 'BuildRootz') {
+                return `${label} removed`;
+              }
+              return `${label} removed`;
+            }
+            if (hasOld && hasNew && oldQty !== newQty) {
+              return `${label} quantity ${oldQty} -> ${newQty}`;
+            }
+            return `${label} updated`;
+          })
+          .filter(Boolean)
+          .slice(0, 3);
       };
 
       const renderPlatformCompanies = () => {
@@ -2658,6 +3222,17 @@ const trialEligible =
           if (platformBillingEls.websiteMapCancelAll) {
             platformBillingEls.websiteMapCancelAll.disabled = true;
           }
+          if (platformBillingEls.stripeSyncButton) {
+            platformBillingEls.stripeSyncButton.disabled = true;
+          }
+          if (platformBillingEls.stripeSyncStatus) {
+            platformBillingEls.stripeSyncStatus.textContent = '';
+          }
+          renderPlatformStripeLastSync(null);
+          if (platformBillingEls.stripeAddonsOnlyNote) {
+            platformBillingEls.stripeAddonsOnlyNote.classList.add('d-none');
+            platformBillingEls.stripeAddonsOnlyNote.textContent = '';
+          }
           return;
         }
 
@@ -2667,6 +3242,17 @@ const trialEligible =
         platformBillingEls.companyUpdated.textContent = detail.company?.updatedAt
           ? `Last updated ${new Date(detail.company.updatedAt).toLocaleString()}`
           : '';
+        if (platformBillingEls.stripeSyncButton) {
+          platformBillingEls.stripeSyncButton.disabled = false;
+        }
+        if (platformBillingEls.stripeSyncStatus) {
+          platformBillingEls.stripeSyncStatus.textContent = '';
+        }
+        renderPlatformStripeLastSync(detail.company?.billing || {});
+        if (platformBillingEls.stripeAddonsOnlyNote) {
+          platformBillingEls.stripeAddonsOnlyNote.classList.add('d-none');
+          platformBillingEls.stripeAddonsOnlyNote.textContent = '';
+        }
 
         const address = detail.company?.address || {};
         const billingParts = [address.street, address.city, address.state, address.zip].filter(Boolean);
@@ -2748,6 +3334,34 @@ const trialEligible =
         }
         if (platformBillingEls.policyAuditStatus) {
           platformBillingEls.policyAuditStatus.textContent = '';
+        }
+
+        if (platformBillingEls.stripeAddonsOnlyNote) {
+          const seatsMode = String(policy.seats?.mode || 'normal').trim().toLowerCase();
+          const seatsManagedInternally = seatsMode === 'internal' || seatsMode === 'waived';
+          const buildrootzMode = String(policy.addons?.buildrootz || 'normal').trim().toLowerCase();
+          const websiteMapMode = String(policy.addons?.websiteMap || 'normal').trim().toLowerCase();
+          const buildrootzStatus = String(detail.company?.features?.buildrootz?.status || '').trim().toLowerCase();
+          const buildrootzActive = buildrootzStatus
+            ? buildrootzStatus === 'active'
+            : !!detail.company?.features?.buildrootz?.enabled;
+          const websiteMapActiveQty = Array.isArray(detail.communities)
+            ? detail.communities.reduce((count, community) => {
+              const mapStatus = String(community?.websiteMap?.status || '').trim().toLowerCase();
+              return count + (mapStatus === 'active' ? 1 : 0);
+            }, 0)
+            : 0;
+          const billableAddonsActive = (
+            (buildrootzActive && buildrootzMode !== 'comped')
+            || (websiteMapActiveQty > 0 && websiteMapMode !== 'comped')
+          );
+          const hasStripeSubscription = !!String(detail.company?.billing?.stripeSubscriptionId || '').trim();
+          const showNote = seatsManagedInternally && billableAddonsActive && !hasStripeSubscription;
+          if (showNote) {
+            platformBillingEls.stripeAddonsOnlyNote.textContent =
+              'Seats are managed internally; Stripe subscription will include add-ons only.';
+            platformBillingEls.stripeAddonsOnlyNote.classList.remove('d-none');
+          }
         }
 
         renderPlatformCommunities();
@@ -3086,6 +3700,7 @@ const trialEligible =
         try {
           const data = await fetchPlatformCompanies(query);
           state.platformBilling.companies = data.companies || [];
+          mergeStripePriceLabels(data?.stripePriceLabels);
           renderPlatformCompanies();
           if (platformBillingEls.companyStatus) {
             platformBillingEls.companyStatus.textContent = state.platformBilling.companies.length
@@ -3113,6 +3728,7 @@ const trialEligible =
           const detail = await fetchPlatformCompanyDetail(companyId);
           state.platformBilling.selectedCompany = detail;
           state.platformBilling.selectedCompanyId = companyId;
+          mergeStripePriceLabels(detail?.stripePriceLabels);
           renderPlatformCompanyDetail();
           renderPlatformCompanies();
           await loadPlatformPolicyAudit(companyId);
@@ -3234,6 +3850,72 @@ const trialEligible =
           console.error('Failed to cancel all maps', err);
           if (platformBillingEls.communitiesStatus) {
             platformBillingEls.communitiesStatus.textContent = err.message || 'Unable to cancel all maps.';
+          }
+        }
+      };
+
+      const syncSelectedCompanyStripe = async () => {
+        const companyId = state.platformBilling.selectedCompanyId;
+        if (!companyId) return;
+        let finalStatusMessage = '';
+
+        if (platformBillingEls.stripeSyncButton) {
+          platformBillingEls.stripeSyncButton.disabled = true;
+        }
+        if (platformBillingEls.stripeSyncStatus) {
+          platformBillingEls.stripeSyncStatus.textContent = 'Syncing Stripe quantities...';
+        }
+
+        try {
+          const data = await syncPlatformCompanyStripe(companyId);
+          const result = data?.result || {};
+          mergeStripePriceLabels(data?.stripePriceLabels);
+          if (data?.companyBillingStripeSync) {
+            updateSelectedCompanySyncMeta(data.companyBillingStripeSync);
+            renderPlatformStripeLastSync(state.platformBilling.selectedCompany?.company?.billing || {});
+          }
+
+          const updatedItems = Array.isArray(result.updatedItems) ? result.updatedItems : [];
+          const changed = updatedItems.length > 0 || !!result.createdCustomer || !!result.createdSubscription;
+          if (changed) {
+            const lines = buildStripeUpdateLines(updatedItems);
+            showStripeSyncToast({
+              title: 'Stripe updated',
+              lines: lines.length ? lines : ['Stripe quantities updated.'],
+              tone: 'success'
+            });
+            finalStatusMessage = 'Stripe quantities synced.';
+          } else {
+            const noopMessage = result.noopReason || result.reason || 'no changes';
+            showStripeSyncToast({
+              title: 'Stripe sync',
+              lines: [`No changes (${noopMessage}).`],
+              tone: 'info'
+            });
+            finalStatusMessage = `Stripe sync: ${noopMessage}.`;
+          }
+
+          await loadPlatformCompanyDetail(companyId);
+          await loadPlatformCompanies({ force: true });
+        } catch (err) {
+          console.error('Stripe sync failed', err);
+          finalStatusMessage = err.message || 'Unable to sync Stripe quantities.';
+          showStripeSyncToast({
+            title: 'Stripe sync failed',
+            lines: [finalStatusMessage],
+            tone: 'danger'
+          });
+          try {
+            await loadPlatformCompanyDetail(companyId);
+          } catch (reloadErr) {
+            console.error('Failed to reload company detail after sync error', reloadErr);
+          }
+        } finally {
+          if (platformBillingEls.stripeSyncStatus) {
+            platformBillingEls.stripeSyncStatus.textContent = finalStatusMessage;
+          }
+          if (platformBillingEls.stripeSyncButton) {
+            platformBillingEls.stripeSyncButton.disabled = false;
           }
         }
       };
@@ -5582,6 +6264,29 @@ const trialEligible =
         });
       }
 
+      if (billingEls.stripeActionButton) {
+        billingEls.stripeActionButton.addEventListener('click', (event) => {
+          event.preventDefault();
+          runStripeBillingAction();
+        });
+      }
+
+      if (billingEls.stripeNoticeDismiss) {
+        billingEls.stripeNoticeDismiss.addEventListener('click', (event) => {
+          event.preventDefault();
+          state.billing.stripeNoticeDismissed = true;
+          renderStripeRedirectBanner();
+        });
+      }
+
+      if (billingEls.stripeConfirmNoticeDismiss) {
+        billingEls.stripeConfirmNoticeDismiss.addEventListener('click', (event) => {
+          event.preventDefault();
+          state.billing.stripeConfirmNoticeDismissed = true;
+          renderStripeConfirmingBanner();
+        });
+      }
+
       if (billingEls.buildrootzCancelButton) {
         billingEls.buildrootzCancelButton.addEventListener('click', (event) => {
           event.preventDefault();
@@ -5648,6 +6353,12 @@ const trialEligible =
             if (state.platformBilling.selectedCompanyId) {
               loadPlatformCompanyDetail(state.platformBilling.selectedCompanyId);
             }
+          });
+        }
+        if (platformBillingEls.stripeSyncButton) {
+          platformBillingEls.stripeSyncButton.addEventListener('click', (event) => {
+            event.preventDefault();
+            syncSelectedCompanyStripe();
           });
         }
         if (platformBillingEls.featuresSave) {
@@ -5736,7 +6447,14 @@ const trialEligible =
         button.addEventListener('click', () => activatePanel(button.dataset.adminTarget, button));
       });
 
-      loadCompanyPanel();
+      const initialParams = new URLSearchParams(window.location.search);
+      const requestedTab = (initialParams.get('tab') || '').trim();
+      const initialButton = tabButtons.find((button) => button.dataset.adminTarget === requestedTab) || tabButtons[0];
+      if (initialButton) {
+        activatePanel(initialButton.dataset.adminTarget, initialButton);
+      } else {
+        loadCompanyPanel();
+      }
       updateEditToggleVisual();
     });
   </script>

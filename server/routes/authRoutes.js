@@ -10,6 +10,7 @@ const {
   loadUserForToken,
   sendResetEmail
 } = require('../services/passwordReset');
+const { syncCompanySubscriptionQuantities } = require('../services/stripeService');
 
 const VALID_ROLES = new Set(Object.values(User.ROLES || {}));
 const DEFAULT_ROLE = User.ROLES?.USER || 'USER';
@@ -18,6 +19,19 @@ const AUTH_DEBUG = /^(1|true|yes|on)$/i.test(process.env.AUTH_DEBUG || '');
 
 const logDebug = (...args) => {
   if (AUTH_DEBUG || process.env.NODE_ENV !== 'production') console.info(...args);
+};
+
+const syncStripeSeatsSafe = async (companyId, contextLabel) => {
+  if (!companyId) return;
+  try {
+    await syncCompanySubscriptionQuantities(companyId);
+  } catch (err) {
+    console.error('[auth] stripe sync failed', {
+      companyId: String(companyId),
+      contextLabel,
+      error: err?.message || err
+    });
+  }
 };
 
 const normalizeRoles = (rawRoles) => {
@@ -311,6 +325,7 @@ router.post('/reset-password', async (req, res) => {
     }
 
     await user.save();
+    await syncStripeSeatsSafe(user.company, 'password_reset_or_invite_accept');
 
     const roles = normalizeRoles(
       Array.isArray(user.roles) && user.roles.length ? user.roles : [user.role].filter(Boolean)

@@ -11,11 +11,24 @@ const { formatPhoneForDisplay, formatPhoneForStorage } = require('../../utils/ph
 const { issuePasswordToken, sendInviteEmail } = require('../../services/passwordReset');
 const { getSeatCounts } = require('../../utils/seatCounts');
 const { computeSeatBilling } = require('../../utils/billingMath');
+const { syncCompanySubscriptionQuantities } = require('../../services/stripeService');
 
 const router = express.Router();
 
 const isObjectId = (value) => mongoose.Types.ObjectId.isValid(String(value || ''));
 const isSuper = (req) => Array.isArray(req.user?.roles) && req.user.roles.includes(User.ROLES.SUPER_ADMIN);
+const syncStripeSeatsSafe = async (companyId, contextLabel) => {
+  if (!companyId) return;
+  try {
+    await syncCompanySubscriptionQuantities(companyId);
+  } catch (err) {
+    console.error('[admin users] stripe sync failed', {
+      companyId: String(companyId),
+      contextLabel,
+      error: err?.message || err
+    });
+  }
+};
 
 router.get(
   '/',
@@ -212,6 +225,7 @@ router.post(
         lastName: lastName ? String(lastName).trim() : undefined,
         phone: normalizedPhone || undefined
       });
+      await syncStripeSeatsSafe(company._id, 'user_created');
 
       return res.status(201).json({ userId: String(user._id) });
     } catch (err) {
@@ -463,6 +477,7 @@ router.put(
       }
 
       await user.save();
+      await syncStripeSeatsSafe(user.company, 'user_updated');
 
       return res.json({ ok: true });
     } catch (err) {
@@ -499,6 +514,7 @@ router.delete(
         { company: user.company, manager: user._id },
         { $set: { manager: null } }
       );
+      await syncStripeSeatsSafe(user.company, 'user_deleted');
 
       return res.json({ ok: true });
     } catch (err) {

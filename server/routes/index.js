@@ -8,6 +8,7 @@ const marketingRoutes = require('./marketingRoutes');
 const publicBuildrootzRoutes = require('./publicBuildrootzRoutes');
 const emailSendgridWebhookRoutes = require('./emailSendgridWebhookRoutes');
 const emailUnsubscribeRoutes = require('./emailUnsubscribeRoutes');
+const stripeWebhookRoutes = require('./stripeWebhookRoutes');
 
 // --- API hub (everything under /api) ---
 const api = require('./api');  // <- routes/api/index.js
@@ -21,6 +22,7 @@ router.use('/', marketingRoutes);
 router.use('/', emailUnsubscribeRoutes);
 router.use('/api/public', publicBuildrootzRoutes);
 router.use('/api/email/sendgrid', emailSendgridWebhookRoutes);
+router.use('/api/stripe', stripeWebhookRoutes);
 
 // API hub (protects its own routes with ensureAuth)
 router.use('/api', api);

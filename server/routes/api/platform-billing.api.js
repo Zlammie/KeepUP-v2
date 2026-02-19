@@ -9,6 +9,14 @@ const User = require('../../models/User');
 const { getSeatCounts } = require('../../utils/seatCounts');
 const { pricingConfig } = require('../../config/pricingConfig');
 const { computeSeatBilling, isTrialExpired, getTrialCountdown } = require('../../utils/billingMath');
+const {
+  assertStripeConfigured,
+  getStripeClient,
+  isNoSuchCustomerError,
+  subscriptionIsManagedActive,
+  syncCompanySubscriptionQuantities
+} = require('../../services/stripeService');
+const { deriveStripeBillability } = require('../../utils/stripeBillingPolicy');
 
 const router = express.Router();
 
@@ -59,7 +67,123 @@ const summarizePolicyChange = (before, after, metadata) => {
   return changes.join('; ');
 };
 
+const canceledLikeStatuses = new Set(['canceled', 'incomplete_expired']);
+
+const normalizeStripeStatus = (value) => String(value || '').trim().toLowerCase();
+
+const isBuildrootzActiveForStripe = (company) => {
+  const feature = company?.features?.buildrootz || {};
+  const status = normalizeStripeStatus(feature.status);
+  if (status) return status === 'active';
+  return !!feature.enabled;
+};
+
+const getAddonBillabilitySnapshot = async (company) => {
+  const websiteMapActiveQty = await Community.countDocuments({
+    company: company._id,
+    'websiteMap.status': 'active'
+  });
+  const billability = deriveStripeBillability(company, {
+    activeUsers: 0,
+    buildrootzActive: isBuildrootzActiveForStripe(company),
+    websiteMapActiveQty
+  });
+  return {
+    websiteMapActiveQty,
+    buildrootzBillable: !!billability.buildrootzBillable,
+    websiteMapBillable: !!billability.websiteMapBillable,
+    hasBillableActiveAddons: !!(billability.buildrootzBillable || billability.websiteMapBillable)
+  };
+};
+
+const clearStripeSubscriptionLink = (company) => {
+  company.billing = company.billing || {};
+  company.billing.stripeSubscriptionId = null;
+  company.billing.stripeSubscriptionStatus = null;
+  company.billing.hasStripe = false;
+};
+
+const MAX_SYNC_UPDATED_ITEMS = 20;
+const MAX_SYNC_MESSAGE_LENGTH = 200;
+
+const truncateSyncMessage = (value) => {
+  const message = String(value || '').trim();
+  if (!message) return '';
+  return message.length > MAX_SYNC_MESSAGE_LENGTH
+    ? `${message.slice(0, MAX_SYNC_MESSAGE_LENGTH - 3)}...`
+    : message;
+};
+
+const toStoredUpdatedItems = (items = []) => {
+  if (!Array.isArray(items)) return [];
+  return items
+    .slice(0, MAX_SYNC_UPDATED_ITEMS)
+    .map((item) => ({
+      priceId: item?.priceId ? String(item.priceId) : null,
+      oldQty: Number.isFinite(Number(item?.oldQty)) ? Number(item.oldQty) : null,
+      newQty: Number.isFinite(Number(item?.newQty)) ? Number(item.newQty) : null,
+      action: item?.action ? String(item.action) : null
+    }));
+};
+
+const stripePriceLabelsById = () => {
+  const labels = {};
+  const map = [
+    ['STRIPE_PRICE_WEBSITEMAP', 'Website Map'],
+    ['STRIPE_PRICE_BUILDROOTZ', 'BuildRootz'],
+    ['STRIPE_PRICE_SEATS_BASE', 'Seats (base)'],
+    ['STRIPE_PRICE_SEATS_ADDL', 'Seats (additional)']
+  ];
+  for (const [envName, label] of map) {
+    const priceId = String(process.env[envName] || '').trim();
+    if (priceId) {
+      labels[priceId] = label;
+    }
+  }
+  return labels;
+};
+
+const serializeStripeSyncMeta = (billing = {}) => ({
+  stripeLastSyncAt: billing?.stripeLastSyncAt || null,
+  stripeLastSyncStatus: billing?.stripeLastSyncStatus || null,
+  stripeLastSyncMessage: billing?.stripeLastSyncMessage || null
+});
+
+const applyCompanyStripeSyncMetadata = ({
+  company,
+  status,
+  message,
+  updatedItems
+}) => {
+  company.billing = company.billing || {};
+  company.billing.stripeLastSyncAt = new Date();
+  company.billing.stripeLastSyncStatus = status;
+  company.billing.stripeLastSyncMessage = truncateSyncMessage(message || null) || null;
+  const storedItems = toStoredUpdatedItems(updatedItems);
+  company.billing.stripeLastSyncUpdatedItems = storedItems.length ? storedItems : [];
+};
+
 router.use(requireRole('SUPER_ADMIN', 'KEEPUP_ADMIN'));
+
+const isSuperAdmin = (req) => Array.isArray(req.user?.roles) && req.user.roles.includes('SUPER_ADMIN');
+const requireSuperAdminOnly = (req, res) => {
+  if (isSuperAdmin(req)) return true;
+  res.status(403).json({ error: 'Super Admin access required.' });
+  return false;
+};
+
+const syncStripeForCompanySafe = async (companyId, contextLabel) => {
+  if (!companyId) return;
+  try {
+    await syncCompanySubscriptionQuantities(companyId);
+  } catch (err) {
+    console.error('[platform billing] stripe sync failed', {
+      companyId: String(companyId),
+      contextLabel,
+      error: err?.message || err
+    });
+  }
+};
 
 const serializeCompanyListItem = async (company, pendingByCompany, mapCountsByCompany) => {
   const seatCounts = await getSeatCounts(company._id);
@@ -99,6 +223,7 @@ const serializeCompanyListItem = async (company, pendingByCompany, mapCountsByCo
     websiteMapDisplayStatus,
     websiteMapEnabled: !!company.features?.websiteMap?.enabled,
     mapsActiveCount,
+    billing: serializeStripeSyncMeta(company.billing || {}),
     updatedAt: company.updatedAt
   };
 };
@@ -173,7 +298,10 @@ router.get('/companies', async (req, res, next) => {
       items.push(await serializeCompanyListItem(company, pendingByCompany, mapCountsByCompany));
     }
 
-    return res.json({ companies: items });
+    return res.json({
+      companies: items,
+      stripePriceLabels: stripePriceLabelsById()
+    });
   } catch (err) {
     next(err);
   }
@@ -260,7 +388,292 @@ router.get('/company/:companyId', async (req, res, next) => {
             updatedAt: community.updatedAt
           };
         });
-      })()
+      })(),
+      stripePriceLabels: stripePriceLabelsById()
+    });
+  } catch (err) {
+    next(err);
+  }
+});
+
+router.get('/company/:companyId/stripe-debug', async (req, res, next) => {
+  try {
+    if (!requireSuperAdminOnly(req, res)) return;
+
+    const { companyId } = req.params;
+    if (!isObjectId(companyId)) {
+      return res.status(400).json({ error: 'Invalid company id.' });
+    }
+
+    try {
+      assertStripeConfigured();
+    } catch (err) {
+      return res.status(503).json({ error: err.message });
+    }
+
+    const company = await Company.findById(companyId)
+      .select('name slug billing')
+      .lean();
+    if (!company) {
+      return res.status(404).json({ error: 'Company not found.' });
+    }
+
+    const stripe = getStripeClient();
+    const customerId = company?.billing?.stripeCustomerId || null;
+    const debug = {
+      customer: {
+        id: customerId,
+        exists: false
+      },
+      subscriptions: [],
+      invoices: [],
+      errors: {}
+    };
+
+    if (customerId) {
+      try {
+        const customer = await stripe.customers.retrieve(customerId);
+        debug.customer.exists = Boolean(customer && !customer.deleted);
+      } catch (err) {
+        debug.errors.customer = err?.message || 'Unable to retrieve customer';
+      }
+
+      try {
+        const subscriptions = await stripe.subscriptions.list({
+          customer: customerId,
+          status: 'all',
+          limit: 25
+        });
+        debug.subscriptions = (subscriptions?.data || []).map((subscription) => ({
+          id: subscription.id,
+          status: subscription.status,
+          current_period_end: subscription.current_period_end || null
+        }));
+      } catch (err) {
+        debug.errors.subscriptions = err?.message || 'Unable to list subscriptions';
+      }
+
+      try {
+        const invoices = await stripe.invoices.list({
+          customer: customerId,
+          limit: 5
+        });
+        debug.invoices = (invoices?.data || []).map((invoice) => ({
+          id: invoice.id,
+          status: invoice.status
+        }));
+      } catch (err) {
+        debug.errors.invoices = err?.message || 'Unable to list invoices';
+      }
+    }
+
+    return res.json({
+      company: {
+        id: String(company._id),
+        name: company.name || '',
+        slug: company.slug || ''
+      },
+      billing: {
+        stripeCustomerId: company?.billing?.stripeCustomerId || null,
+        stripeSubscriptionId: company?.billing?.stripeSubscriptionId || null,
+        stripeSubscriptionStatus: company?.billing?.stripeSubscriptionStatus || null,
+        hasStripe: !!company?.billing?.hasStripe,
+        currentPeriodEnd: company?.billing?.currentPeriodEnd || null
+      },
+      stripe: debug
+    });
+  } catch (err) {
+    next(err);
+  }
+});
+
+router.post('/company/:companyId/stripe-link-latest', async (req, res, next) => {
+  try {
+    if (!requireSuperAdminOnly(req, res)) return;
+
+    const { companyId } = req.params;
+    if (!isObjectId(companyId)) {
+      return res.status(400).json({ error: 'Invalid company id.' });
+    }
+
+    try {
+      assertStripeConfigured();
+    } catch (err) {
+      return res.status(503).json({ error: err.message });
+    }
+
+    const company = await Company.findById(companyId).select('name slug billing');
+    if (!company) {
+      return res.status(404).json({ error: 'Company not found.' });
+    }
+
+    const customerId = company?.billing?.stripeCustomerId || null;
+    if (!customerId) {
+      return res.status(400).json({ error: 'Company has no Stripe customer id.' });
+    }
+
+    const stripe = getStripeClient();
+    let subscriptions;
+    try {
+      subscriptions = await stripe.subscriptions.list({
+        customer: customerId,
+        status: 'all',
+        limit: 5
+      });
+    } catch (err) {
+      if (isNoSuchCustomerError(err)) {
+        return res.status(400).json({
+          error: 'Stored Stripe customer was not found in Stripe. Use checkout to recreate customer linkage.'
+        });
+      }
+      throw err;
+    }
+    const list = subscriptions?.data || [];
+    if (!list.length) {
+      return res.status(404).json({ error: 'No subscriptions found for this Stripe customer.' });
+    }
+
+    const preferredStatuses = ['active', 'trialing', 'past_due'];
+    const statusPriority = new Map([
+      ['active', 0],
+      ['trialing', 1],
+      ['past_due', 2]
+    ]);
+    const preferred = list
+      .filter((subscription) => preferredStatuses.includes(subscription.status))
+      .sort((a, b) => {
+        const rankA = statusPriority.get(a.status) ?? 99;
+        const rankB = statusPriority.get(b.status) ?? 99;
+        if (rankA !== rankB) return rankA - rankB;
+        return Number(b.created || 0) - Number(a.created || 0);
+      });
+    const fallback = [...list].sort((a, b) => Number(b.created || 0) - Number(a.created || 0));
+    const selected = preferred[0] || fallback[0];
+
+    company.billing = company.billing || {};
+    company.billing.stripeCustomerId = customerId;
+    company.billing.stripeSubscriptionId = selected.id;
+    company.billing.stripeSubscriptionStatus = selected.status || null;
+    company.billing.currentPeriodEnd = Number.isFinite(selected.current_period_end)
+      ? new Date(selected.current_period_end * 1000)
+      : null;
+    company.billing.hasStripe = Boolean(selected.id) && subscriptionIsManagedActive(selected.status);
+    company.markModified('billing');
+    await company.save();
+
+    console.info('[stripe ops] linked latest subscription to company', {
+      companyId: String(company._id),
+      companyName: company.name || null,
+      companySlug: company.slug || null,
+      stripeCustomerId: customerId,
+      stripeSubscriptionId: selected.id,
+      stripeSubscriptionStatus: selected.status
+    });
+
+    return res.json({
+      ok: true,
+      companyId: String(company._id),
+      stripeCustomerId: customerId,
+      linkedSubscription: {
+        id: selected.id,
+        status: selected.status || null,
+        currentPeriodEnd: Number.isFinite(selected.current_period_end)
+          ? new Date(selected.current_period_end * 1000)
+          : null
+      }
+    });
+  } catch (err) {
+    next(err);
+  }
+});
+
+router.post('/company/:companyId/stripe-sync', async (req, res, next) => {
+  try {
+    const { companyId } = req.params;
+    if (!isObjectId(companyId)) {
+      return res.status(400).json({ error: 'Invalid company id.' });
+    }
+
+    const company = await Company.findById(companyId).select('_id billing');
+    if (!company) {
+      return res.status(404).json({ error: 'Company not found.' });
+    }
+
+    try {
+      const result = await syncCompanySubscriptionQuantities(company._id);
+      const updatedItems = Array.isArray(result?.updatedItems) ? result.updatedItems : [];
+      const changed = (
+        updatedItems.length > 0
+        || !!result?.createdCustomer
+        || !!result?.createdSubscription
+      );
+      const status = changed ? 'success' : 'noop';
+      const message = changed
+        ? 'updated'
+        : (result?.noopReason || result?.reason || 'no changes');
+
+      applyCompanyStripeSyncMetadata({
+        company,
+        status,
+        message,
+        updatedItems
+      });
+      company.markModified('billing');
+      await company.save();
+
+      return res.json({
+        ok: true,
+        result,
+        companyBillingStripeSync: serializeStripeSyncMeta(company.billing || {}),
+        stripePriceLabels: stripePriceLabelsById()
+      });
+    } catch (err) {
+      applyCompanyStripeSyncMetadata({
+        company,
+        status: 'error',
+        message: err?.message || 'Stripe sync failed.',
+        updatedItems: []
+      });
+      company.markModified('billing');
+      await company.save();
+
+      return res.status(500).json({
+        error: true,
+        message: truncateSyncMessage(err?.message || 'Stripe sync failed.')
+      });
+    }
+  } catch (err) {
+    next(err);
+  }
+});
+
+router.post('/company/:companyId/stripe-clear-subscription', async (req, res, next) => {
+  try {
+    const { companyId } = req.params;
+    if (!isObjectId(companyId)) {
+      return res.status(400).json({ error: 'Invalid company id.' });
+    }
+
+    const company = await Company.findById(companyId).select('billing');
+    if (!company) {
+      return res.status(404).json({ error: 'Company not found.' });
+    }
+
+    clearStripeSubscriptionLink(company);
+    company.markModified('billing');
+    await company.save();
+
+    return res.json({
+      ok: true,
+      billing: {
+        stripeCustomerId: company?.billing?.stripeCustomerId || null,
+        stripeSubscriptionId: company?.billing?.stripeSubscriptionId || null,
+        stripeSubscriptionStatus: company?.billing?.stripeSubscriptionStatus || null,
+        hasStripe: !!company?.billing?.hasStripe,
+        hasPaymentMethodOnFile: !!company?.billing?.hasPaymentMethodOnFile,
+        stripeDefaultPaymentMethodId: company?.billing?.stripeDefaultPaymentMethodId || null,
+        stripeLastPaymentMethodCheckAt: company?.billing?.stripeLastPaymentMethodCheckAt || null
+      }
     });
   } catch (err) {
     next(err);
@@ -336,6 +749,25 @@ router.patch('/company/:companyId/policy', async (req, res, next) => {
       company.billingPolicy.notes = String(notes || '').trim();
     }
 
+    const nextSeatsMode = String(company.billingPolicy?.seats?.mode || 'normal').trim().toLowerCase();
+    const switchedToManagedSeats = beforePolicy.seats?.mode !== nextSeatsMode
+      && ['waived', 'internal'].includes(nextSeatsMode);
+    let clearedStaleCanceledSubscription = false;
+    if (switchedToManagedSeats) {
+      const hasStoredSubscriptionId = !!String(company?.billing?.stripeSubscriptionId || '').trim();
+      const normalizedSubscriptionStatus = normalizeStripeStatus(company?.billing?.stripeSubscriptionStatus);
+      const hasStaleCanceledSubscription = hasStoredSubscriptionId
+        && canceledLikeStatuses.has(normalizedSubscriptionStatus);
+      if (hasStaleCanceledSubscription) {
+        const addonSnapshot = await getAddonBillabilitySnapshot(company);
+        if (!addonSnapshot.hasBillableActiveAddons) {
+          clearStripeSubscriptionLink(company);
+          company.markModified('billing');
+          clearedStaleCanceledSubscription = true;
+        }
+      }
+    }
+
     company.updatedByUserId = req.user?._id || null;
     company.markModified('billingPolicy');
     await company.save();
@@ -350,7 +782,12 @@ router.patch('/company/:companyId/policy', async (req, res, next) => {
       metadata: presetName ? { presetName: String(presetName) } : null
     });
 
-    return res.json({ billingPolicy: company.billingPolicy });
+    return res.json({
+      billingPolicy: company.billingPolicy,
+      stripeCleanup: {
+        clearedStaleCanceledSubscription
+      }
+    });
   } catch (err) {
     next(err);
   }
@@ -442,6 +879,7 @@ router.patch('/company/:companyId/features', async (req, res, next) => {
     company.updatedByUserId = req.user?._id || null;
     company.markModified('features');
     await company.save();
+    await syncStripeForCompanySafe(company._id, 'company_features_updated');
 
     return res.json({
       buildrootz: company.features.buildrootz,
@@ -503,6 +941,7 @@ router.patch('/community/:communityId/website-map', async (req, res, next) => {
     company.updatedByUserId = req.user?._id || null;
     community.markModified('websiteMap');
     await Promise.all([community.save(), company.save()]);
+    await syncStripeForCompanySafe(company._id, `community_website_map_${status}`);
 
     return res.json({
       communityId: String(community._id),
@@ -683,6 +1122,7 @@ router.post('/requests/:requestId/approve', async (req, res, next) => {
     request.approvedAt = new Date();
     request.approvedByUserId = req.user?._id || null;
     await request.save();
+    await syncStripeForCompanySafe(request.companyId, `feature_request_${request.feature}_${action}_approved`);
 
     return res.json({ ok: true });
   } catch (err) {
@@ -746,6 +1186,7 @@ router.post('/company/:companyId/website-map/cancel-all', async (req, res, next)
     company.updatedByUserId = req.user?._id || null;
     company.markModified('features');
     await company.save();
+    await syncStripeForCompanySafe(company._id, 'website_map_cancel_all');
 
     return res.json({ ok: true });
   } catch (err) {

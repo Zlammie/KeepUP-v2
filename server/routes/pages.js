@@ -1858,6 +1858,16 @@ router.get('/admin-section',
   (req, res) => res.render('pages/admin-section', { active: 'admin-section' })
 );
 
+router.get('/admin',
+  ensureAuth,
+  requireRole('MANAGER','COMPANY_ADMIN','SUPER_ADMIN','KEEPUP_ADMIN'),
+  (req, res) => {
+    const params = new URLSearchParams(req.query || {});
+    const query = params.toString();
+    return res.redirect(query ? `/admin-section?${query}` : '/admin-section');
+  }
+);
+
 router.get('/admin/companies',
   ensureAuth,
   requireRole('SUPER_ADMIN'),
