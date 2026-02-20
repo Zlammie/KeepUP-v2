@@ -1,0 +1,151 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>BuildRootz Publishing</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet" />
+    <link rel="stylesheet" href="/assets/css/main.css" />
+    <link rel="stylesheet" href="/assets/css/pages/buildrootz-publishing.css" />
+  </head>
+  <body>
+    <%- include('../../partials/nav') %>
+    <%- include('../../partials/top-nav-buildrootz') %>
+
+    <main class="main-content p-4 brz-publishing-page">
+      <header class="mb-4">
+        <p class="text-uppercase text-muted small mb-1">BuildRootz</p>
+        <h1 class="h4 mb-1">BuildRootz Publishing</h1>
+        <p class="text-muted mb-0">
+          KeepUp is the source of truth. BuildRootz must consume published snapshots only:
+          <code>/public/brz/builders/:slug</code>.
+        </p>
+      </header>
+
+      <section class="card shadow-sm mb-4">
+        <div class="card-body">
+          <div class="d-flex align-items-center justify-content-between mb-3">
+            <h2 class="h6 mb-0">Builder Profile</h2>
+            <small class="text-muted" id="brzProfileStatus"></small>
+          </div>
+          <form id="brzProfileForm" class="row g-3">
+            <div class="col-md-6">
+              <label class="form-label" for="brzBuilderName">Builder Name</label>
+              <input id="brzBuilderName" class="form-control" type="text" readonly />
+            </div>
+            <div class="col-md-6">
+              <label class="form-label" for="brzBuilderSlug">Builder Slug</label>
+              <input id="brzBuilderSlug" class="form-control" type="text" placeholder="builder-slug" />
+            </div>
+            <div class="col-md-6">
+              <label class="form-label" for="brzDisplayNameOverride">Display Name Override</label>
+              <input id="brzDisplayNameOverride" class="form-control" type="text" placeholder="Optional display name override" />
+            </div>
+            <div class="col-md-6">
+              <label class="form-label" for="brzCtaWebsite">CTA Website Link</label>
+              <input id="brzCtaWebsite" class="form-control" type="url" placeholder="https://example.com" />
+            </div>
+            <div class="col-md-6">
+              <label class="form-label" for="brzCtaSchedule">CTA Schedule Link</label>
+              <input id="brzCtaSchedule" class="form-control" type="url" placeholder="https://example.com/schedule" />
+            </div>
+            <div class="col-md-6">
+              <label class="form-label" for="brzCtaContact">CTA Contact Link</label>
+              <input id="brzCtaContact" class="form-control" type="url" placeholder="https://example.com/contact" />
+            </div>
+            <div class="col-md-6">
+              <label class="form-label" for="brzShortDescription">Short Description</label>
+              <textarea id="brzShortDescription" class="form-control" rows="3" placeholder="Short summary for builder profile"></textarea>
+            </div>
+            <div class="col-md-6">
+              <label class="form-label" for="brzLongDescription">Long Description</label>
+              <textarea id="brzLongDescription" class="form-control" rows="3" placeholder="Long-form builder profile content"></textarea>
+            </div>
+            <div class="col-12">
+              <label class="form-label">Hero Image</label>
+              <div class="d-flex flex-wrap align-items-center gap-3">
+                <img id="brzHeroPreview" class="brz-image-preview d-none" alt="Builder hero image" />
+                <input id="brzHeroUpload" type="file" class="form-control form-control-sm brz-upload-input" accept="image/*" />
+                <button type="button" class="btn btn-outline-secondary btn-sm" id="brzHeroUploadBtn">Upload Hero</button>
+              </div>
+            </div>
+            <div class="col-12 d-flex justify-content-end">
+              <button type="submit" class="btn btn-primary" id="brzProfileSaveBtn">Save Builder Profile</button>
+            </div>
+          </form>
+        </div>
+      </section>
+
+      <section class="card shadow-sm mb-4">
+        <div class="card-body">
+          <h2 class="h6 mb-3">Communities</h2>
+          <div class="table-responsive">
+            <table class="table table-sm align-middle">
+              <thead>
+                <tr>
+                  <th>Community</th>
+                  <th>Include</th>
+                  <th>Description Override</th>
+                  <th>Actions</th>
+                </tr>
+              </thead>
+              <tbody id="brzCommunitiesBody">
+                <tr>
+                  <td colspan="4" class="text-muted">Loading communities...</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </section>
+
+      <section class="card shadow-sm mb-4">
+        <div class="card-body">
+          <h2 class="h6 mb-3">Floor Plans</h2>
+          <div class="table-responsive">
+            <table class="table table-sm align-middle">
+              <thead>
+                <tr>
+                  <th>Plan</th>
+                  <th>Community</th>
+                  <th>Include</th>
+                  <th>Description Override</th>
+                  <th>Primary Image</th>
+                  <th>Actions</th>
+                </tr>
+              </thead>
+              <tbody id="brzFloorPlansBody">
+                <tr>
+                  <td colspan="6" class="text-muted">Loading floor plans...</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </section>
+
+      <section class="card shadow-sm mb-4">
+        <div class="card-body">
+          <h2 class="h6 mb-3">Publish / History</h2>
+          <div class="row g-3 align-items-end">
+            <div class="col-md-3">
+              <label class="form-label mb-1">Latest Version</label>
+              <div class="fw-semibold" id="brzPublishVersion">-</div>
+            </div>
+            <div class="col-md-4">
+              <label class="form-label mb-1">Published At</label>
+              <div class="fw-semibold" id="brzPublishAt">-</div>
+            </div>
+            <div class="col-md-5 d-flex gap-2 justify-content-md-end">
+              <a class="btn btn-outline-secondary" id="brzPreviewLink" href="#" target="_blank" rel="noopener noreferrer">Open Public Preview</a>
+              <button class="btn btn-primary" id="brzPublishBtn" type="button">Publish Snapshot</button>
+            </div>
+          </div>
+          <div class="small mt-2" id="brzPublishStatus"></div>
+        </div>
+      </section>
+    </main>
+
+    <script src="/public/js/admin/buildrootz-publishing.js" nonce="<%= cspNonce %>" defer></script>
+  </body>
+</html>

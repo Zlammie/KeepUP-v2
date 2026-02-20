@@ -24,6 +24,7 @@ const PrimaryContactSchema = new Schema({
 const BuildrootzProfileSchema = new Schema({
   description: { type: String, trim: true, default: '' },
   logoUrl: { type: String, trim: true, default: '' },
+  websiteUrl: { type: String, trim: true, default: '' },
   publishedAt: { type: Date, default: null }
 }, { _id: false });
 

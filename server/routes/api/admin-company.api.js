@@ -1,6 +1,9 @@
 const express = require('express');
+const fs = require('fs/promises');
 const mongoose = require('mongoose');
+const path = require('path');
 const requireRole = require('../../middleware/requireRole');
+const upload = require('../../middleware/upload');
 const Company = require('../../models/Company');
 const CompanyEmailDomain = require('../../models/CompanyEmailDomain');
 const EmailJob = require('../../models/EmailJob');
@@ -25,6 +28,9 @@ const { buildUnsubscribeUrl } = require('../../services/email/unsubscribeToken')
 const { appendUnsubscribeFooter } = require('../../services/email/unsubscribeFooter');
 
 const router = express.Router();
+const uploadsDir = process.env.UPLOADS_DIR
+  ? path.resolve(process.env.UPLOADS_DIR)
+  : path.resolve(process.cwd(), 'uploads');
 
 const isObjectId = (value) => mongoose.Types.ObjectId.isValid(String(value || ''));
 const isSuper = (req) => Array.isArray(req.user?.roles) && req.user.roles.includes('SUPER_ADMIN');
@@ -46,6 +52,22 @@ const resolveCompanyId = (req, companyIdParam) => {
   if (isSuper(req) && isObjectId(companyIdParam)) return new mongoose.Types.ObjectId(companyIdParam);
   if (isObjectId(req.user?.company)) return new mongoose.Types.ObjectId(req.user.company);
   return null;
+};
+
+const toUploadsPublicPath = (absPath) => {
+  if (!absPath) return '';
+  const rel = path.relative(uploadsDir, absPath).replace(/\\/g, '/');
+  if (!rel || rel.startsWith('..')) return '';
+  return `/uploads/${rel}`;
+};
+
+const safeUnlink = async (absPath) => {
+  if (!absPath) return;
+  try {
+    await fs.unlink(absPath);
+  } catch {
+    // Best-effort cleanup only.
+  }
 };
 
 const serializeEmailDomain = (doc) => {
@@ -147,6 +169,52 @@ router.get(
       }
 
       return res.json(serializeCompany(company));
+    } catch (err) {
+      next(err);
+    }
+  }
+);
+
+router.post(
+  '/logo-upload',
+  requireRole('COMPANY_ADMIN', 'SUPER_ADMIN'),
+  upload.single('file'),
+  async (req, res, next) => {
+    try {
+      if (!req.file) {
+        return res.status(400).json({ error: 'Logo file is required.' });
+      }
+
+      const mime = String(req.file.mimetype || '').toLowerCase();
+      if (!mime.startsWith('image/')) {
+        await safeUnlink(req.file.path);
+        return res.status(400).json({ error: 'Only image files are allowed.' });
+      }
+
+      const requestedCompanyId = req.body?.companyId;
+      const companyId =
+        isSuper(req) && isObjectId(requestedCompanyId) ? requestedCompanyId : req.user.company;
+      if (!isObjectId(companyId)) {
+        await safeUnlink(req.file.path);
+        return res.status(400).json({ error: 'Invalid company context' });
+      }
+
+      const company = await Company.findById(companyId).select('_id').lean();
+      if (!company) {
+        await safeUnlink(req.file.path);
+        return res.status(404).json({ error: 'Company not found' });
+      }
+
+      const logoUrl = toUploadsPublicPath(req.file.path);
+      if (!logoUrl) {
+        await safeUnlink(req.file.path);
+        return res.status(500).json({ error: 'Unable to build logo URL.' });
+      }
+
+      return res.json({
+        companyId: String(company._id),
+        logoUrl
+      });
     } catch (err) {
       next(err);
     }

@@ -22,6 +22,14 @@
             <span>BRZ Mapping</span>
           </a>
         </li>
+        <% if (permissions && permissions.isCompanyAdmin) { %>
+          <li>
+            <a href="/admin/buildrootz/publishing" class="top-nav-link">
+              <img src="/assets/icons/graph.svg" alt="BuildRootz publishing">
+              <span>BRZ Publishing</span>
+            </a>
+          </li>
+        <% } %>
       </ul>
     </div>
   </header>

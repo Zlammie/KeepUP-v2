@@ -9,6 +9,7 @@ const BuilderProfileSchema = new Schema({
   name: { type: String, default: '', index: true },
   slug: { type: String, default: '', index: true },
   logoUrl: { type: String, default: '' },
+  websiteUrl: { type: String, default: '' },
   description: { type: String, default: '' },
   publishedAt: { type: Date, default: null }
 }, { timestamps: true });

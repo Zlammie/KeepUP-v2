@@ -7,6 +7,7 @@ const router = express.Router();
 
 const ensureAuth  = require('../middleware/ensureAuth');
 const requireRole = require('../middleware/requireRole');
+const requireCompanyAdmin = require('../middleware/requireCompanyAdmin');
 
 
 const Contact     = require('../models/Contact');
@@ -1013,6 +1014,15 @@ router.get('/admin/buildrootz/communities', ensureAuth, requireRole('MANAGER','C
       buildrootz: c.buildrootz || {}
     }));
     res.render('pages/buildrootz-community', { communities: scoped, active: 'community' });
+  }
+);
+
+router.get(
+  '/admin/buildrootz/publishing',
+  ensureAuth,
+  requireCompanyAdmin,
+  (req, res) => {
+    res.render('pages/admin/buildrootz-publishing', { active: 'community' });
   }
 );
 

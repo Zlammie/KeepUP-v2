@@ -129,9 +129,21 @@
               <h3 class="h6 text-uppercase text-muted mb-2">Branding</h3>
               <div class="row g-3">
                 <div class="col-md-6">
-                  <label for="companyLogo" class="form-label">Logo URL</label>
-                  <input type="url" id="companyLogo" name="logo" class="form-control" placeholder="https://example.com/logo.png" />
-                  <div class="form-text">Link to a high-resolution PNG or SVG.</div>
+                  <label for="companyLogoFile" class="form-label">Logo</label>
+                  <input
+                    type="file"
+                    id="companyLogoFile"
+                    name="logoFile"
+                    class="form-control"
+                    accept=".png,.jpg,.jpeg"
+                  />
+                  <div class="form-text">Upload a high-resolution PNG or JPG logo image.</div>
+                  <div class="mt-2 d-none" id="companyLogoPreviewWrapper">
+                    <img id="companyLogoPreview" src="" alt="Company logo preview" class="company-logo-preview" />
+                  </div>
+                  <label for="companyLogo" class="form-label mt-3">Logo URL (optional)</label>
+                  <input type="text" id="companyLogo" name="logo" class="form-control" placeholder="https://example.com/logo.png or /uploads/your-logo.png" />
+                  <div class="form-text">Use either a full URL or an uploaded `/uploads/...` path.</div>
                 </div>
                 <div class="col-md-3">
                   <label for="colorPrimary" class="form-label">Primary Color</label>
@@ -1303,11 +1315,27 @@
             </div>
             <div class="col-12 col-lg-6">
               <label for="buildrootzLogo" class="form-label">Logo URL</label>
-              <input type="url" id="buildrootzLogo" class="form-control" placeholder="https://example.com/logo.png" />
-              <div class="form-text">We'll send this logo to your BuildRootz builder profile.</div>
+              <input type="text" id="buildrootzLogo" class="form-control" placeholder="https://example.com/logo.png or /uploads/your-logo.png" />
+              <div class="d-flex flex-wrap align-items-center gap-2 mt-2">
+                <button type="button" class="btn btn-sm btn-outline-secondary" id="buildrootz-use-company-logo">
+                  Use company logo
+                </button>
+                <span class="small text-muted" id="buildrootz-logo-source"></span>
+              </div>
+              <div class="form-text">We'll send this logo and company description to your BuildRootz builder profile.</div>
               <div class="mt-2" id="buildrootzLogoPreviewWrapper">
                 <img id="buildrootzLogoPreview" src="" alt="Logo preview" style="max-height:60px; display:none;" />
               </div>
+            </div>
+            <div class="col-12">
+              <label for="buildrootzWebsiteUrl" class="form-label">Builder Website</label>
+              <input
+                type="url"
+                id="buildrootzWebsiteUrl"
+                class="form-control"
+                placeholder="https://www.examplebuilder.com"
+              />
+              <div class="form-text">Displayed on your BuildRootz builder profile.</div>
             </div>
             <div class="col-12">
               <label for="buildrootzDescription" class="form-label">Company Description</label>
@@ -1554,6 +1582,9 @@
         primaryEmail: document.getElementById('primaryEmail'),
         primaryPhone: document.getElementById('primaryPhone'),
         logoUrl: document.getElementById('companyLogo'),
+        logoFile: document.getElementById('companyLogoFile'),
+        logoPreview: document.getElementById('companyLogoPreview'),
+        logoPreviewWrapper: document.getElementById('companyLogoPreviewWrapper'),
         primaryColor: document.getElementById('colorPrimary'),
         secondaryColor: document.getElementById('colorSecondary'),
         timezone: document.getElementById('companyTimezone'),
@@ -1574,11 +1605,14 @@
         form: document.getElementById('buildrootz-form'),
         name: document.getElementById('buildrootzName'),
         logo: document.getElementById('buildrootzLogo'),
+        websiteUrl: document.getElementById('buildrootzWebsiteUrl'),
         description: document.getElementById('buildrootzDescription'),
         status: document.getElementById('buildrootz-status'),
         save: document.getElementById('buildrootz-save'),
         publish: document.getElementById('buildrootz-publish'),
         discard: document.getElementById('buildrootz-discard'),
+        useCompanyLogo: document.getElementById('buildrootz-use-company-logo'),
+        logoSource: document.getElementById('buildrootz-logo-source'),
         logoPreview: document.getElementById('buildrootzLogoPreview'),
         logoPreviewWrapper: document.getElementById('buildrootzLogoPreviewWrapper')
       };
@@ -1853,6 +1887,71 @@
         return input.value.trim();
       };
 
+      let companyLogoObjectUrl = '';
+      const revokeCompanyLogoObjectUrl = () => {
+        if (!companyLogoObjectUrl) return;
+        URL.revokeObjectURL(companyLogoObjectUrl);
+        companyLogoObjectUrl = '';
+      };
+
+      const updateCompanyLogoPreview = (url) => {
+        if (!companyInputs.logoPreview || !companyInputs.logoPreviewWrapper) return;
+        const trimmed = String(url || '').trim();
+        if (trimmed) {
+          companyInputs.logoPreview.src = trimmed;
+          companyInputs.logoPreviewWrapper.classList.remove('d-none');
+          return;
+        }
+        companyInputs.logoPreview.src = '';
+        companyInputs.logoPreviewWrapper.classList.add('d-none');
+      };
+
+      const updateCompanyLogoPreviewFromFile = () => {
+        revokeCompanyLogoObjectUrl();
+        const selectedFile = companyInputs.logoFile?.files?.[0];
+        if (selectedFile) {
+          companyLogoObjectUrl = URL.createObjectURL(selectedFile);
+          updateCompanyLogoPreview(companyLogoObjectUrl);
+          return;
+        }
+        updateCompanyLogoPreview(getInputValue(companyInputs.logoUrl));
+      };
+
+      const uploadCompanyLogoIfNeeded = async () => {
+        const selectedFile = companyInputs.logoFile?.files?.[0];
+        if (!selectedFile) return '';
+
+        const companyId = state.company.data?.companyId || '';
+        const formData = new FormData();
+        formData.append('file', selectedFile);
+        if (companyId) formData.append('companyId', companyId);
+
+        const response = await fetch('/api/admin/company/logo-upload', {
+          method: 'POST',
+          body: formData,
+          credentials: 'same-origin',
+          headers: {
+            Accept: 'application/json'
+          }
+        });
+        const data = await readJsonResponse(response);
+        if (!response.ok) {
+          throw new Error(data?.error || `Logo upload failed (${response.status})`);
+        }
+
+        const logoUrl = String(data?.logoUrl || '').trim();
+        if (!logoUrl) {
+          throw new Error('Logo upload did not return a valid URL.');
+        }
+
+        if (companyInputs.logoUrl) companyInputs.logoUrl.value = logoUrl;
+        if (companyInputs.logoFile) companyInputs.logoFile.value = '';
+        revokeCompanyLogoObjectUrl();
+        updateCompanyLogoPreview(logoUrl);
+        syncBuildrootzLogoFromCompany();
+        return logoUrl;
+      };
+
       const updateBuildrootzLogoPreview = (url) => {
         if (!buildrootzEls.logoPreview || !buildrootzEls.logoPreviewWrapper) return;
         const trimmed = (url || '').trim();
@@ -1867,13 +1966,81 @@
         }
       };
 
+      const getCompanyLogoForBuildrootz = () => {
+        return (
+          getInputValue(companyInputs.logoUrl) ||
+          state.buildrootz.data?.companyLogoUrl ||
+          state.buildrootz.data?.fallbackLogoUrl ||
+          ''
+        );
+      };
+
+      const updateBuildrootzLogoMeta = ({ profileLogoUrl = '', companyLogoUrl = '' } = {}) => {
+        if (buildrootzEls.logoSource) {
+          if (profileLogoUrl) {
+            buildrootzEls.logoSource.textContent = 'Using BuildRootz-specific logo.';
+          } else if (companyLogoUrl) {
+            buildrootzEls.logoSource.textContent = 'Using company logo from Company settings.';
+          } else {
+            buildrootzEls.logoSource.textContent = 'No logo set.';
+          }
+        }
+        if (buildrootzEls.useCompanyLogo) {
+          buildrootzEls.useCompanyLogo.disabled = !canEditCompany || !companyLogoUrl;
+        }
+      };
+
+      const syncBuildrootzLogoFromCompany = ({ force = false } = {}) => {
+        if (!buildrootzEls.logo) return;
+        const companyLogoUrl = getCompanyLogoForBuildrootz();
+        const currentLogo = getInputValue(buildrootzEls.logo);
+        const previousCompanyLogo = state.buildrootz.data?.companyLogoUrl || '';
+        const hasCustomLogo = Boolean(state.buildrootz.data?.profileLogoUrl);
+        const shouldOverwrite =
+          force || !currentLogo || (!hasCustomLogo && currentLogo === previousCompanyLogo);
+
+        if (shouldOverwrite) {
+          buildrootzEls.logo.value = companyLogoUrl || '';
+          updateBuildrootzLogoPreview(companyLogoUrl || '');
+        }
+
+        if (state.buildrootz.data) {
+          state.buildrootz.data.companyLogoUrl = companyLogoUrl || '';
+          state.buildrootz.data.fallbackLogoUrl = companyLogoUrl || '';
+          if (!state.buildrootz.data.profileLogoUrl) {
+            state.buildrootz.data.logoUrl = companyLogoUrl || '';
+          }
+        }
+
+        updateBuildrootzLogoMeta({
+          profileLogoUrl: state.buildrootz.data?.profileLogoUrl || '',
+          companyLogoUrl
+        });
+      };
+
+      const getBuildrootzLogoForSave = () => {
+        const explicitLogo = getInputValue(buildrootzEls.logo);
+        if (explicitLogo) return explicitLogo;
+        return getCompanyLogoForBuildrootz();
+      };
+
       const populateBuildrootzForm = (data) => {
         if (!data) return;
+        const companyLogoUrl = data.companyLogoUrl || data.fallbackLogoUrl || '';
+        const profileLogoUrl = data.profileLogoUrl || '';
+        const resolvedLogoUrl = profileLogoUrl || data.logoUrl || companyLogoUrl || '';
         if (buildrootzEls.name) buildrootzEls.name.value = data.builderName || '';
-        if (buildrootzEls.logo) buildrootzEls.logo.value = data.logoUrl || '';
+        if (buildrootzEls.logo) buildrootzEls.logo.value = resolvedLogoUrl;
+        if (buildrootzEls.websiteUrl) buildrootzEls.websiteUrl.value = data.websiteUrl || '';
         if (buildrootzEls.description) buildrootzEls.description.value = data.description || '';
-        updateBuildrootzLogoPreview(data.logoUrl || data.fallbackLogoUrl || '');
-        state.buildrootz.data = data;
+        updateBuildrootzLogoPreview(resolvedLogoUrl);
+        state.buildrootz.data = {
+          ...data,
+          companyLogoUrl,
+          profileLogoUrl,
+          logoUrl: resolvedLogoUrl
+        };
+        updateBuildrootzLogoMeta({ profileLogoUrl, companyLogoUrl });
       };
 
       const showUsersLoading = (message = 'Loading users...') => {
@@ -4017,6 +4184,10 @@ const trialEligible =
         }
 
         if (companyInputs.logoUrl) companyInputs.logoUrl.value = branding.logoUrl || '';
+        if (companyInputs.logoFile) companyInputs.logoFile.value = '';
+        revokeCompanyLogoObjectUrl();
+        updateCompanyLogoPreview(branding.logoUrl || '');
+        syncBuildrootzLogoFromCompany();
         if (companyInputs.primaryColor) {
           companyInputs.primaryColor.value = branding.primaryColor || defaultPrimaryColor;
         }
@@ -5079,46 +5250,52 @@ const trialEligible =
         if (!companyForm || state.company.saving || state.company.loading) return;
         if (!canEditCompany) return;
 
-        const payload = {
-          companyId: state.company.data?.companyId,
-          companyName: getInputValue(companyInputs.name),
-          address: {
-            street: getInputValue(companyInputs.street),
-            city: getInputValue(companyInputs.city),
-            state: getInputValue(companyInputs.state),
-            zip: getInputValue(companyInputs.zip)
-          },
-          primaryContact: {
-            name: getInputValue(companyInputs.primaryName),
-            email: getInputValue(companyInputs.primaryEmail),
-            phone: getInputValue(companyInputs.primaryPhone)
-          },
-          branding: {
-            logoUrl: getInputValue(companyInputs.logoUrl),
-            primaryColor: companyInputs.primaryColor?.value || '',
-            secondaryColor: companyInputs.secondaryColor?.value || ''
-          },
-          timezone: getInputValue(companyInputs.timezone),
-          notes: getInputValue(companyInputs.notes),
-          emailDailyCapEnabled: Boolean(companyInputs.emailDailyCapEnabled?.checked),
-          emailDailyCap: companyInputs.emailDailyCap?.value != null && companyInputs.emailDailyCap.value !== ''
-            ? Number(companyInputs.emailDailyCap.value)
-            : null,
-          emailAutoPauseOnSpamReport: Boolean(companyInputs.emailAutoPauseSpamReport?.checked),
-          emailAutoPauseOnBounceRate: Boolean(companyInputs.emailAutoPauseBounceRate?.checked),
-          emailBounceRateThreshold: companyInputs.emailBounceRateThreshold?.value != null && companyInputs.emailBounceRateThreshold.value !== ''
-            ? Number(companyInputs.emailBounceRateThreshold.value) / 100
-            : null,
-          emailBounceMinSentForEvaluation: companyInputs.emailBounceMinSent?.value != null && companyInputs.emailBounceMinSent.value !== ''
-            ? Number(companyInputs.emailBounceMinSent.value)
-            : null
-        };
-
         state.company.saving = true;
-        setCompanyStatus('Saving...', 'muted');
         if (companySaveButton) companySaveButton.disabled = true;
 
         try {
+          let logoUrl = getInputValue(companyInputs.logoUrl);
+          if (companyInputs.logoFile?.files?.length) {
+            setCompanyStatus('Uploading logo...', 'muted');
+            logoUrl = await uploadCompanyLogoIfNeeded();
+          }
+
+          const payload = {
+            companyId: state.company.data?.companyId,
+            companyName: getInputValue(companyInputs.name),
+            address: {
+              street: getInputValue(companyInputs.street),
+              city: getInputValue(companyInputs.city),
+              state: getInputValue(companyInputs.state),
+              zip: getInputValue(companyInputs.zip)
+            },
+            primaryContact: {
+              name: getInputValue(companyInputs.primaryName),
+              email: getInputValue(companyInputs.primaryEmail),
+              phone: getInputValue(companyInputs.primaryPhone)
+            },
+            branding: {
+              logoUrl,
+              primaryColor: companyInputs.primaryColor?.value || '',
+              secondaryColor: companyInputs.secondaryColor?.value || ''
+            },
+            timezone: getInputValue(companyInputs.timezone),
+            notes: getInputValue(companyInputs.notes),
+            emailDailyCapEnabled: Boolean(companyInputs.emailDailyCapEnabled?.checked),
+            emailDailyCap: companyInputs.emailDailyCap?.value != null && companyInputs.emailDailyCap.value !== ''
+              ? Number(companyInputs.emailDailyCap.value)
+              : null,
+            emailAutoPauseOnSpamReport: Boolean(companyInputs.emailAutoPauseSpamReport?.checked),
+            emailAutoPauseOnBounceRate: Boolean(companyInputs.emailAutoPauseBounceRate?.checked),
+            emailBounceRateThreshold: companyInputs.emailBounceRateThreshold?.value != null && companyInputs.emailBounceRateThreshold.value !== ''
+              ? Number(companyInputs.emailBounceRateThreshold.value) / 100
+              : null,
+            emailBounceMinSentForEvaluation: companyInputs.emailBounceMinSent?.value != null && companyInputs.emailBounceMinSent.value !== ''
+              ? Number(companyInputs.emailBounceMinSent.value)
+              : null
+          };
+
+          setCompanyStatus('Saving...', 'muted');
           const response = await fetch('/api/admin/company', {
             method: 'PUT',
             headers: {
@@ -5166,7 +5343,9 @@ const trialEligible =
         const payload = {
           companyId: state.company.data?.companyId,
           description: getInputValue(buildrootzEls.description),
-          logoUrl: getInputValue(buildrootzEls.logo)
+          companyDescription: getInputValue(buildrootzEls.description),
+          logoUrl: getBuildrootzLogoForSave(),
+          websiteUrl: getInputValue(buildrootzEls.websiteUrl)
         };
 
         state.buildrootz.saving = true;
@@ -5210,7 +5389,9 @@ const trialEligible =
         const payload = {
           companyId: state.company.data?.companyId,
           description: getInputValue(buildrootzEls.description),
-          logoUrl: getInputValue(buildrootzEls.logo)
+          companyDescription: getInputValue(buildrootzEls.description),
+          logoUrl: getBuildrootzLogoForSave(),
+          websiteUrl: getInputValue(buildrootzEls.websiteUrl)
         };
 
         state.buildrootz.saving = true;
@@ -5252,8 +5433,12 @@ const trialEligible =
           populateBuildrootzForm(state.buildrootz.data);
           clearBuildrootzStatus();
         } else {
-          if (buildrootzEls.logo) buildrootzEls.logo.value = '';
+          const companyLogoUrl = getCompanyLogoForBuildrootz();
+          if (buildrootzEls.logo) buildrootzEls.logo.value = companyLogoUrl || '';
+          if (buildrootzEls.websiteUrl) buildrootzEls.websiteUrl.value = '';
           if (buildrootzEls.description) buildrootzEls.description.value = '';
+          updateBuildrootzLogoPreview(companyLogoUrl || '');
+          updateBuildrootzLogoMeta({ profileLogoUrl: '', companyLogoUrl });
           clearBuildrootzStatus();
         }
       };
@@ -6135,6 +6320,18 @@ const trialEligible =
           clearCompanyStatus();
         });
       }
+      if (companyInputs.logoUrl) {
+        companyInputs.logoUrl.addEventListener('input', () => {
+          if (companyInputs.logoFile?.files?.length) return;
+          updateCompanyLogoPreview(getInputValue(companyInputs.logoUrl));
+          syncBuildrootzLogoFromCompany();
+        });
+      }
+      if (companyInputs.logoFile) {
+        companyInputs.logoFile.addEventListener('change', () => {
+          updateCompanyLogoPreviewFromFile();
+        });
+      }
       if (companyInputs.emailDailyCapEnabled) {
         companyInputs.emailDailyCapEnabled.addEventListener('change', updateDailyCapInputs);
       }
@@ -6252,7 +6449,30 @@ const trialEligible =
         }
         if (buildrootzEls.logo) {
           buildrootzEls.logo.addEventListener('input', () => {
-            updateBuildrootzLogoPreview(getInputValue(buildrootzEls.logo));
+            const value = getInputValue(buildrootzEls.logo);
+            updateBuildrootzLogoPreview(value);
+            if (state.buildrootz.data) {
+              state.buildrootz.data.profileLogoUrl = value || '';
+            }
+            updateBuildrootzLogoMeta({
+              profileLogoUrl: value || '',
+              companyLogoUrl: getCompanyLogoForBuildrootz()
+            });
+          });
+        }
+        if (buildrootzEls.useCompanyLogo) {
+          buildrootzEls.useCompanyLogo.addEventListener('click', (event) => {
+            event.preventDefault();
+            const companyLogoUrl = getCompanyLogoForBuildrootz();
+            if (!companyLogoUrl || !buildrootzEls.logo) return;
+            buildrootzEls.logo.value = companyLogoUrl;
+            updateBuildrootzLogoPreview(companyLogoUrl);
+            if (state.buildrootz.data) {
+              state.buildrootz.data.profileLogoUrl = '';
+              state.buildrootz.data.logoUrl = companyLogoUrl;
+            }
+            updateBuildrootzLogoMeta({ profileLogoUrl: '', companyLogoUrl });
+            clearBuildrootzStatus();
           });
         }
       }
@@ -6442,6 +6662,10 @@ const trialEligible =
           });
         }
       }
+
+      window.addEventListener('beforeunload', () => {
+        revokeCompanyLogoObjectUrl();
+      });
 
       tabButtons.forEach((button) => {
         button.addEventListener('click', () => activatePanel(button.dataset.adminTarget, button));

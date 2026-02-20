@@ -20,6 +20,20 @@ const trimToNull = (value) => {
   return trimmed.length ? trimmed : null;
 };
 
+const normalizeWebsiteUrl = (value) => {
+  const trimmed = trimToNull(value);
+  if (!trimmed) return '';
+
+  const candidate = /^https?:\/\//i.test(trimmed) ? trimmed : `https://${trimmed}`;
+  try {
+    const parsed = new URL(candidate);
+    if (!['http:', 'https:'].includes(parsed.protocol)) return null;
+    return parsed.toString();
+  } catch {
+    return null;
+  }
+};
+
 const resolveCompanyId = (req, incomingId) => {
   const requestedCompanyId = incomingId;
   if (isSuper(req) && isObjectId(requestedCompanyId)) return requestedCompanyId;
@@ -30,14 +44,18 @@ const serializeProfile = (company, builderDoc = null) => {
   const brandingLogo = company.branding?.logoUrl || '';
   const profileLogo = company.buildrootzProfile?.logoUrl || '';
   const description = company.buildrootzProfile?.description || '';
+  const websiteUrl = company.buildrootzProfile?.websiteUrl || builderDoc?.websiteUrl || '';
 
   return {
     companyId: String(company._id),
     builderName: company.name || '',
     slug: company.slug || '',
     logoUrl: profileLogo || brandingLogo || '',
+    profileLogoUrl: profileLogo || '',
+    companyLogoUrl: brandingLogo || '',
     fallbackLogoUrl: brandingLogo || '',
     description,
+    websiteUrl,
     publishedAt: company.buildrootzProfile?.publishedAt || builderDoc?.publishedAt || null,
     builderProfileId: builderDoc?._id ? String(builderDoc._id) : null
   };
@@ -73,13 +91,21 @@ router.put(
         return res.status(400).json({ error: 'Invalid company context' });
       }
 
-      const { description, logoUrl } = req.body || {};
+      const { description, companyDescription, logoUrl, websiteUrl } = req.body || {};
+      const descriptionInput = description !== undefined ? description : companyDescription;
       const company = await Company.findById(resolvedCompanyId);
       if (!company) return res.status(404).json({ error: 'Company not found' });
 
       company.buildrootzProfile = company.buildrootzProfile || {};
-      if (description !== undefined) company.buildrootzProfile.description = trimToNull(description) || '';
+      if (descriptionInput !== undefined) company.buildrootzProfile.description = trimToNull(descriptionInput) || '';
       if (logoUrl !== undefined) company.buildrootzProfile.logoUrl = trimToNull(logoUrl) || '';
+      if (websiteUrl !== undefined) {
+        const normalizedWebsite = normalizeWebsiteUrl(websiteUrl);
+        if (normalizedWebsite === null) {
+          return res.status(400).json({ error: 'Invalid website URL.' });
+        }
+        company.buildrootzProfile.websiteUrl = normalizedWebsite;
+      }
       company.markModified('buildrootzProfile');
       await company.save();
 
@@ -100,13 +126,21 @@ router.post(
         return res.status(400).json({ error: 'Invalid company context' });
       }
 
-      const { description, logoUrl } = req.body || {};
+      const { description, companyDescription, logoUrl, websiteUrl } = req.body || {};
+      const descriptionInput = description !== undefined ? description : companyDescription;
       const company = await Company.findById(resolvedCompanyId);
       if (!company) return res.status(404).json({ error: 'Company not found' });
 
       company.buildrootzProfile = company.buildrootzProfile || {};
-      if (description !== undefined) company.buildrootzProfile.description = trimToNull(description) || '';
+      if (descriptionInput !== undefined) company.buildrootzProfile.description = trimToNull(descriptionInput) || '';
       if (logoUrl !== undefined) company.buildrootzProfile.logoUrl = trimToNull(logoUrl) || '';
+      if (websiteUrl !== undefined) {
+        const normalizedWebsite = normalizeWebsiteUrl(websiteUrl);
+        if (normalizedWebsite === null) {
+          return res.status(400).json({ error: 'Invalid website URL.' });
+        }
+        company.buildrootzProfile.websiteUrl = normalizedWebsite;
+      }
       company.buildrootzProfile.publishedAt = new Date();
       company.markModified('buildrootzProfile');
       await company.save();
@@ -116,7 +150,8 @@ router.post(
         name: company.name,
         slug: company.slug,
         logoUrl: company.buildrootzProfile.logoUrl || logoUrl,
-        description: company.buildrootzProfile.description || description
+        websiteUrl: company.buildrootzProfile.websiteUrl || websiteUrl,
+        description: company.buildrootzProfile.description || descriptionInput
       });
 
       return res.json(serializeProfile(company, builderDoc));
