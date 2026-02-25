@@ -1,8 +1,17 @@
 import { els, groups } from './domCache.js';
 import { getLeadType } from './state.js';
 
+const setRequired = (el, required) => {
+  if (el) el.required = !!required;
+};
+
+const setDisabled = (el, disabled) => {
+  if (el) el.disabled = !!disabled;
+};
+
 export function updateFieldVisibility() {
   const type = getLeadType();
+  const isLender = type === 'lender';
   const show = (el) => el?.classList.remove('d-none');
   const hide = (el) => el?.classList.add('d-none');
 
@@ -19,17 +28,32 @@ export function updateFieldVisibility() {
   show(groups.communityGroup);
   show(groups.statusContainer);
 
-  // default required flags
-  if (els.firstName) els.firstName.required = true;
-  if (els.lastName) els.lastName.required = false;
-  if (els.email) els.email.required = false;
-  if (els.phone) els.phone.required = false;
-  if (els.visitDate) els.visitDate.required = false;
-  if (els.leadSource) els.leadSource.required = false;
-  if (els.communitySelect) els.communitySelect.required = false;
-  if (els.statusSelect) els.statusSelect.required = false;
-  if (els.lenderFirstName) els.lenderFirstName.required = false;
-  if (els.lenderLastName) els.lenderLastName.required = false;
+  // default required / disabled flags
+  setRequired(els.firstName, !isLender);
+  setRequired(els.lastName, false);
+  setRequired(els.email, false);
+  setRequired(els.phone, false);
+  setRequired(els.visitDate, false);
+  setRequired(els.leadSource, false);
+  setRequired(els.communitySelect, false);
+  setRequired(els.statusSelect, false);
+  setRequired(els.lenderFirstName, isLender);
+  setRequired(els.lenderLastName, isLender);
+
+  // prevent hidden contact fields from blocking lender submissions
+  setDisabled(els.firstName, isLender);
+  setDisabled(els.lastName, isLender);
+  setDisabled(els.email, isLender);
+  setDisabled(els.phone, isLender);
+  setDisabled(els.visitDate, isLender);
+  setDisabled(els.leadSource, isLender);
+  setDisabled(els.communitySelect, isLender);
+  setDisabled(els.statusSelect, isLender);
+  setDisabled(els.lenderBrokerage, !isLender);
+  setDisabled(els.lenderFirstName, !isLender);
+  setDisabled(els.lenderLastName, !isLender);
+  setDisabled(els.lenderEmail, !isLender);
+  setDisabled(els.lenderPhone, !isLender);
 
   if (type === 'realtor') {
     show(els.realtorFields);
@@ -39,7 +63,7 @@ export function updateFieldVisibility() {
     return;
   }
 
-  if (type === 'lender') {
+  if (isLender) {
     show(els.lenderFields);
     hide(groups.visitDateGroup);
     hide(groups.firstNameGroup);
@@ -49,9 +73,6 @@ export function updateFieldVisibility() {
     hide(groups.sourceContainer);
     hide(groups.communityGroup);
     hide(groups.statusContainer);
-
-    if (els.lenderFirstName) els.lenderFirstName.required = true;
-    if (els.lenderLastName) els.lenderLastName.required = true;
     return;
   }
 }
