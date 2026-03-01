@@ -24,8 +24,9 @@ const Task = require('../models/Task');
 const User = require('../models/User');
 const AutoFollowUpSchedule = require('../models/AutoFollowUpSchedule');
 const AutoFollowUpAssignment = require('../models/AutoFollowUpAssignment');
-const { publishHome, unpublishHome, syncHome } = require('../services/buildrootzPublisher');
+const { publishCompanyInventory } = require('../services/brzPublishingService');
 const { buildrootzFetch } = require('../services/buildrootzClient');
+const { competitionProfileToWebData } = require('../services/communityWebDataService');
 const { hydrateTaskLinks, groupTasksByAttachment } = require('../utils/taskLinkedDetails');
 const upload = require('../middleware/upload');
 const {
@@ -94,6 +95,39 @@ const parseLatLng = (val) => {
     return Number.isFinite(deg) ? deg : null;
   }
   return null;
+};
+
+const isLotPublishedForBuildrootz = (lot) => {
+  if (!lot || typeof lot !== 'object') return false;
+  if (lot?.buildrootz && Object.prototype.hasOwnProperty.call(lot.buildrootz, 'isPublished')) {
+    return Boolean(lot.buildrootz.isPublished);
+  }
+  return Boolean(lot.isPublished ?? lot.isListed ?? lot.listed ?? lot.listingActive);
+};
+
+const publishListingInventory = async ({
+  companyId,
+  communityId,
+  lotId,
+  isPublished
+}) => {
+  const normalizedCommunityId = String(communityId);
+  const normalizedLotId = String(lotId);
+  const scope = isPublished
+    ? {
+      communityIds: [normalizedCommunityId],
+      lotIds: [normalizedLotId],
+      unpublishMissingHomes: false
+    }
+    : {
+      communityIds: [normalizedCommunityId],
+      unpublishMissingHomes: true
+    };
+
+  return publishCompanyInventory({
+    companyId,
+    ...scope
+  });
 };
 
 const formatRoleName = (role) => {
@@ -1184,9 +1218,10 @@ router.get('/listing-details', ensureAuth, requireRole('READONLY','USER','MANAGE
         if (refreshed) floorPlanDoc = refreshed;
       }
 
-      const profile = await CommunityCompetitionProfile.findOne({ community: communityId, ...base(req) })
-        .select('hoaFee hoaFrequency tax feeTypes mudFee pidFee pidFeeFrequency communityAmenities promotion schoolISD elementarySchool middleSchool highSchool lotSize salesPerson salesPersonPhone salesPersonEmail address city state zip')
+      const profile = await CommunityCompetitionProfile.findOne({ community: community._id, ...base(req) })
+        .select('hoaFee hoaFrequency tax feeTypes mudFee pidFee pidFeeFrequency communityAmenities promotion schoolISD elementarySchool middleSchool highSchool lotSize salesPerson salesPersonPhone salesPersonEmail address city state zip webData')
         .lean();
+      const webData = competitionProfileToWebData(profile, community);
 
       const toIso = (value) => {
         if (!value) return null;
@@ -1201,6 +1236,7 @@ router.get('/listing-details', ensureAuth, requireRole('READONLY','USER','MANAGE
         location: [community.city, community.state].filter(Boolean).join(', '),
         buildrootzMapping: {
           communityId: community.buildrootz?.communityId || null,
+          publicCommunityId: community.buildrootz?.publicCommunityId || null,
           canonicalName: community.buildrootz?.canonicalName || ''
         },
         buildrootzPublish: {
@@ -1293,15 +1329,10 @@ router.get('/listing-details', ensureAuth, requireRole('READONLY','USER','MANAGE
           high: profile.highSchool || ''
         } : null,
         salesContact: profile ? {
-          name: lot.salesContactName || profile.salesPerson || '',
-          phone: lot.salesContactPhone || profile.salesPersonPhone || '',
-          email: lot.salesContactEmail || profile.salesPersonEmail || ''
+          name: webData?.primaryContact?.name || profile.salesPerson || '',
+          phone: webData?.primaryContact?.phone || profile.salesPersonPhone || '',
+          email: webData?.primaryContact?.email || profile.salesPersonEmail || ''
         } : null,
-        salesContactOverride: {
-          name: lot.salesContactName || '',
-          phone: lot.salesContactPhone || '',
-          email: lot.salesContactEmail || ''
-        },
         modelAddress: profile ? {
           street: profile.address || '',
           city: profile.city || community.city || '',
@@ -1357,13 +1388,84 @@ router.post('/listing-details/publish', ensureAuth, requireRole('READONLY','USER
       if (!isId(communityId) || !isId(lotId)) return res.status(400).json({ success: false, message: 'Invalid ID' });
       if (!hasCommunityAccess(req.user, communityId)) return res.status(404).json({ success: false, message: 'Community not found' });
 
-      if (isPublished) {
-        await publishHome(lotId, req.user.company, req.user?._id);
-      } else {
-        await unpublishHome(lotId, req.user.company, req.user?._id);
+      const community = await Community.findOne(
+        { _id: communityId, ...base(req), 'lots._id': lotId },
+        { 'lots.$': 1 }
+      ).lean();
+      if (!community || !Array.isArray(community.lots) || !community.lots.length) {
+        return res.status(404).json({ success: false, message: 'Lot not found' });
       }
 
-      return res.json({ success: true, isPublished });
+      const lot = community.lots[0];
+      const previous = {
+        buildrootzIsPublished: Boolean(lot?.buildrootz?.isPublished),
+        isPublished: Boolean(lot?.isPublished),
+        isListed: Boolean(lot?.isListed),
+        publishedAt: lot?.publishedAt || null,
+        contentSyncedAt: lot?.contentSyncedAt || null
+      };
+      const now = new Date();
+
+      await Community.updateOne(
+        { _id: communityId, ...base(req), 'lots._id': lotId },
+        {
+          $set: {
+            'lots.$.buildrootz.isPublished': isPublished,
+            'lots.$.isPublished': isPublished,
+            'lots.$.isListed': isPublished,
+            'lots.$.publishedAt': isPublished ? now : null,
+            'lots.$.contentSyncedAt': now
+          }
+        }
+      );
+
+      try {
+        const publishResult = await publishListingInventory({
+          companyId: req.user.company,
+          communityId,
+          lotId,
+          isPublished
+        });
+
+        await Community.updateOne(
+          { _id: communityId, ...base(req), 'lots._id': lotId },
+          {
+            $set: {
+              'lots.$.buildrootzLastPublishStatus': 'ok',
+              'lots.$.buildrootzLastPublishError': ''
+            }
+          }
+        );
+
+        return res.json({
+          success: true,
+          isPublished,
+          publishResult: {
+            status: publishResult?.status || '',
+            message: publishResult?.message || '',
+            warnings: Array.isArray(publishResult?.warnings) ? publishResult.warnings : [],
+            counts: publishResult?.counts || null
+          },
+          warnings: Array.isArray(publishResult?.warnings) ? publishResult.warnings : [],
+          counts: publishResult?.counts || null
+        });
+      } catch (publishErr) {
+        await Community.updateOne(
+          { _id: communityId, ...base(req), 'lots._id': lotId },
+          {
+            $set: {
+              'lots.$.buildrootz.isPublished': previous.buildrootzIsPublished,
+              'lots.$.isPublished': previous.isPublished,
+              'lots.$.isListed': previous.isListed,
+              'lots.$.publishedAt': previous.publishedAt,
+              'lots.$.contentSyncedAt': previous.contentSyncedAt,
+              'lots.$.buildrootzLastPublishStatus': 'error',
+              'lots.$.buildrootzLastPublishError': publishErr?.message || 'Inventory publish failed'
+            }
+          }
+        );
+        throw publishErr;
+      }
     } catch (err) {
       const status = err.status || 500;
       const message = err.message || 'Failed to update publish status';
@@ -1384,10 +1486,45 @@ router.post('/listing-details/sync', ensureAuth, requireRole('READONLY','USER','
       if (!isId(communityId) || !isId(lotId)) return res.status(400).json({ success: false, message: 'Invalid ID' });
       if (!hasCommunityAccess(req.user, communityId)) return res.status(404).json({ success: false, message: 'Community not found' });
 
-      await syncHome(lotId, req.user.company, req.user?._id);
-      return res.json({ success: true });
+      const community = await Community.findOne(
+        { _id: communityId, ...base(req), 'lots._id': lotId },
+        { 'lots.$': 1 }
+      ).lean();
+      if (!community || !Array.isArray(community.lots) || !community.lots.length) {
+        return res.status(404).json({ success: false, message: 'Lot not found' });
+      }
+      const lot = community.lots[0];
+      if (!isLotPublishedForBuildrootz(lot)) {
+        return res.json({
+          success: true,
+          skipped: true,
+          message: 'Listing is not marked for BuildRootz publish.'
+        });
+      }
+
+      const publishResult = await publishCompanyInventory({
+        companyId: req.user.company,
+        communityIds: [String(communityId)],
+        unpublishMissingHomes: true
+      });
+      return res.json({
+        success: true,
+        publishResult: {
+          status: publishResult?.status || '',
+          message: publishResult?.message || '',
+          warnings: Array.isArray(publishResult?.warnings) ? publishResult.warnings : [],
+          counts: publishResult?.counts || null
+        },
+        warnings: Array.isArray(publishResult?.warnings) ? publishResult.warnings : [],
+        counts: publishResult?.counts || null
+      });
     } catch (err) {
-      next(err);
+      const status = err.status || 500;
+      return res.status(status).json({
+        success: false,
+        message: err.message || 'Failed to sync listing',
+        code: err.code
+      });
     }
   }
 );
@@ -1402,9 +1539,6 @@ router.post('/listing-details/content', ensureAuth, requireRole('READONLY','USER
       const promoText = typeof req.body?.promoText === 'string' ? req.body.promoText : '';
       const listingDescription = typeof req.body?.listingDescription === 'string' ? req.body.listingDescription : '';
       const liveElevationPhoto = typeof req.body?.liveElevationPhoto === 'string' ? req.body.liveElevationPhoto : '';
-      const salesContactName = typeof req.body?.salesContactName === 'string' ? req.body.salesContactName : '';
-      const salesContactPhone = typeof req.body?.salesContactPhone === 'string' ? req.body.salesContactPhone : '';
-      const salesContactEmail = typeof req.body?.salesContactEmail === 'string' ? req.body.salesContactEmail : '';
       const latitude = parseLatLng(req.body?.latitude);
       const longitude = parseLatLng(req.body?.longitude);
 
@@ -1422,18 +1556,19 @@ router.post('/listing-details/content', ensureAuth, requireRole('READONLY','USER
           'lots.$.promoText': promoText,
           'lots.$.listingDescription': listingDescription,
           'lots.$.liveElevationPhoto': liveElevationPhoto,
-          'lots.$.salesContactName': salesContactName,
-          'lots.$.salesContactPhone': salesContactPhone,
-          'lots.$.salesContactEmail': salesContactEmail,
           'lots.$.latitude': Number.isFinite(latitude) ? latitude : null,
           'lots.$.longitude': Number.isFinite(longitude) ? longitude : null
         } }
       );
 
       const lot = community.lots[0];
-      if (lot?.isPublished) {
+      if (isLotPublishedForBuildrootz(lot)) {
         try {
-          await syncHome(lotId, req.user.company, req.user?._id);
+          await publishCompanyInventory({
+            companyId: req.user.company,
+            communityIds: [String(communityId)],
+            unpublishMissingHomes: true
+          });
         } catch (syncErr) {
           console.error('listing content sync failed', syncErr);
         }
@@ -1475,8 +1610,14 @@ router.post('/listing-details/upload-elevation', ensureAuth, requireRole('READON
       );
 
       const lot = community.lots[0];
-      if (lot?.isPublished) {
-        try { await syncHome(lotId, req.user.company, req.user?._id); }
+      if (isLotPublishedForBuildrootz(lot)) {
+        try {
+          await publishCompanyInventory({
+            companyId: req.user.company,
+            communityIds: [String(communityId)],
+            unpublishMissingHomes: true
+          });
+        }
         catch (syncErr) { console.error('elevation upload sync failed', syncErr); }
       }
 
@@ -1521,8 +1662,14 @@ router.post('/listing-details/upload-photos', ensureAuth, requireRole('READONLY'
         { $set: { 'lots.$.listingPhotos': combined } }
       );
 
-      if (lot?.isPublished) {
-        try { await syncHome(lotId, req.user.company, req.user?._id); }
+      if (isLotPublishedForBuildrootz(lot)) {
+        try {
+          await publishCompanyInventory({
+            companyId: req.user.company,
+            communityIds: [String(communityId)],
+            unpublishMissingHomes: true
+          });
+        }
         catch (syncErr) { console.error('listing photos sync failed', syncErr); }
       }
 
@@ -1583,8 +1730,14 @@ router.post('/listing-details/delete-photo', ensureAuth, requireRole('READONLY',
         { $set: { 'lots.$.listingPhotos': filtered } }
       );
 
-      if (lot?.isPublished) {
-        try { await syncHome(lotId, req.user.company, req.user?._id); }
+      if (isLotPublishedForBuildrootz(lot)) {
+        try {
+          await publishCompanyInventory({
+            companyId: req.user.company,
+            communityIds: [String(communityId)],
+            unpublishMissingHomes: true
+          });
+        }
         catch (syncErr) { console.error('listing photo delete sync failed', syncErr); }
       }
 

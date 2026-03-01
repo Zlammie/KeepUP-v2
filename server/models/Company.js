@@ -174,7 +174,24 @@ const CompanySchema = new Schema({
   updatedByUserId: { type: Schema.Types.ObjectId, default: null },
 
   // BuildRootz profile content (builder-facing)
-  buildrootzProfile: { type: BuildrootzProfileSchema, default: () => ({}) }
+  buildrootzProfile: { type: BuildrootzProfileSchema, default: () => ({}) },
+  buildrootzPublishLastAt: { type: Date, default: null },
+  buildrootzPublishLastStatus: { type: String, enum: ['success', 'error', ''], default: '' },
+  buildrootzPublishLastMessage: { type: String, default: '' },
+  buildrootzPublishLastCounts: { type: Schema.Types.Mixed, default: null },
+  buildrootzPublishLastWarnings: { type: [String], default: [] },
+
+  buildrootzPackagePublishLastAt: { type: Date, default: null },
+  buildrootzPackagePublishLastStatus: { type: String, enum: ['success', 'error', ''], default: '' },
+  buildrootzPackagePublishLastMessage: { type: String, default: '' },
+  buildrootzPackagePublishLastCounts: { type: Schema.Types.Mixed, default: null },
+  buildrootzPackagePublishLastWarnings: { type: [String], default: [] },
+
+  buildrootzInventoryPublishLastAt: { type: Date, default: null },
+  buildrootzInventoryPublishLastStatus: { type: String, enum: ['success', 'error', ''], default: '' },
+  buildrootzInventoryPublishLastMessage: { type: String, default: '' },
+  buildrootzInventoryPublishLastCounts: { type: Schema.Types.Mixed, default: null },
+  buildrootzInventoryPublishLastWarnings: { type: [String], default: [] }
 }, { timestamps: true });
 
 // Helper: auto-generate slug from name on create (don't clobber if provided)

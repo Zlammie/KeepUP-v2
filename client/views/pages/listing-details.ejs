@@ -66,7 +66,7 @@
           id="listing-publish-btn"
           class="btn btn-primary btn-sm"
           data-published="<%= published ? 'true' : 'false' %>"
-          data-brz-mapped="<%= lotData.buildrootzMapping?.communityId ? 'true' : 'false' %>"
+          data-brz-mapped="<%= lotData.buildrootzMapping?.publicCommunityId ? 'true' : 'false' %>"
           data-brz-name="<%= lotData.buildrootzMapping?.canonicalName || '' %>"
         >
           <%= published ? 'Unpublish' : 'Publish' %>
@@ -83,7 +83,7 @@
         <button type="button" id="listing-content-save" class="btn btn-secondary btn-sm">Save content</button>
       </div>
       <div class="mt-2">
-        <% if (lotData.buildrootzMapping?.communityId) { %>
+        <% if (lotData.buildrootzMapping?.publicCommunityId) { %>
           <p class="text-muted small mb-0">
             Community mapped to BuildRootz:
             <strong><%= lotData.buildrootzMapping.canonicalName || lotData.buildrootzMapping.communityId %></strong>
@@ -95,6 +95,8 @@
           </div>
         <% } %>
       </div>
+      <div id="listingPublishStatus" class="small text-muted mt-2"></div>
+      <div id="listingPublishWarnings" class="small text-muted mt-1 d-none"></div>
     </div>
 
     <div id="section-overview" class="card shadow-sm border-0 mb-3 section-pane active">
@@ -169,10 +171,12 @@
             <% } else { %>
               <p class="text-muted small mb-0">Not provided.</p>
             <% } %>
-            <div class="mt-2 d-flex flex-column gap-2">
-              <input type="text" class="form-control form-control-sm" id="salesContactName" placeholder="Override name (optional)" value="<%= lotData.salesContactOverride?.name || '' %>">
-              <input type="text" class="form-control form-control-sm" id="salesContactPhone" placeholder="Override phone (optional)" value="<%= lotData.salesContactOverride?.phone || '' %>">
-              <input type="email" class="form-control form-control-sm" id="salesContactEmail" placeholder="Override email (optional)" value="<%= lotData.salesContactOverride?.email || '' %>">
+            <div class="mt-2 p-2 border rounded bg-light">
+              <p class="small text-muted mb-2">Community Defaults (from Competition Profile)</p>
+              <div class="d-flex flex-wrap gap-2">
+                <a class="btn btn-outline-secondary btn-sm" href="/my-community-competition?communityId=<%= lotData.communityId %>">Edit in Competition Profile</a>
+                <a class="btn btn-outline-secondary btn-sm" href="/admin/buildrootz/publishing">Edit in BuildRootz Publishing</a>
+              </div>
             </div>
           </div>
           <div class="col-md-6">
@@ -420,6 +424,8 @@
     const communityId = "<%= lotData.communityId %>";
     const lotId = "<%= lotData.id %>";
     const syncBtn = document.getElementById('listing-sync-btn');
+    const publishStatusEl = document.getElementById('listingPublishStatus');
+    const publishWarningsEl = document.getElementById('listingPublishWarnings');
     const fpThumbsContainer = document.getElementById('fpThumbsContainer');
     const fpLightbox = document.getElementById('fpLightbox');
     const fpLightboxImg = document.getElementById('fpLightboxImg');
@@ -437,13 +443,51 @@
     const listingPhotosUploadBtn = document.getElementById('listingPhotosUploadBtn');
     const liveElevationPreview = document.getElementById('liveElevationPreview');
     const sectionTabs = document.querySelectorAll('.section-tab');
-    const salesContactName = document.getElementById('salesContactName');
-    const salesContactPhone = document.getElementById('salesContactPhone');
-    const salesContactEmail = document.getElementById('salesContactEmail');
     const latitudeInput = document.getElementById('latitudeInput');
     const longitudeInput = document.getElementById('longitudeInput');
 
     if (!publishBtn) return;
+
+    const setPublishStatus = (message, tone = 'muted') => {
+      if (!publishStatusEl) return;
+      publishStatusEl.textContent = message || '';
+      publishStatusEl.classList.remove('text-muted', 'text-success', 'text-danger');
+      if (tone === 'success') {
+        publishStatusEl.classList.add('text-success');
+        return;
+      }
+      if (tone === 'error') {
+        publishStatusEl.classList.add('text-danger');
+        return;
+      }
+      publishStatusEl.classList.add('text-muted');
+    };
+
+    const renderPublishWarnings = (warnings) => {
+      if (!publishWarningsEl) return;
+      const items = Array.isArray(warnings)
+        ? warnings.map((item) => String(item || '').trim()).filter(Boolean).slice(0, 10)
+        : [];
+      if (!items.length) {
+        publishWarningsEl.classList.add('d-none');
+        publishWarningsEl.innerHTML = '';
+        return;
+      }
+      const ul = document.createElement('ul');
+      ul.className = 'mb-0 ps-3';
+      items.forEach((item) => {
+        const li = document.createElement('li');
+        li.textContent = item;
+        ul.appendChild(li);
+      });
+      publishWarningsEl.innerHTML = '';
+      const label = document.createElement('div');
+      label.className = 'fw-semibold';
+      label.textContent = 'Warnings';
+      publishWarningsEl.appendChild(label);
+      publishWarningsEl.appendChild(ul);
+      publishWarningsEl.classList.remove('d-none');
+    };
 
     const setUi = (isPublished) => {
       publishBtn.dataset.published = isPublished ? 'true' : 'false';
@@ -465,6 +509,7 @@
       }
       publishBtn.disabled = true;
       publishBtn.textContent = nextValue ? 'Publishing...' : 'Unpublishing...';
+      setPublishStatus(nextValue ? 'Publishing inventory...' : 'Unpublishing inventory...', 'muted');
 
       try {
         const resp = await fetch('/listing-details/publish', {
@@ -487,10 +532,26 @@
           throw new Error(data?.message || 'Unable to update publish status');
         }
         setUi(Boolean(data.isPublished));
+        const counts = data?.counts && typeof data.counts === 'object' ? data.counts : {};
+        const countSummary = Object.keys(counts).length
+          ? Object.entries(counts)
+            .filter(([, value]) => value != null && value !== '')
+            .map(([key, value]) => `${key}: ${value}`)
+            .join(' | ')
+          : '';
+        const resultMessage = String(data?.publishResult?.message || '').trim();
+        const successMessage = [
+          nextValue ? 'Listing published.' : 'Listing unpublished.',
+          resultMessage,
+          countSummary ? `Counts: ${countSummary}.` : ''
+        ].filter(Boolean).join(' ');
+        setPublishStatus(successMessage, 'success');
+        renderPublishWarnings(data?.warnings || data?.publishResult?.warnings || []);
       } catch (err) {
         console.error(err);
         alert(err.message || 'Failed to update publish status');
         setUi(current);
+        setPublishStatus(err.message || 'Failed to update publish status', 'error');
       } finally {
         publishBtn.disabled = false;
         publishBtn.textContent = publishBtn.dataset.published === 'true' ? 'Unpublish' : 'Publish';
@@ -816,9 +877,6 @@
       const promoText = promoInput?.value ?? '';
       const listingDescription = descriptionInput?.value ?? '';
       const liveElevationPhoto = liveElevationInput?.value ?? '';
-      const salesContactNameVal = salesContactName?.value ?? '';
-      const salesContactPhoneVal = salesContactPhone?.value ?? '';
-      const salesContactEmailVal = salesContactEmail?.value ?? '';
       const latitudeVal = latitudeInput?.value ?? '';
       const longitudeVal = longitudeInput?.value ?? '';
       saveContentBtn.disabled = true;
@@ -835,9 +893,6 @@
             promoText,
             listingDescription,
             liveElevationPhoto,
-            salesContactName: salesContactNameVal,
-            salesContactPhone: salesContactPhoneVal,
-            salesContactEmail: salesContactEmailVal,
             latitude: latitudeVal,
             longitude: longitudeVal
           })

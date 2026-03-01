@@ -5,7 +5,6 @@ const Company = require('../../models/Company');
 const Community = require('../../models/Community');
 const { publishBuilderProfile } = require('../../services/buildrootzBuilderProfile');
 const BuildRootzCommunityRequest = require('../../models/BuildRootzCommunityRequest');
-const { buildrootzFetch } = require('../../services/buildrootzClient');
 
 const router = express.Router();
 
@@ -33,6 +32,23 @@ const normalizeWebsiteUrl = (value) => {
     return null;
   }
 };
+
+const firstNonEmptyString = (...values) => {
+  for (const value of values) {
+    if (value == null) continue;
+    const trimmed = String(value).trim();
+    if (trimmed) return trimmed;
+  }
+  return '';
+};
+
+const resolvePublicCommunityIdFromPayload = (payload, fallbackCommunityId = '') =>
+  firstNonEmptyString(
+    payload?.publicCommunityId,
+    payload?._id,
+    payload?.communityId,
+    fallbackCommunityId
+  );
 
 const resolveCompanyId = (req, incomingId) => {
   const requestedCompanyId = incomingId;
@@ -170,9 +186,21 @@ const serializeCommunityMapping = (community) => ({
   state: community.state || '',
   buildrootz: {
     communityId: community.buildrootz?.communityId || null,
+    publicCommunityId: community.buildrootz?.publicCommunityId || null,
     canonicalName: community.buildrootz?.canonicalName || '',
     mappedAt: community.buildrootz?.mappedAt || null,
-  mappedByUserId: community.buildrootz?.mappedByUserId || null
+    mappedByUserId: community.buildrootz?.mappedByUserId || null,
+    request: {
+      requestId: community.buildrootz?.request?.requestId || null,
+      status: community.buildrootz?.request?.status || null,
+      requestedName: community.buildrootz?.request?.requestedName || '',
+      requestedAt: community.buildrootz?.request?.requestedAt || null,
+      lastCheckedAt: community.buildrootz?.request?.lastCheckedAt || null,
+      resolvedCommunityId: community.buildrootz?.request?.resolvedCommunityId || null,
+      resolvedPublicCommunityId: community.buildrootz?.request?.resolvedPublicCommunityId || null,
+      resolvedAt: community.buildrootz?.request?.resolvedAt || null,
+      rejectedReason: community.buildrootz?.request?.rejectedReason || ''
+    }
   }
 });
 
@@ -274,10 +302,16 @@ router.patch(
 
       const community = await Community.findOne({ _id: communityId, company: companyId });
       if (!community) return res.status(404).json({ error: 'Community not found' });
+      const resolvedCommunityId = firstNonEmptyString(brCommunity?._id, brId);
+      const resolvedPublicCommunityId = resolvePublicCommunityIdFromPayload(
+        brCommunity,
+        resolvedCommunityId
+      );
 
       community.buildrootz = community.buildrootz || {};
-      community.buildrootz.communityId = brCommunity._id;
-      community.buildrootz.canonicalName = brCommunity.name || '';
+      community.buildrootz.communityId = resolvedCommunityId;
+      community.buildrootz.publicCommunityId = resolvedPublicCommunityId || null;
+      community.buildrootz.canonicalName = brCommunity.canonicalName || brCommunity.name || '';
       community.buildrootz.mappedAt = new Date();
       community.buildrootz.mappedByUserId = req.user?._id || null;
       community.markModified('buildrootz');
@@ -305,6 +339,7 @@ router.delete(
 
       community.buildrootz = {
         communityId: null,
+        publicCommunityId: null,
         canonicalName: '',
         mappedAt: null,
         mappedByUserId: null
@@ -341,8 +376,16 @@ router.get(
 
       // Mirror resolved mapping if already handled
       if (['approved', 'linked'].includes(latestReq.status) && latestReq.resolvedBuildRootzCommunityId) {
+        const mirroredPublicCommunityId = firstNonEmptyString(
+          latestReq.resolvedPublicCommunityId,
+          community.buildrootz?.publicCommunityId,
+          latestReq.resolvedBuildRootzCommunityId
+        );
         community.buildrootz = community.buildrootz || {};
         community.buildrootz.communityId = latestReq.resolvedBuildRootzCommunityId;
+        community.buildrootz.publicCommunityId = mirroredPublicCommunityId || null;
+        community.buildrootz.request = community.buildrootz.request || {};
+        community.buildrootz.request.resolvedPublicCommunityId = mirroredPublicCommunityId || null;
         community.buildrootz.canonicalName = latestReq.resolvedCanonicalName || community.buildrootz.canonicalName || '';
         community.buildrootz.mappedAt = community.buildrootz.mappedAt || latestReq.reviewedAt || new Date();
         community.buildrootz.mappedByUserId = community.buildrootz.mappedByUserId || latestReq.reviewedByUserId || req.user?._id || null;
@@ -354,6 +397,7 @@ router.get(
         status: latestReq.status,
         requestId: String(latestReq._id),
         communityId: community.buildrootz?.communityId || null,
+        publicCommunityId: community.buildrootz?.publicCommunityId || latestReq.resolvedBuildRootzCommunityId || null,
         canonicalName: community.buildrootz?.canonicalName || latestReq.resolvedCanonicalName || null,
         rejectedReason: latestReq.rejectedReason || null
       });
@@ -405,6 +449,7 @@ router.post(
             requestedAt: new Date(),
             lastCheckedAt: new Date(),
             resolvedCommunityId: null,
+            resolvedPublicCommunityId: null,
             resolvedAt: null,
             rejectedReason: ''
           }

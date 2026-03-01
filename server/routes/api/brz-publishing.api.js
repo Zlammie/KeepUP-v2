@@ -7,7 +7,14 @@ const {
   bootstrapPublishingData,
   updateBuilderProfileDraft,
   updateCommunityDraft,
+  updateCommunityLotPublishFlag,
+  syncCommunityDraftFromCompetition,
+  syncOutOfDateCommunitiesFromCompetition,
+  updateCommunityWebData,
   updateFloorPlanDraft,
+  updateCommunityFloorPlanDraft,
+  publishCompanyPackage,
+  publishCompanyInventory,
   publishCompanySnapshot,
   sanitizeImageMeta
 } = require('../../services/brzPublishingService');
@@ -76,6 +83,23 @@ router.put('/community/:communityId', async (req, res, next) => {
   }
 });
 
+router.put('/community/:communityId/web', async (req, res, next) => {
+  try {
+    const companyId = resolveCompanyId(req);
+    if (!isObjectId(companyId)) {
+      return res.status(400).json({ error: 'Invalid company context' });
+    }
+    const data = await updateCommunityWebData({
+      companyId,
+      communityId: req.params.communityId,
+      updates: req.body || {}
+    });
+    return res.json({ ok: true, ...data });
+  } catch (err) {
+    return next(err);
+  }
+});
+
 router.put('/floorplan/:floorPlanId', async (req, res, next) => {
   try {
     const companyId = resolveCompanyId(req);
@@ -88,6 +112,74 @@ router.put('/floorplan/:floorPlanId', async (req, res, next) => {
       updates: req.body || {}
     });
     return res.json({ ok: true, ...data });
+  } catch (err) {
+    return next(err);
+  }
+});
+
+router.put('/community/:communityId/floorplan/:floorPlanId', async (req, res, next) => {
+  try {
+    const companyId = resolveCompanyId(req);
+    if (!isObjectId(companyId)) {
+      return res.status(400).json({ error: 'Invalid company context' });
+    }
+    const data = await updateCommunityFloorPlanDraft({
+      companyId,
+      communityId: req.params.communityId,
+      floorPlanId: req.params.floorPlanId,
+      updates: req.body || {}
+    });
+    return res.json({ ok: true, ...data });
+  } catch (err) {
+    return next(err);
+  }
+});
+
+router.put('/community/:communityId/lots/:lotId/publish', async (req, res, next) => {
+  try {
+    const companyId = resolveCompanyId(req);
+    if (!isObjectId(companyId)) {
+      return res.status(400).json({ error: 'Invalid company context' });
+    }
+    const data = await updateCommunityLotPublishFlag({
+      companyId,
+      communityId: req.params.communityId,
+      lotId: req.params.lotId,
+      isPublished: req.body?.isPublished
+    });
+    return res.json({ ok: true, ...data });
+  } catch (err) {
+    return next(err);
+  }
+});
+
+router.post('/community/:communityId/sync-from-competition', async (req, res, next) => {
+  try {
+    const companyId = resolveCompanyId(req);
+    if (!isObjectId(companyId)) {
+      return res.status(400).json({ error: 'Invalid company context' });
+    }
+    const data = await syncCommunityDraftFromCompetition({
+      companyId,
+      communityId: req.params.communityId
+    });
+    return res.json({ ok: true, ...data });
+  } catch (err) {
+    return next(err);
+  }
+});
+
+router.post('/sync-from-competition/bulk', async (req, res, next) => {
+  try {
+    const companyId = resolveCompanyId(req);
+    if (!isObjectId(companyId)) {
+      return res.status(400).json({ error: 'Invalid company context' });
+    }
+    const data = await syncOutOfDateCommunitiesFromCompetition({
+      companyId,
+      communityIds: Array.isArray(req.body?.communityIds) ? req.body.communityIds : null
+    });
+    return res.json(data);
   } catch (err) {
     return next(err);
   }
@@ -162,6 +254,39 @@ router.post('/upload', upload.single('file'), async (req, res, next) => {
   }
 });
 
+router.post('/publish-package', async (req, res, next) => {
+  try {
+    const companyId = resolveCompanyId(req);
+    if (!isObjectId(companyId)) {
+      return res.status(400).json({ error: 'Invalid company context' });
+    }
+    const result = await publishCompanyPackage({
+      companyId,
+      publishedBy: req.user?._id || null
+    });
+    return res.json(result);
+  } catch (err) {
+    return next(err);
+  }
+});
+
+router.post('/publish-inventory', async (req, res, next) => {
+  try {
+    const companyId = resolveCompanyId(req);
+    if (!isObjectId(companyId)) {
+      return res.status(400).json({ error: 'Invalid company context' });
+    }
+    const result = await publishCompanyInventory({
+      companyId,
+      publishedBy: req.user?._id || null
+    });
+    return res.json(result);
+  } catch (err) {
+    return next(err);
+  }
+});
+
+// Deprecated alias: old publish endpoint now maps to package publish.
 router.post('/publish', async (req, res, next) => {
   try {
     const companyId = resolveCompanyId(req);

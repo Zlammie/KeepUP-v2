@@ -36,6 +36,43 @@ const TopPlansSchema = new Schema({
   plan3: { type: Schema.Types.ObjectId, ref: 'FloorPlan', default: null, set: toObjectIdOrNull },
 }, { _id: false });
 
+const CommunityWebDataSchema = new Schema({
+  primaryContact: {
+    name: { type: String, default: '' },
+    phone: { type: String, default: '' },
+    email: { type: String, default: '' }
+  },
+  contactVisibility: {
+    showName: { type: Boolean, default: true },
+    showPhone: { type: Boolean, default: true },
+    showEmail: { type: Boolean, default: false }
+  },
+  modelListingId: { type: Schema.Types.ObjectId, default: null },
+  modelFloorPlanId: { type: Schema.Types.ObjectId, ref: 'FloorPlan', default: null },
+  totalLots: { type: Number, set: toNumOrNull, default: null },
+  schools: {
+    elementary: { type: String, default: '' },
+    middle: { type: String, default: '' },
+    high: { type: String, default: '' }
+  },
+  hoa: {
+    amount: { type: Number, set: toNumOrNull, default: null },
+    cadence: { type: String, enum: ['monthly', 'annual', 'unknown'], default: 'unknown' }
+  },
+  hasPID: { type: Boolean, default: false },
+  hasMUD: { type: Boolean, default: false },
+  earnestMoney: {
+    amount: { type: Number, set: toNumOrNull, default: null },
+    visibility: { type: String, enum: ['hidden', 'public', 'gated'], default: 'hidden' }
+  },
+  realtorCommission: {
+    amount: { type: Number, set: toNumOrNull, default: null },
+    unit: { type: String, enum: ['percent', 'flat', 'unknown'], default: 'unknown' },
+    visibility: { type: String, enum: ['hidden', 'public', 'gated'], default: 'hidden' }
+  },
+  notesInternal: { type: String, default: '' }
+}, { _id: false });
+
 const CommunityCompetitionProfileSchema = new Schema({
   // 🔐 tenant scope
   company:   { type: Schema.Types.ObjectId, ref: 'Company', required: true, index: true },
@@ -88,6 +125,8 @@ const CommunityCompetitionProfileSchema = new Schema({
   promotion: String,
   buildrootzDescription: { type: String, default: '' },
   heroImage: { type: String, default: '' },
+  webData: { type: CommunityWebDataSchema, default: () => ({}) },
+  webDataUpdatedAt: { type: Date, default: null },
 
   // Top plans (no dupes)
   topPlans: {
@@ -121,6 +160,19 @@ const CommunityCompetitionProfileSchema = new Schema({
   linkedCompetitions: [{ type: Schema.Types.ObjectId, ref: 'Competition' }]
 }, { timestamps: true });
 
+const updateTouchesWebData = (update = {}) => {
+  if (!update || typeof update !== 'object') return false;
+  const rootKeys = Object.keys(update);
+  if (rootKeys.some((key) => key === 'webData' || key.startsWith('webData.'))) return true;
+
+  const bucketKeys = ['$set', '$setOnInsert', '$unset'];
+  return bucketKeys.some((bucket) => {
+    const value = update[bucket];
+    if (!value || typeof value !== 'object') return false;
+    return Object.keys(value).some((key) => key === 'webData' || key.startsWith('webData.'));
+  });
+};
+
 // ── indexes for common reads ──
 CommunityCompetitionProfileSchema.index({ company: 1, community: 1 }, { unique: true }); // reinforce “one per community per tenant”
 CommunityCompetitionProfileSchema.index({ company: 1, 'monthlyPrices.month': 1 });
@@ -141,6 +193,21 @@ CommunityCompetitionProfileSchema.pre('validate', async function (next) {
     }
     return next();
   } catch (e) { return next(e); }
+});
+
+CommunityCompetitionProfileSchema.pre('save', function onSave(next) {
+  if (this.isModified('webData')) {
+    this.webDataUpdatedAt = new Date();
+  }
+  next();
+});
+
+CommunityCompetitionProfileSchema.pre('findOneAndUpdate', function onFindOneAndUpdate(next) {
+  const update = this.getUpdate() || {};
+  if (updateTouchesWebData(update)) {
+    this.set({ webDataUpdatedAt: new Date() });
+  }
+  next();
 });
 
 module.exports = mongoose.model('CommunityCompetitionProfile', CommunityCompetitionProfileSchema);

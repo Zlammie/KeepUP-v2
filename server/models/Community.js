@@ -107,6 +107,9 @@ const LotSchema = new Schema({
   hasViewHomeLink: { type: Boolean, default: false },
   isPublished:        { type: Boolean, default: false },
   isListed:           { type: Boolean, default: false },
+  buildrootz: {
+    isPublished: { type: Boolean, default: false }
+  },
   publishedAt:        { type: Date, default: null },
   contentSyncedAt:    { type: Date, set: toDateOrNull, default: null },
   buildrootzId:       { type: Schema.Types.Mixed, default: null },
@@ -145,6 +148,7 @@ const CommunitySchema = new Schema({
   // BuildRootz canonical mapping (prevents duplicate community records)
   buildrootz: {
     communityId:    { type: Schema.Types.Mixed, default: null },
+    publicCommunityId: { type: String },
     canonicalName:  { type: String, default: '' },
     mappedAt:       { type: Date, default: null },
     mappedByUserId: { type: Schema.Types.ObjectId, default: null },
@@ -155,6 +159,7 @@ const CommunitySchema = new Schema({
       requestedAt:      { type: Date, default: null },
       lastCheckedAt:    { type: Date, default: null },
       resolvedCommunityId: { type: String, default: null },
+      resolvedPublicCommunityId: { type: String, default: null },
       resolvedAt:       { type: Date, default: null },
       rejectedReason:   { type: String, default: '' }
     }

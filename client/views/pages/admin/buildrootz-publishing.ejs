@@ -17,8 +17,7 @@
         <p class="text-uppercase text-muted small mb-1">BuildRootz</p>
         <h1 class="h4 mb-1">BuildRootz Publishing</h1>
         <p class="text-muted mb-0">
-          KeepUp is the source of truth. BuildRootz must consume published snapshots only:
-          <code>/public/brz/builders/:slug</code>.
+          KeepUp is the source of truth. Publish sends an internal bundle to BuildRootz with canonical mapped IDs.
         </p>
       </header>
 
@@ -43,7 +42,7 @@
             </div>
             <div class="col-md-6">
               <label class="form-label" for="brzCtaWebsite">CTA Website Link</label>
-              <input id="brzCtaWebsite" class="form-control" type="url" placeholder="https://example.com" />
+              <input id="brzCtaWebsite" class="form-control" type="url" placeholder="Falls back to Admin > BuildRootz website URL" />
             </div>
             <div class="col-md-6">
               <label class="form-label" for="brzCtaSchedule">CTA Schedule Link</label>
@@ -56,10 +55,15 @@
             <div class="col-md-6">
               <label class="form-label" for="brzShortDescription">Short Description</label>
               <textarea id="brzShortDescription" class="form-control" rows="3" placeholder="Short summary for builder profile"></textarea>
+              <small class="text-muted">If empty, this uses the Admin BuildRootz short description.</small>
             </div>
             <div class="col-md-6">
               <label class="form-label" for="brzLongDescription">Long Description</label>
               <textarea id="brzLongDescription" class="form-control" rows="3" placeholder="Long-form builder profile content"></textarea>
+            </div>
+            <div class="col-12">
+              <label class="form-label" for="brzPricingDisclaimer">Pricing Disclaimer (optional)</label>
+              <textarea id="brzPricingDisclaimer" class="form-control" rows="2" placeholder="Prices, plans, and features subject to change without notice. Buyer to verify all information."></textarea>
             </div>
             <div class="col-12">
               <label class="form-label">Hero Image</label>
@@ -78,7 +82,23 @@
 
       <section class="card shadow-sm mb-4">
         <div class="card-body">
-          <h2 class="h6 mb-3">Communities</h2>
+          <div class="d-flex justify-content-between align-items-center flex-wrap gap-2 mb-3">
+            <div class="d-flex align-items-center gap-2 flex-wrap">
+              <h2 class="h6 mb-0">Communities</h2>
+              <button type="button" class="btn btn-sm btn-outline-warning" id="brzBulkSyncBtn">
+                Sync all out-of-date (<span id="brzBulkSyncCount">0</span>)
+              </button>
+            </div>
+            <div class="btn-group btn-group-sm" role="group" aria-label="Community filters">
+              <button type="button" class="btn btn-outline-secondary brz-community-filter active" data-filter="all">All</button>
+              <button type="button" class="btn btn-outline-secondary brz-community-filter" data-filter="included">Included</button>
+              <button type="button" class="btn btn-outline-secondary brz-community-filter" data-filter="missing-required">Missing required</button>
+              <button type="button" class="btn btn-outline-secondary brz-community-filter" data-filter="missing-hero">Missing hero</button>
+              <button type="button" class="btn btn-outline-secondary brz-community-filter" data-filter="missing-model">Missing model</button>
+              <button type="button" class="btn btn-outline-secondary brz-community-filter" data-filter="missing-community-price">Missing community price</button>
+            </div>
+          </div>
+          <div class="small text-muted mb-2" id="brzBulkSyncStatus"></div>
           <div class="table-responsive">
             <table class="table table-sm align-middle">
               <thead>
@@ -86,12 +106,14 @@
                   <th>Community</th>
                   <th>Include</th>
                   <th>Description Override</th>
+                  <th>Completeness</th>
+                  <th>Linked Floor Plans</th>
                   <th>Actions</th>
                 </tr>
               </thead>
               <tbody id="brzCommunitiesBody">
                 <tr>
-                  <td colspan="4" class="text-muted">Loading communities...</td>
+                  <td colspan="6" class="text-muted">Loading communities...</td>
                 </tr>
               </tbody>
             </table>
@@ -101,7 +123,8 @@
 
       <section class="card shadow-sm mb-4">
         <div class="card-body">
-          <h2 class="h6 mb-3">Floor Plans</h2>
+          <h2 class="h6 mb-1">Floor Plans (Catalog)</h2>
+          <p class="small text-muted mb-3">Default Base Price (fallback): if a community-specific price is set, that community value is used instead.</p>
           <div class="table-responsive">
             <table class="table table-sm align-middle">
               <thead>
@@ -110,13 +133,14 @@
                   <th>Community</th>
                   <th>Include</th>
                   <th>Description Override</th>
+                  <th>Default Base Price (fallback)</th>
                   <th>Primary Image</th>
                   <th>Actions</th>
                 </tr>
               </thead>
               <tbody id="brzFloorPlansBody">
                 <tr>
-                  <td colspan="6" class="text-muted">Loading floor plans...</td>
+                  <td colspan="7" class="text-muted">Loading floor plans...</td>
                 </tr>
               </tbody>
             </table>
@@ -127,19 +151,37 @@
       <section class="card shadow-sm mb-4">
         <div class="card-body">
           <h2 class="h6 mb-3">Publish / History</h2>
-          <div class="row g-3 align-items-end">
-            <div class="col-md-3">
-              <label class="form-label mb-1">Latest Version</label>
-              <div class="fw-semibold" id="brzPublishVersion">-</div>
+          <div class="row g-3 mb-3">
+            <div class="col-md-6">
+              <div class="border rounded p-3 h-100">
+                <div class="d-flex justify-content-between align-items-center mb-2">
+                  <div class="fw-semibold">Package</div>
+                  <button class="btn btn-primary btn-sm" id="brzPublishPackageBtn" type="button">Publish Package</button>
+                </div>
+                <div class="small text-muted">Last Status</div>
+                <div class="fw-semibold" id="brzPackagePublishVersion">-</div>
+                <div class="small text-muted mt-2">Published At</div>
+                <div class="fw-semibold" id="brzPackagePublishAt">-</div>
+                <div class="small mt-2" id="brzPackagePublishStatus"></div>
+              </div>
             </div>
-            <div class="col-md-4">
-              <label class="form-label mb-1">Published At</label>
-              <div class="fw-semibold" id="brzPublishAt">-</div>
+            <div class="col-md-6">
+              <div class="border rounded p-3 h-100">
+                <div class="d-flex justify-content-between align-items-center mb-2">
+                  <div class="fw-semibold">Inventory</div>
+                  <button class="btn btn-outline-primary btn-sm" id="brzPublishInventoryBtn" type="button">Publish Inventory</button>
+                </div>
+                <div class="small text-muted">Last Status</div>
+                <div class="fw-semibold" id="brzInventoryPublishVersion">-</div>
+                <div class="small text-muted mt-2">Published At</div>
+                <div class="fw-semibold" id="brzInventoryPublishAt">-</div>
+                <div class="small mt-2" id="brzInventoryPublishStatus"></div>
+                <div class="small mt-2 brz-warning-list d-none" id="brzInventoryWarnings"></div>
+              </div>
             </div>
-            <div class="col-md-5 d-flex gap-2 justify-content-md-end">
-              <a class="btn btn-outline-secondary" id="brzPreviewLink" href="#" target="_blank" rel="noopener noreferrer">Open Public Preview</a>
-              <button class="btn btn-primary" id="brzPublishBtn" type="button">Publish Snapshot</button>
-            </div>
+          </div>
+          <div class="d-flex justify-content-end">
+            <a class="btn btn-outline-secondary btn-sm" id="brzPreviewLink" href="#" target="_blank" rel="noopener noreferrer">Open Public Preview</a>
           </div>
           <div class="small mt-2" id="brzPublishStatus"></div>
         </div>

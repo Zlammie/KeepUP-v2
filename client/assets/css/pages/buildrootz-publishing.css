@@ -26,6 +26,43 @@
   min-width: 110px;
 }
 
+.brz-badge-wrap {
+  margin-top: 0.35rem;
+}
+
+.brz-badge-wrap .badge {
+  margin-bottom: 0.25rem;
+}
+
+.brz-community-web-card {
+  border: 1px solid rgba(0, 0, 0, 0.08);
+  border-radius: 0.5rem;
+  padding: 0.85rem;
+  background: #fafbfc;
+}
+
+.brz-community-details-row td {
+  background: #fff;
+}
+
+.brz-model-listing-block {
+  max-height: 130px;
+  overflow: auto;
+  padding: 0.25rem;
+  background: #fff;
+  border: 1px solid rgba(0, 0, 0, 0.08);
+  border-radius: 0.35rem;
+}
+
+.brz-community-plan-table .form-control,
+.brz-community-plan-table .form-select {
+  min-width: 130px;
+}
+
+.brz-community-plan-fallback {
+  opacity: 0.85;
+}
+
 .brz-status-muted {
   color: #6b7280;
 }
@@ -36,6 +73,42 @@
 
 .brz-status-error {
   color: #b91c1c;
+}
+
+.badge-out-of-date {
+  background: #fff7ed;
+  color: #9a3412;
+  border: 1px solid #fdba74;
+}
+
+.badge-up-to-date {
+  background: #ecfdf3;
+  color: #166534;
+  border: 1px solid #86efac;
+}
+
+.badge-never-synced {
+  background: #f3f4f6;
+  color: #374151;
+  border: 1px solid #d1d5db;
+}
+
+#brzBulkSyncBtn[disabled] {
+  opacity: 0.7;
+}
+
+#brzBulkSyncStatus {
+  min-height: 1rem;
+}
+
+.brz-warning-list {
+  border-top: 1px solid rgba(0, 0, 0, 0.08);
+  padding-top: 0.5rem;
+}
+
+.brz-warning-list ul {
+  max-height: 180px;
+  overflow: auto;
 }
 
 @media (max-width: 991.98px) {

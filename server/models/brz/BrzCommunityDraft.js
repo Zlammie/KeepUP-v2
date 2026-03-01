@@ -11,7 +11,11 @@ const BrzCommunityDraftSchema = new Schema(
     displayNameOverride: { type: String, default: '', trim: true },
     descriptionOverride: { type: String, default: '' },
     heroImage: { type: BrzImageMetaSchema, default: null },
-    sortOrder: { type: Number, default: 0 }
+    sortOrder: { type: Number, default: 0 },
+    competitionWebData: { type: Schema.Types.Mixed, default: null },
+    competitionPromotion: { type: String, default: '' },
+    draftSyncedAt: { type: Date, default: null },
+    draftSyncedFrom: { type: String, enum: ['competition', null], default: null }
   },
   { timestamps: true }
 );

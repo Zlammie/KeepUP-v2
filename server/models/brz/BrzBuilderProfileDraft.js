@@ -11,7 +11,8 @@ const BrzBuilderProfileDraftSchema = new Schema(
     shortDescription: { type: String, default: '' },
     longDescription: { type: String, default: '' },
     heroImage: { type: BrzImageMetaSchema, default: null },
-    ctaLinks: { type: Schema.Types.Mixed, default: {} }
+    ctaLinks: { type: Schema.Types.Mixed, default: {} },
+    pricingDisclaimer: { type: String, default: '' }
   },
   { timestamps: true }
 );

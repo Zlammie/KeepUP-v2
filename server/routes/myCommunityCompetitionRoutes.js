@@ -16,6 +16,11 @@ const QuickMoveIn = require('../models/quickMoveIn');
 const SalesRecord = require('../models/salesRecord');
 const PriceRecord = require('../models/PriceRecord');
 
+// Note:
+// The My Community Competition flow is intentionally kept free of BuildRootz-specific publishing terms
+// (visibility toggles, model listing refs, commission visibility/unit, internal BRZ notes, etc.).
+// Those controls belong in BRZ Publishing only.
+
 // ───────────────────────── helpers ─────────────────────────
 const isObjectId = v => mongoose.Types.ObjectId.isValid(String(v));
 const isSuper = req => (req.user?.roles || []).includes('SUPER_ADMIN');
@@ -247,7 +252,7 @@ router.put('/my-community-competition/:communityId',
         };
       }
 
-  const profile = await CommunityCompetitionProfile.findOneAndUpdate(
+      const profile = await CommunityCompetitionProfile.findOneAndUpdate(
         { community: community._id, ...baseFilter(req) },               // ⬅️ use community
         { $set: { ...update, company: community.company } },            // ⬅️ set company on upsert
         { new: true, upsert: true }

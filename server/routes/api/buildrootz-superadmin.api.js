@@ -8,12 +8,35 @@ const { buildrootzFetch } = require('../../services/buildrootzClient');
 const router = express.Router();
 const isObjectId = (value) => mongoose.Types.ObjectId.isValid(String(value || ''));
 
+const firstNonEmptyString = (...values) => {
+  for (const value of values) {
+    if (value == null) continue;
+    const trimmed = String(value).trim();
+    if (trimmed) return trimmed;
+  }
+  return '';
+};
+
+const resolvePublicCommunityIdFromPayload = (payload, fallbackCommunityId = '') =>
+  firstNonEmptyString(
+    payload?.publicCommunityId,
+    payload?._id,
+    payload?.communityId,
+    fallbackCommunityId
+  );
+
 async function loadRequestOr404(id) {
   if (!isObjectId(id)) return null;
   return BuildRootzCommunityRequest.findById(id);
 }
 
-async function updateCommunityMapping({ communityId, buildrootzCommunityId, canonicalName, mappedByUserId }) {
+async function updateCommunityMapping({
+  communityId,
+  buildrootzCommunityId,
+  publicCommunityId,
+  canonicalName,
+  mappedByUserId
+}) {
   const community = await Community.findById(communityId);
   if (!community) {
     const err = new Error('Community not found');
@@ -22,6 +45,7 @@ async function updateCommunityMapping({ communityId, buildrootzCommunityId, cano
   }
   community.buildrootz = community.buildrootz || {};
   community.buildrootz.communityId = buildrootzCommunityId;
+  community.buildrootz.publicCommunityId = publicCommunityId || null;
   community.buildrootz.canonicalName = canonicalName || '';
   community.buildrootz.mappedAt = new Date();
   community.buildrootz.mappedByUserId = mappedByUserId || null;
@@ -51,11 +75,17 @@ router.post(
         if (err.status === 404) return res.status(404).json({ error: 'BUILDROOTZ_COMMUNITY_NOT_FOUND' });
         return res.status(err.status || 502).json({ error: err.message || 'BUILDROOTZ_UNAVAILABLE' });
       }
+      const resolvedCommunityId = firstNonEmptyString(brCommunity?._id, brId);
+      const resolvedPublicCommunityId = resolvePublicCommunityIdFromPayload(
+        brCommunity,
+        resolvedCommunityId
+      );
 
       requestDoc.status = 'linked';
       requestDoc.decision = 'link';
-      requestDoc.resolvedBuildRootzCommunityId = brCommunity._id || brId;
-      requestDoc.resolvedCanonicalName = brCommunity.name || '';
+      requestDoc.resolvedBuildRootzCommunityId = resolvedCommunityId;
+      requestDoc.resolvedPublicCommunityId = resolvedPublicCommunityId;
+      requestDoc.resolvedCanonicalName = brCommunity.canonicalName || brCommunity.name || '';
       requestDoc.reviewedByUserId = req.user?._id || null;
       requestDoc.reviewedAt = new Date();
       await requestDoc.save();
@@ -68,7 +98,8 @@ router.post(
             requestedName: requestDoc.requestedName,
             requestedAt: requestDoc.submittedAt,
             lastCheckedAt: new Date(),
-            resolvedCommunityId: brCommunity._id || brId,
+            resolvedCommunityId: resolvedCommunityId,
+            resolvedPublicCommunityId: resolvedPublicCommunityId || null,
             resolvedAt: new Date(),
             rejectedReason: ''
           }
@@ -78,11 +109,16 @@ router.post(
       await updateCommunityMapping({
         communityId: requestDoc.keepupCommunityId,
         buildrootzCommunityId: requestDoc.resolvedBuildRootzCommunityId,
+        publicCommunityId: requestDoc.resolvedPublicCommunityId,
         canonicalName: requestDoc.resolvedCanonicalName,
         mappedByUserId: req.user?._id || null
       });
 
-      return res.json({ ok: true });
+      return res.json({
+        ok: true,
+        communityId: requestDoc.resolvedBuildRootzCommunityId,
+        publicCommunityId: requestDoc.resolvedPublicCommunityId || null
+      });
     } catch (err) {
       console.error('[buildrootz request link]', err);
       const status = err.status || 500;
@@ -120,6 +156,7 @@ router.post(
           created = false;
           brCommunity = {
             communityId: err.payload.communityId,
+            publicCommunityId: err.payload.publicCommunityId || '',
             canonicalName: err.payload.canonicalName || name,
             city: err.payload.city || city,
             state: err.payload.state || state,
@@ -130,12 +167,20 @@ router.post(
         }
       }
 
-      const resolvedCommunityId = brCommunity.communityId || brCommunity._id;
+      const resolvedCommunityId = firstNonEmptyString(brCommunity?.communityId, brCommunity?._id);
+      const resolvedPublicCommunityId = resolvePublicCommunityIdFromPayload(
+        brCommunity,
+        resolvedCommunityId
+      );
+      if (!resolvedCommunityId) {
+        return res.status(502).json({ error: 'BUILDROOTZ_COMMUNITY_ID_MISSING' });
+      }
       const resolvedCanonicalName = brCommunity.canonicalName || brCommunity.name || name;
 
       requestDoc.status = created ? 'approved' : 'linked';
       requestDoc.decision = created ? 'create' : 'link';
       requestDoc.resolvedBuildRootzCommunityId = resolvedCommunityId;
+      requestDoc.resolvedPublicCommunityId = resolvedPublicCommunityId;
       requestDoc.resolvedCanonicalName = resolvedCanonicalName;
       requestDoc.reviewedByUserId = req.user?._id || null;
       requestDoc.reviewedAt = new Date();
@@ -151,6 +196,7 @@ router.post(
             requestedAt: requestDoc.submittedAt,
             lastCheckedAt: new Date(),
             resolvedCommunityId: resolvedCommunityId,
+            resolvedPublicCommunityId: resolvedPublicCommunityId || null,
             resolvedAt: new Date(),
             rejectedReason: ''
           }
@@ -160,11 +206,17 @@ router.post(
       await updateCommunityMapping({
         communityId: requestDoc.keepupCommunityId,
         buildrootzCommunityId: resolvedCommunityId,
+        publicCommunityId: resolvedPublicCommunityId,
         canonicalName: resolvedCanonicalName,
         mappedByUserId: req.user?._id || null
       });
 
-      return res.json({ ok: true, communityId: resolvedCommunityId, canonicalName: resolvedCanonicalName });
+      return res.json({
+        ok: true,
+        communityId: resolvedCommunityId,
+        publicCommunityId: resolvedPublicCommunityId || null,
+        canonicalName: resolvedCanonicalName
+      });
     } catch (err) {
       console.error('[buildrootz request approve-create]', err);
       const status = err.status || 500;
@@ -203,6 +255,7 @@ router.post(
             requestedAt: requestDoc.submittedAt,
             lastCheckedAt: new Date(),
             resolvedCommunityId: null,
+            resolvedPublicCommunityId: null,
             resolvedAt: null,
             rejectedReason: reason
           }
