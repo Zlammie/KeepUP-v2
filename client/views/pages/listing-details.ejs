@@ -12,6 +12,8 @@
   <%- include('../partials/nav') %>
   <%- include('../partials/top-nav-blank') %>
   <% const lotData = lot || {}; %>
+  <% const readinessSource = typeof brzReadiness !== 'undefined' ? brzReadiness : null; %>
+  <% const readiness = readinessSource || { status: 'ready', score: 100, missing: [], warnings: [] }; %>
   <% const formatDate = (value) => {
        if (!value) return '';
        const d = new Date(value);
@@ -37,6 +39,16 @@
        if (normalized.includes('close')) return 'status-pill--closed';
        return 'status-pill--default';
      };
+     const readinessMeta = (() => {
+       const status = (readiness.status || 'ready').toLowerCase();
+       if (status === 'incomplete') {
+         return { label: 'Incomplete', className: 'listing-readiness-pill--incomplete' };
+       }
+       if (status === 'warning') {
+         return { label: 'Needs info', className: 'listing-readiness-pill--warning' };
+       }
+       return { label: 'Ready', className: 'listing-readiness-pill--ready' };
+     })();
   %>
 
   <main class="container py-4 listings-page">
@@ -97,6 +109,47 @@
       </div>
       <div id="listingPublishStatus" class="small text-muted mt-2"></div>
       <div id="listingPublishWarnings" class="small text-muted mt-1 d-none"></div>
+    </div>
+
+    <div class="card shadow-sm border-0 mb-3 listing-readiness-card">
+      <div class="card-body">
+        <div class="d-flex justify-content-between align-items-start flex-wrap gap-3">
+          <div>
+            <p class="text-uppercase text-muted fw-semibold small mb-1">BuildRootz Readiness</p>
+            <div class="d-flex align-items-center gap-2 flex-wrap">
+              <span class="listing-readiness-pill <%= readinessMeta.className %>"><%= readinessMeta.label %></span>
+              <span class="text-muted small">Score: <strong><%= typeof readiness.score === 'number' ? readiness.score : 0 %>/100</strong></span>
+            </div>
+          </div>
+          <% if (readiness.status === 'incomplete') { %>
+            <p class="text-danger small fw-semibold mb-0">This home may not publish correctly to BuildRootz.</p>
+          <% } %>
+        </div>
+
+        <% if (Array.isArray(readiness.missing) && readiness.missing.length) { %>
+          <div class="mt-3">
+            <p class="text-muted small mb-2">Missing</p>
+            <div class="d-flex flex-wrap gap-2">
+              <% readiness.missing.forEach(function(item) { %>
+                <span class="listing-readiness-chip"><%= item %></span>
+              <% }); %>
+            </div>
+          </div>
+        <% } else { %>
+          <p class="text-muted small mt-3 mb-0">All required listing data is present for BuildRootz.</p>
+        <% } %>
+
+        <% if (Array.isArray(readiness.warnings) && readiness.warnings.length) { %>
+          <div class="mt-3">
+            <p class="text-muted small mb-1">Notes</p>
+            <ul class="text-muted small mb-0 ps-3">
+              <% readiness.warnings.forEach(function(item) { %>
+                <li><%= item %></li>
+              <% }); %>
+            </ul>
+          </div>
+        <% } %>
+      </div>
     </div>
 
     <div id="section-overview" class="card shadow-sm border-0 mb-3 section-pane active">
@@ -187,6 +240,27 @@
             <% } else { %>
               <p class="text-muted small mb-0">Not provided.</p>
             <% } %>
+          </div>
+          <div class="col-md-12">
+            <p class="text-muted small mb-1">Listing location (City / State / ZIP)</p>
+            <div class="row g-2 align-items-end">
+              <div class="col-md-4">
+                <input type="text" class="form-control form-control-sm" id="listingCityInput" placeholder="City" value="<%= lotData.listingLocation?.city || '' %>">
+              </div>
+              <div class="col-md-4">
+                <input type="text" class="form-control form-control-sm" id="listingStateInput" placeholder="State" value="<%= lotData.listingLocation?.state || '' %>">
+              </div>
+              <div class="col-md-4">
+                <input type="text" class="form-control form-control-sm" id="listingPostalCodeInput" placeholder="ZIP" value="<%= lotData.listingLocation?.postalCode || '' %>">
+              </div>
+            </div>
+            <div class="d-flex flex-wrap gap-2 mt-2">
+              <button type="button" id="copyCommunityLocationBtn" class="btn btn-outline-secondary btn-sm">Copy from community</button>
+              <span class="text-muted small">
+                Community default:
+                <%= [lotData.communityLocation?.city, [lotData.communityLocation?.state, lotData.communityLocation?.postalCode].filter(Boolean).join(' ')].filter(Boolean).join(', ') || '—' %>
+              </span>
+            </div>
           </div>
           <div class="col-md-6">
             <p class="text-muted small mb-1">Map coordinates (lat, lng)</p>
@@ -409,6 +483,14 @@
             <p class="text-muted small mb-1">Promo text</p>
             <textarea class="form-control" id="promoTextInput" rows="2" placeholder="Add promo text"><%= lotData.listingContent?.promoText || '' %></textarea>
           </div>
+          <div class="col-md-4">
+            <p class="text-muted small mb-1">Promo mode</p>
+            <select class="form-select" id="promoModeInput">
+              <option value="add" <%= (lotData.listingContent?.promoMode || 'add') === 'add' ? 'selected' : '' %>>Add</option>
+              <option value="override" <%= lotData.listingContent?.promoMode === 'override' ? 'selected' : '' %>>Override</option>
+            </select>
+            <p class="text-muted small mt-1 mb-0">BuildRootz uses this to combine listing promo with the community promo.</p>
+          </div>
           <div class="col-md-12">
             <p class="text-muted small mb-1">Listing description</p>
             <textarea class="form-control" id="listingDescriptionInput" rows="4" placeholder="Add a full listing description"><%= lotData.listingContent?.description || '' %></textarea>
@@ -420,6 +502,7 @@
   <script src="/assets/vendor/pdfjs/pdf.min.js" nonce="<%= cspNonce %>"></script>
   <script nonce="<%= cspNonce %>">
   (() => {
+    const brzReadiness = <%- JSON.stringify(readiness) %>;
     const publishBtn = document.getElementById('listing-publish-btn');
     const communityId = "<%= lotData.communityId %>";
     const lotId = "<%= lotData.id %>";
@@ -434,6 +517,7 @@
     const photoGrid = document.querySelector('.listing-photo-grid');
     const fpFiles = <%- JSON.stringify(fpPreviewsRaw.filter((p) => p && p.type === 'file')) %>;
     const promoInput = document.getElementById('promoTextInput');
+    const promoModeInput = document.getElementById('promoModeInput');
     const descriptionInput = document.getElementById('listingDescriptionInput');
     const saveContentBtn = document.getElementById('listing-content-save');
     const liveElevationInput = document.getElementById('liveElevationInput');
@@ -445,6 +529,12 @@
     const sectionTabs = document.querySelectorAll('.section-tab');
     const latitudeInput = document.getElementById('latitudeInput');
     const longitudeInput = document.getElementById('longitudeInput');
+    const geocodeBtn = document.getElementById('geocodeBtn');
+    const listingCityInput = document.getElementById('listingCityInput');
+    const listingStateInput = document.getElementById('listingStateInput');
+    const listingPostalCodeInput = document.getElementById('listingPostalCodeInput');
+    const copyCommunityLocationBtn = document.getElementById('copyCommunityLocationBtn');
+    const communityLocationDefaults = <%- JSON.stringify(lotData.communityLocation || {}) %>;
 
     if (!publishBtn) return;
 
@@ -506,6 +596,21 @@
         alert('Map this community to BuildRootz before publishing. Use the BuildRootz mapping page.');
         publishBtn.disabled = false;
         return;
+      }
+      if (
+        nextValue &&
+        brzReadiness &&
+        brzReadiness.status === 'incomplete'
+      ) {
+        const missingItems = Array.isArray(brzReadiness.missing)
+          ? brzReadiness.missing.map((item) => String(item || '').trim()).filter(Boolean)
+          : [];
+        const confirmed = window.confirm(
+          `This listing is incomplete for BuildRootz${missingItems.length ? `: ${missingItems.join(', ')}` : '.'}\n\nThis home may not publish correctly to BuildRootz.\n\nPublish anyway?`
+        );
+        if (!confirmed) {
+          return;
+        }
       }
       publishBtn.disabled = true;
       publishBtn.textContent = nextValue ? 'Publishing...' : 'Unpublishing...';
@@ -873,15 +978,24 @@
       }
     })();
 
-    saveContentBtn?.addEventListener('click', async () => {
+    const saveListingContent = async ({ setSavingUi = true } = {}) => {
       const promoText = promoInput?.value ?? '';
+      const promoMode = promoModeInput?.value === 'override' ? 'override' : 'add';
       const listingDescription = descriptionInput?.value ?? '';
       const liveElevationPhoto = liveElevationInput?.value ?? '';
       const latitudeVal = latitudeInput?.value ?? '';
       const longitudeVal = longitudeInput?.value ?? '';
-      saveContentBtn.disabled = true;
-      const prevText = saveContentBtn.textContent;
-      saveContentBtn.textContent = 'Saving...';
+      const cityVal = listingCityInput?.value ?? '';
+      const stateVal = listingStateInput?.value ?? '';
+      const postalCodeVal = listingPostalCodeInput?.value ?? '';
+
+      let prevText = '';
+      if (setSavingUi && saveContentBtn) {
+        saveContentBtn.disabled = true;
+        prevText = saveContentBtn.textContent;
+        saveContentBtn.textContent = 'Saving...';
+      }
+
       try {
         const resp = await fetch('/listing-details/content', {
           method: 'POST',
@@ -891,8 +1005,12 @@
             communityId,
             lotId,
             promoText,
+            promoMode,
             listingDescription,
             liveElevationPhoto,
+            city: cityVal,
+            state: stateVal,
+            postalCode: postalCodeVal,
             latitude: latitudeVal,
             longitude: longitudeVal
           })
@@ -927,9 +1045,31 @@
         console.error(err);
         alert(err.message || 'Failed to save listing content');
       } finally {
-        saveContentBtn.disabled = false;
-        saveContentBtn.textContent = prevText;
+        if (setSavingUi && saveContentBtn) {
+          saveContentBtn.disabled = false;
+          saveContentBtn.textContent = prevText;
+        }
       }
+    };
+
+    saveContentBtn?.addEventListener('click', async () => {
+      await saveListingContent({ setSavingUi: true });
+    });
+
+    copyCommunityLocationBtn?.addEventListener('click', async () => {
+      const city = String(communityLocationDefaults?.city || '').trim();
+      const state = String(communityLocationDefaults?.state || '').trim();
+      const postalCode = String(communityLocationDefaults?.postalCode || '').trim();
+
+      if (!city && !state && !postalCode) {
+        alert('Community location is missing. Update My Community Competition first.');
+        return;
+      }
+
+      if (listingCityInput && city) listingCityInput.value = city;
+      if (listingStateInput && state) listingStateInput.value = state;
+      if (listingPostalCodeInput && postalCode) listingPostalCodeInput.value = postalCode;
+      await saveListingContent({ setSavingUi: true });
     });
 
     geocodeBtn?.addEventListener('click', async () => {
@@ -938,10 +1078,10 @@
       geocodeBtn.textContent = 'Looking up...';
       try {
         const body = {
-          address: <%- JSON.stringify(lotData.modelAddress?.street || lotData.address || '') %>,
-          city: <%- JSON.stringify(lotData.modelAddress?.city || lotData.location || '') %>,
-          state: <%- JSON.stringify(lotData.modelAddress?.state || '') %>,
-          zip: <%- JSON.stringify(lotData.modelAddress?.zip || '') %>
+          address: <%- JSON.stringify(lotData.address || '') %>,
+          city: listingCityInput?.value ?? '',
+          state: listingStateInput?.value ?? '',
+          zip: listingPostalCodeInput?.value ?? ''
         };
         const resp = await fetch('/listing-details/geocode', {
           method: 'POST',

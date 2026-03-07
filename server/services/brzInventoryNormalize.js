@@ -1,4 +1,5 @@
 const trimString = (value) => (value == null ? '' : String(value).trim());
+const { normalizeListingLocation } = require('./locationService');
 
 const toNullableNumber = (value) => {
   if (value == null || value === '') return null;
@@ -31,26 +32,6 @@ const readNumberFromPaths = (obj, paths = []) => {
 const normalizeHomeAddress = (lot, community, company) => {
   void company;
   const warnings = [];
-
-  const assembledLine1 = firstNonEmpty(
-    [
-      trimString(lot?.streetNumber || lot?.addressNumber || lot?.houseNumber),
-      trimString(lot?.streetName || lot?.roadName)
-    ]
-      .filter(Boolean)
-      .join(' ')
-  );
-
-  const line1 = firstNonEmpty(
-    lot?.address,
-    lot?.street,
-    lot?.streetAddress,
-    lot?.address1,
-    lot?.addressLine1,
-    lot?.line1,
-    lot?.propertyAddress,
-    assembledLine1
-  );
   const line2 = firstNonEmpty(
     lot?.address2,
     lot?.addressLine2,
@@ -59,9 +40,11 @@ const normalizeHomeAddress = (lot, community, company) => {
     lot?.suite,
     lot?.apt
   );
-  const city = firstNonEmpty(lot?.city, community?.city);
-  const state = firstNonEmpty(lot?.state, community?.state);
-  const zip = firstNonEmpty(lot?.zip, lot?.postalCode, lot?.postal, community?.zip);
+  const location = normalizeListingLocation(lot, { community });
+  const line1 = firstNonEmpty(location?.address1);
+  const city = firstNonEmpty(location?.city);
+  const state = firstNonEmpty(location?.state);
+  const zip = firstNonEmpty(location?.postalCode);
 
   if (!line1) {
     warnings.push('MISSING_ADDRESS_LINE1');
@@ -77,15 +60,12 @@ const normalizeHomeAddress = (lot, community, company) => {
   if (line2) address.line2 = line2;
   if (zip) address.zip = zip;
 
-  const cityStateZip = [
-    city,
-    [state, zip].filter(Boolean).join(' ').trim()
-  ]
-    .filter(Boolean)
-    .join(', ');
-  const displayAddress = [line1, cityStateZip].filter(Boolean).join(', ');
+  const displayAddress = trimString(location?.formattedAddress)
+    || [line1, [city, [state, zip].filter(Boolean).join(' ').trim()].filter(Boolean).join(', ')]
+      .filter(Boolean)
+      .join(', ');
 
-  return { address, displayAddress, warnings };
+  return { address, displayAddress, location, warnings };
 };
 
 const normalizeHomeGeo = (lot) => {

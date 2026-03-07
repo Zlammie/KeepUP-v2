@@ -8,6 +8,7 @@ const {
   updateBuilderProfileDraft,
   updateCommunityDraft,
   updateCommunityLotPublishFlag,
+  applyCommunityLocationToMissingListings,
   syncCommunityDraftFromCompetition,
   syncOutOfDateCommunitiesFromCompetition,
   updateCommunityWebData,
@@ -33,13 +34,21 @@ const safeUnlink = async (filePath) => {
   }
 };
 
-const resolveCompanyId = (req) => req.user?.company || null;
+const resolveCompanyId = (req) =>
+  req.company?._id
+  || req.companyId
+  || req.user?.company
+  || req.user?.companyId
+  || null;
 
 router.use(requireCompanyAdmin);
 
 router.get('/bootstrap', async (req, res, next) => {
   try {
     const companyId = resolveCompanyId(req);
+    if (!companyId) {
+      return res.status(400).json({ error: 'Missing company context' });
+    }
     if (!isObjectId(companyId)) {
       return res.status(400).json({ error: 'Invalid company context' });
     }
@@ -169,6 +178,22 @@ router.post('/community/:communityId/sync-from-competition', async (req, res, ne
   }
 });
 
+router.post('/community/:communityId/apply-location-to-listings', async (req, res, next) => {
+  try {
+    const companyId = resolveCompanyId(req);
+    if (!isObjectId(companyId)) {
+      return res.status(400).json({ error: 'Invalid company context' });
+    }
+    const data = await applyCommunityLocationToMissingListings({
+      companyId,
+      communityId: req.params.communityId
+    });
+    return res.json({ ok: true, ...data });
+  } catch (err) {
+    return next(err);
+  }
+});
+
 router.post('/sync-from-competition/bulk', async (req, res, next) => {
   try {
     const companyId = resolveCompanyId(req);
@@ -278,7 +303,11 @@ router.post('/publish-inventory', async (req, res, next) => {
     }
     const result = await publishCompanyInventory({
       companyId,
-      publishedBy: req.user?._id || null
+      ctx: {
+        userId: req.user?._id || null,
+        source: 'user',
+        route: req.originalUrl || req.path || ''
+      }
     });
     return res.json(result);
   } catch (err) {

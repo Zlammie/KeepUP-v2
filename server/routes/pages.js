@@ -19,6 +19,7 @@ const FloorPlanComp = require('../models/floorPlanComp');
 const FloorPlan = require('../models/FloorPlan');
 const CommunityCompetitionProfile = require('../models/communityCompetitionProfile');
 const BuildRootzCommunityRequest = require('../models/BuildRootzCommunityRequest');
+const BrzPublishAudit = require('../models/BrzPublishAudit');
 const Company = require('../models/Company');
 const Task = require('../models/Task');
 const User = require('../models/User');
@@ -26,7 +27,23 @@ const AutoFollowUpSchedule = require('../models/AutoFollowUpSchedule');
 const AutoFollowUpAssignment = require('../models/AutoFollowUpAssignment');
 const { publishCompanyInventory } = require('../services/brzPublishingService');
 const { buildrootzFetch } = require('../services/buildrootzClient');
-const { competitionProfileToWebData } = require('../services/communityWebDataService');
+const {
+  competitionProfileToWebData,
+  normalizePromo
+} = require('../services/communityWebDataService');
+const {
+  buildLotPublishFlagSet,
+  processBrzReadinessBulkAction
+} = require('../services/brzPublishFlagService');
+const { computeBrzReadiness } = require('../lib/brzReadiness');
+const {
+  DEFAULT_PAGE_SIZE,
+  buildReadinessRows,
+  groupReadinessRows,
+  normalizeQueueParams,
+  paginateRows
+} = require('../lib/brzReadinessQueue');
+const { resolveListingLocationDefaults } = require('../services/locationService');
 const { hydrateTaskLinks, groupTasksByAttachment } = require('../utils/taskLinkedDetails');
 const upload = require('../middleware/upload');
 const {
@@ -53,6 +70,10 @@ const normalizeGarageType = (value) => {
   if (norm === 'front') return 'Front';
   if (norm === 'rear') return 'Rear';
   return null;
+};
+const requireBrzAdminJson = (req, res, next) => {
+  if (isSuper(req) || isCompanyAdmin(req)) return next();
+  return res.status(403).json({ ok: false, message: 'Forbidden' });
 };
 
 const tenMileBaseDir = path.join(__dirname, '../..', 'public', 'maps', 'ten-mile-creek');
@@ -97,6 +118,14 @@ const parseLatLng = (val) => {
   return null;
 };
 
+const trimText = (value) => (value == null ? '' : String(value).trim());
+
+const buildPublishAuditContext = (req) => ({
+  userId: req.user?._id || req.session?.user?._id || null,
+  source: 'user',
+  route: req.originalUrl || req.path || ''
+});
+
 const isLotPublishedForBuildrootz = (lot) => {
   if (!lot || typeof lot !== 'object') return false;
   if (lot?.buildrootz && Object.prototype.hasOwnProperty.call(lot.buildrootz, 'isPublished')) {
@@ -109,7 +138,8 @@ const publishListingInventory = async ({
   companyId,
   communityId,
   lotId,
-  isPublished
+  isPublished,
+  ctx = null
 }) => {
   const normalizedCommunityId = String(communityId);
   const normalizedLotId = String(lotId);
@@ -126,7 +156,8 @@ const publishListingInventory = async ({
 
   return publishCompanyInventory({
     companyId,
-    ...scope
+    ...scope,
+    ctx
   });
 };
 
@@ -867,11 +898,17 @@ router.get(
         const communityName = community.name || 'Community';
         const location = [community.city, community.state].filter(Boolean).join(', ');
         (community.lots || []).forEach((lot) => {
+            const lotCity = (lot?.city || community.city || '').toString().trim();
+            const lotState = (lot?.state || community.state || '').toString().trim();
+            const lotZip = (lot?.postalCode || lot?.zip || '').toString().trim();
             lots.push({
               id: lot?._id ? String(lot._id) : '',
               communityId: community._id ? String(community._id) : '',
               communityName,
               location,
+              city: lotCity,
+              state: lotState,
+              zip: lotZip,
               jobNumber: lot.jobNumber || '',
               lot: lot.lot || '',
               block: lot.block || '',
@@ -1061,6 +1098,318 @@ router.get(
 );
 
 router.get(
+  '/admin/brz/readiness',
+  ensureAuth,
+  requireRole('COMPANY_ADMIN', 'SUPER_ADMIN'),
+  async (req, res, next) => {
+    try {
+      const requestedFilters = normalizeQueueParams(req.query);
+      const allowedCommunityIds = getAllowedCommunityIds(req.user).filter(isId);
+      const companyId = isId(req.user?.company) ? String(req.user.company) : null;
+      if (!companyId) {
+        return res.status(400).send('Invalid company context');
+      }
+
+      const communityQuery = { company: companyId };
+
+      if (!isSuper(req) && allowedCommunityIds.length) {
+        communityQuery._id = { $in: allowedCommunityIds };
+      }
+
+      const communities = await Community.find(communityQuery)
+        .select([
+          'name',
+          'city',
+          'state',
+          'description',
+          'buildrootzDescription',
+          'updatedAt',
+          'lots._id',
+          'lots.jobNumber',
+          'lots.lot',
+          'lots.block',
+          'lots.phase',
+          'lots.address',
+          'lots.floorPlan',
+          'lots.heroImage',
+          'lots.listingPhotos',
+          'lots.liveElevationPhoto',
+          'lots.latitude',
+          'lots.longitude',
+          'lots.listPrice',
+          'lots.salesPrice',
+          'lots.listingDescription',
+          'lots.description',
+          'lots.beds',
+          'lots.bedrooms',
+          'lots.baths',
+          'lots.bathrooms',
+          'lots.sqft',
+          'lots.squareFeet',
+          'lots.sqFeet',
+          'lots.isPublished',
+          'lots.isListed',
+          'lots.listed',
+          'lots.listingActive',
+          'lots.buildrootz',
+          'lots.updatedAt'
+        ].join(' '))
+        .sort({ name: 1, _id: 1 })
+        .lean();
+
+      const communityOptions = communities.map((community) => ({
+        id: String(community._id),
+        name: community.name || 'Community',
+        location: [community.city, community.state].filter(Boolean).join(', ')
+      }));
+
+      const filters = {
+        ...requestedFilters,
+        communityId: communityOptions.some((community) => community.id === requestedFilters.communityId)
+          ? requestedFilters.communityId
+          : ''
+      };
+
+      const floorPlanIds = new Set();
+      communities.forEach((community) => {
+        if (filters.communityId && String(community._id) !== filters.communityId) return;
+        const lots = Array.isArray(community?.lots) ? community.lots : [];
+        lots.forEach((lot) => {
+          if (filters.published !== 'all' && !(
+            (filters.published === 'published' && isLotPublishedForBuildrootz(lot))
+            || (filters.published === 'unpublished' && !isLotPublishedForBuildrootz(lot))
+          )) {
+            return;
+          }
+
+          const rawFloorPlan = lot?.floorPlan;
+          const floorPlanId = (() => {
+            if (!rawFloorPlan) return '';
+            if (typeof rawFloorPlan === 'string') return rawFloorPlan.trim();
+            if (typeof rawFloorPlan === 'object' && rawFloorPlan._id) return String(rawFloorPlan._id);
+            if (typeof rawFloorPlan === 'object' && typeof rawFloorPlan.toString === 'function') {
+              const text = rawFloorPlan.toString();
+              return text && text !== '[object Object]' ? text : '';
+            }
+            return '';
+          })();
+
+          if (floorPlanId && isId(floorPlanId)) {
+            floorPlanIds.add(floorPlanId);
+          }
+        });
+      });
+
+      const floorPlanDocs = floorPlanIds.size
+        ? await FloorPlan.find({
+          _id: { $in: Array.from(floorPlanIds) },
+          company: companyId
+        })
+            .select('name planNumber specs')
+            .lean()
+        : [];
+
+      const floorPlanById = floorPlanDocs.reduce((acc, floorPlan) => {
+        acc[String(floorPlan._id)] = floorPlan;
+        return acc;
+      }, {});
+
+      const queue = buildReadinessRows({
+        communities,
+        floorPlanById,
+        status: filters.status,
+        published: filters.published,
+        communityId: filters.communityId,
+        sort: filters.sort
+      });
+
+      const pagination = paginateRows(queue.rows, {
+        page: filters.page,
+        perPage: filters.perPage
+      });
+
+      const buildPageUrl = (page) => {
+        const params = new URLSearchParams();
+        if (filters.status !== 'all') params.set('status', filters.status);
+        if (filters.published !== 'all') params.set('published', filters.published);
+        if (filters.communityId) params.set('communityId', filters.communityId);
+        if (filters.sort !== 'readiness') params.set('sort', filters.sort);
+        if (page > 1) params.set('page', String(page));
+        if (filters.perPage !== DEFAULT_PAGE_SIZE) params.set('perPage', String(filters.perPage));
+        const queryString = params.toString();
+        return queryString ? `/admin/brz/readiness?${queryString}` : '/admin/brz/readiness';
+      };
+
+      const pageWindowStart = Math.max(1, Math.min(
+        pagination.page - 2,
+        Math.max(1, pagination.totalPages - 4)
+      ));
+      const pageWindowEnd = Math.min(pagination.totalPages, pageWindowStart + 4);
+      const pages = [];
+      for (let page = pageWindowStart; page <= pageWindowEnd; page += 1) {
+        pages.push({
+          number: page,
+          href: buildPageUrl(page),
+          current: page === pagination.page
+        });
+      }
+
+      res.render('pages/admin/brz-readiness', {
+        active: 'community',
+        filters,
+        summary: queue.summary,
+        rows: pagination.items,
+        groups: groupReadinessRows(pagination.items),
+        communityOptions,
+        pagination: {
+          ...pagination,
+          prevUrl: pagination.hasPrev ? buildPageUrl(pagination.page - 1) : '',
+          nextUrl: pagination.hasNext ? buildPageUrl(pagination.page + 1) : '',
+          pages
+        }
+      });
+    } catch (err) {
+      next(err);
+    }
+  }
+);
+
+router.post(
+  '/admin/brz/readiness/bulk',
+  ensureAuth,
+  requireBrzAdminJson,
+  async (req, res) => {
+    try {
+      const companyId = isId(req.user?.company) ? String(req.user.company) : null;
+      const result = await processBrzReadinessBulkAction({
+        CommunityModel: Community,
+        companyId,
+        items: req.body?.items,
+        action: req.body?.action,
+        hasCommunityAccess,
+        user: req.user,
+        alsoPublishInventory: req.body?.alsoPublishInventory,
+        publishCompanyInventoryImpl: publishCompanyInventory,
+        ctx: {
+          userId: req.user?._id || null,
+          source: 'user',
+          route: req.originalUrl || ''
+        }
+      });
+
+      console.info(`BRZ readiness bulk action ${result.action}`, {
+        userId: String(req.user?._id || ''),
+        companyId,
+        updatedCount: result.updatedCount,
+        requestedCount: result.requestedCount,
+        skippedCount: result.skipped.length,
+        alsoPublishInventory: Boolean(req.body?.alsoPublishInventory),
+        communityIdsCount: Array.isArray(result.updatedCommunityIds) ? result.updatedCommunityIds.length : 0,
+        inventoryPublishStatus: result.inventoryPublish?.status || ''
+      });
+
+      const noun = result.action === 'publish' ? 'published' : 'unpublished';
+      const responseBody = {
+        ok: result.ok,
+        updatedCount: result.updatedCount,
+        skipped: result.skipped,
+        flagsUpdated: Boolean(result.flagsUpdated),
+        message: `${result.updatedCount} listing${result.updatedCount === 1 ? '' : 's'} marked ${noun}.`,
+        inventoryPublish: result.inventoryPublish
+          ? {
+              status: result.inventoryPublish?.status || '',
+              message: result.inventoryPublish?.message || '',
+              warnings: Array.isArray(result.inventoryPublish?.warnings) ? result.inventoryPublish.warnings : [],
+              counts: result.inventoryPublish?.counts || null,
+              communityCount: Array.isArray(result.updatedCommunityIds) ? result.updatedCommunityIds.length : 0
+            }
+          : null
+      };
+
+      if (!result.ok) {
+        responseBody.message = `${responseBody.message} Inventory publish failed: ${result.message || 'Unknown error'}`;
+        return res.status(result.statusCode || 502).json(responseBody);
+      }
+
+      if (responseBody.inventoryPublish?.message) {
+        responseBody.message = `${responseBody.message} ${responseBody.inventoryPublish.message}`;
+      }
+
+      return res.json(responseBody);
+    } catch (err) {
+      const status = err.status || 500;
+      return res.status(status).json({
+        ok: false,
+        updatedCount: 0,
+        skipped: [],
+        flagsUpdated: false,
+        inventoryPublish: null,
+        message: err.message || 'Failed to update BuildRootz publish flags'
+      });
+    }
+  }
+);
+
+router.get(
+  '/admin/brz/publish-audit',
+  ensureAuth,
+  requireCompanyAdmin,
+  async (req, res, next) => {
+    try {
+      const requestedCompanyId = isSuper(req) && isId(req.query.companyId)
+        ? String(req.query.companyId)
+        : null;
+      const companyId = requestedCompanyId || String(req.user?.company || '');
+      if (!isId(companyId)) {
+        return res.status(400).json({ error: 'Invalid company context' });
+      }
+
+      const audits = await BrzPublishAudit.find({
+        companyId,
+        kind: 'inventory'
+      })
+        .sort({ createdAt: -1, _id: -1 })
+        .limit(50)
+        .lean();
+
+      return res.json({
+        ok: true,
+        audits: audits.map((audit) => ({
+          id: String(audit._id),
+          createdAt: audit.createdAt || null,
+          kind: audit.kind || 'inventory',
+          mode: audit.mode || 'PATCH',
+          scope: {
+            communityIdsCount: Number(audit?.scope?.communityIdsCount || 0),
+            lotIdsCount: Number(audit?.scope?.lotIdsCount || 0),
+            communityIdsSample: Array.isArray(audit?.scope?.communityIdsSample) ? audit.scope.communityIdsSample : [],
+            lotIdsSample: Array.isArray(audit?.scope?.lotIdsSample) ? audit.scope.lotIdsSample : []
+          },
+          meta: {
+            unpublishMissingHomes: Boolean(audit?.meta?.unpublishMissingHomes)
+          },
+          result: {
+            publishedCount: audit?.result?.publishedCount,
+            deactivatedCount: audit?.result?.deactivatedCount,
+            skippedCount: audit?.result?.skippedCount
+          },
+          warningsCount: Number(audit?.warningsCount || 0),
+          warningsSample: Array.isArray(audit?.warningsSample) ? audit.warningsSample : [],
+          message: audit?.message || '',
+          initiator: {
+            userId: audit?.initiator?.userId ? String(audit.initiator.userId) : '',
+            source: audit?.initiator?.source || 'unknown',
+            route: audit?.initiator?.route || ''
+          }
+        }))
+      });
+    } catch (err) {
+      return next(err);
+    }
+  }
+);
+
+router.get(
   '/admin/buildrootz/community-requests',
   ensureAuth,
   requireRole('SUPER_ADMIN'),
@@ -1222,6 +1571,34 @@ router.get('/listing-details', ensureAuth, requireRole('READONLY','USER','MANAGE
         .select('hoaFee hoaFrequency tax feeTypes mudFee pidFee pidFeeFrequency communityAmenities promotion schoolISD elementarySchool middleSchool highSchool lotSize salesPerson salesPersonPhone salesPersonEmail address city state zip webData')
         .lean();
       const webData = competitionProfileToWebData(profile, community);
+      const communityLocation = {
+        city: trimText(webData?.city || profile?.city || community?.city),
+        state: trimText(webData?.state || profile?.state || community?.state),
+        postalCode: trimText(webData?.postalCode || profile?.zip)
+      };
+      const listingLocation = resolveListingLocationDefaults({
+        listing: lot,
+        communityLocation
+      });
+      let brzReadiness = {
+        status: 'warning',
+        score: 0,
+        missing: [],
+        warnings: ['Readiness check unavailable']
+      };
+      try {
+        brzReadiness = computeBrzReadiness({
+          community,
+          lot,
+          floorPlan: floorPlanDoc
+        });
+      } catch (readinessErr) {
+        console.error('Failed to compute BuildRootz readiness', {
+          communityId: String(community?._id || ''),
+          lotId: String(lot?._id || ''),
+          error: readinessErr?.message || readinessErr
+        });
+      }
 
       const toIso = (value) => {
         if (!value) return null;
@@ -1249,6 +1626,17 @@ router.get('/listing-details', ensureAuth, requireRole('READONLY','USER','MANAGE
         lot: lot.lot || '',
         block: lot.block || '',
         address: lot.address || '',
+        listingLocation: {
+          city: listingLocation.city || '',
+          state: listingLocation.state || '',
+          postalCode: listingLocation.postalCode || '',
+          usedCommunityDefaults: Boolean(listingLocation.usedCommunityDefaults)
+        },
+        communityLocation: {
+          city: communityLocation.city || '',
+          state: communityLocation.state || '',
+          postalCode: communityLocation.postalCode || ''
+        },
         status: lot.generalStatus || lot.status || 'Available',
         releaseDate: toIso(lot.releaseDate),
         completionDate: toIso(lot.expectedCompletionDate),
@@ -1342,7 +1730,8 @@ router.get('/listing-details', ensureAuth, requireRole('READONLY','USER','MANAGE
         amenities: Array.isArray(profile?.communityAmenities) ? profile.communityAmenities : [],
         listingContent: {
           isPublished: Boolean(lot.isPublished ?? false),
-          promoText: lot.promoText || '',
+          promoText: lot?.promo?.headline || lot.promoText || '',
+          promoMode: (lot.promoMode === 'override' ? 'override' : 'add'),
           description: lot.listingDescription || '',
           heroImage: lot.heroImage || '',
           photos: Array.isArray(lot.listingPhotos) ? lot.listingPhotos : [],
@@ -1371,7 +1760,11 @@ router.get('/listing-details', ensureAuth, requireRole('READONLY','USER','MANAGE
         }
       };
 
-      res.render('pages/listing-details', { active: 'listings', lot: lotView });
+      res.render('pages/listing-details', {
+        active: 'listings',
+        lot: lotView,
+        brzReadiness
+      });
     } catch (err) {
       next(err);
     }
@@ -1405,17 +1798,15 @@ router.post('/listing-details/publish', ensureAuth, requireRole('READONLY','USER
         contentSyncedAt: lot?.contentSyncedAt || null
       };
       const now = new Date();
+      const publishFlagSet = buildLotPublishFlagSet({
+        action: isPublished ? 'publish' : 'unpublish',
+        now
+      });
 
       await Community.updateOne(
         { _id: communityId, ...base(req), 'lots._id': lotId },
         {
-          $set: {
-            'lots.$.buildrootz.isPublished': isPublished,
-            'lots.$.isPublished': isPublished,
-            'lots.$.isListed': isPublished,
-            'lots.$.publishedAt': isPublished ? now : null,
-            'lots.$.contentSyncedAt': now
-          }
+          $set: publishFlagSet
         }
       );
 
@@ -1424,7 +1815,8 @@ router.post('/listing-details/publish', ensureAuth, requireRole('READONLY','USER
           companyId: req.user.company,
           communityId,
           lotId,
-          isPublished
+          isPublished,
+          ctx: buildPublishAuditContext(req)
         });
 
         await Community.updateOne(
@@ -1505,7 +1897,8 @@ router.post('/listing-details/sync', ensureAuth, requireRole('READONLY','USER','
       const publishResult = await publishCompanyInventory({
         companyId: req.user.company,
         communityIds: [String(communityId)],
-        unpublishMissingHomes: true
+        unpublishMissingHomes: true,
+        ctx: buildPublishAuditContext(req)
       });
       return res.json({
         success: true,
@@ -1537,8 +1930,18 @@ router.post('/listing-details/content', ensureAuth, requireRole('READONLY','USER
       if (!hasCommunityAccess(req.user, communityId)) return res.status(404).json({ success: false, message: 'Community not found' });
 
       const promoText = typeof req.body?.promoText === 'string' ? req.body.promoText : '';
+      const normalizedPromo = normalizePromo(promoText);
+      const promoMode = req.body?.promoMode === 'override' ? 'override' : 'add';
       const listingDescription = typeof req.body?.listingDescription === 'string' ? req.body.listingDescription : '';
       const liveElevationPhoto = typeof req.body?.liveElevationPhoto === 'string' ? req.body.liveElevationPhoto : '';
+      const listingLocation = resolveListingLocationDefaults({
+        listing: {
+          city: req.body?.city,
+          state: req.body?.state,
+          postalCode: req.body?.postalCode || req.body?.zip
+        },
+        communityLocation: {}
+      });
       const latitude = parseLatLng(req.body?.latitude);
       const longitude = parseLatLng(req.body?.longitude);
 
@@ -1554,8 +1957,13 @@ router.post('/listing-details/content', ensureAuth, requireRole('READONLY','USER
         { _id: communityId, ...base(req), 'lots._id': lotId },
         { $set: {
           'lots.$.promoText': promoText,
+          'lots.$.promo': normalizedPromo || null,
+          'lots.$.promoMode': promoMode,
           'lots.$.listingDescription': listingDescription,
           'lots.$.liveElevationPhoto': liveElevationPhoto,
+          'lots.$.city': listingLocation.city || '',
+          'lots.$.state': listingLocation.state || '',
+          'lots.$.postalCode': listingLocation.postalCode || '',
           'lots.$.latitude': Number.isFinite(latitude) ? latitude : null,
           'lots.$.longitude': Number.isFinite(longitude) ? longitude : null
         } }
@@ -1567,7 +1975,8 @@ router.post('/listing-details/content', ensureAuth, requireRole('READONLY','USER
           await publishCompanyInventory({
             companyId: req.user.company,
             communityIds: [String(communityId)],
-            unpublishMissingHomes: true
+            unpublishMissingHomes: true,
+            ctx: buildPublishAuditContext(req)
           });
         } catch (syncErr) {
           console.error('listing content sync failed', syncErr);
@@ -1615,7 +2024,8 @@ router.post('/listing-details/upload-elevation', ensureAuth, requireRole('READON
           await publishCompanyInventory({
             companyId: req.user.company,
             communityIds: [String(communityId)],
-            unpublishMissingHomes: true
+            unpublishMissingHomes: true,
+            ctx: buildPublishAuditContext(req)
           });
         }
         catch (syncErr) { console.error('elevation upload sync failed', syncErr); }
@@ -1667,7 +2077,8 @@ router.post('/listing-details/upload-photos', ensureAuth, requireRole('READONLY'
           await publishCompanyInventory({
             companyId: req.user.company,
             communityIds: [String(communityId)],
-            unpublishMissingHomes: true
+            unpublishMissingHomes: true,
+            ctx: buildPublishAuditContext(req)
           });
         }
         catch (syncErr) { console.error('listing photos sync failed', syncErr); }
@@ -1735,7 +2146,8 @@ router.post('/listing-details/delete-photo', ensureAuth, requireRole('READONLY',
           await publishCompanyInventory({
             companyId: req.user.company,
             communityIds: [String(communityId)],
-            unpublishMissingHomes: true
+            unpublishMissingHomes: true,
+            ctx: buildPublishAuditContext(req)
           });
         }
         catch (syncErr) { console.error('listing photo delete sync failed', syncErr); }

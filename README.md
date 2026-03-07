@@ -34,7 +34,17 @@ Forgot-password and invite emails reuse the same SMTP credentials (preferring `S
 - Set `BUILDROOTZ_MONGODB_URI` to the BuildRootz Mongo connection string (runs on a separate cluster/DB from `MONGO_URI`).
 - If your BuildRootz database already exists with a specific casing, set `BUILDROOTZ_DB_NAME` to match (e.g., `BuildRootz`) to avoid Mongo’s “DatabaseDifferCase” error.
 - If your listing media are served from a host, set `BUILDROOTZ_UPLOAD_BASE_URL` (or ensure `BASE_URL` is correct) so `/uploads/...` paths become absolute URLs in BuildRootz.
+- For inventory-published listing photos stored on lot fields (`heroImage`, `listingPhotos`, `liveElevationPhoto`), set `KEEPUP_PUBLIC_BASE_URL` (or `BASE_URL`) so `/uploads/...` image URLs become absolute and resolve correctly in BuildRootz.
+- For package-published floor plan assets stored on `FloorPlan.asset` (`fileUrl`, `previewUrl`), set `KEEPUP_PUBLIC_BASE_URL` (or `BASE_URL`) so `/uploads/...` PDF and preview URLs become absolute and resolve correctly in BuildRootz across domains.
+- Community Web Info now includes `Tax Rate (%)`; KeepUp stores `webData.taxRate` as a decimal (for example, `2.15%` saves as `0.0215`) and package publish emits that decimal in `builderInCommunities[].webData.taxRate`.
 - Publishing is tenant-scoped; users can only publish homes in their company.
+- Admin > BuildRootz Publishing now shows an Inventory Publish Audit table with the 50 most recent inventory publish runs.
+- Company admins can use `/admin/brz/readiness` (BuildRootz > Readiness Queue) to review lot readiness, filter by status/published/community, and open `listing-details` for fixes.
+- The Readiness Queue supports bulk flag-only actions and bulk `... + Publish to BRZ` actions; the BRZ variants update KeepUp flags first, then run community-scoped inventory reconcile without changing the publish pipeline itself.
+- The Readiness Queue groups the current page by community and adds page-scoped shortcuts like `Select all Ready` and `Select Ready + Needs Info` for faster bulk selection.
+- Community headers also include page-scoped `Publish Ready to BRZ` shortcuts that publish only that community's matching rows on the current page, even if other communities already have selected rows.
+- Community headers also include `Unpublish Published + Publish to BRZ`, which scopes the payload to currently published rows in that single community on the current page.
+- Run `npm run test:brz` for the BuildRootz readiness and publishing regression tests.
 - Endpoints (all `POST`, auth required):
   - `/api/buildrootz/homes/:id/publish`
   - `/api/buildrootz/homes/:id/unpublish`

@@ -31,6 +31,11 @@ const LotSchema = new Schema({
   phase: String,
 
   address: String,
+  address1: { type: String, default: '' },
+  city: { type: String, default: '' },
+  state: { type: String, default: '' },
+  postalCode: { type: String, default: '' },
+  formattedAddress: { type: String, default: '' },
 
   floorPlan: { type: Schema.Types.ObjectId, ref: 'FloorPlan', default: null },
   elevation: String,
@@ -115,6 +120,16 @@ const LotSchema = new Schema({
   buildrootzId:       { type: Schema.Types.Mixed, default: null },
   publishVersion:     { type: Number, default: 0 },
   promoText:          { type: String, default: '' },
+  promo: {
+    headline: { type: String, default: '' },
+    description: { type: String, default: '' },
+    disclaimer: { type: String, default: '' }
+  },
+  promoMode: {
+    type: String,
+    enum: ['add', 'override'],
+    default: 'add'
+  },
   listingDescription: { type: String, default: '' },
   heroImage:          { type: String, default: '' },
   listingPhotos:      [{ type: String, default: undefined }],

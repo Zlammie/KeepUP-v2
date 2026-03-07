@@ -1,9 +1,9 @@
 // client/assets/js/my-community-competition/autosave.js
 import {
   salesPerson, salesPersonPhone, salesPersonEmail,
-  address, city, zip, modelPlan, lotSize, totalLots,
+  address, city, state, zip, modelPlan, lotSize, totalLots,
   schoolISD, elementarySchool, middleSchool, highSchool,
-  hoaFee, hoaFrequency, tax, mudFee, pidFee, pidFeeFrequency, earnestAmount, realtorCommission,
+  hoaFee, hoaFrequency, tax, mudTaxRate, pidFee, pidFeeFrequency, earnestAmount, realtorCommission,
   feeMud, feePid, feeNone, garageTypeFront, garageTypeRear
 } from './dom.js';
 
@@ -15,9 +15,9 @@ export function bindAutosaveOnce() {
   bindAutosaveOnce._bound = true;
   const inputs = [
     salesPerson, salesPersonPhone, salesPersonEmail,
-    address, city, zip, modelPlan, lotSize, totalLots,
+    address, city, state, zip, modelPlan, lotSize, totalLots,
     schoolISD, elementarySchool, middleSchool, highSchool,
-    hoaFee, hoaFrequency, tax, mudFee, pidFee, pidFeeFrequency, earnestAmount, realtorCommission
+    hoaFee, hoaFrequency, tax, mudTaxRate, pidFee, pidFeeFrequency, earnestAmount, realtorCommission
   ];
   inputs.forEach(el => el && el.addEventListener('change', autosave));
   inputs.forEach(el => el && el.addEventListener('blur', autosave));
@@ -34,6 +34,7 @@ async function autosave() {
       salesPersonEmail: salesPersonEmail.value,
       address: address.value,
       city: city.value,
+      state: state.value,
       zip: zip.value,
       modelPlan: modelPlan.value || null,
       lotSize: lotSize.value || null,
@@ -50,7 +51,7 @@ async function autosave() {
         feePid.checked ? 'PID' : null,
         feeNone.checked ? 'None' : null
       ].filter(Boolean),
-      mudFee: feeMud.checked ? numOrNull(mudFee.value) : null,
+      mudTaxRate: feeMud.checked ? numOrNull(mudTaxRate.value) : null,
       pidFee: feePid.checked ? numOrNull(pidFee.value) : null,
       pidFeeFrequency: feePid.checked ? (pidFeeFrequency.value || '') : '',
       earnestAmount: numOrNull(earnestAmount.value),

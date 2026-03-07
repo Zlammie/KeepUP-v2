@@ -30,6 +30,14 @@
             </a>
           </li>
         <% } %>
+        <% if (permissions && (permissions.isCompanyAdmin || permissions.isSuperAdmin)) { %>
+          <li>
+            <a href="/admin/brz/readiness" class="top-nav-link">
+              <img src="/assets/icons/listings.svg" alt="BuildRootz readiness">
+              <span>Readiness Queue</span>
+            </a>
+          </li>
+        <% } %>
       </ul>
     </div>
   </header>

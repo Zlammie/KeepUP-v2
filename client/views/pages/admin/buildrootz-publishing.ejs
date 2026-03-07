@@ -13,12 +13,15 @@
     <%- include('../../partials/top-nav-buildrootz') %>
 
     <main class="main-content p-4 brz-publishing-page">
-      <header class="mb-4">
-        <p class="text-uppercase text-muted small mb-1">BuildRootz</p>
-        <h1 class="h4 mb-1">BuildRootz Publishing</h1>
-        <p class="text-muted mb-0">
-          KeepUp is the source of truth. Publish sends an internal bundle to BuildRootz with canonical mapped IDs.
-        </p>
+      <header class="d-flex justify-content-between align-items-start flex-wrap gap-3 mb-4">
+        <div>
+          <p class="text-uppercase text-muted small mb-1">BuildRootz</p>
+          <h1 class="h4 mb-1">BuildRootz Publishing</h1>
+          <p class="text-muted mb-0">
+            KeepUp is the source of truth. Publish sends an internal bundle to BuildRootz with canonical mapped IDs.
+          </p>
+        </div>
+        <a class="btn btn-outline-secondary btn-sm" href="/admin/brz/readiness">Open Readiness Queue</a>
       </header>
 
       <section class="card shadow-sm mb-4">
@@ -184,6 +187,35 @@
             <a class="btn btn-outline-secondary btn-sm" id="brzPreviewLink" href="#" target="_blank" rel="noopener noreferrer">Open Public Preview</a>
           </div>
           <div class="small mt-2" id="brzPublishStatus"></div>
+        </div>
+      </section>
+
+      <section class="card shadow-sm mb-4">
+        <div class="card-body">
+          <div class="d-flex justify-content-between align-items-center flex-wrap gap-2 mb-3">
+            <h2 class="h6 mb-0">Inventory Publish Audit</h2>
+            <small class="text-muted" id="brzPublishAuditStatus"></small>
+          </div>
+          <div class="table-responsive">
+            <table class="table table-sm align-middle">
+              <thead>
+                <tr>
+                  <th>Time</th>
+                  <th>Mode</th>
+                  <th>Scope</th>
+                  <th>Published</th>
+                  <th>Deactivated</th>
+                  <th>Warnings</th>
+                  <th></th>
+                </tr>
+              </thead>
+              <tbody id="brzPublishAuditBody">
+                <tr>
+                  <td colspan="7" class="text-muted">Loading publish audit...</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
         </div>
       </section>
     </main>

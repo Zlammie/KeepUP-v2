@@ -50,6 +50,9 @@ const CommunityWebDataSchema = new Schema({
   modelListingId: { type: Schema.Types.ObjectId, default: null },
   modelFloorPlanId: { type: Schema.Types.ObjectId, ref: 'FloorPlan', default: null },
   totalLots: { type: Number, set: toNumOrNull, default: null },
+  city: { type: String, trim: true, default: '' },
+  state: { type: String, trim: true, uppercase: true, default: '' },
+  postalCode: { type: String, trim: true, default: '' },
   schools: {
     elementary: { type: String, default: '' },
     middle: { type: String, default: '' },
@@ -59,8 +62,30 @@ const CommunityWebDataSchema = new Schema({
     amount: { type: Number, set: toNumOrNull, default: null },
     cadence: { type: String, enum: ['monthly', 'annual', 'unknown'], default: 'unknown' }
   },
+  amenities: {
+    type: [{
+      label: { type: String, trim: true, default: '' }
+    }],
+    default: undefined
+  },
+  productTypes: {
+    type: [{
+      label: { type: String, trim: true, default: '' }
+    }],
+    default: undefined
+  },
+  promo: {
+    headline: { type: String, trim: true, default: '' },
+    description: { type: String, trim: true, default: '' },
+    disclaimer: { type: String, trim: true, default: '' }
+  },
+  taxRate: { type: Number, set: toNumOrNull, default: undefined },
   hasPID: { type: Boolean, default: false },
   hasMUD: { type: Boolean, default: false },
+  mudTaxRate: { type: Number, set: toNumOrNull, default: undefined },
+  mudFeeAmount: { type: Number, set: toNumOrNull, default: undefined },
+  pidFeeAmount: { type: Number, set: toNumOrNull, default: undefined },
+  pidFeeFrequency: { type: String, enum: ['Monthly', 'Yearly', null], default: undefined },
   earnestMoney: {
     amount: { type: Number, set: toNumOrNull, default: null },
     visibility: { type: String, enum: ['hidden', 'public', 'gated'], default: 'hidden' }

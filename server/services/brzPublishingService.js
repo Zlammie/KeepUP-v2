@@ -1,19 +1,23 @@
 const mongoose = require('mongoose');
 const Company = require('../models/Company');
 const Community = require('../models/Community');
+const Competition = require('../models/Competition');
 const FloorPlan = require('../models/FloorPlan');
 const CommunityCompetitionProfile = require('../models/communityCompetitionProfile');
+const BrzPublishAudit = require('../models/BrzPublishAudit');
 const BrzBuilderProfileDraft = require('../models/brz/BrzBuilderProfileDraft');
 const BrzCommunityDraft = require('../models/brz/BrzCommunityDraft');
 const BrzFloorPlanDraft = require('../models/brz/BrzFloorPlanDraft');
 const BrzCommunityFloorPlanDraft = require('../models/brz/BrzCommunityFloorPlanDraft');
 const slugify = require('../utils/slugify');
-const { publishBundleToBuildRootz } = require('./buildrootzPublishClient');
+const { publishBundleToBuildRootz: publishBundleToBuildRootzDefault } = require('./buildrootzPublishClient');
 const {
   competitionProfileToWebData,
   mergeCompetitionWebData,
   competitionWebDataToProfileSet,
-  computeCommunityCompleteness
+  computeCommunityCompleteness,
+  normalizePromo,
+  normalizeTaxRateInput
 } = require('./communityWebDataService');
 const {
   normalizeHomeAddress,
@@ -21,6 +25,15 @@ const {
   normalizeHomeFacts,
   normalizeHomePricing
 } = require('./brzInventoryNormalize');
+const {
+  formatCityStatePostal,
+  buildListingLocationPersistencePatch,
+  buildMissingListingLocationPatch,
+  resolveListingLocationDefaults
+} = require('./locationService');
+
+let publishBundleToBuildRootzImpl = publishBundleToBuildRootzDefault;
+let BrzPublishAuditModel = BrzPublishAudit;
 
 /*
 BuildRootz integration note:
@@ -50,6 +63,13 @@ const toStringId = (value) => (value == null ? '' : String(value));
 
 const trimString = (value) => (value == null ? '' : String(value).trim());
 
+const normalizePromoMode = (value, fallback = 'add') => {
+  const normalized = trimString(value).toLowerCase();
+  if (normalized === 'override') return 'override';
+  if (normalized === 'add') return 'add';
+  return fallback;
+};
+
 const toNumberOr = (value, fallback = 0) => {
   if (value == null || value === '') return fallback;
   const parsed = Number(value);
@@ -66,6 +86,12 @@ const toNullableNumber = (value) => {
   }
   const parsed = Number(value);
   return Number.isFinite(parsed) ? parsed : null;
+};
+
+const toIntegerDollarOrNull = (value) => {
+  const parsed = toNullableNumber(value);
+  if (parsed == null) return null;
+  return Math.round(parsed);
 };
 
 const parseDateOrNull = (value) => {
@@ -111,6 +137,32 @@ const sanitizeCtaLinks = (value) => {
 };
 
 const serializeImageMeta = (value) => (value ? sanitizeImageMeta(value) : null);
+
+const resolvePlanOfferingBasePrice = ({ communityPlanDraft, planDraft }) => {
+  const communityBasePriceFrom = toIntegerDollarOrNull(communityPlanDraft?.basePriceFrom);
+  if (communityBasePriceFrom != null) {
+    return {
+      basePriceFrom: communityBasePriceFrom,
+      basePriceAsOf: parseDateOrNull(communityPlanDraft?.basePriceAsOf),
+      source: 'community'
+    };
+  }
+
+  const planBasePriceFrom = toIntegerDollarOrNull(planDraft?.basePriceFrom);
+  if (planBasePriceFrom != null) {
+    return {
+      basePriceFrom: planBasePriceFrom,
+      basePriceAsOf: parseDateOrNull(planDraft?.basePriceAsOf),
+      source: 'plan'
+    };
+  }
+
+  return {
+    basePriceFrom: null,
+    basePriceAsOf: null,
+    source: 'none'
+  };
+};
 
 const looksLikePdf = (url) => /\.pdf($|\?)/i.test(String(url || '').trim());
 
@@ -212,12 +264,15 @@ const runWithConcurrencyLimit = async ({ items = [], limit = 5, worker }) => {
 
 const extractSyncableCompetitionFields = (webData) => {
   const normalized = competitionProfileToWebData({ webData: webData || {} });
-  return {
+  const syncable = {
     primaryContact: { ...normalized.primaryContact },
     contactVisibility: { ...normalized.contactVisibility },
     modelListingId: normalized.modelListingId,
     modelFloorPlanId: normalized.modelFloorPlanId,
     totalLots: normalized.totalLots,
+    city: normalized.city,
+    state: normalized.state,
+    postalCode: normalized.postalCode,
     schools: { ...normalized.schools },
     hoa: { ...normalized.hoa },
     hasPID: normalized.hasPID,
@@ -226,10 +281,111 @@ const extractSyncableCompetitionFields = (webData) => {
     realtorCommission: { ...normalized.realtorCommission },
     notesInternal: normalized.notesInternal
   };
+  if (Object.prototype.hasOwnProperty.call(normalized, 'taxRate')) {
+    syncable.taxRate = normalized.taxRate;
+  }
+  if (Object.prototype.hasOwnProperty.call(normalized, 'mudTaxRate')) {
+    syncable.mudTaxRate = normalized.mudTaxRate;
+  }
+  if (Object.prototype.hasOwnProperty.call(normalized, 'mudFeeAmount')) {
+    syncable.mudFeeAmount = normalized.mudFeeAmount;
+  }
+  if (Object.prototype.hasOwnProperty.call(normalized, 'pidFeeAmount')) {
+    syncable.pidFeeAmount = normalized.pidFeeAmount;
+  }
+  if (Object.prototype.hasOwnProperty.call(normalized, 'pidFeeFrequency')) {
+    syncable.pidFeeFrequency = normalized.pidFeeFrequency;
+  }
+  if (Object.prototype.hasOwnProperty.call(normalized, 'amenities')) {
+    syncable.amenities = Array.isArray(normalized.amenities)
+      ? normalized.amenities.map((amenity) => ({ ...amenity }))
+      : [];
+  }
+  if (Object.prototype.hasOwnProperty.call(normalized, 'productTypes')) {
+    syncable.productTypes = Array.isArray(normalized.productTypes)
+      ? normalized.productTypes.map((productType) => ({ ...productType }))
+      : [];
+  }
+  if (Object.prototype.hasOwnProperty.call(normalized, 'promo')) {
+    syncable.promo = normalized.promo ? { ...normalized.promo } : null;
+  }
+  return syncable;
 };
 
 const serializeCompetitionProfileWebData = (profile, community) =>
   competitionProfileToWebData(profile, community);
+
+const pickPreferredLegacyCompetition = (current, candidate) => {
+  if (!candidate) return current || null;
+  if (!current) return candidate;
+
+  const currentHasTax = toNullableNumber(current.tax) != null;
+  const candidateHasTax = toNullableNumber(candidate.tax) != null;
+  if (currentHasTax !== candidateHasTax) {
+    return candidateHasTax ? candidate : current;
+  }
+
+  const currentIsInternal = Boolean(current.isInternal);
+  const candidateIsInternal = Boolean(candidate.isInternal);
+  if (currentIsInternal !== candidateIsInternal) {
+    return candidateIsInternal ? candidate : current;
+  }
+
+  const currentUpdatedAt = parseDateOrNull(current.updatedAt)?.getTime() || 0;
+  const candidateUpdatedAt = parseDateOrNull(candidate.updatedAt)?.getTime() || 0;
+  return candidateUpdatedAt >= currentUpdatedAt ? candidate : current;
+};
+
+const buildLegacyCompetitionMap = (competitions) => {
+  const map = new Map();
+  (Array.isArray(competitions) ? competitions : []).forEach((competition) => {
+    const communityId = toStringId(competition?.communityRef || competition?.community);
+    if (!communityId) return;
+    map.set(communityId, pickPreferredLegacyCompetition(map.get(communityId), competition));
+  });
+  return map;
+};
+
+const fetchLegacyCompetitions = async ({ companyId, communityIds }) => {
+  const ids = (Array.isArray(communityIds) ? communityIds : []).filter(Boolean);
+  if (!ids.length) return [];
+
+  const query = {
+    company: companyId,
+    $or: [
+      { communityRef: { $in: ids } },
+      { community: { $in: ids } }
+    ]
+  };
+
+  return Competition.collection.find(query, {
+    projection: {
+      communityRef: 1,
+      community: 1,
+      tax: 1,
+      isInternal: 1,
+      updatedAt: 1
+    }
+  })
+    .sort({ isInternal: -1, updatedAt: -1 })
+    .toArray();
+};
+
+const resolveCommunityWebDataForPublish = ({ competitionProfile, community, draft } = {}) => {
+  const draftWebData = draft?.competitionWebData && typeof draft.competitionWebData === 'object'
+    ? draft.competitionWebData
+    : null;
+  const canonicalWebData = competitionProfile
+    ? competitionProfileToWebData(competitionProfile, community)
+    : null;
+
+  if (draftWebData && canonicalWebData) {
+    return mergeCompetitionWebData(canonicalWebData, draftWebData);
+  }
+  if (draftWebData) return mergeCompetitionWebData({}, draftWebData);
+  if (canonicalWebData) return canonicalWebData;
+  return {};
+};
 
 const isModelListingStatus = (lot) => {
   const status = trimString(lot?.generalStatus || lot?.status).toLowerCase();
@@ -282,9 +438,22 @@ const serializeCommunityInventoryLots = (community, floorPlanNameById) => {
       if (!lotId) return null;
       const floorPlanId = toStringId(lot?.floorPlan);
       const floorPlanName = floorPlanNameById.get(floorPlanId) || '';
+      const promo = normalizePromo(lot?.promo) || normalizePromo(lot?.promoText);
+      const canonicalLocation = resolveListingLocationDefaults({
+        listing: lot,
+        communityLocation: {}
+      });
+      const locationSummary = formatCityStatePostal(canonicalLocation);
       return {
         id: lotId,
         address: trimString(lot?.address),
+        address1: trimString(lot?.address1),
+        city: trimString(canonicalLocation?.city),
+        state: trimString(canonicalLocation?.state),
+        postalCode: trimString(canonicalLocation?.postalCode),
+        formattedAddress: trimString(lot?.formattedAddress),
+        locationSummary,
+        missingLocation: !(canonicalLocation?.city && canonicalLocation?.state && canonicalLocation?.postalCode),
         lot: trimString(lot?.lot),
         block: trimString(lot?.block),
         status: trimString(lot?.generalStatus || lot?.status || lot?.buildingStatus || 'Available'),
@@ -292,7 +461,9 @@ const serializeCommunityInventoryLots = (community, floorPlanNameById) => {
         salesPrice: toNullableNumber(lot?.salesPrice),
         floorPlanId,
         floorPlanName,
-        isPublished: isLotMarkedForBuildrootzPublish(lot)
+        isPublished: isLotMarkedForBuildrootzPublish(lot),
+        promo,
+        promoMode: normalizePromoMode(lot?.promoMode, 'add')
       };
     })
     .filter(Boolean)
@@ -393,7 +564,7 @@ const serializeFloorPlanDraft = (draft, fallbackCompanyId, floorPlanId) => ({
   descriptionOverride: draft?.descriptionOverride || '',
   primaryImage: serializeImageMeta(draft?.primaryImage),
   sortOrder: toNumberOr(draft?.sortOrder, 0),
-  basePriceFrom: toNullableNumber(draft?.basePriceFrom),
+  basePriceFrom: toIntegerDollarOrNull(draft?.basePriceFrom),
   basePriceAsOf: parseDateOrNull(draft?.basePriceAsOf),
   basePriceVisibility: ['hidden', 'public'].includes(trimString(draft?.basePriceVisibility))
     ? trimString(draft?.basePriceVisibility)
@@ -412,7 +583,7 @@ const serializeCommunityFloorPlanDraft = (
   communityId: toStringId(draft?.communityId || communityId),
   floorPlanId: toStringId(draft?.floorPlanId || floorPlanId),
   isIncluded: draft ? Boolean(draft.isIncluded) : true,
-  basePriceFrom: toNullableNumber(draft?.basePriceFrom),
+  basePriceFrom: toIntegerDollarOrNull(draft?.basePriceFrom),
   basePriceAsOf: parseDateOrNull(draft?.basePriceAsOf),
   basePriceVisibility: ['hidden', 'public'].includes(trimString(draft?.basePriceVisibility))
     ? trimString(draft?.basePriceVisibility)
@@ -602,6 +773,52 @@ async function ensureCommunityFloorPlanDrafts(companyId, offeredFloorPlanIdsByCo
   await BrzCommunityFloorPlanDraft.bulkWrite(operations, { ordered: false });
 }
 
+async function backfillCommunityPlanDraftBasePrices({
+  companyId,
+  floorPlanDrafts = [],
+  communityFloorPlanDrafts = []
+}) {
+  const planDraftById = new Map(
+    (Array.isArray(floorPlanDrafts) ? floorPlanDrafts : [])
+      .map((draft) => [toStringId(draft?.floorPlanId), draft])
+  );
+  const operations = [];
+
+  (Array.isArray(communityFloorPlanDrafts) ? communityFloorPlanDrafts : []).forEach((communityPlanDraft) => {
+    const existingBasePrice = toIntegerDollarOrNull(communityPlanDraft?.basePriceFrom);
+    if (existingBasePrice != null) return;
+
+    const floorPlanId = toStringId(communityPlanDraft?.floorPlanId);
+    const fallbackPlanDraft = planDraftById.get(floorPlanId);
+    const fallbackBasePrice = toIntegerDollarOrNull(fallbackPlanDraft?.basePriceFrom);
+    if (fallbackBasePrice == null) return;
+
+    const fallbackAsOf = parseDateOrNull(communityPlanDraft?.basePriceAsOf)
+      || parseDateOrNull(fallbackPlanDraft?.basePriceAsOf)
+      || new Date();
+
+    operations.push({
+      updateOne: {
+        filter: {
+          _id: communityPlanDraft._id,
+          companyId,
+          basePriceFrom: null
+        },
+        update: {
+          $set: {
+            basePriceFrom: fallbackBasePrice,
+            basePriceAsOf: fallbackAsOf
+          }
+        }
+      }
+    });
+  });
+
+  if (!operations.length) return false;
+  await BrzCommunityFloorPlanDraft.bulkWrite(operations, { ordered: false });
+  return true;
+}
+
 async function getPublishingContext(companyId) {
   if (!isObjectId(companyId)) {
     const err = new Error('Invalid company context');
@@ -631,6 +848,8 @@ async function getPublishingContext(companyId) {
       'name slug city state totalLots buildrootz '
       + 'lots._id lots.address lots.address1 lots.address2 lots.addressLine1 lots.addressLine2 lots.line1 lots.line2 '
       + 'lots.street lots.streetAddress lots.streetName lots.streetNumber lots.houseNumber '
+      + 'lots.formattedAddress lots.fullAddress lots.addressFormatted '
+      + 'lots.addressObject lots.addressComponents lots.addressData lots.location lots.geo lots.geocode lots.geocoding '
       + 'lots.city lots.state lots.zip lots.postal lots.postalCode '
       + 'lots.lot lots.block lots.floorPlan '
       + 'lots.buildrootz '
@@ -638,7 +857,9 @@ async function getPublishingContext(companyId) {
       + 'lots.listPrice lots.salesPrice lots.latitude lots.longitude '
       + 'lots.beds lots.baths lots.bedrooms lots.bathrooms lots.sqft lots.squareFeet lots.sqFeet '
       + 'lots.garage lots.garageSpaces lots.stories '
-      + 'lots.heroImage lots.listingPhotos lots.liveElevationPhoto lots.publishedAt'
+      + 'lots.heroImage lots.listingPhotos lots.liveElevationPhoto lots.publishedAt '
+      + 'lots.promo '
+      + 'lots.promoText lots.promoMode'
     )
     .sort({ name: 1 })
     .lean();
@@ -662,7 +883,7 @@ async function getPublishingContext(companyId) {
 
   const floorPlans = floorPlanOr.length
     ? await FloorPlan.find(floorPlanQuery)
-      .select('name planNumber websiteSlug websiteUrl specs communities asset.previewUrl asset.fileUrl')
+      .select('name planNumber websiteSlug websiteUrl specs communities asset.previewUrl asset.fileUrl asset.originalFilename asset.mimeType')
       .sort({ name: 1 })
       .lean()
     : [];
@@ -672,9 +893,14 @@ async function getPublishingContext(companyId) {
       company: company._id,
       community: { $in: communityIds }
     })
-      .select('community webData webDataUpdatedAt updatedAt promotion salesPerson salesPersonPhone salesPersonEmail elementarySchool middleSchool highSchool hoaFee hoaFrequency feeTypes mudFee pidFee earnestAmount realtorCommission')
+      .select('community webData webDataUpdatedAt updatedAt promotion salesPerson salesPersonPhone salesPersonEmail city state zip elementarySchool middleSchool highSchool hoaFee hoaFrequency tax feeTypes mudFee pidFee pidFeeFrequency earnestAmount realtorCommission communityAmenities lotSize')
       .lean()
     : [];
+
+  const legacyCompetitions = await fetchLegacyCompetitions({
+    companyId: company._id,
+    communityIds
+  });
 
   const profileDraft = await ensureBuilderProfileDraft(company);
   await ensureCommunityDrafts(company._id, communities);
@@ -689,13 +915,13 @@ async function getPublishingContext(companyId) {
     : [];
 
   const floorPlanIds = floorPlans.map((floorPlan) => floorPlan._id);
-  const floorPlanDrafts = floorPlanIds.length
+  let floorPlanDrafts = floorPlanIds.length
     ? await BrzFloorPlanDraft.find({ companyId: company._id, floorPlanId: { $in: floorPlanIds } })
       .sort({ sortOrder: 1, updatedAt: -1 })
       .lean()
     : [];
 
-  const communityFloorPlanDrafts = (communityIds.length && floorPlanIds.length)
+  let communityFloorPlanDrafts = (communityIds.length && floorPlanIds.length)
     ? await BrzCommunityFloorPlanDraft.find({
       companyId: company._id,
       communityId: { $in: communityIds },
@@ -704,6 +930,21 @@ async function getPublishingContext(companyId) {
       .sort({ sortOrder: 1, updatedAt: -1 })
       .lean()
     : [];
+
+  const didBackfillCommunityPlanDraftPrices = await backfillCommunityPlanDraftBasePrices({
+    companyId: company._id,
+    floorPlanDrafts,
+    communityFloorPlanDrafts
+  });
+  if (didBackfillCommunityPlanDraftPrices) {
+    communityFloorPlanDrafts = await BrzCommunityFloorPlanDraft.find({
+      companyId: company._id,
+      communityId: { $in: communityIds },
+      floorPlanId: { $in: floorPlanIds }
+    })
+      .sort({ sortOrder: 1, updatedAt: -1 })
+      .lean();
+  }
 
   const latestSnapshot = company?.buildrootzPublishLastAt
     ? {
@@ -750,6 +991,7 @@ async function getPublishingContext(companyId) {
     floorPlanDrafts,
     communityFloorPlanDrafts,
     competitionProfiles,
+    legacyCompetitions,
     offeredFloorPlanIdsByCommunity,
     latestSnapshot,
     latestPackageSnapshot,
@@ -766,6 +1008,7 @@ async function bootstrapPublishingData({ companyId }) {
   const competitionProfileMap = new Map(
     (context.competitionProfiles || []).map((profile) => [toStringId(profile.community), profile])
   );
+  const legacyCompetitionMap = buildLegacyCompetitionMap(context.legacyCompetitions);
   const floorPlanDraftMap = new Map(
     context.floorPlanDrafts.map((draft) => [toStringId(draft.floorPlanId), draft])
   );
@@ -784,7 +1027,11 @@ async function bootstrapPublishingData({ companyId }) {
 
   const serializedCommunities = context.communities.map((community) => {
     const communityId = toStringId(community._id);
+    const companyId = toStringId(context.company?._id);
+    const publicCommunityId = trimString(community?.buildrootz?.publicCommunityId);
+    const buildrootzCommunityId = trimString(community?.buildrootz?.communityId);
     const competitionProfile = competitionProfileMap.get(communityId);
+    const legacyCompetition = legacyCompetitionMap.get(communityId);
     const draft = serializeCommunityDraft(
       communityDraftMap.get(communityId),
       context.company._id,
@@ -794,6 +1041,11 @@ async function bootstrapPublishingData({ companyId }) {
       competitionProfile,
       community
     );
+    const resolvedWebData = resolveCommunityWebDataForPublish({
+      competitionProfile,
+      community,
+      draft
+    });
     const modelListings = serializeCommunityModelListings(community, floorPlanNameById);
     const inventoryLots = serializeCommunityInventoryLots(community, floorPlanNameById);
     const planOfferingIds = context.offeredFloorPlanIdsByCommunity.get(communityId) || [];
@@ -806,19 +1058,28 @@ async function bootstrapPublishingData({ companyId }) {
         const communityPlanDraftDoc = communityFloorPlanDraftMap.get(
           toCommunityFloorPlanKey(communityId, floorPlan._id)
         );
+        const serializedPlanDraft = serializeFloorPlanDraft(
+          planDraftDoc,
+          context.company._id,
+          floorPlan._id
+        );
+        const serializedCommunityPlanDraft = serializeCommunityFloorPlanDraft(
+          communityPlanDraftDoc,
+          context.company._id,
+          community._id,
+          floorPlan._id
+        );
+        const resolvedPrice = resolvePlanOfferingBasePrice({
+          communityPlanDraft: serializedCommunityPlanDraft,
+          planDraft: serializedPlanDraft
+        });
         return {
           floorPlan: serializedFloorPlan,
-          planDraft: serializeFloorPlanDraft(
-            planDraftDoc,
-            context.company._id,
-            floorPlan._id
-          ),
-          communityPlanDraft: serializeCommunityFloorPlanDraft(
-            communityPlanDraftDoc,
-            context.company._id,
-            community._id,
-            floorPlan._id
-          )
+          planDraft: serializedPlanDraft,
+          communityPlanDraft: serializedCommunityPlanDraft,
+          basePriceFrom: resolvedPrice.basePriceFrom,
+          basePriceAsOf: resolvedPrice.basePriceAsOf,
+          basePriceSource: resolvedPrice.source
         };
       })
       .filter(Boolean)
@@ -834,12 +1095,20 @@ async function bootstrapPublishingData({ companyId }) {
     const outOfDate = isCommunityDraftOutOfDate({ webDataUpdatedAt, draftSyncedAt });
 
     return {
+      companyId,
+      keepupCommunityId: communityId,
+      publicCommunityId,
+      buildrootzCommunityId,
       community: serializeCommunity(community),
       draft,
+      webData: resolvedWebData,
+      competitionProfileTax: toLegacyPercentOrNull(competitionProfile?.tax),
+      competitionLegacyTax: normalizeLegacyPercentTax(legacyCompetition?.tax),
       competitionProfileWebData,
+      modelsSummary: modelListings,
       modelListings,
       completeness: computeCommunityCompleteness({
-        webData: competitionProfileWebData,
+        webData: resolvedWebData,
         communityDraft: draft,
         modelListings
       }),
@@ -1045,7 +1314,13 @@ async function updateCommunityWebData({ companyId, communityId, updates = {} }) 
   }).lean();
 
   const currentWebData = competitionProfileToWebData(existingProfile, community);
-  const patch = updates && typeof updates.webData === 'object' ? updates.webData : updates;
+  const patchSource = updates && typeof updates.webData === 'object'
+    ? updates.webData
+    : (updates && typeof updates === 'object' ? updates : {});
+  const patch = { ...patchSource };
+  if (Object.prototype.hasOwnProperty.call(patch, 'taxRate')) {
+    patch.taxRate = normalizeTaxRateInput(patch.taxRate, { throwOnInvalid: true });
+  }
   const nextWebData = mergeCompetitionWebData(currentWebData, patch || {});
   const shouldValidateModelListing = Object.prototype.hasOwnProperty.call(patch || {}, 'modelListingId');
   const shouldValidateModelFloorPlan = Object.prototype.hasOwnProperty.call(patch || {}, 'modelFloorPlanId');
@@ -1095,10 +1370,20 @@ async function updateCommunityWebData({ companyId, communityId, updates = {} }) 
     { new: true, upsert: true, setDefaultsOnInsert: true }
   ).lean();
 
-  const communityDraft = await BrzCommunityDraft.findOne({
-    companyId,
-    communityId: community._id
-  }).lean();
+  await ensureCommunityDrafts(companyId, [{ _id: community._id }]);
+  const syncedWebData = extractSyncableCompetitionFields(nextWebData);
+  const syncedAt = getCompetitionWebDataUpdatedAt(updatedProfile) || new Date();
+  const communityDraft = await BrzCommunityDraft.findOneAndUpdate(
+    { companyId, communityId: community._id },
+    {
+      $set: {
+        competitionWebData: syncedWebData,
+        draftSyncedAt: syncedAt,
+        draftSyncedFrom: 'competition'
+      }
+    },
+    { new: true }
+  ).lean();
 
   const communityLotFloorPlanIds = collectCommunityLotFloorPlanIds([community])
     .map((id) => new mongoose.Types.ObjectId(id));
@@ -1141,6 +1426,11 @@ async function updateCommunityWebData({ companyId, communityId, updates = {} }) 
     floorPlanDocs.map((floorPlan) => [toStringId(floorPlan._id), trimString(floorPlan.name || floorPlan.planNumber)])
   );
   const competitionProfileWebData = competitionProfileToWebData(updatedProfile, community);
+  const resolvedWebData = resolveCommunityWebDataForPublish({
+    competitionProfile: updatedProfile,
+    community,
+    draft: communityDraft
+  });
   const webDataUpdatedAt = getCompetitionWebDataUpdatedAt(updatedProfile);
   const draftSyncedAt = parseDateOrNull(communityDraft?.draftSyncedAt);
   const outOfDate = isCommunityDraftOutOfDate({ webDataUpdatedAt, draftSyncedAt });
@@ -1171,23 +1461,202 @@ async function updateCommunityWebData({ companyId, communityId, updates = {} }) 
       if (sortA !== sortB) return sortA - sortB;
       return trimString(a.floorPlan?.name).localeCompare(trimString(b.floorPlan?.name));
     });
+  const legacyCompetition = buildLegacyCompetitionMap(
+    await fetchLegacyCompetitions({
+      companyId,
+      communityIds: [community._id]
+    })
+  ).get(toStringId(community._id));
+  const serializedCommunityId = toStringId(community._id);
 
   return {
+    companyId: toStringId(companyId),
+    keepupCommunityId: serializedCommunityId,
+    publicCommunityId: trimString(community?.buildrootz?.publicCommunityId),
+    buildrootzCommunityId: trimString(community?.buildrootz?.communityId),
     community: serializeCommunity(community),
+    webData: resolvedWebData,
+    competitionProfileTax: toLegacyPercentOrNull(updatedProfile?.tax),
+    competitionLegacyTax: normalizeLegacyPercentTax(legacyCompetition?.tax),
     competitionProfileWebData,
+    modelsSummary: modelListings,
     webDataUpdatedAt,
     draftSyncedAt,
     outOfDate,
     hasCompetitionProfile: true,
     modelListings,
     completeness: computeCommunityCompleteness({
-      webData: competitionProfileWebData,
+      webData: resolvedWebData,
       communityDraft,
       modelListings
     }),
     listingOptions: serializeCommunityListingOptions(community, floorPlanNameById),
     floorPlanOptions: serializeCommunityFloorPlanOptions(community._id, floorPlanDocs),
     planOfferings
+  };
+}
+
+async function applyCommunityLocationToMissingListings({ companyId, communityId }) {
+  if (!isObjectId(communityId)) {
+    const err = new Error('Invalid communityId');
+    err.status = 400;
+    throw err;
+  }
+
+  const community = await Community.findOne({ _id: communityId, company: companyId })
+    .select('_id name city state lots._id lots.city lots.state lots.postalCode lots.zip lots.postal')
+    .lean();
+  if (!community) {
+    const err = new Error('Community not found');
+    err.status = 404;
+    throw err;
+  }
+
+  const competitionProfile = await CommunityCompetitionProfile.findOne({
+    company: companyId,
+    community: community._id
+  })
+    .select('community webData city state zip')
+    .lean();
+  if (!competitionProfile) {
+    const err = new Error('No competition profile found for this community');
+    err.status = 404;
+    throw err;
+  }
+
+  const resolvedWebData = competitionProfileToWebData(competitionProfile, community);
+  const sourceLocation = {
+    city: trimString(resolvedWebData?.city),
+    state: trimString(resolvedWebData?.state),
+    postalCode: trimString(resolvedWebData?.postalCode)
+  };
+  if (!sourceLocation.city && !sourceLocation.state && !sourceLocation.postalCode) {
+    const err = new Error('Community canonical location is missing. Update My Community Competition first.');
+    err.status = 400;
+    throw err;
+  }
+
+  const debugEnabled = process.env.NODE_ENV !== 'production';
+  const debugLotId = trimString(process.env.BRZ_LOCATION_DEBUG_LOT_ID || '69a4eb5dce74156a76d736d6');
+  const debugLog = (message, payload = {}) => {
+    if (!debugEnabled) return;
+    console.info('[brz-location-apply]', {
+      companyId: toStringId(companyId),
+      communityId: toStringId(community._id),
+      message,
+      ...payload
+    });
+  };
+
+  const lots = Array.isArray(community.lots) ? community.lots : [];
+  const patchPlans = lots
+    .map((lot) => {
+      const lotId = toStringId(lot?._id);
+      if (!lotId) return null;
+      const patch = buildMissingListingLocationPatch({
+        listing: lot || {},
+        communityLocation: sourceLocation
+      });
+      if (!patch) return null;
+      const setPatch = {};
+      Object.entries(patch).forEach(([key, value]) => {
+        setPatch[`lots.$.${key}`] = value;
+      });
+      return {
+        lotId,
+        lotObjectId: lot?._id || null,
+        patch,
+        setPatch
+      };
+    })
+    .filter(Boolean);
+
+  const matchedLotIds = lots.map((lot) => toStringId(lot?._id)).filter(Boolean);
+  debugLog('matched-lots', {
+    matchedCount: matchedLotIds.length,
+    sampleLotIds: matchedLotIds.slice(0, 5),
+    debugLotId,
+    debugLotMatched: debugLotId ? matchedLotIds.includes(debugLotId) : false
+  });
+
+  const bulkOps = patchPlans.map((plan) => ({
+    updateOne: {
+      filter: { _id: community._id, company: companyId, 'lots._id': plan.lotObjectId || plan.lotId },
+      update: { $set: plan.setPatch }
+    }
+  }));
+  if (bulkOps.length) {
+    await Community.bulkWrite(bulkOps, { ordered: false });
+  }
+
+  const verifyAppliedLotIds = async () => {
+    const refreshed = await Community.findOne({ _id: community._id, company: companyId })
+      .select('lots._id lots.city lots.state lots.postalCode lots.zip lots.postal')
+      .lean();
+    const refreshedById = new Map(
+      (Array.isArray(refreshed?.lots) ? refreshed.lots : [])
+        .map((lot) => [toStringId(lot?._id), lot])
+    );
+    const applied = [];
+    patchPlans.forEach((plan) => {
+      const lot = refreshedById.get(plan.lotId);
+      const normalized = resolveListingLocationDefaults({
+        listing: lot || {},
+        communityLocation: {}
+      });
+      let ok = true;
+      if (Object.prototype.hasOwnProperty.call(plan.patch, 'city')) {
+        ok = ok && trimString(normalized.city) === trimString(plan.patch.city);
+      }
+      if (Object.prototype.hasOwnProperty.call(plan.patch, 'state')) {
+        ok = ok && trimString(normalized.state) === trimString(plan.patch.state);
+      }
+      if (Object.prototype.hasOwnProperty.call(plan.patch, 'postalCode')) {
+        ok = ok && trimString(normalized.postalCode) === trimString(plan.patch.postalCode);
+      }
+      if (ok) applied.push(plan.lotId);
+    });
+    return applied;
+  };
+
+  let appliedLotIds = await verifyAppliedLotIds();
+  let pendingPlans = patchPlans.filter((plan) => !appliedLotIds.includes(plan.lotId));
+
+  if (pendingPlans.length) {
+    for (const plan of pendingPlans) {
+      const lotFilterCandidates = [plan.lotId];
+      if (isObjectId(plan.lotId)) {
+        lotFilterCandidates.unshift(new mongoose.Types.ObjectId(plan.lotId));
+      }
+      for (const lotFilter of lotFilterCandidates) {
+        const result = await Community.updateOne(
+          { _id: community._id, company: companyId, 'lots._id': lotFilter },
+          { $set: plan.setPatch }
+        );
+        if (toNumberOr(result?.modifiedCount, 0) > 0) break;
+      }
+    }
+    appliedLotIds = await verifyAppliedLotIds();
+    pendingPlans = patchPlans.filter((plan) => !appliedLotIds.includes(plan.lotId));
+  }
+
+  debugLog('apply-result', {
+    attemptedCount: patchPlans.length,
+    updatedCount: appliedLotIds.length,
+    failedCount: pendingPlans.length,
+    updatedSampleLotIds: appliedLotIds.slice(0, 5),
+    debugLotUpdated: debugLotId ? appliedLotIds.includes(debugLotId) : false
+  });
+
+  return {
+    communityId: toStringId(community._id),
+    totalLots: lots.length,
+    attemptedCount: patchPlans.length,
+    updatedCount: appliedLotIds.length,
+    skippedCount: Math.max(0, (lots.length - patchPlans.length) + pendingPlans.length),
+    updatedLotIds: appliedLotIds,
+    failedLotIds: pendingPlans.map((plan) => plan.lotId),
+    sourceLocation
   };
 }
 
@@ -1199,7 +1668,7 @@ async function syncCommunityDraftFromCompetition({ companyId, communityId }) {
   }
 
   const community = await Community.findOne({ _id: communityId, company: companyId })
-    .select('_id name totalLots lots._id')
+    .select('_id name city state totalLots lots._id')
     .lean();
   if (!community) {
     const err = new Error('Community not found');
@@ -1434,7 +1903,7 @@ async function updateFloorPlanDraft({ companyId, floorPlanId, updates = {} }) {
     set.basePriceAsOf = basePriceAsOf;
   }
   if (Object.prototype.hasOwnProperty.call(updates, 'basePriceFrom')) {
-    const basePriceFrom = toNullableNumber(updates.basePriceFrom);
+    const basePriceFrom = toIntegerDollarOrNull(updates.basePriceFrom);
     if (updates.basePriceFrom != null && updates.basePriceFrom !== '' && basePriceFrom == null) {
       const err = new Error('basePriceFrom must be a number');
       err.status = 400;
@@ -1574,7 +2043,7 @@ async function updateCommunityFloorPlanDraft({
     set.basePriceAsOf = basePriceAsOf;
   }
   if (Object.prototype.hasOwnProperty.call(updates, 'basePriceFrom')) {
-    const basePriceFrom = toNullableNumber(updates.basePriceFrom);
+    const basePriceFrom = toIntegerDollarOrNull(updates.basePriceFrom);
     if (updates.basePriceFrom != null && updates.basePriceFrom !== '' && basePriceFrom == null) {
       const err = new Error('basePriceFrom must be a number');
       err.status = 400;
@@ -1708,6 +2177,74 @@ const dedupeStrings = (items) => {
   return out;
 };
 
+const resolveAssetBaseUrl = () => {
+  const raw = trimString(process.env.KEEPUP_PUBLIC_BASE_URL || process.env.BASE_URL);
+  if (!raw) return '';
+  return raw.replace(/\/+$/, '');
+};
+
+const isRelativeUploadUrl = (url) => {
+  const normalized = trimString(url);
+  return normalized.startsWith('/uploads/') || normalized.startsWith('uploads/');
+};
+
+const absolutizeAssetUrl = (url) => {
+  const normalized = trimString(url);
+  if (!normalized) return '';
+  if (/^https?:\/\//i.test(normalized)) return normalized;
+  if (isRelativeUploadUrl(normalized)) {
+    const baseUrl = resolveAssetBaseUrl();
+    if (!baseUrl) {
+      return normalized.startsWith('/') ? normalized : `/${normalized}`;
+    }
+    return `${baseUrl}${normalized.startsWith('/') ? normalized : `/${normalized}`}`;
+  }
+  return normalized;
+};
+
+function collectListingImageUrls({ lot } = {}) {
+  const heroUrl = trimString(lot?.heroImage) || null;
+  const urls = dedupeStrings([
+    trimString(lot?.heroImage),
+    trimString(lot?.liveElevationPhoto),
+    ...(Array.isArray(lot?.listingPhotos) ? lot.listingPhotos : [])
+  ]).slice(0, 25);
+
+  return {
+    heroUrl,
+    urls
+  };
+}
+
+function serializePlanAssetForBundle({ floorPlan, pushWarning } = {}) {
+  const asset = floorPlan?.asset && typeof floorPlan.asset === 'object' ? floorPlan.asset : {};
+  const rawFileUrl = trimString(asset.fileUrl);
+  const rawPreviewUrl = trimString(asset.previewUrl) || resolveFloorPlanUploadedPreviewUrl(floorPlan);
+
+  const fileUrl = rawFileUrl ? absolutizeAssetUrl(rawFileUrl) : null;
+  const previewUrl = rawPreviewUrl ? absolutizeAssetUrl(rawPreviewUrl) : null;
+  const originalFilename = trimString(asset.originalFilename) || null;
+  const mimeType = trimString(asset.mimeType) || null;
+  const planLabel = trimString(floorPlan?.name || floorPlan?.planNumber || floorPlan?._id) || 'Unknown plan';
+
+  if (rawFileUrl && isRelativeUploadUrl(rawFileUrl) && fileUrl === (rawFileUrl.startsWith('/') ? rawFileUrl : `/${rawFileUrl}`)) {
+    pushWarning?.(`Plan ${planLabel}: relative upload URL may not resolve in BRZ: ${fileUrl}`);
+  }
+  if (rawPreviewUrl && isRelativeUploadUrl(rawPreviewUrl) && previewUrl === (rawPreviewUrl.startsWith('/') ? rawPreviewUrl : `/${rawPreviewUrl}`)) {
+    pushWarning?.(`Plan ${planLabel}: relative upload URL may not resolve in BRZ: ${previewUrl}`);
+  }
+  if (rawFileUrl && looksLikePdf(rawFileUrl) && !previewUrl) {
+    pushWarning?.(`Plan ${planLabel}: missing previewUrl for floor plan asset`);
+  }
+
+  return {
+    fileUrl,
+    previewUrl,
+    originalFilename,
+    mimeType
+  };
+}
+
 const mapUrlsToMediaObjects = (items) =>
   dedupeStrings(items).map((url) => ({ url }));
 
@@ -1716,6 +2253,149 @@ const capWarnings = (warnings, cap = 25) =>
     .map((warning) => truncateMessage(warning, 240))
     .filter(Boolean)
     .slice(0, cap);
+
+const safeIdSample = (values, cap = 10) =>
+  dedupeStrings(
+    (Array.isArray(values) ? values : [])
+      .map((value) => toStringId(value))
+      .filter(Boolean)
+  ).slice(0, cap);
+
+const safeAuditWarningsSample = (warnings, cap = 10) =>
+  (Array.isArray(warnings) ? warnings : [])
+    .map((warning) => truncateMessage(warning, 180))
+    .filter(Boolean)
+    .slice(0, cap);
+
+const pickFirstNumber = (...values) => {
+  for (const value of values) {
+    const parsed = toNullableNumber(value);
+    if (parsed != null) return parsed;
+  }
+  return null;
+};
+
+const resolveInventoryAuditMode = ({ lotIds, unpublishMissingHomes, bundle }) => {
+  const bundleMode = trimString(bundle?.meta?.publishMode).toUpperCase();
+  if (bundleMode === 'PATCH' || bundleMode === 'RECONCILE') {
+    return bundleMode;
+  }
+  const hasLotScope = Array.isArray(lotIds) && lotIds.some((value) => toStringId(value));
+  if (hasLotScope) return 'PATCH';
+  return unpublishMissingHomes === false ? 'PATCH' : 'RECONCILE';
+};
+
+const buildInventoryAuditRecord = ({
+  companyId,
+  communityIds,
+  lotIds,
+  unpublishMissingHomes,
+  bundle,
+  summary,
+  ctx
+}) => {
+  const warnings = Array.isArray(summary?.warnings) ? summary.warnings : [];
+  const counts = summary?.counts && typeof summary.counts === 'object' ? summary.counts : {};
+  const normalizedSource = ['user', 'system'].includes(trimString(ctx?.source).toLowerCase())
+    ? trimString(ctx.source).toLowerCase()
+    : 'unknown';
+  const initiatorUserId = isObjectId(ctx?.userId) ? ctx.userId : null;
+  const communityIdsSample = safeIdSample(communityIds);
+  const lotIdsSample = safeIdSample(lotIds);
+  const publishedCount = pickFirstNumber(
+    counts.publishedCount,
+    counts.publicHomes,
+    counts.publishedHomes,
+    counts.updatedHomes
+  );
+  const deactivatedCount = pickFirstNumber(
+    counts.deactivatedCount,
+    counts.deactivatedHomes,
+    counts.deactivated,
+    0
+  );
+  const skippedCount = pickFirstNumber(
+    counts.skippedCount,
+    counts.skippedHomes,
+    counts.skippedMissingAddress,
+    bundle?.meta?.inventorySummary?.skippedMissingAddress,
+    0
+  );
+
+  return {
+    companyId,
+    kind: 'inventory',
+    mode: resolveInventoryAuditMode({ lotIds, unpublishMissingHomes, bundle }),
+    scope: {
+      communityIdsCount: Array.isArray(communityIds) ? communityIds.filter(Boolean).length : 0,
+      lotIdsCount: Array.isArray(lotIds) ? lotIds.filter(Boolean).length : 0,
+      communityIdsSample,
+      lotIdsSample
+    },
+    meta: {
+      unpublishMissingHomes: Boolean(bundle?.meta?.unpublishMissingHomes ?? unpublishMissingHomes)
+    },
+    result: {
+      ...(publishedCount != null ? { publishedCount } : {}),
+      ...(deactivatedCount != null ? { deactivatedCount } : {}),
+      ...(skippedCount != null ? { skippedCount } : {})
+    },
+    warningsCount: warnings.length,
+    warningsSample: safeAuditWarningsSample(warnings),
+    message: truncateMessage(summary?.message || '', 240),
+    initiator: {
+      userId: initiatorUserId,
+      source: normalizedSource,
+      route: truncateMessage(ctx?.route || '', 240)
+    }
+  };
+};
+
+async function trimInventoryPublishAuditHistory({ companyId, keep = 100 }) {
+  const staleRows = await BrzPublishAuditModel.find({
+    companyId,
+    kind: 'inventory'
+  })
+    .sort({ createdAt: -1, _id: -1 })
+    .skip(Math.max(0, keep))
+    .select('_id')
+    .lean();
+
+  if (!staleRows.length) return;
+
+  await BrzPublishAuditModel.deleteMany({
+    _id: { $in: staleRows.map((row) => row._id) }
+  });
+}
+
+async function persistInventoryPublishAudit({
+  companyId,
+  communityIds,
+  lotIds,
+  unpublishMissingHomes,
+  bundle,
+  summary,
+  ctx
+}) {
+  try {
+    const auditRecord = buildInventoryAuditRecord({
+      companyId,
+      communityIds,
+      lotIds,
+      unpublishMissingHomes,
+      bundle,
+      summary,
+      ctx
+    });
+    await BrzPublishAuditModel.create(auditRecord);
+    await trimInventoryPublishAuditHistory({ companyId, keep: 100 });
+  } catch (err) {
+    console.error('Failed to persist BuildRootz publish audit', {
+      companyId: toStringId(companyId),
+      error: err?.message || err
+    });
+  }
+}
 
 const normalizeWebDataForBundle = (webData) => {
   const normalized = webData && typeof webData === 'object' ? { ...webData } : {};
@@ -1761,6 +2441,31 @@ const toGarageStringOrNull = (value) => {
   if (typeof value === 'number' && Number.isFinite(value)) return String(value);
   const text = trimString(value);
   return text || null;
+};
+
+const toLegacyPercentOrNull = (value) => {
+  const parsed = toNullableNumber(value);
+  return parsed == null ? null : parsed;
+};
+
+const normalizeLegacyPercentTax = (value) => {
+  if (value == null || value === '') return null;
+
+  let parsed = null;
+  if (typeof value === 'string') {
+    const trimmed = value.trim();
+    if (!trimmed) return null;
+    const withoutPercent = trimmed.endsWith('%') ? trimmed.slice(0, -1).trim() : trimmed;
+    if (!withoutPercent) return null;
+    parsed = Number(withoutPercent);
+  } else {
+    parsed = Number(value);
+  }
+
+  if (!Number.isFinite(parsed) || parsed < 0) return null;
+
+  const normalized = parsed > 0 && parsed < 1 ? parsed * 100 : parsed;
+  return Number(normalized.toFixed(6));
 };
 
 const normalizeScopedIdSet = (values, fieldName) => {
@@ -1976,22 +2681,28 @@ async function buildPackageBundle({ companyId, requestedAt = new Date().toISOStr
   });
 
   const builderProfile = serializeBuilderProfilePayload({ company, profileDraft });
+  const packageWarnings = [];
+  const pushPackageWarning = (message) => {
+    if (!message) return;
+    packageWarnings.push(message);
+  };
 
   const builderInCommunities = includedCommunities.map(({ community, draft }) => {
     const communityId = toStringId(community._id);
     const publicCommunityId = trimString(community?.buildrootz?.publicCommunityId);
     const competitionProfile = competitionProfileById.get(communityId);
     const draftSyncedAt = parseDateOrNull(draft?.draftSyncedAt);
-    const draftWebData = draft?.competitionWebData && typeof draft.competitionWebData === 'object'
-      ? draft.competitionWebData
-      : null;
     const communityName = trimString(community?.name) || communityId;
     if (!draftSyncedAt && competitionProfile) {
       const err = new Error(`Community ${communityName} has never been synced from competition. Click "Sync from competition" before publishing package.`);
       err.status = 400;
       throw err;
     }
-    const webData = draftWebData || {};
+    const webData = resolveCommunityWebDataForPublish({
+      competitionProfile,
+      community,
+      draft
+    });
     const promotionValue = trimString(draft?.competitionPromotion);
     const modelsSummary = serializeCommunityModelListings(community, floorPlanNameById).map((model) => ({
       keepupLotId: toStringId(model.listingId),
@@ -2030,6 +2741,10 @@ async function buildPackageBundle({ companyId, requestedAt = new Date().toISOStr
         trimString(draft?.primaryImage?.url),
         resolveFloorPlanUploadedPreviewUrl(floorPlan)
       ]);
+      const structuredAsset = serializePlanAssetForBundle({
+        floorPlan,
+        pushWarning: pushPackageWarning
+      });
       const payload = {
         companyId: toStringId(company._id),
         keepupFloorPlanId: toStringId(floorPlan._id),
@@ -2040,7 +2755,8 @@ async function buildPackageBundle({ companyId, requestedAt = new Date().toISOStr
         sqft: toNullableNumber(specs?.squareFeet),
         stories: toNullableNumber(specs?.stories),
         garage: toGarageStringOrNull(specs?.garage),
-        sortOrder: toNumberOr(draft?.sortOrder, 0)
+        sortOrder: toNumberOr(draft?.sortOrder, 0),
+        asset: structuredAsset
       };
       if (trimString(draft?.descriptionOverride)) {
         payload.description = trimString(draft.descriptionOverride);
@@ -2064,6 +2780,10 @@ async function buildPackageBundle({ companyId, requestedAt = new Date().toISOStr
         const communityPlanDraft = communityFloorPlanDraftByKey.get(
           toCommunityFloorPlanKey(communityId, floorPlanIdString)
         );
+        const resolvedPrice = resolvePlanOfferingBasePrice({
+          communityPlanDraft,
+          planDraft
+        });
         const payload = {
           companyId: toStringId(company._id),
           publicCommunityId,
@@ -2071,9 +2791,12 @@ async function buildPackageBundle({ companyId, requestedAt = new Date().toISOStr
           keepupFloorPlanId: floorPlanIdString,
           isIncluded: communityPlanDraft ? communityPlanDraft.isIncluded !== false : true,
           sortOrder: toNumberOr(communityPlanDraft?.sortOrder, toNumberOr(planDraft?.sortOrder, 0)),
-          basePriceFrom: toNullableNumber(communityPlanDraft?.basePriceFrom),
-          basePriceAsOf: parseDateOrNull(communityPlanDraft?.basePriceAsOf),
-          basePriceVisibility: normalizePriceVisibility(communityPlanDraft?.basePriceVisibility, 'public')
+          basePriceFrom: resolvedPrice.basePriceFrom,
+          basePriceAsOf: resolvedPrice.basePriceAsOf,
+          basePriceVisibility: normalizePriceVisibility(
+            communityPlanDraft?.basePriceVisibility,
+            normalizePriceVisibility(planDraft?.basePriceVisibility, 'public')
+          )
         };
         if (trimString(communityPlanDraft?.descriptionOverride)) {
           payload.descriptionOverride = trimString(communityPlanDraft.descriptionOverride);
@@ -2094,7 +2817,8 @@ async function buildPackageBundle({ companyId, requestedAt = new Date().toISOStr
     meta: {
       keepupCompanyId: toStringId(company._id),
       requestedAt,
-      publisherVersion: PUBLISHER_VERSION
+      publisherVersion: PUBLISHER_VERSION,
+      warnings: capWarnings(packageWarnings)
     },
     builderProfile,
     builderInCommunities,
@@ -2127,6 +2851,9 @@ async function buildInventoryBundle({
   const communityDraftById = new Map(
     context.communityDrafts.map((draft) => [toStringId(draft.communityId), draft])
   );
+  const competitionProfileByCommunityId = new Map(
+    (context.competitionProfiles || []).map((profile) => [toStringId(profile.community), profile])
+  );
   const floorPlanById = new Map(
     context.floorPlans.map((floorPlan) => [toStringId(floorPlan._id), floorPlan])
   );
@@ -2155,16 +2882,44 @@ async function buildInventoryBundle({
   publishWarnings.push(...modeWarnings);
   let attemptedHomes = 0;
   let skippedMissingAddress = 0;
+  const locationBackfillOperations = [];
+  const fallbackLocationLotIds = [];
+  const canonicalLocationBackfillLotIds = [];
   const pushInventoryWarning = (message) => {
     if (!message) return;
     publishWarnings.push(message);
   };
+
+  const canonicalLocationByCommunityId = new Map(
+    includedCommunities.map(({ community, draft }) => {
+      const communityId = toStringId(community?._id);
+      const competitionProfile = competitionProfileByCommunityId.get(communityId) || null;
+      const resolvedWebData = resolveCommunityWebDataForPublish({
+        competitionProfile,
+        community,
+        draft
+      });
+      return [
+        communityId,
+        {
+          city: trimString(resolvedWebData?.city),
+          state: trimString(resolvedWebData?.state),
+          postalCode: trimString(resolvedWebData?.postalCode)
+        }
+      ];
+    })
+  );
 
   const publicHomes = [];
   includedCommunities.forEach(({ community }) => {
     const communityId = toStringId(community._id);
     const communityName = trimString(community?.name) || communityId;
     const publicCommunityId = trimString(community?.buildrootz?.publicCommunityId);
+    const communityCanonicalLocation = canonicalLocationByCommunityId.get(communityId) || {
+      city: '',
+      state: '',
+      postalCode: ''
+    };
     const lots = Array.isArray(community?.lots) ? community.lots : [];
     lots
       .filter((lot) => isLotMarkedForBuildrootzPublish(lot))
@@ -2174,13 +2929,29 @@ async function buildInventoryBundle({
         const keepupLotId = toStringId(lot?._id);
         const keepupFloorPlanId = toStringId(lot?.floorPlan);
         const floorPlan = floorPlanById.get(keepupFloorPlanId);
-        const photoUrls = dedupeStrings([
-          trimString(lot?.heroImage),
-          ...(Array.isArray(lot?.listingPhotos) ? lot.listingPhotos : []),
-          trimString(lot?.liveElevationPhoto)
-        ]);
+        const lotLabel = trimString(lot?.address) || keepupLotId || 'listing';
+        const { heroUrl, urls: listingImageUrls } = collectListingImageUrls({ lot });
+        const relativeUploadWarnings = [];
+        const absolutizedHeroUrl = heroUrl ? absolutizeAssetUrl(heroUrl) : '';
+        if (heroUrl && isRelativeUploadUrl(heroUrl) && absolutizedHeroUrl === (heroUrl.startsWith('/') ? heroUrl : `/${heroUrl}`)) {
+          relativeUploadWarnings.push(`Relative upload URL; may not resolve in BRZ: ${absolutizedHeroUrl}`);
+        }
+        const photoUrls = listingImageUrls
+          .map((url) => {
+            const absolutized = absolutizeAssetUrl(url);
+            if (isRelativeUploadUrl(url) && absolutized === (url.startsWith('/') ? url : `/${url}`)) {
+              relativeUploadWarnings.push(`Relative upload URL; may not resolve in BRZ: ${absolutized}`);
+            }
+            return absolutized;
+          })
+          .filter(Boolean);
 
-        const { address, displayAddress, warnings: addressWarnings } = normalizeHomeAddress(
+        const {
+          address,
+          displayAddress,
+          location,
+          warnings: addressWarnings
+        } = normalizeHomeAddress(
           lot,
           community,
           company
@@ -2191,6 +2962,93 @@ async function buildInventoryBundle({
             `Skipped lot ${keepupLotId} (${communityName}): missing address line1`
           );
           return;
+        }
+
+        let normalizedAddress = address && typeof address === 'object' ? { ...address } : {};
+        let normalizedLocation = location && typeof location === 'object' ? { ...location } : {};
+        let normalizedDisplayAddress = displayAddress;
+
+        const locationFallbackPatch = buildMissingListingLocationPatch({
+          listing: {
+            city: normalizedLocation?.city,
+            state: normalizedLocation?.state,
+            postalCode: normalizedLocation?.postalCode
+          },
+          communityLocation: communityCanonicalLocation
+        });
+        if (locationFallbackPatch) {
+          if (locationFallbackPatch.city && !trimString(normalizedLocation.city)) {
+            normalizedLocation.city = locationFallbackPatch.city;
+          }
+          if (locationFallbackPatch.state && !trimString(normalizedLocation.state)) {
+            normalizedLocation.state = locationFallbackPatch.state;
+          }
+          if (locationFallbackPatch.postalCode && !trimString(normalizedLocation.postalCode)) {
+            normalizedLocation.postalCode = locationFallbackPatch.postalCode;
+          }
+
+          const fallbackFields = Object.keys(locationFallbackPatch);
+          fallbackLocationLotIds.push(keepupLotId);
+          pushInventoryWarning(
+            `Lot ${keepupLotId} (community ${communityId}): used community canonical fallback for ${fallbackFields.join('/')}`
+          );
+
+          normalizedAddress = {
+            ...normalizedAddress,
+            city: trimString(normalizedLocation.city),
+            state: trimString(normalizedLocation.state)
+          };
+          if (trimString(normalizedLocation.postalCode)) {
+            normalizedAddress.zip = trimString(normalizedLocation.postalCode);
+          }
+          if (!trimString(normalizedDisplayAddress)) {
+            const line1 = trimString(normalizedLocation.address1 || normalizedAddress.line1 || normalizedAddress.street);
+            const cityStatePostal = formatCityStatePostal(normalizedLocation);
+            normalizedDisplayAddress = [line1, cityStatePostal].filter(Boolean).join(', ');
+          }
+        }
+
+        const missingLocationFields = ['city', 'state', 'postalCode']
+          .filter((field) => !trimString(normalizedLocation?.[field]));
+        if (missingLocationFields.length) {
+          pushInventoryWarning(
+            `Lot ${keepupLotId} (community ${communityId}): missing normalized ${missingLocationFields.join('/')}`
+          );
+        }
+
+        const locationPatch = buildListingLocationPersistencePatch({
+          listing: lot,
+          normalizedLocation
+        });
+        const canonicalLocationPatch = buildMissingListingLocationPatch({
+          listing: lot,
+          communityLocation: communityCanonicalLocation
+        });
+        if (canonicalLocationPatch) {
+          canonicalLocationBackfillLotIds.push(keepupLotId);
+        }
+
+        const combinedLocationPatch = {
+          ...(locationPatch || {}),
+          ...(canonicalLocationPatch || {})
+        };
+        if (Object.keys(combinedLocationPatch).length && community?._id && lot?._id) {
+          const set = {};
+          Object.entries(combinedLocationPatch).forEach(([key, value]) => {
+            set[`lots.$.${key}`] = value;
+          });
+          if (Object.keys(set).length) {
+            locationBackfillOperations.push({
+              updateOne: {
+                filter: {
+                  _id: community._id,
+                  company: company._id,
+                  'lots._id': lot._id
+                },
+                update: { $set: set }
+              }
+            });
+          }
         }
 
         const { geo, warnings: geoWarnings } = normalizeHomeGeo(lot);
@@ -2221,6 +3079,12 @@ async function buildInventoryBundle({
             `Lot ${keepupLotId} (${communityName}): missing price`
           );
         }
+        if (!absolutizedHeroUrl && !photoUrls.length) {
+          pushInventoryWarning(`No listing photos for ${lotLabel}`);
+        }
+        capWarnings(relativeUploadWarnings, 3).forEach((warning) => {
+          pushInventoryWarning(warning);
+        });
 
         const payload = {
           companyId: toStringId(company._id),
@@ -2230,8 +3094,13 @@ async function buildInventoryBundle({
           sourceHomeId: keepupLotId,
           status: trimString(lot?.generalStatus || lot?.status || lot?.buildingStatus || 'Available'),
           isActive: true,
-          address,
-          displayAddress
+          address1: trimString(normalizedLocation?.address1) || null,
+          city: trimString(normalizedLocation?.city) || null,
+          state: trimString(normalizedLocation?.state) || null,
+          postalCode: trimString(normalizedLocation?.postalCode) || null,
+          formattedAddress: trimString(normalizedLocation?.formattedAddress) || null,
+          address: normalizedAddress,
+          displayAddress: normalizedDisplayAddress
         };
 
         if (trimString(lot?.lot)) payload.address.lot = trimString(lot.lot);
@@ -2246,13 +3115,46 @@ async function buildInventoryBundle({
         if (sqft != null) payload.sqft = sqft;
         if (garage != null) payload.garage = toGarageStringOrNull(garage);
         if (stories != null) payload.stories = stories;
+        const listingPromo = normalizePromo(lot?.promo) || normalizePromo(lot?.promoText);
+        if (listingPromo) {
+          payload.promo = listingPromo;
+        }
+        payload.promoMode = normalizePromoMode(lot?.promoMode, 'add');
+        payload.heroImages = absolutizedHeroUrl ? [absolutizedHeroUrl] : [];
+        payload.images = photoUrls;
+        payload.photos = mapUrlsToMediaObjects(photoUrls);
         if (photoUrls.length) {
-          payload.photos = mapUrlsToMediaObjects(photoUrls);
           payload.primaryPhotoUrl = photoUrls[0];
         }
         publicHomes.push(payload);
       });
   });
+
+  if (locationBackfillOperations.length) {
+    try {
+      await Community.bulkWrite(locationBackfillOperations, { ordered: false });
+      const canonicalBackfillLotIds = dedupeStrings(canonicalLocationBackfillLotIds);
+      if (canonicalBackfillLotIds.length) {
+        const sample = canonicalBackfillLotIds.slice(0, 10);
+        const suffix = canonicalBackfillLotIds.length > sample.length ? ', ...' : '';
+        pushInventoryWarning(
+          `Backfilled location for ${canonicalBackfillLotIds.length} lot(s) using community canonical location: ${sample.join(', ')}${suffix}`
+        );
+      }
+      const fallbackIds = dedupeStrings(fallbackLocationLotIds);
+      if (fallbackIds.length) {
+        const sample = fallbackIds.slice(0, 10);
+        const suffix = fallbackIds.length > sample.length ? ', ...' : '';
+        pushInventoryWarning(
+          `Used community canonical location fallback in payload for ${fallbackIds.length} lot(s): ${sample.join(', ')}${suffix}`
+        );
+      }
+    } catch (err) {
+      pushInventoryWarning(
+        `Failed to persist normalized listing locations for ${locationBackfillOperations.length} lot(s): ${trimString(err?.message) || 'unknown error'}`
+      );
+    }
+  }
 
   return {
     meta: {
@@ -2279,7 +3181,7 @@ async function publishCompanyPackage({ companyId }) {
   let bundle = null;
   try {
     bundle = await buildPackageBundle({ companyId, requestedAt: new Date().toISOString() });
-    const brzResponse = await publishBundleToBuildRootz(bundle);
+    const brzResponse = await publishBundleToBuildRootzImpl(bundle);
     const summary = extractPublishSummary({ response: brzResponse, bundle });
     await persistPublishMetadata({
       companyId,
@@ -2321,7 +3223,8 @@ async function publishCompanyInventory({
   companyId,
   communityIds = null,
   lotIds = null,
-  unpublishMissingHomes
+  unpublishMissingHomes,
+  ctx = null
 }) {
   let bundle = null;
   try {
@@ -2339,7 +3242,7 @@ async function publishCompanyInventory({
       communityIdsCount: Array.isArray(communityIds) ? communityIds.length : 0,
       lotIdsCount: Array.isArray(lotIds) ? lotIds.length : 0
     });
-    const brzResponse = await publishBundleToBuildRootz(bundle);
+    const brzResponse = await publishBundleToBuildRootzImpl(bundle);
     const summary = extractPublishSummary({ response: brzResponse, bundle });
     await persistPublishMetadata({
       companyId,
@@ -2348,6 +3251,15 @@ async function publishCompanyInventory({
       message: summary.message,
       counts: summary.counts,
       warnings: summary.warnings
+    });
+    await persistInventoryPublishAudit({
+      companyId,
+      communityIds,
+      lotIds,
+      unpublishMissingHomes,
+      bundle,
+      summary,
+      ctx
     });
 
     return {
@@ -2373,6 +3285,18 @@ async function publishCompanyInventory({
     } catch (_) {
       // keep original error
     }
+    await persistInventoryPublishAudit({
+      companyId,
+      communityIds,
+      lotIds,
+      unpublishMissingHomes,
+      bundle,
+      summary: {
+        ...summary,
+        message: err?.message || summary.message || 'Inventory publish failed'
+      },
+      ctx
+    });
     throw err;
   }
 }
@@ -2386,6 +3310,7 @@ module.exports = {
   updateBuilderProfileDraft,
   updateCommunityDraft,
   updateCommunityLotPublishFlag,
+  applyCommunityLocationToMissingListings,
   syncCommunityDraftFromCompetition,
   syncOutOfDateCommunitiesFromCompetition,
   updateCommunityWebData,
@@ -2400,6 +3325,19 @@ module.exports = {
   sanitizeImageMeta,
   __test: {
     resolveInventoryUnpublishMissingHomes,
-    normalizeScopedIdSet
+    normalizeScopedIdSet,
+    normalizeLegacyPercentTax,
+    collectListingImageUrls,
+    absolutizeAssetUrl,
+    setPublishBundleToBuildRootzImpl(fn) {
+      publishBundleToBuildRootzImpl = typeof fn === 'function' ? fn : publishBundleToBuildRootzDefault;
+    },
+    setBrzPublishAuditModel(model) {
+      BrzPublishAuditModel = model || BrzPublishAudit;
+    },
+    resetTestDoubles() {
+      publishBundleToBuildRootzImpl = publishBundleToBuildRootzDefault;
+      BrzPublishAuditModel = BrzPublishAudit;
+    }
   }
 };

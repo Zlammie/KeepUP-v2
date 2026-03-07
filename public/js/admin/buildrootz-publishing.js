@@ -27,6 +27,8 @@
     inventoryPublishAt: document.getElementById('brzInventoryPublishAt'),
     inventoryPublishStatus: document.getElementById('brzInventoryPublishStatus'),
     inventoryWarnings: document.getElementById('brzInventoryWarnings'),
+    publishAuditBody: document.getElementById('brzPublishAuditBody'),
+    publishAuditStatus: document.getElementById('brzPublishAuditStatus'),
     previewLink: document.getElementById('brzPreviewLink'),
     publishPackageBtn: document.getElementById('brzPublishPackageBtn'),
     publishInventoryBtn: document.getElementById('brzPublishInventoryBtn'),
@@ -42,6 +44,7 @@
     latestSnapshot: null,
     latestPackageSnapshot: null,
     latestInventorySnapshot: null,
+    publishAudits: [],
     outOfDateCommunitiesCount: 0,
     communityFilter: 'all'
   };
@@ -66,6 +69,98 @@
     const parsed = Number(value);
     return Number.isFinite(parsed) ? parsed : null;
   };
+  const formatPercentInput = (value, scale = 100) => {
+    const amount = toNumberOrNull(value);
+    if (amount == null) return '';
+    const scaled = amount * scale;
+    return String(Number(scaled.toFixed(3)));
+  };
+  const formatLegacyPercentInput = (value) => {
+    const amount = toNumberOrNull(value);
+    if (amount == null) return '';
+    return String(Number(amount.toFixed(3)));
+  };
+  const formatTaxRateInputValue = (entry, webData) => {
+    const canonical = formatPercentInput(webData?.taxRate);
+    if (canonical) return canonical;
+    const profileFallback = formatLegacyPercentInput(entry?.competitionProfileTax);
+    if (profileFallback) return profileFallback;
+    return formatLegacyPercentInput(entry?.competitionLegacyTax);
+  };
+  const normalizeAmenityLabels = (value) => {
+    if (!Array.isArray(value)) return [];
+    const labels = [];
+    const seen = new Set();
+    value.forEach((entry) => {
+      const label = toText(typeof entry === 'string' ? entry : entry?.label);
+      if (!label) return;
+      const key = label.toLowerCase();
+      if (seen.has(key)) return;
+      seen.add(key);
+      labels.push(label);
+    });
+    return labels;
+  };
+  const renderAmenityChips = (value) => {
+    const labels = normalizeAmenityLabels(value);
+    if (!labels.length) {
+      return '<span class="text-muted">—</span>';
+    }
+    return labels
+      .map((label) => `<span class="badge text-bg-light border me-1 mb-1">${escapeHtml(label)}</span>`)
+      .join('');
+  };
+  const renderLabelChips = (value) => renderAmenityChips(value);
+  const normalizePromo = (value) => {
+    if (!value) return null;
+    if (typeof value === 'string') {
+      const headline = toText(value);
+      return headline ? { headline } : null;
+    }
+    if (typeof value !== 'object' || Array.isArray(value)) return null;
+    const promo = {
+      headline: toText(value.headline),
+      description: toText(value.description),
+      disclaimer: toText(value.disclaimer)
+    };
+    if (!promo.headline && !promo.description && !promo.disclaimer) {
+      return null;
+    }
+    return promo;
+  };
+  const renderPromoSummary = (value) => {
+    const promo = normalizePromo(value);
+    if (!promo) {
+      return '<span class="text-muted">&mdash;</span>';
+    }
+    const parts = [
+      promo.headline ? `<div class="fw-semibold">${escapeHtml(promo.headline)}</div>` : '',
+      promo.description ? `<div class="small text-muted">${escapeHtml(promo.description)}</div>` : '',
+      promo.disclaimer ? `<div class="small text-muted fst-italic">${escapeHtml(promo.disclaimer)}</div>` : ''
+    ].filter(Boolean);
+    return parts.join('');
+  };
+  const renderPromoModeBadge = (value) => {
+    const mode = toText(value).toLowerCase() === 'override' ? 'override' : 'add';
+    const label = mode === 'override' ? 'Override' : 'Add';
+    const badgeClass = mode === 'override' ? 'text-bg-warning' : 'text-bg-light border';
+    return `<span class="badge ${badgeClass}">${label}</span>`;
+  };
+  const parseTaxRateInput = (value) => {
+    const raw = toText(value);
+    if (!raw) return null;
+    const hasPercentSuffix = raw.endsWith('%');
+    const numericText = hasPercentSuffix ? raw.slice(0, -1).trim() : raw;
+    const parsed = Number(numericText);
+    if (!Number.isFinite(parsed)) {
+      throw new Error('Tax Rate must be a valid number');
+    }
+    if (parsed < 0) {
+      throw new Error('Tax Rate cannot be negative');
+    }
+    const decimalValue = (hasPercentSuffix || parsed >= 1) ? (parsed / 100) : parsed;
+    return Number(decimalValue.toFixed(6));
+  };
   const formatCurrency = (value) => {
     const amount = toNumberOrNull(value);
     if (amount == null) return '';
@@ -79,6 +174,34 @@
       return `$${amount}`;
     }
   };
+  const formatPidFeeLabel = (webData) => {
+    const amount = formatCurrency(webData?.pidFeeAmount);
+    if (!amount) return '-';
+    const frequency = toText(webData?.pidFeeFrequency).toLowerCase();
+    if (frequency === 'monthly') return `${amount}/mo`;
+    if (frequency === 'yearly') return `${amount}/yr`;
+    return amount;
+  };
+  const formatRatePercentLabel = (value) => {
+    const amount = toNumberOrNull(value);
+    if (amount == null) return '';
+    return `${Number((amount * 100).toFixed(3))}%`;
+  };
+  const renderMudSummary = (webData) => {
+    const mudTaxRate = formatRatePercentLabel(webData?.mudTaxRate);
+    if (mudTaxRate) {
+      return `<span class="text-muted ms-2">MUD:</span> ${escapeHtml(mudTaxRate)}`;
+    }
+    const legacyAmount = formatCurrency(webData?.mudFeeAmount);
+    if (legacyAmount) {
+      return `<span class="text-muted ms-2">MUD (legacy):</span> ${escapeHtml(legacyAmount)} <span class="badge text-bg-warning ms-1">Needs rate</span>`;
+    }
+    return '<span class="text-muted ms-2">MUD:</span> -';
+  };
+  const renderCommunityFeeSummary = (webData) => (
+    `<span class="text-muted">PID:</span> ${escapeHtml(formatPidFeeLabel(webData))}`
+    + renderMudSummary(webData)
+  );
 
   const setStatus = (el, message, tone = 'muted') => {
     if (!el) return;
@@ -231,6 +354,104 @@
     els.inventoryWarnings.classList.remove('d-none');
   };
 
+  const formatAuditCount = (value) => {
+    const parsed = toNumberOrNull(value);
+    return parsed == null ? '-' : String(parsed);
+  };
+
+  const renderPublishAudit = () => {
+    if (!els.publishAuditBody) return;
+    if (!Array.isArray(state.publishAudits) || !state.publishAudits.length) {
+      els.publishAuditBody.innerHTML = '<tr><td colspan="7" class="text-muted">No inventory publish audit records yet.</td></tr>';
+      return;
+    }
+
+    els.publishAuditBody.innerHTML = state.publishAudits
+      .map((audit) => {
+        const id = toText(audit?.id);
+        const mode = toText(audit?.mode || 'PATCH').toUpperCase();
+        const modeClass = mode === 'RECONCILE' ? 'brz-audit-mode--reconcile' : 'brz-audit-mode--patch';
+        const scope = audit?.scope || {};
+        const result = audit?.result || {};
+        const warnings = Array.isArray(audit?.warningsSample) ? audit.warningsSample : [];
+        const detailsList = warnings.length
+          ? `<ul class="ps-3 mt-2">${warnings.map((item) => `<li>${escapeHtml(item)}</li>`).join('')}</ul>`
+          : '<div class="text-muted">No sampled warnings.</div>';
+        const route = toText(audit?.initiator?.route);
+        const source = toText(audit?.initiator?.source || 'unknown');
+        const scopeSamples = [
+          Array.isArray(scope.communityIdsSample) && scope.communityIdsSample.length
+            ? `Community IDs: ${escapeHtml(scope.communityIdsSample.join(', '))}`
+            : '',
+          Array.isArray(scope.lotIdsSample) && scope.lotIdsSample.length
+            ? `Lot IDs: ${escapeHtml(scope.lotIdsSample.join(', '))}`
+            : ''
+        ].filter(Boolean).join('<br>');
+
+        return `
+          <tr data-audit-id="${escapeHtml(id)}">
+            <td>${escapeHtml(formatDate(audit?.createdAt))}</td>
+            <td><span class="brz-audit-mode ${modeClass}">${escapeHtml(mode)}</span></td>
+            <td>${escapeHtml(`communities: ${toNumberOr(scope.communityIdsCount, 0)}, lots: ${toNumberOr(scope.lotIdsCount, 0)}`)}</td>
+            <td>${escapeHtml(formatAuditCount(result?.publishedCount))}</td>
+            <td>${escapeHtml(formatAuditCount(result?.deactivatedCount))}</td>
+            <td><span class="badge text-bg-secondary brz-audit-warning-badge">${escapeHtml(String(toNumberOr(audit?.warningsCount, 0)))}</span></td>
+            <td>
+              <button type="button" class="btn btn-sm btn-outline-secondary brz-audit-toggle" data-audit-id="${escapeHtml(id)}">Details</button>
+            </td>
+          </tr>
+          <tr class="brz-audit-details-row d-none" data-audit-details="${escapeHtml(id)}">
+            <td colspan="7">
+              <div class="brz-audit-details">
+                <div><strong>Message:</strong> ${escapeHtml(toText(audit?.message) || '-')}</div>
+                <div class="mt-2"><strong>Initiator:</strong> ${escapeHtml(source)}</div>
+                ${route ? `<div class="mt-1"><strong>Route:</strong> ${escapeHtml(route)}</div>` : ''}
+                <div class="mt-2"><strong>Skipped:</strong> ${escapeHtml(formatAuditCount(result?.skippedCount))}</div>
+                ${scopeSamples ? `<div class="mt-2"><strong>Scope samples:</strong><br>${scopeSamples}</div>` : ''}
+                <div class="mt-2"><strong>Warnings:</strong>${detailsList}</div>
+              </div>
+            </td>
+          </tr>
+        `;
+      })
+      .join('');
+
+    els.publishAuditBody.querySelectorAll('.brz-audit-toggle').forEach((button) => {
+      button.addEventListener('click', () => {
+        const auditId = toText(button.getAttribute('data-audit-id'));
+        if (!auditId) return;
+        const detailsRow = els.publishAuditBody.querySelector(`[data-audit-details="${auditId}"]`);
+        if (!detailsRow) return;
+        const isHidden = detailsRow.classList.contains('d-none');
+        detailsRow.classList.toggle('d-none', !isHidden);
+        button.textContent = isHidden ? 'Hide' : 'Details';
+      });
+    });
+  };
+
+  const loadPublishAudit = async () => {
+    if (els.publishAuditBody) {
+      els.publishAuditBody.innerHTML = '<tr><td colspan="7" class="text-muted">Loading publish audit...</td></tr>';
+    }
+    setStatus(els.publishAuditStatus, 'Loading...', 'muted');
+    try {
+      const data = await fetchJson('/admin/brz/publish-audit');
+      state.publishAudits = Array.isArray(data?.audits) ? data.audits : [];
+      renderPublishAudit();
+      setStatus(
+        els.publishAuditStatus,
+        state.publishAudits.length ? `Showing latest ${state.publishAudits.length}` : 'No records yet',
+        'muted'
+      );
+    } catch (err) {
+      state.publishAudits = [];
+      if (els.publishAuditBody) {
+        els.publishAuditBody.innerHTML = '<tr><td colspan="7" class="text-danger">Failed to load publish audit.</td></tr>';
+      }
+      setStatus(els.publishAuditStatus, err.message || 'Failed to load', 'error');
+    }
+  };
+
   const applyProfileToForm = () => {
     const profile = state.profileDraft || {};
     if (els.builderName) els.builderName.value = state.company?.name || '';
@@ -257,7 +478,7 @@
       const communityPlanDraft = offering?.communityPlanDraft || {};
       const included = communityPlanDraft.isIncluded !== false;
       if (!included) return false;
-      return toNumberOrNull(communityPlanDraft.basePriceFrom) == null;
+      return toNumberOrNull(offering?.basePriceFrom) == null;
     });
 
   const shouldShowCommunity = (entry) => {
@@ -310,7 +531,9 @@
           : 'public';
         const communityPricePreview = formatCurrency(communityPlanDraft.basePriceFrom);
         const fallbackPricePreview = formatCurrency(planDraft.basePriceFrom);
-        const asOf = communityPlanDraft.basePriceAsOf ? `As of ${formatDate(communityPlanDraft.basePriceAsOf)}` : '';
+        const resolvedPricePreview = formatCurrency(offering?.basePriceFrom);
+        const asOfDate = offering?.basePriceAsOf || communityPlanDraft.basePriceAsOf;
+        const asOf = asOfDate ? `As of ${formatDate(asOfDate)}` : '';
 
         return `
           <tr data-community-floorplan-id="${escapeHtml(floorPlanId)}">
@@ -326,6 +549,7 @@
               <input class="form-control form-control-sm brz-community-plan-baseprice" type="number" min="0" step="1" placeholder="e.g., 399900" value="${communityPlanDraft.basePriceFrom == null ? '' : escapeHtml(communityPlanDraft.basePriceFrom)}" />
               <div class="small text-muted brz-community-plan-preview">${escapeHtml(communityPricePreview || '')}</div>
               <div class="small text-muted brz-community-plan-fallback">${fallbackPricePreview ? `Fallback: ${escapeHtml(fallbackPricePreview)} (default)` : 'Fallback: none'}</div>
+              <div class="small text-muted">Publishing: ${escapeHtml(resolvedPricePreview || '—')}</div>
               <div class="small text-muted brz-community-plan-asof">${escapeHtml(asOf)}</div>
             </td>
             <td>
@@ -373,6 +597,8 @@
 
   const renderCommunityInventoryTable = (entry) => {
     const lots = Array.isArray(entry?.inventoryLots) ? entry.inventoryLots : [];
+    const communityWebData = entry?.webData || entry?.competitionProfileWebData || entry?.draft?.competitionWebData || {};
+    const communityFeeSummary = renderCommunityFeeSummary(communityWebData);
     if (!lots.length) {
       return '<div class="small text-muted mt-3">No lots found for this community.</div>';
     }
@@ -388,11 +614,27 @@
         ].filter(Boolean);
         const location = locationBits.join(' | ') || lotId;
         const priceLabel = formatCurrency(lot.salesPrice ?? lot.listPrice);
+        const locationSummary = toText(lot.locationSummary || [toText(lot.city), [toText(lot.state), toText(lot.postalCode)].filter(Boolean).join(' ')].filter(Boolean).join(', '));
+        const missingLocation = Boolean(lot.missingLocation) || !locationSummary;
         return `
           <tr data-community-lot-id="${escapeHtml(lotId)}">
             <td>
               <div class="fw-semibold">${escapeHtml(location)}</div>
               <div class="small text-muted">${escapeHtml(toText(lot.floorPlanName))}</div>
+              <div class="small mt-1">
+                <span class="text-muted">City/State/ZIP:</span>
+                <span>${escapeHtml(locationSummary || 'Missing location')}</span>
+                ${missingLocation ? '<span class="badge text-bg-danger ms-1">Missing location</span>' : ''}
+              </div>
+              <div class="small mt-1">
+                <span class="text-muted">Listing Promo:</span>
+                ${renderPromoSummary(lot.promo)}
+              </div>
+              <div class="small mt-1">
+                <span class="text-muted">Mode:</span>
+                ${renderPromoModeBadge(lot.promoMode)}
+              </div>
+              <div class="small mt-1">${communityFeeSummary}</div>
             </td>
             <td>${escapeHtml(toText(lot.status) || '-')}</td>
             <td>${escapeHtml(priceLabel || '-')}</td>
@@ -445,7 +687,7 @@
       .map((entry) => {
         const community = entry.community || {};
         const draft = entry.draft || {};
-        const webData = entry.competitionProfileWebData || {};
+        const webData = entry.webData || entry.competitionProfileWebData || draft.competitionWebData || {};
         const modelListings = Array.isArray(entry.modelListings) ? entry.modelListings : [];
         const flags = getCommunityFlags(entry);
         const completenessScore = entry?.completeness?.score ?? 0;
@@ -455,6 +697,12 @@
         const linkedPlansHtml = linkedPlans.length
           ? linkedPlans.map((name) => `<span class="badge text-bg-light border me-1 mb-1">${escapeHtml(name)}</span>`).join('')
           : '<span class="text-muted small">No linked floor plans</span>';
+        const resolvedCity = toText(webData.city) || toText(community.city);
+        const resolvedState = toText(webData.state) || toText(community.state);
+        const resolvedPostalCode = toText(webData.postalCode);
+        const resolvedStatePostal = [resolvedState, resolvedPostalCode].filter(Boolean).join(' ');
+        const resolvedLocation = [resolvedCity, resolvedStatePostal].filter(Boolean).join(', ') || '—';
+        const feeSummaryHtml = renderCommunityFeeSummary(webData);
         const plansAndPricingHtml = renderCommunityPlanOfferingsTable(entry);
         const inventoryHtml = renderCommunityInventoryTable(entry);
         const draftSyncedAt = entry?.draftSyncedAt || draft?.draftSyncedAt || null;
@@ -468,12 +716,13 @@
         ].join('<br>');
         const syncDisabled = hasCompetitionProfile ? '' : 'disabled';
         const syncTitle = hasCompetitionProfile ? 'Sync canonical competition web data into BRZ draft' : 'No competition profile found';
+        const competitionLink = `/my-community-competition?communityId=${encodeURIComponent(entry.keepupCommunityId || community.id || '')}`;
 
         return `
           <tr data-community-id="${escapeHtml(community.id)}">
             <td>
               <div class="fw-semibold">${escapeHtml(community.name || 'Community')}</div>
-              <div class="small text-muted">${escapeHtml([community.city, community.state].filter(Boolean).join(', '))}</div>
+              <div class="small text-muted">${escapeHtml(resolvedLocation)}</div>
             </td>
             <td>
               <input class="form-check-input brz-community-include" type="checkbox" ${draft.isIncluded ? 'checked' : ''} />
@@ -493,10 +742,12 @@
                 <button type="button" class="btn btn-sm btn-outline-primary brz-community-save-draft">Save Draft</button>
                 <button type="button" class="btn btn-sm btn-outline-secondary brz-community-toggle-details">Edit Community Web Info</button>
                 <button type="button" class="btn btn-sm btn-outline-warning brz-community-sync-from-competition" ${syncDisabled} title="${escapeHtml(syncTitle)}">Sync from competition</button>
+                <button type="button" class="btn btn-sm btn-outline-dark brz-community-apply-location">Apply location to missing listings</button>
                 <div>${syncBadge}</div>
                 <small class="text-muted">${syncMeta}</small>
                 <small class="brz-row-status brz-status-muted brz-draft-status"></small>
                 <small class="brz-row-status brz-status-muted brz-community-sync-status"></small>
+                <small class="brz-row-status brz-status-muted brz-community-location-status"></small>
               </div>
             </td>
           </tr>
@@ -529,6 +780,18 @@
                         : '<span class="text-muted small">No model-status listings found in this community.</span>'}
                     </div>
                   </div>
+                  <div class="col-md-4">
+                    <label class="form-label mb-1">City</label>
+                    <div class="form-control form-control-sm bg-light">${escapeHtml(resolvedCity || '—')}</div>
+                  </div>
+                  <div class="col-md-4">
+                    <label class="form-label mb-1">State</label>
+                    <div class="form-control form-control-sm bg-light">${escapeHtml(resolvedState || '—')}</div>
+                  </div>
+                  <div class="col-md-4">
+                    <label class="form-label mb-1">ZIP</label>
+                    <div class="form-control form-control-sm bg-light">${escapeHtml(resolvedPostalCode || '—')}</div>
+                  </div>
                   <div class="col-md-3">
                     <label class="form-label mb-1">Total Lots</label>
                     <input type="number" class="form-control form-control-sm brz-web-total-lots" value="${webData.totalLots == null ? '' : escapeHtml(webData.totalLots)}" />
@@ -557,9 +820,17 @@
                       <option value="unknown" ${(webData.hoa?.cadence || 'unknown') === 'unknown' ? 'selected' : ''}>Unknown</option>
                     </select>
                   </div>
+                  <div class="col-md-3">
+                    <label class="form-label mb-1">Tax Rate (%)</label>
+                    <input type="text" class="form-control form-control-sm brz-web-tax-rate" placeholder="e.g. 2.15" value="${escapeHtml(formatTaxRateInputValue(entry, webData))}" />
+                  </div>
                   <div class="col-md-3 d-flex align-items-end gap-3">
                     <label><input type="checkbox" class="form-check-input brz-web-has-pid" ${webData.hasPID ? 'checked' : ''}> Has PID</label>
                     <label><input type="checkbox" class="form-check-input brz-web-has-mud" ${webData.hasMUD ? 'checked' : ''}> Has MUD</label>
+                  </div>
+                  <div class="col-md-6">
+                    <label class="form-label mb-1">Fees &amp; Districts</label>
+                    <div class="form-control form-control-sm bg-light">${feeSummaryHtml}</div>
                   </div>
                   <div class="col-md-3">
                     <label class="form-label mb-1">Earnest Amount</label>
@@ -594,6 +865,23 @@
                     </select>
                   </div>
                   <div class="col-12">
+                    <label class="form-label mb-1">Product / Lot Width</label>
+                    <div class="d-flex flex-wrap">${renderLabelChips(webData.productTypes)}</div>
+                  </div>
+                  <div class="col-12">
+                    <label class="form-label mb-1">Community Promo</label>
+                    <div class="border rounded p-2 bg-light">
+                      ${renderPromoSummary(webData.promo)}
+                    </div>
+                  </div>
+                  <div class="col-12">
+                    <div class="d-flex flex-wrap align-items-center justify-content-between gap-2 mb-1">
+                      <label class="form-label mb-0">Community Amenities</label>
+                      <a class="btn btn-outline-secondary btn-sm" href="${escapeHtml(competitionLink)}">Open in My Community Competition</a>
+                    </div>
+                    <div class="d-flex flex-wrap">${renderAmenityChips(webData.amenities)}</div>
+                  </div>
+                  <div class="col-12">
                     <label class="form-label mb-1">Internal Notes (Never Published)</label>
                     <textarea class="form-control form-control-sm brz-web-notes-internal" rows="2">${escapeHtml(webData.notesInternal || '')}</textarea>
                   </div>
@@ -617,8 +905,10 @@
       const detailsRow = els.communitiesBody.querySelector(selector);
       const draftStatusEl = row.querySelector('.brz-draft-status');
       const syncStatusEl = row.querySelector('.brz-community-sync-status');
+      const locationStatusEl = row.querySelector('.brz-community-location-status');
       const saveDraftBtn = row.querySelector('.brz-community-save-draft');
       const syncFromCompetitionBtn = row.querySelector('.brz-community-sync-from-competition');
+      const applyLocationBtn = row.querySelector('.brz-community-apply-location');
       const toggleDetailsBtn = row.querySelector('.brz-community-toggle-details');
       const includeEl = row.querySelector('.brz-community-include');
       const descriptionEl = row.querySelector('.brz-community-description');
@@ -711,6 +1001,31 @@
         });
       }
 
+      if (applyLocationBtn) {
+        applyLocationBtn.addEventListener('click', async () => {
+          applyLocationBtn.disabled = true;
+          setStatus(locationStatusEl, 'Applying community location...', 'muted');
+          setStatus(els.publishStatus, 'Applying community location...', 'muted');
+          try {
+            const data = await fetchJson(
+              `/api/brz/publishing/community/${encodeURIComponent(communityId)}/apply-location-to-listings`,
+              { method: 'POST' }
+            );
+            const updatedCount = Number(data?.updatedCount || 0);
+            const skippedCount = Number(data?.skippedCount || 0);
+            const summary = `Applied location to ${updatedCount} listing(s); skipped ${skippedCount}`;
+            await loadBootstrap();
+            setStatus(locationStatusEl, summary, 'success');
+            setStatus(els.publishStatus, summary, 'success');
+          } catch (err) {
+            setStatus(locationStatusEl, err.message || 'Apply failed', 'error');
+            setStatus(els.publishStatus, err.message || 'Apply failed', 'error');
+          } finally {
+            applyLocationBtn.disabled = false;
+          }
+        });
+      }
+
       if (!detailsRow) return;
       const saveWebBtn = detailsRow.querySelector('.brz-community-save-web');
       const webStatusEl = detailsRow.querySelector('.brz-web-status');
@@ -741,6 +1056,7 @@
               amount: toNumberOrNull(detailsRow.querySelector('.brz-web-hoa-amount')?.value),
               cadence: toText(detailsRow.querySelector('.brz-web-hoa-cadence')?.value) || 'unknown'
             },
+            taxRate: parseTaxRateInput(detailsRow.querySelector('.brz-web-tax-rate')?.value),
             hasPID: Boolean(detailsRow.querySelector('.brz-web-has-pid')?.checked),
             hasMUD: Boolean(detailsRow.querySelector('.brz-web-has-mud')?.checked),
             earnestMoney: {
@@ -764,6 +1080,9 @@
           if (idx >= 0) {
             state.communities[idx] = {
               ...state.communities[idx],
+              webData: data.webData || state.communities[idx].webData,
+              competitionProfileTax: data.competitionProfileTax ?? state.communities[idx].competitionProfileTax,
+              competitionLegacyTax: data.competitionLegacyTax ?? state.communities[idx].competitionLegacyTax,
               competitionProfileWebData: data.competitionProfileWebData || state.communities[idx].competitionProfileWebData,
               modelListings: Array.isArray(data.modelListings) ? data.modelListings : state.communities[idx].modelListings,
               completeness: data.completeness || state.communities[idx].completeness,
@@ -1260,6 +1579,7 @@
       if (isInventory) {
         state.latestInventorySnapshot = snapshot;
         renderInventoryWarnings(snapshot.warnings);
+        await loadPublishAudit();
       } else {
         state.latestPackageSnapshot = snapshot;
         state.latestSnapshot = snapshot;
@@ -1391,6 +1711,7 @@
     try {
       const payload = await fetchJson('/api/brz/publishing/bootstrap');
       hydrateFromBootstrap(payload);
+      await loadPublishAudit();
       if (!state.latestPackageSnapshot?.message && !state.latestInventorySnapshot?.message) {
         setStatus(els.publishStatus, '', 'muted');
       }
