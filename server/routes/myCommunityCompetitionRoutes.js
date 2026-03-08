@@ -15,6 +15,18 @@ const FloorPlanComp = require('../models/floorPlanComp');   // competitor plans
 const QuickMoveIn = require('../models/quickMoveIn');
 const SalesRecord = require('../models/salesRecord');
 const PriceRecord = require('../models/PriceRecord');
+const {
+  normalizeCommunityAmenities,
+  normalizeProductTypes,
+  normalizePromo,
+  normalizeState
+} = require('../services/communityWebDataService');
+const { syncCommunityDraftFromCompetition } = require('../services/brzPublishingService');
+
+// Note:
+// The My Community Competition flow is intentionally kept free of BuildRootz-specific publishing terms
+// (visibility toggles, model listing refs, commission visibility/unit, internal BRZ notes, etc.).
+// Those controls belong in BRZ Publishing only.
 
 // ───────────────────────── helpers ─────────────────────────
 const isObjectId = v => mongoose.Types.ObjectId.isValid(String(v));
@@ -28,6 +40,38 @@ const toArray = v => (Array.isArray(v) ? v : (typeof v === 'string' ? v.split('\
   .map(s => String(s).trim()).filter(Boolean);
 
 const strOrEmpty = v => (v == null ? '' : String(v).trim());
+const normalizePostalCode = (value) => {
+  const text = strOrEmpty(value);
+  if (!text) return '';
+  const direct = text.match(/^(\d{5})(?:[-\s]?(\d{4}))?$/);
+  if (direct) {
+    return direct[2] ? `${direct[1]}-${direct[2]}` : direct[1];
+  }
+  const extracted = text.match(/(\d{5})(?:[-\s]?(\d{4}))?/);
+  if (!extracted) return '';
+  return extracted[2] ? `${extracted[1]}-${extracted[2]}` : extracted[1];
+};
+const normalizedStateOrNull = (value) => {
+  const normalized = normalizeState(value);
+  return normalized || null;
+};
+const normalizePidFeeFrequency = (value) => {
+  const normalized = strOrEmpty(value).toLowerCase();
+  if (!normalized) return null;
+  if (normalized === 'monthly' || normalized === 'month') return 'Monthly';
+  if (normalized === 'yearly' || normalized === 'year' || normalized === 'annual' || normalized === 'annually') {
+    return 'Yearly';
+  }
+  return null;
+};
+const normalizeMudTaxRatePercentInput = (value) => {
+  if (value === '' || value == null) return null;
+  const raw = strOrEmpty(value).replace(/%/g, '');
+  if (!raw) return null;
+  const parsedPercent = Number(raw);
+  if (!Number.isFinite(parsedPercent) || parsedPercent < 0) return null;
+  return Number((parsedPercent / 100).toFixed(6));
+};
 const numOrNull = v => {
   if (v === '' || v == null) return null;
   const n = Number(v);
@@ -183,24 +227,51 @@ router.put('/my-community-competition/:communityId',
       const community = await assertCommunity(req, communityId); 
 
       const body = req.body || {};
+      const hasStateInput = Object.prototype.hasOwnProperty.call(body, 'state');
+      const incomingState = normalizedStateOrNull(body.state);
+      const cityToPersist = strOrEmpty(body.city);
+      const rawPostalInput = Object.prototype.hasOwnProperty.call(body, 'postalCode')
+        ? body.postalCode
+        : body.zip;
+      const postalToPersist = normalizePostalCode(rawPostalInput);
+      const existingProfile = await CommunityCompetitionProfile.findOne({ community: community._id, ...baseFilter(req) })
+        .select('state webData.state')
+        .lean();
+      const existingState = strOrEmpty(existingProfile?.webData?.state || existingProfile?.state);
+      const stateToPersist = incomingState || (hasStateInput ? existingState : '');
       const feeTypesRaw = Array.isArray(body.feeTypes) ? body.feeTypes : [];
       const normalizedFees = feeTypesRaw
         .map(v => String(v).trim())
         .filter(v => ['MUD','PID','None'].includes(v));
+      const hasLegacyMudFeeInput = Object.prototype.hasOwnProperty.call(body, 'mudFee');
+      const mudFeeAmount = normalizedFees.includes('MUD') ? numOrNull(body.mudFee) : null;
+      const mudTaxRate = normalizedFees.includes('MUD')
+        ? normalizeMudTaxRatePercentInput(
+          Object.prototype.hasOwnProperty.call(body, 'mudTaxRate') ? body.mudTaxRate : body.mudRate
+        )
+        : null;
+      const pidFeeAmount = normalizedFees.includes('PID') ? numOrNull(body.pidFee) : null;
+      const pidFeeFrequency = normalizedFees.includes('PID')
+        ? normalizePidFeeFrequency(body.pidFeeFrequency)
+        : null;
       const rawGarage = String(body.garageType ?? '').trim();
       const garageType = rawGarage === 'Front' || rawGarage === 'Rear' ? rawGarage : undefined;
 
       const update = {
         promotion: strOrEmpty(body.promotion),
+        'webData.promo': normalizePromo(body.promotion),
         notes: strOrEmpty(body.notes),
         salesPerson: strOrEmpty(body.salesPerson),
         salesPersonPhone: strOrEmpty(body.salesPersonPhone),
         salesPersonEmail: strOrEmpty(body.salesPersonEmail),
         address: strOrEmpty(body.address),
-        city: strOrEmpty(body.city),
-        zip: strOrEmpty(body.zip),
+        city: cityToPersist,
+        zip: postalToPersist,
+        'webData.city': cityToPersist,
+        'webData.postalCode': postalToPersist,
         modelPlan: strOrEmpty(body.modelPlan),
         lotSize: strOrEmpty(body.lotSize),
+        'webData.productTypes': normalizeProductTypes(body.lotSize),
         garageType,
         // ⬇️ Schools (these were fine, they just weren't making it to the doc due to scoping)
         schoolISD: strOrEmpty(body.schoolISD),
@@ -211,9 +282,11 @@ router.put('/my-community-competition/:communityId',
         hoaFrequency: strOrEmpty(body.hoaFrequency),
         tax: numOrNull(body.tax),
         feeTypes: normalizedFees,
-        mudFee: normalizedFees.includes('MUD') ? numOrNull(body.mudFee) : null,
-        pidFee: normalizedFees.includes('PID') ? numOrNull(body.pidFee) : null,
-        pidFeeFrequency: normalizedFees.includes('PID') ? strOrEmpty(body.pidFeeFrequency) : '',
+        pidFee: pidFeeAmount,
+        pidFeeFrequency: pidFeeFrequency || '',
+        'webData.mudTaxRate': mudTaxRate,
+        'webData.pidFeeAmount': pidFeeAmount,
+        'webData.pidFeeFrequency': pidFeeFrequency,
         earnestAmount: numOrNull(body.earnestAmount),
         realtorCommission: numOrNull(body.realtorCommission),
         prosCons: {
@@ -222,7 +295,20 @@ router.put('/my-community-competition/:communityId',
         }
       };
 
-      if (!normalizedFees.includes('MUD') && normalizedFees.includes('None')) update.mudFee = null;
+      if (stateToPersist) {
+        update.state = stateToPersist;
+        update['webData.state'] = stateToPersist;
+      }
+
+      if (hasLegacyMudFeeInput) {
+        update.mudFee = mudFeeAmount;
+        update['webData.mudFeeAmount'] = mudFeeAmount;
+      }
+
+      if (!normalizedFees.includes('MUD') && normalizedFees.includes('None') && hasLegacyMudFeeInput) {
+        update.mudFee = null;
+        update['webData.mudFeeAmount'] = null;
+      }
       if (!normalizedFees.includes('PID') && normalizedFees.includes('None')) {
         update.pidFee = null;
         update.pidFeeFrequency = '';
@@ -247,7 +333,7 @@ router.put('/my-community-competition/:communityId',
         };
       }
 
-  const profile = await CommunityCompetitionProfile.findOneAndUpdate(
+      const profile = await CommunityCompetitionProfile.findOneAndUpdate(
         { community: community._id, ...baseFilter(req) },               // ⬅️ use community
         { $set: { ...update, company: community.company } },            // ⬅️ set company on upsert
         { new: true, upsert: true }
@@ -257,6 +343,11 @@ router.put('/my-community-competition/:communityId',
         .populate('topPlans.plan2', 'name planNumber specs.squareFeet')
         .populate('topPlans.plan3', 'name planNumber specs.squareFeet')
         .lean();
+
+      await syncCommunityDraftFromCompetition({
+        companyId: community.company,
+        communityId: community._id
+      });
 
       res.json(profile);
     } catch (err) {
@@ -644,15 +735,24 @@ router.put('/my-community-competition/:communityId/amenities',
 
       const community = await assertCommunity(req, communityId);
       const amenities = normalizeAmenities(req.body?.communityAmenities);
+      const canonicalAmenities = normalizeCommunityAmenities(amenities);
 
       const doc = await CommunityCompetitionProfile.findOneAndUpdate(
         { community: community._id, ...baseFilter(req) },
         {
-          $set: { communityAmenities: amenities },
+          $set: {
+            communityAmenities: amenities,
+            'webData.amenities': canonicalAmenities
+          },
           $setOnInsert: { company: community.company, community: community._id }
         },
         { new: true, upsert: true }
       ).select('communityAmenities').lean();
+
+      await syncCommunityDraftFromCompetition({
+        companyId: community.company,
+        communityId: community._id
+      });
 
       res.json({ communityAmenities: doc?.communityAmenities || [] });
     } catch (err) {

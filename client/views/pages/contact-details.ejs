@@ -69,7 +69,7 @@
                     <option value="cold">Cold</option>
                     <option value="target">Target</option>
                     <option value="possible">Possible</option>
-                    <option value="negotiating">Negotiating</option>
+                    <option value="Negotiating">Negotiating</option>
                     <option value="purchased">Purchased</option>
                     <option value="closed">Closed</option>
                     <option value="not-interested">Not-Interested</option>
@@ -288,7 +288,16 @@
       <div class="card card--grey top-container ku-card">
           <div class="disc-cont">
             <div id="contact-full-name" class="contact-name">Full Name</div>
-            <div id="contact-status-badge" class="status-badge">Status</div>
+            <div class="d-flex align-items-center gap-2">
+              <div id="contact-status-badge" class="status-badge">Status</div>
+              <span
+                id="email-paused-badge"
+                class="email-paused-badge <%= contact?.emailPaused ? '' : 'is-hidden' %>"
+                data-email-paused-badge
+                title="Automated emails and blasts are paused for this contact.">
+                Email Paused
+              </span>
+            </div>
           </div>
         <div class="bottom-cont">
           <div class="all-status-cont">
@@ -366,6 +375,27 @@
       </div>
     </div>
 
+    <div class="card card--white ku-card" id="email-activity-panel">
+      <h3>Email Activity</h3>
+      <div class="email-activity-controls">
+        <label class="form-check form-switch">
+          <input class="form-check-input" type="checkbox" data-email-pause-toggle />
+          <span class="form-check-label">Pause emails for this contact</span>
+        </label>
+        <span class="small text-muted" data-email-pause-meta></span>
+        <a class="small text-primary" data-email-queue-link href="#" role="button">View in Queue</a>
+      </div>
+      <div class="email-activity-section">
+        <div class="fw-semibold mb-2">Upcoming</div>
+        <div data-email-upcoming class="small text-muted">Loading...</div>
+      </div>
+      <div class="email-activity-section">
+        <div class="fw-semibold mb-2">Recent</div>
+        <div data-email-recent class="small text-muted">Loading...</div>
+      </div>
+      <div class="visually-hidden" aria-live="polite" data-email-activity-toast></div>
+    </div>
+
     <div class="comment-section ku-card">
       <h3>Comments</h3>
   
@@ -436,7 +466,7 @@
             <p class="todo-automation-active-name" data-followup-active-name>—</p>
             <p class="todo-automation-active-meta" data-followup-active-meta></p>
           </div>
-          <button type="button" class="todo-automation-unassign" data-followup-unassign>Unassign</button>
+            <button type="button" class="todo-automation-unassign" data-followup-unassign>Un-enroll</button>
         </div>
         <p class="todo-automation-status" data-followup-status aria-live="polite" hidden></p>
       </section>
@@ -551,7 +581,8 @@
 
 </div>
 
-<script type="module" src="/assets/js/pages/contact-details/index.js"></script>
+  <script defer src="/assets/js/shared/emailErrorLabels.js"></script>
+  <script type="module" src="/assets/js/pages/contact-details/index.js"></script>
 
 </body>
 </html>

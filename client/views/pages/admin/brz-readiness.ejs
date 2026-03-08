@@ -1,0 +1,334 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>BuildRootz Readiness</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet" />
+    <link rel="stylesheet" href="/assets/css/main.css" />
+    <link rel="stylesheet" href="/assets/css/pages/brz-readiness.css" />
+  </head>
+  <body>
+    <%
+      const statusLabels = {
+        ready: 'Ready',
+        warning: 'Needs info',
+        incomplete: 'Incomplete'
+      };
+      const sortLabels = {
+        readiness: 'Readiness priority',
+        'updatedAt-desc': 'Recently updated'
+      };
+      const groupedRows = Array.isArray(groups) ? groups : [];
+    %>
+    <%- include('../../partials/nav') %>
+    <%- include('../../partials/top-nav-buildrootz') %>
+
+    <main class="main-content p-4 brz-readiness-page">
+      <header class="d-flex justify-content-between align-items-start flex-wrap gap-3 mb-4">
+        <div>
+          <p class="text-uppercase text-muted small mb-1">BuildRootz</p>
+          <h1 class="h4 mb-1">BuildRootz Readiness</h1>
+          <p class="text-muted mb-0">Review listing readiness across communities and jump straight into listing details to fill gaps.</p>
+        </div>
+        <a class="btn btn-outline-secondary btn-sm" href="/admin/buildrootz/publishing">Open BRZ Publishing</a>
+      </header>
+
+      <section class="row g-3 mb-4">
+        <div class="col-md-4">
+          <div class="card shadow-sm h-100">
+            <div class="card-body">
+              <div class="text-muted small text-uppercase">Ready</div>
+              <div class="brz-readiness-stat brz-readiness-stat--ready"><%= summary.ready %></div>
+            </div>
+          </div>
+        </div>
+        <div class="col-md-4">
+          <div class="card shadow-sm h-100">
+            <div class="card-body">
+              <div class="text-muted small text-uppercase">Needs Info</div>
+              <div class="brz-readiness-stat brz-readiness-stat--warning"><%= summary.warning %></div>
+            </div>
+          </div>
+        </div>
+        <div class="col-md-4">
+          <div class="card shadow-sm h-100">
+            <div class="card-body">
+              <div class="text-muted small text-uppercase">Incomplete</div>
+              <div class="brz-readiness-stat brz-readiness-stat--incomplete"><%= summary.incomplete %></div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <section class="card shadow-sm mb-4">
+        <div class="card-body">
+          <form class="row g-3 align-items-end" method="get" action="/admin/brz/readiness">
+            <div class="col-md-3">
+              <label class="form-label" for="brzStatusFilter">Status</label>
+              <select class="form-select" id="brzStatusFilter" name="status">
+                <option value="all" <%= filters.status === 'all' ? 'selected' : '' %>>All</option>
+                <option value="incomplete" <%= filters.status === 'incomplete' ? 'selected' : '' %>>Incomplete</option>
+                <option value="warning" <%= filters.status === 'warning' ? 'selected' : '' %>>Needs info</option>
+                <option value="ready" <%= filters.status === 'ready' ? 'selected' : '' %>>Ready</option>
+              </select>
+            </div>
+            <div class="col-md-3">
+              <label class="form-label" for="brzPublishedFilter">Published</label>
+              <select class="form-select" id="brzPublishedFilter" name="published">
+                <option value="all" <%= filters.published === 'all' ? 'selected' : '' %>>All</option>
+                <option value="published" <%= filters.published === 'published' ? 'selected' : '' %>>Published</option>
+                <option value="unpublished" <%= filters.published === 'unpublished' ? 'selected' : '' %>>Unpublished</option>
+              </select>
+            </div>
+            <div class="col-md-3">
+              <label class="form-label" for="brzCommunityFilter">Community</label>
+              <select class="form-select" id="brzCommunityFilter" name="communityId">
+                <option value="">All communities</option>
+                <% communityOptions.forEach((community) => { %>
+                  <option value="<%= community.id %>" <%= filters.communityId === community.id ? 'selected' : '' %>>
+                    <%= community.location ? `${community.name} (${community.location})` : community.name %>
+                  </option>
+                <% }) %>
+              </select>
+            </div>
+            <div class="col-md-2">
+              <label class="form-label" for="brzSortFilter">Sort</label>
+              <select class="form-select" id="brzSortFilter" name="sort">
+                <option value="readiness" <%= filters.sort === 'readiness' ? 'selected' : '' %>>Readiness priority</option>
+                <option value="updatedAt-desc" <%= filters.sort === 'updatedAt-desc' ? 'selected' : '' %>>Recently updated</option>
+              </select>
+            </div>
+            <div class="col-md-1 d-grid">
+              <button class="btn btn-primary" type="submit">Apply</button>
+            </div>
+          </form>
+        </div>
+      </section>
+
+      <section class="card shadow-sm">
+        <div class="card-body">
+          <div class="alert alert-info py-2 px-3 small mb-3">
+            Use the first two buttons for flag-only updates, or use the BRZ buttons to update flags and immediately reconcile inventory to BuildRootz.
+          </div>
+
+          <div class="d-flex justify-content-between align-items-center flex-wrap gap-3 mb-3">
+            <div class="d-flex align-items-center gap-2 flex-wrap">
+              <button class="btn btn-primary btn-sm" type="button" id="brzBulkPublishBtn" disabled>Mark Published</button>
+              <button class="btn btn-outline-danger btn-sm" type="button" id="brzBulkUnpublishBtn" disabled>Unpublish</button>
+              <button class="btn btn-success btn-sm" type="button" id="brzBulkPublishAndSyncBtn" disabled>Mark Published + Publish to BRZ</button>
+              <button class="btn btn-outline-success btn-sm" type="button" id="brzBulkUnpublishAndSyncBtn" disabled>Unpublish + Publish to BRZ</button>
+              <span class="small text-muted" id="brzBulkSelectionCount">0 selected</span>
+            </div>
+            <div id="brzBulkActionStatus" class="small text-muted" role="status" aria-live="polite"></div>
+          </div>
+
+          <div class="d-flex justify-content-between align-items-center flex-wrap gap-2 mb-3">
+            <div class="small text-muted">
+              Showing <strong><%= pagination.startItem %></strong>-<strong><%= pagination.endItem %></strong> of <strong><%= pagination.totalItems %></strong>
+            </div>
+            <div class="small text-muted">
+              Sorted by <strong><%= sortLabels[filters.sort] || 'Readiness priority' %></strong>
+            </div>
+          </div>
+
+          <div class="table-responsive">
+            <table class="table table-sm align-middle brz-readiness-table">
+              <thead>
+                <tr>
+                  <th>
+                    <label class="d-inline-flex align-items-center gap-2 small text-muted" for="brzSelectAllRows">
+                      <input
+                        class="form-check-input mt-0"
+                        type="checkbox"
+                        id="brzSelectAllRows"
+                        aria-label="Select all rows on this page"
+                        <%= rows.length ? '' : 'disabled' %>
+                      />
+                      <span>Select all</span>
+                    </label>
+                  </th>
+                  <th>Community</th>
+                  <th>Address</th>
+                  <th>Published</th>
+                  <th>Readiness</th>
+                  <th>Score</th>
+                  <th>Missing</th>
+                  <th class="text-end">Actions</th>
+                </tr>
+              </thead>
+              <tbody>
+                <% if (!rows.length) { %>
+                  <tr>
+                    <td colspan="8" class="text-muted py-4 text-center">No lots match the current filters.</td>
+                  </tr>
+                <% } %>
+                <% groupedRows.forEach((group) => { %>
+                  <% const publishedCount = group.rows.filter((row) => row.published).length; %>
+                  <tr class="brz-community-group-row">
+                    <td colspan="8">
+                      <div class="d-flex justify-content-between align-items-center flex-wrap gap-2">
+                        <div>
+                          <div class="fw-semibold"><%= group.communityName %></div>
+                          <div class="small text-muted">
+                            <% if (group.communityLocation) { %>
+                              <span><%= group.communityLocation %> · </span>
+                            <% } %>
+                            <span>Ready <%= group.counts.ready %></span>
+                            <span> · Published <%= publishedCount %></span>
+                            <span> · Needs Info <%= group.counts.warning %></span>
+                            <span> · Incomplete <%= group.counts.incomplete %></span>
+                          </div>
+                        </div>
+                        <div class="d-flex align-items-center gap-2 flex-wrap">
+                          <button
+                            class="btn btn-outline-success btn-sm brz-community-select-btn"
+                            type="button"
+                            data-community-id="<%= group.communityId %>"
+                            data-select-mode="ready"
+                            <%= group.selectableCounts.ready ? '' : 'disabled' %>
+                          >
+                            Select all Ready (<%= group.selectableCounts.ready %>)
+                          </button>
+                          <button
+                            class="btn btn-outline-primary btn-sm brz-community-select-btn"
+                            type="button"
+                            data-community-id="<%= group.communityId %>"
+                            data-select-mode="ready-warning"
+                            <%= group.selectableCounts.readyAndWarning ? '' : 'disabled' %>
+                          >
+                            Select Ready + Needs Info (<%= group.selectableCounts.readyAndWarning %>)
+                          </button>
+                          <button
+                            class="btn btn-outline-secondary btn-sm brz-community-select-btn"
+                            type="button"
+                            data-community-id="<%= group.communityId %>"
+                            data-select-mode="clear"
+                          >
+                            Clear selection
+                          </button>
+                          <button
+                            class="btn btn-success btn-sm brz-community-publish-btn"
+                            type="button"
+                            data-community-id="<%= group.communityId %>"
+                            data-mode="ready"
+                            title="Publishes the selected readiness rows for this community (flags + inventory reconcile). Page-scoped."
+                            <%= group.selectableCounts.ready ? '' : 'disabled' %>
+                          >
+                            Publish Ready to BRZ
+                          </button>
+                          <button
+                            class="btn btn-outline-success btn-sm brz-community-publish-btn"
+                            type="button"
+                            data-community-id="<%= group.communityId %>"
+                            data-mode="ready-warning"
+                            title="Publishes the selected readiness rows for this community (flags + inventory reconcile). Page-scoped."
+                            <%= group.selectableCounts.readyAndWarning ? '' : 'disabled' %>
+                          >
+                            Publish Ready + Needs Info to BRZ
+                          </button>
+                          <button
+                            class="btn btn-outline-danger btn-sm brz-community-unpublish-btn"
+                            type="button"
+                            data-community-id="<%= group.communityId %>"
+                            data-mode="published"
+                            title="Unpublishes the currently published rows for this community and runs inventory reconcile. Page-scoped."
+                            <%= publishedCount ? '' : 'disabled' %>
+                          >
+                            Unpublish Published + Publish to BRZ
+                          </button>
+                        </div>
+                      </div>
+                    </td>
+                  </tr>
+                  <% group.rows.forEach((row) => { %>
+                    <tr>
+                      <td>
+                        <input
+                          class="form-check-input brz-row-select"
+                          type="checkbox"
+                          value="<%= row.lotId %>"
+                          data-community-id="<%= row.communityId %>"
+                          data-lot-id="<%= row.lotId %>"
+                          data-readiness="<%= row.readiness.status %>"
+                          data-published="<%= row.published ? 'true' : 'false' %>"
+                          data-missing-title="<%= row.missingTitle || '' %>"
+                          aria-label="Select listing <%= row.addressLabel %>"
+                        />
+                      </td>
+                      <td>
+                        <div class="fw-semibold"><%= row.communityName %></div>
+                        <% if (row.communityLocation) { %>
+                          <div class="small text-muted"><%= row.communityLocation %></div>
+                        <% } %>
+                      </td>
+                      <td>
+                        <div class="fw-semibold"><%= row.addressLabel %></div>
+                        <div class="small text-muted"><%= row.lotId %></div>
+                      </td>
+                      <td>
+                        <span class="brz-published-badge <%= row.published ? 'brz-published-badge--yes' : 'brz-published-badge--no' %>">
+                          <%= row.published ? 'Yes' : 'No' %>
+                        </span>
+                      </td>
+                      <td>
+                        <span class="brz-readiness-pill brz-readiness-pill--<%= row.readiness.status %>">
+                          <%= statusLabels[row.readiness.status] || row.readiness.status %>
+                        </span>
+                      </td>
+                      <td>
+                        <span class="fw-semibold"><%= row.readiness.score %></span>
+                      </td>
+                      <td title="<%= row.missingTitle || '' %><%= row.warningsTitle ? (row.missingTitle ? ' | Warnings: ' : 'Warnings: ') + row.warningsTitle : '' %>">
+                        <% if (row.missingPreview.length) { %>
+                          <div class="d-flex flex-wrap gap-1">
+                            <% row.missingPreview.forEach((item) => { %>
+                              <span class="brz-missing-chip"><%= item %></span>
+                            <% }) %>
+                            <% if (row.hiddenMissingCount) { %>
+                              <span class="brz-missing-chip brz-missing-chip--more">+<%= row.hiddenMissingCount %> more</span>
+                            <% } %>
+                          </div>
+                        <% } else { %>
+                          <span class="text-muted">None</span>
+                        <% } %>
+                        <% if (row.warningCount) { %>
+                          <div class="small text-muted mt-1"><%= row.warningCount %> warning<%= row.warningCount === 1 ? '' : 's' %></div>
+                        <% } %>
+                      </td>
+                      <td class="text-end">
+                        <a class="btn btn-outline-primary btn-sm" href="<%= row.listingDetailsUrl %>">Open</a>
+                      </td>
+                    </tr>
+                  <% }) %>
+                <% }) %>
+              </tbody>
+            </table>
+          </div>
+
+          <% if (pagination.totalPages > 1) { %>
+            <nav class="d-flex justify-content-between align-items-center flex-wrap gap-2 mt-3" aria-label="BuildRootz readiness pagination">
+              <div class="small text-muted">
+                Page <strong><%= pagination.page %></strong> of <strong><%= pagination.totalPages %></strong>
+              </div>
+              <ul class="pagination pagination-sm mb-0">
+                <li class="page-item <%= pagination.hasPrev ? '' : 'disabled' %>">
+                  <a class="page-link" href="<%= pagination.hasPrev ? pagination.prevUrl : '#' %>">Previous</a>
+                </li>
+                <% pagination.pages.forEach((page) => { %>
+                  <li class="page-item <%= page.current ? 'active' : '' %>">
+                    <a class="page-link" href="<%= page.href %>"><%= page.number %></a>
+                  </li>
+                <% }) %>
+                <li class="page-item <%= pagination.hasNext ? '' : 'disabled' %>">
+                  <a class="page-link" href="<%= pagination.hasNext ? pagination.nextUrl : '#' %>">Next</a>
+                </li>
+              </ul>
+            </nav>
+          <% } %>
+        </div>
+      </section>
+    </main>
+    <script src="/public/js/admin/brz-readiness.js" nonce="<%= cspNonce %>" defer></script>
+  </body>
+</html>

@@ -27,6 +27,7 @@ const BuildRootzCommunityRequestSchema = new Schema(
       default: null
     },
     resolvedBuildRootzCommunityId: { type: String, default: '' },
+    resolvedPublicCommunityId: { type: String, default: '' },
     resolvedCanonicalName: { type: String, default: '' },
     rejectedReason: { type: String, default: '' },
     buildrootzCreatePayload: { type: Schema.Types.Mixed, default: null }

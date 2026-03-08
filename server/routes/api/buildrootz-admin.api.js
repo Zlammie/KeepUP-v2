@@ -5,7 +5,6 @@ const Company = require('../../models/Company');
 const Community = require('../../models/Community');
 const { publishBuilderProfile } = require('../../services/buildrootzBuilderProfile');
 const BuildRootzCommunityRequest = require('../../models/BuildRootzCommunityRequest');
-const { buildrootzFetch } = require('../../services/buildrootzClient');
 
 const router = express.Router();
 
@@ -20,6 +19,37 @@ const trimToNull = (value) => {
   return trimmed.length ? trimmed : null;
 };
 
+const normalizeWebsiteUrl = (value) => {
+  const trimmed = trimToNull(value);
+  if (!trimmed) return '';
+
+  const candidate = /^https?:\/\//i.test(trimmed) ? trimmed : `https://${trimmed}`;
+  try {
+    const parsed = new URL(candidate);
+    if (!['http:', 'https:'].includes(parsed.protocol)) return null;
+    return parsed.toString();
+  } catch {
+    return null;
+  }
+};
+
+const firstNonEmptyString = (...values) => {
+  for (const value of values) {
+    if (value == null) continue;
+    const trimmed = String(value).trim();
+    if (trimmed) return trimmed;
+  }
+  return '';
+};
+
+const resolvePublicCommunityIdFromPayload = (payload, fallbackCommunityId = '') =>
+  firstNonEmptyString(
+    payload?.publicCommunityId,
+    payload?._id,
+    payload?.communityId,
+    fallbackCommunityId
+  );
+
 const resolveCompanyId = (req, incomingId) => {
   const requestedCompanyId = incomingId;
   if (isSuper(req) && isObjectId(requestedCompanyId)) return requestedCompanyId;
@@ -30,14 +60,18 @@ const serializeProfile = (company, builderDoc = null) => {
   const brandingLogo = company.branding?.logoUrl || '';
   const profileLogo = company.buildrootzProfile?.logoUrl || '';
   const description = company.buildrootzProfile?.description || '';
+  const websiteUrl = company.buildrootzProfile?.websiteUrl || builderDoc?.websiteUrl || '';
 
   return {
     companyId: String(company._id),
     builderName: company.name || '',
     slug: company.slug || '',
     logoUrl: profileLogo || brandingLogo || '',
+    profileLogoUrl: profileLogo || '',
+    companyLogoUrl: brandingLogo || '',
     fallbackLogoUrl: brandingLogo || '',
     description,
+    websiteUrl,
     publishedAt: company.buildrootzProfile?.publishedAt || builderDoc?.publishedAt || null,
     builderProfileId: builderDoc?._id ? String(builderDoc._id) : null
   };
@@ -73,13 +107,21 @@ router.put(
         return res.status(400).json({ error: 'Invalid company context' });
       }
 
-      const { description, logoUrl } = req.body || {};
+      const { description, companyDescription, logoUrl, websiteUrl } = req.body || {};
+      const descriptionInput = description !== undefined ? description : companyDescription;
       const company = await Company.findById(resolvedCompanyId);
       if (!company) return res.status(404).json({ error: 'Company not found' });
 
       company.buildrootzProfile = company.buildrootzProfile || {};
-      if (description !== undefined) company.buildrootzProfile.description = trimToNull(description) || '';
+      if (descriptionInput !== undefined) company.buildrootzProfile.description = trimToNull(descriptionInput) || '';
       if (logoUrl !== undefined) company.buildrootzProfile.logoUrl = trimToNull(logoUrl) || '';
+      if (websiteUrl !== undefined) {
+        const normalizedWebsite = normalizeWebsiteUrl(websiteUrl);
+        if (normalizedWebsite === null) {
+          return res.status(400).json({ error: 'Invalid website URL.' });
+        }
+        company.buildrootzProfile.websiteUrl = normalizedWebsite;
+      }
       company.markModified('buildrootzProfile');
       await company.save();
 
@@ -100,13 +142,21 @@ router.post(
         return res.status(400).json({ error: 'Invalid company context' });
       }
 
-      const { description, logoUrl } = req.body || {};
+      const { description, companyDescription, logoUrl, websiteUrl } = req.body || {};
+      const descriptionInput = description !== undefined ? description : companyDescription;
       const company = await Company.findById(resolvedCompanyId);
       if (!company) return res.status(404).json({ error: 'Company not found' });
 
       company.buildrootzProfile = company.buildrootzProfile || {};
-      if (description !== undefined) company.buildrootzProfile.description = trimToNull(description) || '';
+      if (descriptionInput !== undefined) company.buildrootzProfile.description = trimToNull(descriptionInput) || '';
       if (logoUrl !== undefined) company.buildrootzProfile.logoUrl = trimToNull(logoUrl) || '';
+      if (websiteUrl !== undefined) {
+        const normalizedWebsite = normalizeWebsiteUrl(websiteUrl);
+        if (normalizedWebsite === null) {
+          return res.status(400).json({ error: 'Invalid website URL.' });
+        }
+        company.buildrootzProfile.websiteUrl = normalizedWebsite;
+      }
       company.buildrootzProfile.publishedAt = new Date();
       company.markModified('buildrootzProfile');
       await company.save();
@@ -116,7 +166,8 @@ router.post(
         name: company.name,
         slug: company.slug,
         logoUrl: company.buildrootzProfile.logoUrl || logoUrl,
-        description: company.buildrootzProfile.description || description
+        websiteUrl: company.buildrootzProfile.websiteUrl || websiteUrl,
+        description: company.buildrootzProfile.description || descriptionInput
       });
 
       return res.json(serializeProfile(company, builderDoc));
@@ -135,9 +186,21 @@ const serializeCommunityMapping = (community) => ({
   state: community.state || '',
   buildrootz: {
     communityId: community.buildrootz?.communityId || null,
+    publicCommunityId: community.buildrootz?.publicCommunityId || null,
     canonicalName: community.buildrootz?.canonicalName || '',
     mappedAt: community.buildrootz?.mappedAt || null,
-  mappedByUserId: community.buildrootz?.mappedByUserId || null
+    mappedByUserId: community.buildrootz?.mappedByUserId || null,
+    request: {
+      requestId: community.buildrootz?.request?.requestId || null,
+      status: community.buildrootz?.request?.status || null,
+      requestedName: community.buildrootz?.request?.requestedName || '',
+      requestedAt: community.buildrootz?.request?.requestedAt || null,
+      lastCheckedAt: community.buildrootz?.request?.lastCheckedAt || null,
+      resolvedCommunityId: community.buildrootz?.request?.resolvedCommunityId || null,
+      resolvedPublicCommunityId: community.buildrootz?.request?.resolvedPublicCommunityId || null,
+      resolvedAt: community.buildrootz?.request?.resolvedAt || null,
+      rejectedReason: community.buildrootz?.request?.rejectedReason || ''
+    }
   }
 });
 
@@ -239,10 +302,16 @@ router.patch(
 
       const community = await Community.findOne({ _id: communityId, company: companyId });
       if (!community) return res.status(404).json({ error: 'Community not found' });
+      const resolvedCommunityId = firstNonEmptyString(brCommunity?._id, brId);
+      const resolvedPublicCommunityId = resolvePublicCommunityIdFromPayload(
+        brCommunity,
+        resolvedCommunityId
+      );
 
       community.buildrootz = community.buildrootz || {};
-      community.buildrootz.communityId = brCommunity._id;
-      community.buildrootz.canonicalName = brCommunity.name || '';
+      community.buildrootz.communityId = resolvedCommunityId;
+      community.buildrootz.publicCommunityId = resolvedPublicCommunityId || null;
+      community.buildrootz.canonicalName = brCommunity.canonicalName || brCommunity.name || '';
       community.buildrootz.mappedAt = new Date();
       community.buildrootz.mappedByUserId = req.user?._id || null;
       community.markModified('buildrootz');
@@ -270,6 +339,7 @@ router.delete(
 
       community.buildrootz = {
         communityId: null,
+        publicCommunityId: null,
         canonicalName: '',
         mappedAt: null,
         mappedByUserId: null
@@ -306,8 +376,16 @@ router.get(
 
       // Mirror resolved mapping if already handled
       if (['approved', 'linked'].includes(latestReq.status) && latestReq.resolvedBuildRootzCommunityId) {
+        const mirroredPublicCommunityId = firstNonEmptyString(
+          latestReq.resolvedPublicCommunityId,
+          community.buildrootz?.publicCommunityId,
+          latestReq.resolvedBuildRootzCommunityId
+        );
         community.buildrootz = community.buildrootz || {};
         community.buildrootz.communityId = latestReq.resolvedBuildRootzCommunityId;
+        community.buildrootz.publicCommunityId = mirroredPublicCommunityId || null;
+        community.buildrootz.request = community.buildrootz.request || {};
+        community.buildrootz.request.resolvedPublicCommunityId = mirroredPublicCommunityId || null;
         community.buildrootz.canonicalName = latestReq.resolvedCanonicalName || community.buildrootz.canonicalName || '';
         community.buildrootz.mappedAt = community.buildrootz.mappedAt || latestReq.reviewedAt || new Date();
         community.buildrootz.mappedByUserId = community.buildrootz.mappedByUserId || latestReq.reviewedByUserId || req.user?._id || null;
@@ -319,6 +397,7 @@ router.get(
         status: latestReq.status,
         requestId: String(latestReq._id),
         communityId: community.buildrootz?.communityId || null,
+        publicCommunityId: community.buildrootz?.publicCommunityId || latestReq.resolvedBuildRootzCommunityId || null,
         canonicalName: community.buildrootz?.canonicalName || latestReq.resolvedCanonicalName || null,
         rejectedReason: latestReq.rejectedReason || null
       });
@@ -370,6 +449,7 @@ router.post(
             requestedAt: new Date(),
             lastCheckedAt: new Date(),
             resolvedCommunityId: null,
+            resolvedPublicCommunityId: null,
             resolvedAt: null,
             rejectedReason: ''
           }

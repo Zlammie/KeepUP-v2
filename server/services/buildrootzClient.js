@@ -51,4 +51,4 @@ async function buildrootzFetch(path, { method = 'GET', body, signal, timeoutMs }
   return resBody;
 }
 
-module.exports = { buildrootzFetch };
+module.exports = { buildrootzFetch, getFetch };

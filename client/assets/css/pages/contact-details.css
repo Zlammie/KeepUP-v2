@@ -1569,6 +1569,70 @@ body.task-modal-open {
   margin-top: -.10rem;
 }
 
+#email-activity-panel {
+  background: #f8f9fb;
+  border: 1px solid #e6e9ee;
+  border-radius: 10px;
+  padding: 1rem;
+  margin-left: 25px;
+  margin-right: 8px;
+  margin-top: 0.5rem;
+}
+
+#email-activity-panel h3 {
+  margin: 0 0 0.6rem 0;
+  font-size: 1.1rem;
+  color: #222;
+}
+
+.email-activity-controls {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.75rem;
+  margin-bottom: 0.75rem;
+}
+
+.email-activity-section {
+  border-top: 1px solid #e6e9ee;
+  padding-top: 0.75rem;
+  margin-top: 0.75rem;
+}
+
+.email-activity-item {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.6rem;
+  padding: 0.4rem 0;
+  border-bottom: 1px dashed #e1e6ef;
+}
+
+.email-activity-item:last-child {
+  border-bottom: none;
+}
+
+.email-activity-meta {
+  font-size: 0.85rem;
+  color: #64748b;
+}
+
+.email-paused-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  padding: 0.2rem 0.6rem;
+  border-radius: 999px;
+  background: #fff3cd;
+  color: #856404;
+  border: 1px solid #ffeeba;
+  font-size: 0.75rem;
+  font-weight: 600;
+  letter-spacing: 0.02em;
+  text-transform: uppercase;
+}
+
 /* Header (optional, if you want it a bit tighter) */
 .comment-section > h3 {
   margin: 0 0 .6rem 0;

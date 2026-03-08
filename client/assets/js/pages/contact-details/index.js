@@ -14,6 +14,7 @@ import { setupCommentSection } from './commentLoader.js';
 import { on, emit } from './events.js';
 import { initMiscUI } from './ui.js';
 import { initLotSearch } from './lotSearch.js';
+import { initEmailActivity } from './emailActivity.js';
 
 activateDeferredStyles();
 
@@ -47,6 +48,7 @@ window.addEventListener('DOMContentLoaded', async () => {
     initLenderSearch();
     initLotSearch();
     setupCommentSection();
+    initEmailActivity({ contactId });
 
     setupLazyTaskPanel({ contactId, currentUserId });
 

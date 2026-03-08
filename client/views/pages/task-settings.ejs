@@ -3,10 +3,85 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Task Automation Settings</title>
+  <title>Automations</title>
   <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet" />
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/quill@1.3.7/dist/quill.snow.css" />
   <link rel="stylesheet" href="/assets/css/main.css" />
   <style>
+    html {
+      scrollbar-gutter: stable;
+    }
+
+    body {
+      overflow-y: scroll;
+    }
+    .task-settings-page .template-editor {
+      background: #fff;
+      border: 1px solid #dee2e6;
+      border-radius: 0.5rem;
+    }
+    .task-settings-page .template-editor .ql-toolbar {
+      border-top-left-radius: 0.5rem;
+      border-top-right-radius: 0.5rem;
+      border-color: #dee2e6;
+    }
+    .task-settings-page .template-editor .ql-container {
+      border-bottom-left-radius: 0.5rem;
+      border-bottom-right-radius: 0.5rem;
+      border-color: #dee2e6;
+      min-height: 220px;
+    }
+    .task-settings-page .template-preview-html {
+      border: 1px solid #dee2e6;
+      border-radius: 0.5rem;
+      padding: 0.75rem;
+      background: #fff;
+      max-height: 240px;
+      overflow: auto;
+    }
+    .task-settings-page .rule-card {
+      border: 1px solid #dee2e6;
+      border-radius: 0.75rem;
+      padding: 0.9rem;
+      background: #fff;
+      text-align: left;
+      width: 100%;
+      transition: border-color 0.15s ease, box-shadow 0.15s ease;
+    }
+    .task-settings-page .rule-card.is-active {
+      border-color: #0d6efd;
+      box-shadow: 0 0 0 2px rgba(13, 110, 253, 0.1);
+    }
+    .task-settings-page .rule-card.is-muted {
+      opacity: 0.65;
+    }
+    .task-settings-page .rule-preview {
+      border-left: 3px solid #dee2e6;
+      padding-left: 0.75rem;
+      font-size: 0.95rem;
+      color: #495057;
+    }
+    .task-settings-page [data-image-upload].btn-primary {
+      background-color: #0d6efd;
+      border-color: #0d6efd;
+      color: #fff;
+    }
+    .task-settings-page [data-image-upload].btn-primary:hover,
+    .task-settings-page [data-image-upload].btn-primary:focus {
+      background-color: #0b5ed7;
+      border-color: #0a58ca;
+      color: #fff;
+    }
+    #templateImageModal .nav-pills .nav-link {
+      background-color: #f8f9fa;
+      border: 1px solid #dee2e6;
+      color: #212529;
+    }
+    #templateImageModal .nav-pills .nav-link.active {
+      background-color: #0d6efd;
+      border-color: #0d6efd;
+      color: #fff;
+    }
     .task-settings-page .schedule-stat-card {
       border-radius: 1rem;
       border: 1px solid rgba(15, 26, 58, 0.08);
@@ -69,6 +144,239 @@
       border: 2px solid #0f62fe;
       background: #fff;
     }
+
+    .task-settings-page .nav-tabs {
+      border-bottom: 1px solid rgba(15, 26, 58, 0.12);
+      background: #e9edf7;
+      padding: 0.35rem;
+      border-radius: 0.75rem;
+      gap: 0.35rem;
+    }
+
+    .task-settings-page .nav-tabs .nav-link {
+      border: 1px solid rgba(15, 26, 58, 0.12);
+      border-radius: 0.6rem;
+      color: #0f1a3a;
+      background: #f7f9ff;
+      font-weight: 600;
+      padding: 0.45rem 0.9rem;
+    }
+
+    .task-settings-page .nav-tabs .nav-link:hover {
+      border-color: rgba(15, 26, 58, 0.18);
+      background: #eef2ff;
+      color: #0f1a3a;
+    }
+
+    .task-settings-page .nav-tabs .nav-link.active {
+      background: #0f62fe;
+      color: #ffffff;
+      border-color: #0f62fe;
+      box-shadow: 0 8px 18px rgba(15, 98, 254, 0.18);
+    }
+
+    .task-settings-page .common-automation-card {
+      border: 1px solid rgba(15, 26, 58, 0.12);
+      border-radius: 0.9rem;
+      padding: 1rem;
+      background: #ffffff;
+    }
+
+    .task-settings-page .stop-pill {
+      border-radius: 999px;
+      font-weight: 600;
+      text-transform: none;
+      width: auto;
+      border: 1px solid transparent;
+      cursor: pointer;
+      transition: background-color 0.15s ease, color 0.15s ease, opacity 0.15s ease;
+    }
+
+    .task-settings-page .stop-pill.status-badge {
+      text-transform: none;
+      width: auto;
+      padding: 0.35rem 0.8rem;
+    }
+
+    .task-settings-page .stop-pill.has-count {
+      display: inline-flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 0.15rem;
+      line-height: 1.1;
+    }
+
+    .task-settings-page .stop-pill__count {
+      font-size: 0.7rem;
+      font-weight: 500;
+      opacity: 0.8;
+    }
+
+    .task-settings-page .stop-pill.is-muted .stop-pill__count {
+      color: #adb5bd;
+    }
+
+    .task-settings-page .stop-pill.status-badge.none {
+      background: #ffffff;
+      border-color: #dee2e6;
+      color: #6c757d;
+    }
+
+    .task-settings-page .stop-pill.is-muted {
+      background: transparent;
+      border-color: #dee2e6;
+      color: #adb5bd;
+      text-decoration: line-through;
+      text-decoration-thickness: 2px;
+      opacity: 0.6;
+    }
+
+    .task-settings-page .stop-pill-group {
+      margin-top: 0.75rem;
+    }
+
+    .task-settings-page .stop-pill-group:first-child {
+      margin-top: 0;
+    }
+
+    .task-settings-page .stop-pill-group__label {
+      font-size: 0.7rem;
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+      color: #6c757d;
+      margin-bottom: 0.35rem;
+    }
+
+    .task-settings-page .filter-pill-list {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 0.5rem;
+    }
+
+    .task-settings-page .filter-pill {
+      border-radius: 999px;
+      border: 1px solid #dee2e6;
+      background: #ffffff;
+      color: #0f1a3a;
+      padding: 0.35rem 0.8rem;
+      font-weight: 600;
+      cursor: pointer;
+      transition: box-shadow 0.15s ease, border-color 0.15s ease;
+    }
+
+    .task-settings-page .filter-pill.is-selected {
+      border-color: rgba(15, 98, 254, 0.45);
+      box-shadow: 0 0 0 2px rgba(15, 98, 254, 0.15);
+    }
+
+    .task-settings-page .filter-pill.status-badge {
+      width: auto;
+      padding: 0.35rem 0.8rem;
+      text-transform: none;
+    }
+
+    .task-settings-page .filter-pill.status-badge.none {
+      background: #ffffff;
+      border-color: #dee2e6;
+      color: #6c757d;
+    }
+
+    .task-settings-page .stop-pill-columns {
+      display: grid;
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+      gap: 1rem;
+    }
+
+    .task-settings-page .stop-pill-column + .stop-pill-column {
+      border-left: 1px solid rgba(15, 26, 58, 0.12);
+      padding-left: 1rem;
+    }
+
+    @media (max-width: 991px) {
+      .task-settings-page .stop-pill-columns {
+        grid-template-columns: 1fr;
+      }
+
+      .task-settings-page .stop-pill-column + .stop-pill-column {
+        border-left: none;
+        padding-left: 0;
+        border-top: 1px solid rgba(15, 26, 58, 0.12);
+        padding-top: 1rem;
+      }
+    }
+
+    .task-settings-page .blast-status-rows {
+      display: grid;
+      grid-template-columns: 1fr;
+      gap: 1rem;
+    }
+
+    .task-settings-page .blast-status-row + .blast-status-row {
+      border-top: 1px solid rgba(15, 26, 58, 0.12);
+      padding-top: 1rem;
+    }
+
+    .task-settings-page .schedule-workflow__nav {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 0.5rem;
+      border-bottom: 1px solid rgba(15, 26, 58, 0.12);
+      margin-bottom: 1.5rem;
+      padding-bottom: 0.25rem;
+    }
+
+    .task-settings-page .schedule-workflow__tab {
+      border: 1px solid rgba(15, 26, 58, 0.12);
+      border-bottom: none;
+      border-radius: 0.85rem 0.85rem 0 0;
+      background: #e9edf7;
+      color: #0f1a3a;
+      font-weight: 600;
+      padding: 0.5rem 1rem;
+    }
+
+    .task-settings-page .schedule-workflow__tab.is-active {
+      background: #ffffff;
+      border-color: rgba(15, 26, 58, 0.2);
+      box-shadow: 0 -6px 12px rgba(15, 26, 58, 0.08);
+      position: relative;
+      top: 1px;
+    }
+
+    .task-settings-page .schedule-workflow__panel {
+      margin-bottom: 1.5rem;
+    }
+
+    .task-settings-page .add-step-card {
+      width: 100%;
+      min-height: 96px;
+      border-radius: 0.9rem;
+      border: 1px dashed rgba(15, 26, 58, 0.25);
+      background: #f7f9ff;
+      color: #0f1a3a;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      gap: 0.15rem;
+      transition: border-color 0.15s ease, background-color 0.15s ease;
+    }
+
+    .task-settings-page .add-step-card:hover {
+      border-color: rgba(15, 26, 58, 0.45);
+      background: #eef2ff;
+    }
+
+    .task-settings-page .add-step-card__plus {
+      font-size: 2rem;
+      line-height: 1;
+      font-weight: 600;
+    }
+
+    .task-settings-page .add-step-card__helper {
+      font-size: 0.78rem;
+      color: #6c757d;
+    }
   </style>
 </head>
 <body>
@@ -84,22 +392,99 @@
     <% const stageOptions = Array.isArray(builder.stageOptions) ? builder.stageOptions : []; %>
     <% const ownerOptions = Array.isArray(builder.ownerOptions) ? builder.ownerOptions : []; %>
     <% const channelOptions = Array.isArray(builder.channelOptions) ? builder.channelOptions : ['SMS', 'Email', 'Call', 'Reminder']; %>
+    <% const baseStatusOptions = Array.isArray(typeof automationStatusOptions !== 'undefined' ? automationStatusOptions : null)
+      ? automationStatusOptions
+      : ['New','Target','Possible','Hot','Negotiating','Be-Back','Cold','Purchased','Closed','Not-Interested','Deal-Lost','Bust'];
+    %>
+    <% const statusOptions = Array.from(new Set(baseStatusOptions.filter((status) => status !== 'Hot'))); %>
+    <% if (!statusOptions.includes('None')) statusOptions.push('None'); %>
+    <% const statusClassMap = { 'Negotiating': 'negotiating', 'Not Interested': 'not-interested', 'Not-Interested': 'not-interested' }; %>
+    <% const getStatusClass = (status) => {
+         if (!status) return '';
+         const mapped = statusClassMap[status];
+         if (mapped) return mapped;
+         return String(status).toLowerCase().replace(/[^a-z0-9]+/g, '-');
+       };
+    %>
+    <% const statusGroups = [
+         { key: 'neutral', label: 'Neutral', items: ['New', 'Possible', 'Cold', 'Be-Back', 'None'] },
+         { key: 'positive', label: 'Positive', items: ['Negotiating', 'Purchased', 'Closed', 'Target'] },
+         { key: 'negative', label: 'Negative', items: ['Not-Interested', 'Deal-Lost', 'Bust'] }
+       ];
+    %>
+    <% const groupedStatuses = []; %>
+    <% statusGroups.forEach((group) => {
+         group.items.forEach((status) => {
+           if (statusOptions.includes(status) && !groupedStatuses.includes(status)) groupedStatuses.push(status);
+         });
+       });
+    %>
+    <% const extraStatuses = statusOptions.filter((status) => !groupedStatuses.includes(status)); %>
+    <% const orderedStatusOptions = groupedStatuses.concat(extraStatuses); %>
+    <% const stopStatuses = Array.isArray(builder.stopOnStatuses) ? builder.stopOnStatuses : []; %>
+    <% const canManageAutomations =
+      (typeof taskSettingsData === 'object' && taskSettingsData && taskSettingsData.canManageAutomations) || false; %>
 
-    <div class="d-flex flex-wrap align-items-start justify-content-between gap-3 mb-4">
-      <div>
-        <p class="text-uppercase text-muted fw-semibold mb-1 small">Task Automation</p>
-        <h1 class="h3 mb-2">Auto Follow-Up Schedules</h1>
-        <p class="text-muted mb-0">
-          Design multi-touch cadences that KeepUP can run automatically and then assign them to your team with one click.
-        </p>
-      </div>
-      <div class="d-flex gap-2">
-        <button type="button" class="btn btn-outline-secondary btn-sm">Import Template</button>
-        <button type="button" class="btn btn-primary btn-sm" data-new-schedule>New Draft Schedule</button>
-      </div>
-    </div>
+    <ul class="nav nav-tabs mb-4" role="tablist" data-automation-tabs>
+      <li class="nav-item" role="presentation">
+        <button class="nav-link" type="button" data-automation-tab="hub" role="tab">Email Automation Hub</button>
+      </li>
+      <li class="nav-item" role="presentation">
+        <button class="nav-link active" type="button" data-automation-tab="schedules" role="tab">Follow Up Schedules</button>
+      </li>
+      <li class="nav-item" role="presentation">
+        <button class="nav-link" type="button" data-automation-tab="templates" role="tab">Templates</button>
+      </li>
+      <li class="nav-item" role="presentation">
+        <button class="nav-link" type="button" data-automation-tab="rules" role="tab">Status Triggers</button>
+      </li>
+      <li class="nav-item" role="presentation">
+        <button class="nav-link" type="button" data-automation-tab="queue" role="tab">Queue</button>
+      </li>
+      <li class="nav-item" role="presentation">
+        <button class="nav-link" type="button" data-automation-tab="blasts" role="tab">Blasts</button>
+      </li>
+      <li class="nav-item" role="presentation">
+        <button class="nav-link" type="button" data-automation-tab="settings" role="tab">Settings</button>
+      </li>
+    </ul>
 
-    <section class="mb-5">
+    <section class="mb-5" data-automation-panel="hub" hidden>
+      <div class="d-flex flex-wrap align-items-start justify-content-between gap-3 mb-4">
+        <div>
+          <p class="text-uppercase text-muted fw-semibold mb-1 small">Automations</p>
+          <h1 class="h3 mb-2">Email Automation Hub</h1>
+          <p class="text-muted mb-0">
+            Build nurture schedules, status triggers, and the email templates that power them in one place.
+          </p>
+        </div>
+        <div class="d-flex gap-2">
+          <button type="button" class="btn btn-outline-secondary btn-sm" data-refresh-automation>Refresh Data</button>
+          <button type="button" class="btn btn-primary btn-sm" data-new-schedule>New Draft Schedule</button>
+        </div>
+      </div>
+
+      <div class="mb-4" data-common-automation-section>
+        <div class="card shadow-sm">
+          <div class="card-body">
+            <div class="d-flex flex-wrap align-items-start justify-content-between gap-2">
+              <div>
+                <p class="text-uppercase text-muted fw-semibold small mb-1">Common Automations</p>
+                <h2 class="h5 mb-2">One-Click Setup</h2>
+                <p class="text-muted mb-0">Enable a prebuilt automation and customize it later.</p>
+              </div>
+              <button type="button" class="btn btn-outline-secondary btn-sm" data-common-refresh>Refresh</button>
+            </div>
+            <div class="vstack gap-3 mt-3" data-common-automation-list>
+              <div class="text-muted small">Loading common automations...</div>
+            </div>
+          </div>
+        </div>
+        <div class="visually-hidden" aria-live="polite" data-common-automation-toast></div>
+      </div>
+    </section>
+
+    <section class="mb-5" data-automation-panel="schedules">
       <div class="row g-3">
         <div class="col-md-3 col-sm-6">
           <div class="schedule-stat-card">
@@ -134,284 +519,1491 @@
       </div>
     </section>
 
-    <section class="mb-5">
-      <div class="row g-4">
-        <div class="col-lg-7">
-          <div class="card shadow-sm h-100">
-            <div class="card-body">
-              <div class="d-flex align-items-center justify-content-between mb-3 flex-wrap gap-2">
-                <div>
-                  <p class="text-uppercase text-muted fw-semibold small mb-1">Builder</p>
-                  <h2 class="h5 mb-0" data-builder-title>Schedule Canvas</h2>
+    <section class="mb-5" data-automation-panel="schedules">
+      <div class="schedule-workflow" data-schedule-workflow>
+        <div class="schedule-workflow__nav" role="tablist" aria-label="Schedule workflow">
+          <button class="schedule-workflow__tab is-active" type="button" data-schedule-step="canvas" role="tab">Schedule Canvas</button>
+          <button class="schedule-workflow__tab" type="button" data-schedule-step="conditions" role="tab">Stop Conditions</button>
+          <button class="schedule-workflow__tab" type="button" data-schedule-step="steps" role="tab">Follow Up Steps</button>
+          <button class="schedule-workflow__tab" type="button" data-schedule-step="assignment" role="tab">Assignment</button>
+        </div>
+
+        <form class="schedule-builder" data-task-settings-form>
+          <section class="schedule-workflow__panel" data-schedule-step-panel="canvas" role="tabpanel">
+            <div class="row g-4">
+              <div class="col-lg-7">
+                <div class="card shadow-sm h-100">
+                  <div class="card-body">
+                    <div class="d-flex align-items-center justify-content-between mb-3 flex-wrap gap-2">
+                      <div>
+                        <p class="text-uppercase text-muted fw-semibold small mb-1">Step 1</p>
+                        <h2 class="h5 mb-0" data-builder-title>Schedule Canvas</h2>
+                      </div>
+                    </div>
+
+                    <div class="row g-3 mb-3">
+                      <div class="col-md-6">
+                        <label class="form-label">Schedule Name</label>
+                        <input type="text" class="form-control" name="scheduleName" value="<%= builder.name || '' %>" placeholder="e.g. Rapid Lead Reply" />
+                      </div>
+                      <div class="col-md-6">
+                        <label class="form-label">Pipeline Stage</label>
+                        <select class="form-select" name="pipelineStage">
+                          <% (stageOptions.length ? stageOptions : ['New Lead']).forEach((stage) => { %>
+                            <option value="<%= stage %>" <%= stage === builder.defaultStage ? 'selected' : '' %>>
+                              <%= stage %>
+                            </option>
+                          <% }) %>
+                        </select>
+                      </div>
+                      <div class="col-md-6">
+                        <label class="form-label">Default Owner</label>
+                        <select class="form-select" name="owner">
+                          <% (ownerOptions.length ? ownerOptions : ['Online Sales Concierge']).forEach((owner) => { %>
+                            <option value="<%= owner %>" <%= owner === builder.defaultOwner ? 'selected' : '' %>>
+                              <%= owner %>
+                            </option>
+                          <% }) %>
+                        </select>
+                      </div>
+                      <div class="col-md-6">
+                        <label class="form-label">Fallback Escalation</label>
+                        <select class="form-select" name="escalationOwner">
+                          <% (ownerOptions.length ? ownerOptions : ['Sales Manager']).forEach((owner) => { %>
+                            <option value="<%= owner %>"><%= owner %></option>
+                          <% }) %>
+                        </select>
+                      </div>
+                    </div>
+                    <div class="mb-4">
+                      <label class="form-label">Internal Description</label>
+                      <textarea class="form-control" rows="3" name="description" placeholder="Explain when this cadence should be used."><%= builder.description || '' %></textarea>
+                    </div>
+
+                    <div class="d-flex justify-content-between mt-4">
+                      <button type="button" class="btn btn-outline-secondary" data-workflow-back>Back</button>
+                      <button type="button" class="btn btn-primary" data-workflow-next>Next</button>
+                    </div>
+                  </div>
                 </div>
-                <button type="button" class="btn btn-outline-primary btn-sm" data-add-step>Add Touchpoint</button>
+              </div>
+              <div class="col-lg-5">
+                <div class="card shadow-sm h-100">
+                  <div class="card-body">
+                    <p class="text-uppercase text-muted fw-semibold small mb-1">Library</p>
+                    <h2 class="h6 mb-3">Saved Schedules</h2>
+                    <div class="vstack gap-3" data-schedule-list>
+                      <% if (!schedules.length) { %>
+                        <div class="border rounded-3 p-3 text-center text-muted">
+                          No schedules saved yet. Build one on the left to get started.
+                        </div>
+                      <% } else { %>
+                        <% schedules.forEach((schedule) => { %>
+                          <div class="border rounded-3 p-3">
+                            <div class="d-flex justify-content-between align-items-start gap-2">
+                              <div>
+                                <div class="fw-semibold"><%= schedule.name %></div>
+                                <p class="text-muted small mb-1"><%= schedule.summary %></p>
+                                <div class="d-flex flex-wrap gap-1">
+                                  <% (schedule.tags || []).forEach((tag) => { %>
+                                    <span class="badge bg-light text-dark border"><%= tag %></span>
+                                  <% }) %>
+                                </div>
+                              </div>
+                              <div class="text-end">
+                                <small class="text-muted d-block">
+                                  Updated <%= schedule.lastUpdatedAt ? new Date(schedule.lastUpdatedAt).toLocaleDateString() : '' %>
+                                </small>
+                                <span class="badge rounded-pill bg-primary-subtle text-primary mt-1">
+                                  <%= schedule.metrics?.touchpoints || schedule.steps?.length || 0 %> touches
+                                </span>
+                              </div>
+                            </div>
+                            <div class="d-flex gap-2 mt-3">
+                              <button type="button" class="btn btn-sm btn-outline-primary flex-grow-1" data-load-schedule="<%= schedule.id %>">Load into builder</button>
+                              <button type="button" class="btn btn-sm btn-outline-secondary" title="Duplicate schedule">
+                                Duplicate
+                              </button>
+                            </div>
+                          </div>
+                        <% }) %>
+                      <% } %>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </section>
+
+          <section class="schedule-workflow__panel" data-schedule-step-panel="conditions" role="tabpanel" hidden>
+            <div class="card shadow-sm">
+              <div class="card-body">
+                <div class="d-flex align-items-center justify-content-between mb-3 flex-wrap gap-2">
+                  <div>
+                    <p class="text-uppercase text-muted fw-semibold small mb-1">Step 2</p>
+                    <h2 class="h5 mb-0">Stop Conditions</h2>
+                  </div>
+                </div>
+
+                <div class="mb-4">
+                  <div class="form-text mb-2">When a contact reaches a struck-through status, this automation will stop.</div>
+                  <select class="form-select visually-hidden" name="stopOnStatuses" multiple data-stop-select aria-hidden="true" tabindex="-1">
+                    <% orderedStatusOptions.forEach((status) => { %>
+                      <option value="<%= status %>" <%= stopStatuses.includes(status) ? 'selected' : '' %>><%= status %></option>
+                    <% }) %>
+                  </select>
+                  <div class="stop-pill-columns mt-2" data-stop-pill-list>
+                    <% const neutralGroup = statusGroups.find((group) => group.key === 'neutral'); %>
+                    <% const positiveGroup = statusGroups.find((group) => group.key === 'positive'); %>
+                    <% const negativeGroup = statusGroups.find((group) => group.key === 'negative'); %>
+                    <div class="stop-pill-column">
+                      <% if (neutralGroup) { %>
+                        <% const groupItems = neutralGroup.items.filter((status) => statusOptions.includes(status)); %>
+                        <% if (groupItems.length) { %>
+                          <div class="stop-pill-group">
+                            <div class="stop-pill-group__label"><%= neutralGroup.label %></div>
+                            <div class="d-flex flex-wrap gap-2">
+                              <% groupItems.forEach((status) => { %>
+                                <% const isSelected = stopStatuses.includes(status); %>
+                                <button
+                                  type="button"
+                                  class="stop-pill status-badge <%= getStatusClass(status) %> <%= isSelected ? 'is-muted' : '' %>"
+                                  data-stop-pill="<%= status %>"
+                                  aria-pressed="<%= isSelected ? 'true' : 'false' %>">
+                                  <%= status %>
+                                </button>
+                              <% }) %>
+                            </div>
+                          </div>
+                        <% } %>
+                      <% } %>
+                    </div>
+                    <div class="stop-pill-column">
+                      <% if (positiveGroup) { %>
+                        <% const groupItems = positiveGroup.items.filter((status) => statusOptions.includes(status)); %>
+                        <% if (groupItems.length) { %>
+                          <div class="stop-pill-group">
+                            <div class="stop-pill-group__label"><%= positiveGroup.label %></div>
+                            <div class="d-flex flex-wrap gap-2">
+                              <% groupItems.forEach((status) => { %>
+                                <% const isSelected = stopStatuses.includes(status); %>
+                                <button
+                                  type="button"
+                                  class="stop-pill status-badge <%= getStatusClass(status) %> <%= isSelected ? 'is-muted' : '' %>"
+                                  data-stop-pill="<%= status %>"
+                                  aria-pressed="<%= isSelected ? 'true' : 'false' %>">
+                                  <%= status %>
+                                </button>
+                              <% }) %>
+                            </div>
+                          </div>
+                        <% } %>
+                      <% } %>
+                    </div>
+                    <div class="stop-pill-column">
+                      <% if (negativeGroup) { %>
+                        <% const groupItems = negativeGroup.items.filter((status) => statusOptions.includes(status)); %>
+                        <% if (groupItems.length) { %>
+                          <div class="stop-pill-group">
+                            <div class="stop-pill-group__label"><%= negativeGroup.label %></div>
+                            <div class="d-flex flex-wrap gap-2">
+                              <% groupItems.forEach((status) => { %>
+                                <% const isSelected = stopStatuses.includes(status); %>
+                                <button
+                                  type="button"
+                                  class="stop-pill status-badge <%= getStatusClass(status) %> <%= isSelected ? 'is-muted' : '' %>"
+                                  data-stop-pill="<%= status %>"
+                                  aria-pressed="<%= isSelected ? 'true' : 'false' %>">
+                                  <%= status %>
+                                </button>
+                              <% }) %>
+                            </div>
+                          </div>
+                        <% } %>
+                      <% } %>
+                      <% if (extraStatuses.length) { %>
+                        <div class="stop-pill-group">
+                          <div class="stop-pill-group__label">Other</div>
+                          <div class="d-flex flex-wrap gap-2">
+                            <% extraStatuses.forEach((status) => { %>
+                              <% const isSelected = stopStatuses.includes(status); %>
+                              <button
+                                type="button"
+                                class="stop-pill status-badge <%= getStatusClass(status) %> <%= isSelected ? 'is-muted' : '' %>"
+                                data-stop-pill="<%= status %>"
+                                aria-pressed="<%= isSelected ? 'true' : 'false' %>">
+                                <%= status %>
+                              </button>
+                            <% }) %>
+                          </div>
+                        </div>
+                      <% } %>
+                    </div>
+                  </div>
+                </div>
+
+                <div class="d-flex justify-content-between mt-4">
+                  <button type="button" class="btn btn-outline-secondary" data-workflow-back>Back</button>
+                  <button type="button" class="btn btn-primary" data-workflow-next>Next</button>
+                </div>
+              </div>
+            </div>
+          </section>
+
+          <section class="schedule-workflow__panel" data-schedule-step-panel="steps" role="tabpanel" hidden>
+            <div class="row g-4">
+              <div class="col-lg-7">
+                <div class="card shadow-sm h-100">
+                  <div class="card-body">
+                    <div class="d-flex align-items-center justify-content-between mb-3 flex-wrap gap-2">
+                      <div>
+                        <p class="text-uppercase text-muted fw-semibold small mb-1">Step 3</p>
+                        <h2 class="h5 mb-0">Follow Up Steps</h2>
+                      </div>
+                    </div>
+
+                    <div>
+                      <div class="d-flex align-items-center justify-content-between">
+                        <h3 class="h6 mb-0">Follow-Up Steps</h3>
+                        <small class="text-muted">Drag order coming soon</small>
+                      </div>
+                      <div id="builder-step-list" class="mt-3" data-step-list>
+                        <% const safeOwnerOptions = ownerOptions.length ? ownerOptions : ['Online Sales Concierge', 'Sales Manager']; %>
+                        <% const safeChannelOptions = channelOptions.length ? channelOptions : ['SMS', 'Email', 'Call']; %>
+                        <% builderSteps.forEach((step) => {
+                             const selectedChannel = safeChannelOptions.includes(step.channel) ? step.channel : safeChannelOptions[0];
+                             const selectedOwner = safeOwnerOptions.includes(step.ownerRole) ? step.ownerRole : safeOwnerOptions[0];
+                        %>
+                          <div class="builder-step p-3 mb-3" data-step-id="<%= step.id %>">
+                            <div class="row g-3 align-items-end">
+                              <div class="col-6 col-md-2">
+                                <label class="form-label text-muted text-uppercase small fw-semibold">Day</label>
+                                <input type="number" class="form-control" min="0" value="<%= step.dayOffset ?? 0 %>" data-step-field="day" />
+                              </div>
+                              <div class="col-6 col-md-3">
+                                <label class="form-label text-muted text-uppercase small fw-semibold">Channel</label>
+                                <select class="form-select" data-step-field="channel">
+                                  <% safeChannelOptions.forEach((channel) => { %>
+                                    <option value="<%= channel %>" <%= channel === selectedChannel ? 'selected' : '' %>>
+                                      <%= channel %>
+                                    </option>
+                                  <% }) %>
+                                </select>
+                              </div>
+                              <div class="col-12 col-md-7">
+                                <label class="form-label text-muted text-uppercase small fw-semibold">Touchpoint summary</label>
+                                <input type="text" class="form-control" value="<%= step.title || '' %>" placeholder="What happens during this touch?" data-step-field="title" />
+                              </div>
+                              <div class="col-12 col-md-6">
+                                <label class="form-label text-muted text-uppercase small fw-semibold">Template</label>
+                                <select class="form-select" data-step-field="template">
+                                  <option value="">Select template (email only)</option>
+                                </select>
+                              </div>
+                              <div class="col-12 col-md-6">
+                                <label class="form-label text-muted text-uppercase small fw-semibold">Owner</label>
+                                <select class="form-select" data-step-field="owner">
+                                  <% safeOwnerOptions.forEach((owner) => { %>
+                                    <option value="<%= owner %>" <%= owner === selectedOwner ? 'selected' : '' %>>
+                                      <%= owner %>
+                                    </option>
+                                  <% }) %>
+                                </select>
+                              </div>
+                              <div class="col-12 col-md-6">
+                                <label class="form-label text-muted text-uppercase small fw-semibold">Auto-complete rule</label>
+                                <select class="form-select" data-step-field="rule">
+                                  <option value="manual" <%= step.waitForReply ? '' : 'selected' %>>Requires manual check-in</option>
+                                  <option value="reply" <%= step.waitForReply ? 'selected' : '' %>>Mark complete when contact replies</option>
+                                </select>
+                              </div>
+                              <div class="col-12">
+                                <label class="form-label text-muted text-uppercase small fw-semibold">Internal instructions</label>
+                                <textarea class="form-control" rows="2" data-step-field="instructions" placeholder="Provide talking points or templates."><%= step.instructions || '' %></textarea>
+                              </div>
+                            </div>
+                            <div class="d-flex align-items-center mt-3 gap-3">
+                              <div class="form-check form-switch">
+                                <input class="form-check-input" type="checkbox" role="switch" <%= step.waitForReply ? 'checked' : '' %> data-step-field="wait" />
+                                <label class="form-check-label small text-muted">Pause cadence until reply arrives</label>
+                              </div>
+                              <button type="button" class="btn btn-sm btn-outline-danger ms-auto" data-remove-step>&times; Remove</button>
+                            </div>
+                          </div>
+                        <% }) %>
+                      </div>
+                      <div class="d-flex flex-wrap gap-3 mt-3">
+                        <button type="button" class="add-step-card" data-add-step aria-label="Add new touchpoint">
+                          <span class="add-step-card__plus" aria-hidden="true">+</span>
+                          <span class="add-step-card__helper">Add new touchpoint</span>
+                        </button>
+                      </div>
+                    </div>
+
+                    <div class="d-flex flex-wrap gap-3 mt-4">
+                      <button type="button" class="btn btn-primary" data-save-schedule>Save Schedule</button>
+                      <button type="button" class="btn btn-outline-secondary">Save as Template</button>
+                      <button type="button" class="btn btn-link text-decoration-none">Preview automation rules</button>
+                    </div>
+
+                    <div class="d-flex justify-content-between mt-4">
+                      <button type="button" class="btn btn-outline-secondary" data-workflow-back>Back</button>
+                      <button type="button" class="btn btn-primary" data-workflow-next>Next</button>
+                    </div>
+                  </div>
+                </div>
+              </div>
+              <div class="col-lg-5">
+                <div class="card shadow-sm mb-4">
+                  <div class="card-body">
+                    <p class="text-uppercase text-muted fw-semibold small mb-1">Preview</p>
+                    <h2 class="h6 mb-3">Timeline Overview</h2>
+                    <% const previewSteps = builderSteps.slice().sort((a, b) => (a.dayOffset || 0) - (b.dayOffset || 0)); %>
+                    <div class="timeline">
+                      <% if (!previewSteps.length) { %>
+                        <p class="text-muted small mb-0">Add at least one step to see how the cadence plays out.</p>
+                      <% } else { %>
+                        <% previewSteps.forEach((step) => { %>
+                          <div class="timeline-step">
+                            <span class="timeline-point" aria-hidden="true"></span>
+                            <div class="d-flex justify-content-between align-items-start flex-wrap gap-2">
+                              <div>
+                                <div class="fw-semibold">
+                                  Day <%= step.dayOffset ?? 0 %> &middot; <%= step.channel || 'Touchpoint' %>
+                                </div>
+                                <p class="text-muted small mb-1"><%= step.title || 'Touchpoint' %></p>
+                                <span class="badge bg-light text-dark border">
+                                  Owner: <%= step.ownerRole || builder.defaultOwner || 'Team' %>
+                                </span>
+                              </div>
+                              <small class="text-muted">
+                                <%= step.waitForReply ? 'Wait for reply' : 'Auto-advance' %>
+                              </small>
+                            </div>
+                          </div>
+                        <% }) %>
+                      <% } %>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </section>
+        </form>
+        <div class="visually-hidden" aria-live="polite" data-apply-toast></div>
+
+        <section class="schedule-workflow__panel" data-schedule-step-panel="assignment" role="tabpanel" hidden>
+          <div class="card shadow-sm">
+            <div class="card-body">
+              <div class="d-flex flex-wrap align-items-center justify-content-between gap-3">
+                <div>
+                  <p class="text-uppercase text-muted fw-semibold small mb-1">Assignment</p>
+                  <h2 class="h5 mb-1">Apply Auto Follow-Up to Teammates</h2>
+                  <p class="text-muted mb-0">Choose a cadence for each team member. KeepUP will keep them on schedule.</p>
+                </div>
+                <button type="button" class="btn btn-outline-secondary btn-sm">Download coverage</button>
               </div>
 
-              <form class="schedule-builder" data-task-settings-form>
-                <div class="row g-3 mb-3">
-                  <div class="col-md-6">
-                    <label class="form-label">Schedule Name</label>
-                    <input type="text" class="form-control" name="scheduleName" value="<%= builder.name || '' %>" placeholder="e.g. Rapid Lead Reply" />
+              <% if (!teamAssignments.length) { %>
+                <div class="alert alert-info mt-4 mb-0">
+                  Add teammates in the Admin area to start assigning auto follow-up schedules.
+                </div>
+              <% } else { %>
+                <div class="table-responsive mt-4">
+                  <table class="table align-middle" data-assignment-table>
+                    <thead>
+                      <tr>
+                        <th scope="col">Team Member</th>
+                        <th scope="col">Role</th>
+                        <th scope="col">Status</th>
+                        <th scope="col">Current Schedule</th>
+                        <th scope="col" class="text-end">Apply New</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      <% teamAssignments.forEach((member) => { %>
+                        <tr data-member-id="<%= member.id %>" data-member-name="<%= member.name %>">
+                          <td>
+                            <div class="fw-semibold"><%= member.name %></div>
+                            <div class="text-muted small"><%= member.email || 'No email on file' %></div>
+                          </td>
+                          <td><span class="badge bg-light text-dark border"><%= member.role %></span></td>
+                          <td>
+                            <% const isActive = (member.status || '').toUpperCase() === 'ACTIVE'; %>
+                            <span class="badge <%= isActive ? 'bg-success-subtle text-success' : 'bg-secondary-subtle text-secondary' %>">
+                              <%= member.status || 'Active' %>
+                            </span>
+                          </td>
+                          <td>
+                            <div data-current-schedule class="text-muted">
+                              <%= member.currentScheduleId
+                                    ? (schedules.find((s) => s.id === member.currentScheduleId)?.name || 'Custom cadence')
+                                    : 'Not assigned yet' %>
+                            </div>
+                          </td>
+                          <td>
+                            <div class="d-flex gap-2 align-items-center justify-content-end flex-wrap">
+                              <select class="form-select form-select-sm" data-schedule-select>
+                                <option value="">Select schedule</option>
+                                <% schedules.forEach((schedule) => { %>
+                                  <option value="<%= schedule.id %>"><%= schedule.name %></option>
+                                <% }) %>
+                              </select>
+                              <button type="button" class="btn btn-sm btn-outline-primary" data-apply-schedule>Apply</button>
+                            </div>
+                          </td>
+                        </tr>
+                      <% }) %>
+                    </tbody>
+                  </table>
+                </div>
+              <% } %>
+            </div>
+          </div>
+          <div class="d-flex justify-content-between mt-4">
+            <button type="button" class="btn btn-outline-secondary" data-workflow-back>Back</button>
+            <button type="button" class="btn btn-primary" data-workflow-next>Next</button>
+          </div>
+        </section>
+      </div>
+    </section>
+    <section class="mb-5" data-automation-panel="templates" hidden>
+      <div class="row g-4 align-items-start">
+        <div class="col-lg-4 col-xl-3">
+          <div class="card shadow-sm h-100">
+            <div class="card-body d-flex flex-column h-100">
+              <div class="d-flex align-items-center justify-content-between mb-3">
+                <div>
+                  <p class="text-uppercase text-muted fw-semibold small mb-1">Templates</p>
+                  <h2 class="h6 mb-0">Library</h2>
+                </div>
+                <button type="button" class="btn btn-sm btn-primary" data-template-new>+ New</button>
+              </div>
+              <div class="mb-3">
+                <input type="text" class="form-control" placeholder="Search templates..." data-template-search />
+              </div>
+              <div class="d-flex gap-2 flex-wrap mb-3">
+                <button class="btn btn-sm btn-outline-secondary active" type="button" data-template-filter="all">All</button>
+                <button class="btn btn-sm btn-outline-secondary" type="button" data-template-filter="automation">Automation</button>
+                <button class="btn btn-sm btn-outline-secondary" type="button" data-template-filter="blast">Blast</button>
+              </div>
+              <div class="form-check form-switch mb-3">
+                <input class="form-check-input" type="checkbox" role="switch" id="showArchivedTemplates" data-template-show-archived />
+                <label class="form-check-label small text-muted" for="showArchivedTemplates">Show archived</label>
+              </div>
+              <div class="vstack gap-2 overflow-auto" style="max-height: 520px;" data-template-list>
+                <div class="text-muted small">Loading templates...</div>
+              </div>
+            </div>
+          </div>
+        </div>
+        <div class="col-lg-8 col-xl-9">
+          <div class="card shadow-sm mb-4">
+            <div class="card-body">
+              <form data-template-form>
+                <input type="hidden" name="templateId" />
+                <div class="d-flex flex-wrap gap-3 align-items-center justify-content-between mb-3">
+                  <div class="flex-grow-1">
+                    <label class="form-label">Template Name</label>
+                    <input type="text" class="form-control" name="name" placeholder="e.g. Hot Lead Intro" required />
                   </div>
-                  <div class="col-md-6">
-                    <label class="form-label">Pipeline Stage</label>
-                    <select class="form-select" name="pipelineStage">
-                      <% (stageOptions.length ? stageOptions : ['New Lead']).forEach((stage) => { %>
-                        <option value="<%= stage %>" <%= stage === builder.defaultStage ? 'selected' : '' %>>
-                          <%= stage %>
-                        </option>
+                  <div>
+                    <label class="form-label">Type</label>
+                    <select class="form-select" name="type">
+                      <option value="automation">Automation</option>
+                      <option value="blast">Blast</option>
+                    </select>
+                  </div>
+                  <div class="ms-auto d-flex gap-2 align-items-center">
+                    <span class="small text-muted" data-template-saved>Not saved yet</span>
+                    <button type="submit" class="btn btn-primary" data-template-save>Save</button>
+                    <button type="button" class="btn btn-outline-secondary" data-template-duplicate>Duplicate</button>
+                    <button type="button" class="btn btn-outline-secondary" data-template-send-test>Send test</button>
+                    <button type="button" class="btn btn-outline-danger" data-template-archive>Archive</button>
+                    <button type="button" class="btn btn-outline-secondary d-none" data-template-restore>Restore</button>
+                  </div>
+                </div>
+
+                <div class="row g-3">
+                  <div class="col-12">
+                    <label class="form-label">Subject</label>
+                    <input type="text" class="form-control" name="subject" placeholder="Subject line" />
+                  </div>
+                  <div class="col-12">
+                    <label class="form-label">Preview Text</label>
+                    <input type="text" class="form-control" name="previewText" placeholder="Short inbox preview (optional)" />
+                  </div>
+                </div>
+
+                <div class="mt-3">
+                  <div class="d-flex justify-content-between align-items-center">
+                    <label class="form-label mb-0">Body</label>
+                    <div class="d-flex gap-2 align-items-center">
+                      <button type="button" class="btn btn-outline-secondary btn-sm" data-template-token-open>
+                        Insert Token
+                      </button>
+                      <button type="button" class="btn btn-outline-secondary btn-sm" data-template-image-open>
+                        Insert Image
+                      </button>
+                      <div class="form-check form-switch mb-0">
+                        <input class="form-check-input" type="checkbox" role="switch" name="advancedHtml" data-template-advanced-toggle />
+                        <label class="form-check-label small">Advanced HTML</label>
+                      </div>
+                    </div>
+                  </div>
+                  <div class="template-editor mt-2" data-template-editor>
+                    <div id="templateEditor"></div>
+                  </div>
+                  <input type="hidden" name="html" />
+                </div>
+                <div class="mt-3 d-none" data-template-advanced-fields>
+                  <label class="form-label">HTML</label>
+                  <textarea class="form-control" rows="6" name="htmlRaw" placeholder="Paste HTML or write inline content."></textarea>
+                </div>
+                <div class="mt-3 d-none" data-template-advanced-fields>
+                  <label class="form-label">Plain Text</label>
+                  <textarea class="form-control" rows="4" name="text" placeholder="Optional plain text fallback."></textarea>
+                </div>
+                <div class="form-check form-switch mt-3">
+                  <input class="form-check-input" type="checkbox" role="switch" name="isActive" checked />
+                  <label class="form-check-label">Active Template</label>
+                </div>
+              </form>
+            </div>
+          </div>
+
+          <div class="card shadow-sm">
+            <div class="card-body">
+              <div class="d-flex align-items-center justify-content-between mb-3">
+                <div>
+                  <p class="text-uppercase text-muted fw-semibold small mb-1">Preview</p>
+                  <h2 class="h6 mb-0">Render Test</h2>
+                </div>
+                <button type="button" class="btn btn-outline-primary btn-sm" data-template-preview-run>Preview Render</button>
+              </div>
+              <div class="row g-3">
+                <div class="col-md-4">
+                  <label class="form-label">Recipient Type</label>
+                  <select class="form-select" data-template-preview-recipient>
+                    <option value="contact">Contact</option>
+                    <option value="realtor">Realtor</option>
+                  </select>
+                </div>
+                <div class="col-md-8">
+                  <label class="form-label">Recipient Search</label>
+                  <div class="d-flex gap-2">
+                    <input type="text" class="form-control" name="previewSearch" placeholder="Search by name or email" data-template-preview-search />
+                    <button class="btn btn-outline-secondary" type="button" data-template-preview-search-btn>Search</button>
+                  </div>
+                </div>
+                <div class="col-12">
+                  <label class="form-label">Select Recipient</label>
+                  <select class="form-select" data-template-preview-contact>
+                    <option value="">Choose a recipient</option>
+                  </select>
+                </div>
+              </div>
+              <div class="border rounded-3 p-3 mt-3 bg-light">
+                <div class="fw-semibold mb-2">Subject</div>
+                <div class="small text-muted" data-template-preview-subject>?</div>
+                <div class="fw-semibold mt-3 mb-2">Text</div>
+                <div class="small text-muted" data-template-preview-text>?</div>
+                <div class="fw-semibold mt-3 mb-2">HTML</div>
+                <div class="template-preview-html" data-template-preview-html>?</div>
+                <div class="mt-3 d-none" data-template-preview-missing>
+                  <div class="fw-semibold text-warning mb-1">Missing tokens</div>
+                  <div class="small text-muted" data-template-preview-missing-list>?</div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+      <div class="visually-hidden" aria-live="polite" data-template-toast></div>
+    </section>
+    <div class="modal fade" id="templateTokenModal" tabindex="-1" aria-hidden="true">
+      <div class="modal-dialog modal-dialog-scrollable">
+        <div class="modal-content">
+          <div class="modal-header">
+            <h5 class="modal-title">Insert Token</h5>
+            <button type="button" class="btn-close" data-token-modal-close aria-label="Close"></button>
+          </div>
+          <div class="modal-body">
+            <div class="mb-3">
+              <input type="text" class="form-control" placeholder="Search tokens..." data-token-search />
+            </div>
+            <div class="d-none mb-3" data-token-recent>
+              <div class="text-uppercase text-muted fw-semibold small mb-2">Recent</div>
+              <div class="vstack gap-2" data-token-recent-list></div>
+            </div>
+            <div class="vstack gap-3" data-token-list></div>
+          </div>
+        </div>
+      </div>
+    </div>
+    <div class="modal fade" id="templateImageModal" tabindex="-1" aria-hidden="true">
+      <div class="modal-dialog modal-dialog-scrollable">
+        <div class="modal-content">
+          <div class="modal-header">
+            <h5 class="modal-title">Insert Image</h5>
+            <button type="button" class="btn-close" data-image-modal-close aria-label="Close"></button>
+          </div>
+          <div class="modal-body">
+            <ul class="nav nav-pills mb-3" role="tablist">
+              <li class="nav-item" role="presentation">
+                <button class="nav-link active" type="button" data-image-tab="upload">Upload</button>
+              </li>
+              <li class="nav-item" role="presentation">
+                <button class="nav-link" type="button" data-image-tab="library">Library</button>
+              </li>
+            </ul>
+            <div data-image-panel="upload">
+              <div class="mb-3">
+                <input type="file" class="form-control" accept="image/*" data-image-file />
+              </div>
+              <div class="mb-3 d-none" data-image-preview-wrap>
+                <img alt="Preview" class="img-fluid rounded border" data-image-preview />
+              </div>
+              <button type="button" class="btn btn-primary" data-image-upload>Upload</button>
+            </div>
+            <div class="d-none" data-image-panel="library">
+              <div class="row g-2" data-image-library></div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+    <section class="mb-5" data-automation-panel="rules" hidden>
+      <div class="row g-4">
+        <div class="col-lg-4">
+          <div class="card shadow-sm h-100">
+            <div class="card-body">
+              <p class="text-uppercase text-muted fw-semibold small mb-1">Status Triggers</p>
+              <div class="d-flex align-items-center justify-content-between mb-3">
+                <h2 class="h6 mb-0">Status Change Automations</h2>
+                <button type="button" class="btn btn-sm btn-outline-primary" data-rule-new>New rule</button>
+              </div>
+              <div class="vstack gap-3" data-rule-list>
+                <div class="text-muted small">Loading rules...</div>
+              </div>
+            </div>
+          </div>
+        </div>
+        <div class="col-lg-8">
+          <div class="card shadow-sm h-100">
+            <div class="card-body">
+              <p class="text-uppercase text-muted fw-semibold small mb-1">Rule Editor</p>
+              <h2 class="h5 mb-3">If this -> then send that</h2>
+              <form data-rule-form>
+                <input type="hidden" name="ruleId" />
+                <input type="hidden" name="delayMinutes" value="0" />
+                <input type="hidden" name="cooldownMinutes" value="0" />
+                <div class="mb-4">
+                  <label class="form-label fw-semibold">Rule name</label>
+                  <input type="text" class="form-control" name="name" placeholder="e.g. Hot lead outreach" required />
+                </div>
+                <div class="mb-4">
+                  <div class="fw-semibold mb-2">Trigger</div>
+                  <div class="d-flex flex-wrap align-items-center gap-2">
+                    <span>When a contact’s status changes to</span>
+                    <select class="form-select form-select-sm w-auto" name="toStatus" data-rule-to-status required>
+                      <% statusOptions.forEach((status) => { %>
+                        <option value="<%= status %>"><%= status %></option>
                       <% }) %>
                     </select>
                   </div>
-                  <div class="col-md-6">
-                    <label class="form-label">Default Owner</label>
-                    <select class="form-select" name="owner">
-                      <% (ownerOptions.length ? ownerOptions : ['Online Sales Concierge']).forEach((owner) => { %>
-                        <option value="<%= owner %>" <%= owner === builder.defaultOwner ? 'selected' : '' %>>
-                          <%= owner %>
-                        </option>
-                      <% }) %>
-                    </select>
-                  </div>
-                  <div class="col-md-6">
-                    <label class="form-label">Fallback Escalation</label>
-                    <select class="form-select" name="escalationOwner">
-                      <% (ownerOptions.length ? ownerOptions : ['Sales Manager']).forEach((owner) => { %>
-                        <option value="<%= owner %>"><%= owner %></option>
-                      <% }) %>
-                    </select>
+                  <div class="text-muted small mt-2">Triggered when the status becomes the selected value.</div>
+                </div>
+                <div class="mb-4">
+                  <div class="fw-semibold mb-2">Action</div>
+                  <div class="row g-2 align-items-center">
+                    <div class="col-md-8">
+                      <select class="form-select" name="templateId" data-rule-template>
+                        <option value="">Select a template</option>
+                      </select>
+                    </div>
+                    <div class="col-md-4 text-md-end">
+                      <button type="button" class="btn btn-sm btn-outline-secondary" data-rule-template-preview>
+                        Preview template
+                      </button>
+                    </div>
                   </div>
                 </div>
                 <div class="mb-4">
-                  <label class="form-label">Internal Description</label>
-                  <textarea class="form-control" rows="3" name="description" placeholder="Explain when this cadence should be used."><%= builder.description || '' %></textarea>
-                </div>
-
-                <div>
-                  <div class="d-flex align-items-center justify-content-between">
-                    <h3 class="h6 mb-0">Follow-Up Steps</h3>
-                    <small class="text-muted">Drag order coming soon</small>
-                  </div>
-                  <div id="builder-step-list" class="mt-3" data-step-list>
-                    <% const safeOwnerOptions = ownerOptions.length ? ownerOptions : ['Online Sales Concierge', 'Sales Manager']; %>
-                    <% const safeChannelOptions = channelOptions.length ? channelOptions : ['SMS', 'Email', 'Call']; %>
-                    <% builderSteps.forEach((step) => {
-                         const selectedChannel = safeChannelOptions.includes(step.channel) ? step.channel : safeChannelOptions[0];
-                         const selectedOwner = safeOwnerOptions.includes(step.ownerRole) ? step.ownerRole : safeOwnerOptions[0];
-                    %>
-                      <div class="builder-step p-3 mb-3" data-step-id="<%= step.id %>">
-                        <div class="row g-3 align-items-end">
-                          <div class="col-6 col-md-2">
-                            <label class="form-label text-muted text-uppercase small fw-semibold">Day</label>
-                            <input type="number" class="form-control" min="0" value="<%= step.dayOffset ?? 0 %>" data-step-field="day" />
-                          </div>
-                          <div class="col-6 col-md-3">
-                            <label class="form-label text-muted text-uppercase small fw-semibold">Channel</label>
-                            <select class="form-select" data-step-field="channel">
-                              <% safeChannelOptions.forEach((channel) => { %>
-                                <option value="<%= channel %>" <%= channel === selectedChannel ? 'selected' : '' %>>
-                                  <%= channel %>
-                                </option>
-                              <% }) %>
-                            </select>
-                          </div>
-                          <div class="col-12 col-md-7">
-                            <label class="form-label text-muted text-uppercase small fw-semibold">Touchpoint summary</label>
-                            <input type="text" class="form-control" value="<%= step.title || '' %>" placeholder="What happens during this touch?" data-step-field="title" />
-                          </div>
-                          <div class="col-12 col-md-6">
-                            <label class="form-label text-muted text-uppercase small fw-semibold">Owner</label>
-                            <select class="form-select" data-step-field="owner">
-                              <% safeOwnerOptions.forEach((owner) => { %>
-                                <option value="<%= owner %>" <%= owner === selectedOwner ? 'selected' : '' %>>
-                                  <%= owner %>
-                                </option>
-                              <% }) %>
-                            </select>
-                          </div>
-                          <div class="col-12 col-md-6">
-                            <label class="form-label text-muted text-uppercase small fw-semibold">Auto-complete rule</label>
-                            <select class="form-select" data-step-field="rule">
-                              <option value="manual" <%= step.waitForReply ? '' : 'selected' %>>Requires manual check-in</option>
-                              <option value="reply" <%= step.waitForReply ? 'selected' : '' %>>Mark complete when contact replies</option>
-                            </select>
-                          </div>
-                          <div class="col-12">
-                            <label class="form-label text-muted text-uppercase small fw-semibold">Internal instructions</label>
-                            <textarea class="form-control" rows="2" data-step-field="instructions" placeholder="Provide talking points or templates."><%= step.instructions || '' %></textarea>
-                          </div>
-                        </div>
-                        <div class="d-flex align-items-center mt-3 gap-3">
-                          <div class="form-check form-switch">
-                            <input class="form-check-input" type="checkbox" role="switch" <%= step.waitForReply ? 'checked' : '' %> data-step-field="wait" />
-                            <label class="form-check-label small text-muted">Pause cadence until reply arrives</label>
-                          </div>
-                          <button type="button" class="btn btn-sm btn-outline-danger ms-auto" data-remove-step>&times; Remove</button>
-                        </div>
+                  <div class="fw-semibold mb-2">Timing</div>
+                  <div class="row g-3">
+                    <div class="col-md-6">
+                      <label class="form-label small text-muted">Delay</label>
+                      <div class="d-flex gap-2">
+                        <select class="form-select" data-rule-delay-mode>
+                          <option value="immediate">Send immediately</option>
+                          <option value="minutes">After minutes</option>
+                          <option value="hours">After hours</option>
+                          <option value="days">After days</option>
+                        </select>
+                        <input type="number" min="0" class="form-control" style="max-width: 120px;" data-rule-delay-value value="0" />
                       </div>
-                    <% }) %>
+                      <div class="text-muted small mt-1">Delay waits before the email is queued.</div>
+                    </div>
+                    <div class="col-md-6">
+                      <label class="form-label small text-muted">Cooldown</label>
+                      <div class="d-flex gap-2">
+                        <input type="number" min="0" class="form-control" style="max-width: 120px;" data-rule-cooldown-value value="0" />
+                        <select class="form-select" data-rule-cooldown-unit>
+                          <option value="minutes">Minutes</option>
+                          <option value="hours">Hours</option>
+                          <option value="days" selected>Days</option>
+                        </select>
+                      </div>
+                      <div class="text-muted small mt-1">Prevents repeat emails if the status flips.</div>
+                    </div>
+                  </div>
+                  <div class="mt-3 rule-preview" data-rule-timeline>Set a status to see the timeline.</div>
+                </div>
+                <div class="mb-4">
+                  <div class="fw-semibold mb-2">Safety</div>
+                  <div class="d-flex align-items-center gap-2">
+                    <div class="form-check form-switch mb-0">
+                      <input class="form-check-input" type="checkbox" role="switch" name="mustStillMatchAtSend" checked />
+                      <label class="form-check-label">Cancel if status no longer matches at send time</label>
+                    </div>
+                  </div>
+                  <div class="text-muted small mt-1">
+                    ON (recommended): If the contact leaves this status before send time, the email is canceled.
                   </div>
                 </div>
-
-                <div class="d-flex flex-wrap gap-3 mt-4">
-                  <button type="button" class="btn btn-primary" data-save-schedule>Save Schedule</button>
-                  <button type="button" class="btn btn-outline-secondary">Save as Template</button>
-                  <button type="button" class="btn btn-link text-decoration-none">Preview automation rules</button>
+                <div class="mb-4">
+                  <div class="fw-semibold mb-2">Advanced</div>
+                  <div class="row g-3">
+                    <div class="col-md-6">
+                      <label class="form-label small text-muted">From status (optional)</label>
+                      <select class="form-select form-select-sm" name="fromStatus">
+                        <option value="">Any</option>
+                        <% statusOptions.forEach((status) => { %>
+                          <option value="<%= status %>"><%= status %></option>
+                        <% }) %>
+                      </select>
+                    </div>
+                    <div class="col-md-6">
+                      <label class="form-label small text-muted">Community ID (optional)</label>
+                      <input type="text" class="form-control form-control-sm" name="communityId" placeholder="Limit to a community ID" />
+                    </div>
+                  </div>
+                </div>
+                <div class="d-flex align-items-center justify-content-between gap-3">
+                  <div class="form-check form-switch mb-0">
+                    <input class="form-check-input" type="checkbox" role="switch" name="isEnabled" checked />
+                    <label class="form-check-label fw-semibold">Rule enabled</label>
+                  </div>
+                  <div class="d-flex gap-2">
+                    <button type="button" class="btn btn-outline-secondary" data-rule-test>Test rule</button>
+                    <button type="submit" class="btn btn-primary" data-rule-save>Save Rule</button>
+                    <button type="button" class="btn btn-outline-secondary" data-rule-reset>Clear</button>
+                  </div>
                 </div>
               </form>
             </div>
           </div>
         </div>
-        <div class="col-lg-5">
-          <div class="card shadow-sm mb-4">
-            <div class="card-body">
-              <p class="text-uppercase text-muted fw-semibold small mb-1">Preview</p>
-              <h2 class="h6 mb-3">Timeline Overview</h2>
-              <% const previewSteps = builderSteps.slice().sort((a, b) => (a.dayOffset || 0) - (b.dayOffset || 0)); %>
-              <div class="timeline">
-                <% if (!previewSteps.length) { %>
-                  <p class="text-muted small mb-0">Add at least one step to see how the cadence plays out.</p>
-                <% } else { %>
-                  <% previewSteps.forEach((step) => { %>
-                    <div class="timeline-step">
-                      <span class="timeline-point" aria-hidden="true"></span>
-                      <div class="d-flex justify-content-between align-items-start flex-wrap gap-2">
-                        <div>
-                          <div class="fw-semibold">
-                            Day <%= step.dayOffset ?? 0 %> &middot; <%= step.channel || 'Touchpoint' %>
-                          </div>
-                          <p class="text-muted small mb-1"><%= step.title || 'Touchpoint' %></p>
-                          <span class="badge bg-light text-dark border">
-                            Owner: <%= step.ownerRole || builder.defaultOwner || 'Team' %>
-                          </span>
-                        </div>
-                        <small class="text-muted">
-                          <%= step.waitForReply ? 'Wait for reply' : 'Auto-advance' %>
-                        </small>
-                      </div>
-                    </div>
-                  <% }) %>
-                <% } %>
-              </div>
-            </div>
-          </div>
-
-          <div class="card shadow-sm h-100">
-            <div class="card-body">
-              <p class="text-uppercase text-muted fw-semibold small mb-1">Library</p>
-              <h2 class="h6 mb-3">Saved Schedules</h2>
-              <div class="vstack gap-3" data-schedule-list>
-                <% if (!schedules.length) { %>
-                  <div class="border rounded-3 p-3 text-center text-muted">
-                    No schedules saved yet. Build one on the left to get started.
-                  </div>
-                <% } else { %>
-                  <% schedules.forEach((schedule) => { %>
-                    <div class="border rounded-3 p-3">
-                      <div class="d-flex justify-content-between align-items-start gap-2">
-                        <div>
-                          <div class="fw-semibold"><%= schedule.name %></div>
-                          <p class="text-muted small mb-1"><%= schedule.summary %></p>
-                          <div class="d-flex flex-wrap gap-1">
-                            <% (schedule.tags || []).forEach((tag) => { %>
-                              <span class="badge bg-light text-dark border"><%= tag %></span>
-                            <% }) %>
-                          </div>
-                        </div>
-                        <div class="text-end">
-                          <small class="text-muted d-block">
-                            Updated <%= schedule.lastUpdatedAt ? new Date(schedule.lastUpdatedAt).toLocaleDateString() : '' %>
-                          </small>
-                          <span class="badge rounded-pill bg-primary-subtle text-primary mt-1">
-                            <%= schedule.metrics?.touchpoints || schedule.steps?.length || 0 %> touches
-                          </span>
-                        </div>
-                      </div>
-                      <div class="d-flex gap-2 mt-3">
-                        <button type="button" class="btn btn-sm btn-outline-primary flex-grow-1" data-load-schedule="<%= schedule.id %>">Load into builder</button>
-                        <button type="button" class="btn btn-sm btn-outline-secondary" title="Duplicate schedule">
-                          Duplicate
-                        </button>
-                      </div>
-                    </div>
-                  <% }) %>
-                <% } %>
-              </div>
-            </div>
-          </div>
-        </div>
       </div>
+      <div class="visually-hidden" aria-live="polite" data-rule-toast></div>
     </section>
 
-    <section class="mb-5">
-      <div class="card shadow-sm">
-        <div class="card-body">
-          <div class="d-flex flex-wrap align-items-center justify-content-between gap-3">
-            <div>
-              <p class="text-uppercase text-muted fw-semibold small mb-1">Assignment</p>
-              <h2 class="h5 mb-1">Apply Auto Follow-Up to Teammates</h2>
-              <p class="text-muted mb-0">Choose a cadence for each team member. KeepUP will keep them on schedule.</p>
-            </div>
-            <button type="button" class="btn btn-outline-secondary btn-sm">Download coverage</button>
+    <div class="modal fade" id="ruleTestModal" tabindex="-1" aria-hidden="true">
+      <div class="modal-dialog modal-dialog-scrollable">
+        <div class="modal-content">
+          <div class="modal-header">
+            <h5 class="modal-title">Test rule</h5>
+            <button type="button" class="btn-close" data-rule-test-close aria-label="Close"></button>
           </div>
-
-          <% if (!teamAssignments.length) { %>
-            <div class="alert alert-info mt-4 mb-0">
-              Add teammates in the Admin area to start assigning auto follow-up schedules.
+          <div class="modal-body">
+            <div class="mb-3">
+              <label class="form-label">Contact</label>
+              <div class="input-group">
+                <input type="text" class="form-control" placeholder="Search by name or email" data-rule-test-search />
+                <button class="btn btn-outline-secondary" type="button" data-rule-test-search-btn>Search</button>
+              </div>
+              <select class="form-select mt-2" data-rule-test-contact>
+                <option value="">Select a contact</option>
+              </select>
             </div>
-          <% } else { %>
-            <div class="table-responsive mt-4">
-              <table class="table align-middle" data-assignment-table>
-                <thead>
-                  <tr>
-                    <th scope="col">Team Member</th>
-                    <th scope="col">Role</th>
-                    <th scope="col">Status</th>
-                    <th scope="col">Current Schedule</th>
-                    <th scope="col" class="text-end">Apply New</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  <% teamAssignments.forEach((member) => { %>
-                    <tr data-member-id="<%= member.id %>" data-member-name="<%= member.name %>">
-                      <td>
-                        <div class="fw-semibold"><%= member.name %></div>
-                        <div class="text-muted small"><%= member.email || 'No email on file' %></div>
-                      </td>
-                      <td><span class="badge bg-light text-dark border"><%= member.role %></span></td>
-                      <td>
-                        <% const isActive = (member.status || '').toUpperCase() === 'ACTIVE'; %>
-                        <span class="badge <%= isActive ? 'bg-success-subtle text-success' : 'bg-secondary-subtle text-secondary' %>">
-                          <%= member.status || 'Active' %>
-                        </span>
-                      </td>
-                      <td>
-                        <div data-current-schedule class="text-muted">
-                          <%= member.currentScheduleId
-                                ? (schedules.find((s) => s.id === member.currentScheduleId)?.name || 'Custom cadence')
-                                : 'Not assigned yet' %>
-                        </div>
-                      </td>
-                      <td>
-                        <div class="d-flex gap-2 align-items-center justify-content-end flex-wrap">
-                          <select class="form-select form-select-sm" data-schedule-select>
-                            <option value="">Select schedule</option>
-                            <% schedules.forEach((schedule) => { %>
-                              <option value="<%= schedule.id %>"><%= schedule.name %></option>
-                            <% }) %>
-                          </select>
-                          <button type="button" class="btn btn-sm btn-outline-primary" data-apply-schedule>Apply</button>
-                        </div>
-                      </td>
-                    </tr>
-                  <% }) %>
-                </tbody>
-              </table>
+            <div class="mb-3">
+              <label class="form-label">Assume status becomes</label>
+              <select class="form-select" data-rule-test-status>
+                <% statusOptions.forEach((status) => { %>
+                  <option value="<%= status %>"><%= status %></option>
+                <% }) %>
+              </select>
             </div>
-          <% } %>
+            <div class="border rounded-3 p-3 mb-3 d-none" data-rule-test-result>
+              <div class="fw-semibold mb-1" data-rule-test-outcome>--</div>
+              <div class="small text-muted mb-2" data-rule-test-schedule>--</div>
+              <div class="small text-muted" data-rule-test-notes>--</div>
+              <div class="mt-2" data-rule-test-reasons></div>
+            </div>
+            <div class="d-flex flex-wrap gap-2 mb-3 d-none" data-rule-test-actions>
+              <a class="btn btn-sm btn-outline-secondary" target="_blank" rel="noopener" data-rule-test-view-contact>
+                View contact
+              </a>
+              <a class="btn btn-sm btn-outline-secondary" target="_blank" rel="noopener" data-rule-test-open-queue>
+                Open Queue filtered
+              </a>
+            </div>
+            <div class="d-flex gap-2">
+              <button type="button" class="btn btn-primary" data-rule-test-run>Run test</button>
+              <button type="button" class="btn btn-outline-secondary" data-rule-test-clear>Clear</button>
+            </div>
+          </div>
         </div>
       </div>
-      <div class="visually-hidden" aria-live="polite" data-apply-toast></div>
+    </div>
+
+    <section class="mb-5" data-automation-panel="queue" hidden>
+      <% if (canManageAutomations) { %>
+        <div class="card shadow-sm mb-4">
+          <div class="card-body">
+            <div class="d-flex flex-wrap align-items-start justify-content-between gap-2">
+              <div>
+                <p class="text-uppercase text-muted fw-semibold small mb-1">Processor Health</p>
+                <h2 class="h6 mb-0">Email Job Processor</h2>
+              </div>
+              <button type="button" class="btn btn-outline-secondary btn-sm" data-health-refresh>Refresh</button>
+            </div>
+            <div class="d-flex flex-wrap gap-3 mt-3">
+              <div class="small text-muted">Processor</div>
+              <span class="badge bg-secondary-subtle text-secondary" data-health-enabled>--</span>
+              <div class="small text-muted">Poll</div>
+              <span class="fw-semibold" data-health-poll>--</span>
+              <div class="small text-muted">Stale</div>
+              <span class="fw-semibold" data-health-stale>--</span>
+              <div class="small text-muted">Max jobs/tick</div>
+              <span class="fw-semibold" data-health-maxjobs>--</span>
+              <div class="small text-muted">Max attempts</div>
+              <span class="fw-semibold" data-health-maxattempts>--</span>
+              <div class="small text-muted">Log level</div>
+              <span class="fw-semibold text-capitalize" data-health-loglevel>--</span>
+            </div>
+            <div class="d-flex flex-wrap gap-2 mt-3" data-health-counts></div>
+            <div class="alert alert-warning d-none mt-3" role="alert" data-health-stuck-alert>
+              <span data-health-stuck-message>Stuck jobs detected.</span>
+              <a href="#" data-health-stuck-link>View stuck jobs</a>
+            </div>
+            <div class="row g-3 mt-2">
+              <div class="col-lg-6">
+                <div class="border rounded-3 p-3 h-100">
+                  <div class="fw-semibold mb-2">Recent failures (48h)</div>
+                  <div class="small text-muted" data-health-failures>Loading...</div>
+                </div>
+              </div>
+              <div class="col-lg-6">
+                <div class="border rounded-3 p-3 h-100" data-health-stuck-section>
+                  <div class="fw-semibold mb-2">Stuck processing</div>
+                  <div class="small text-muted" data-health-stuck>Loading...</div>
+                </div>
+              </div>
+            </div>
+            <div class="visually-hidden" aria-live="polite" data-health-toast></div>
+          </div>
+        </div>
+      <% } %>
+      <div class="card shadow-sm">
+        <div class="card-body">
+          <div class="d-flex flex-wrap align-items-center justify-content-between gap-3 mb-3">
+            <div>
+              <p class="text-uppercase text-muted fw-semibold small mb-1">Queue</p>
+              <h2 class="h5 mb-0">Email Sending Timeline</h2>
+            </div>
+            <div class="d-flex flex-wrap gap-2 align-items-center">
+              <div class="btn-group" role="group" aria-label="Queue filters" data-queue-filters>
+                <button type="button" class="btn btn-outline-primary btn-sm" data-queue-filter="today">Today</button>
+                <button type="button" class="btn btn-outline-primary btn-sm" data-queue-filter="tomorrow">Tomorrow</button>
+                <button type="button" class="btn btn-outline-primary btn-sm" data-queue-filter="week">This Week</button>
+                <button type="button" class="btn btn-outline-primary btn-sm" data-queue-filter="later">Later</button>
+                <button type="button" class="btn btn-outline-primary btn-sm" data-queue-filter="sent">Sent</button>
+              </div>
+              <select class="form-select form-select-sm" style="width: auto;" data-queue-status>
+                <option value="">All statuses</option>
+                <option value="queued">Queued</option>
+                <option value="processing">Processing</option>
+                <option value="sent">Sent</option>
+                <option value="failed">Failed</option>
+                <option value="skipped">Skipped</option>
+                <option value="canceled">Canceled</option>
+              </select>
+            </div>
+          </div>
+          <div class="d-flex flex-wrap gap-2 align-items-center mb-3" data-queue-filter-chips>
+            <div class="text-muted small" data-queue-filter-empty>No filters applied.</div>
+            <button type="button" class="btn btn-sm btn-outline-secondary d-none" data-queue-clear-all>Clear all</button>
+          </div>
+          <div class="d-flex flex-wrap gap-2 align-items-center mb-3">
+            <span class="badge bg-light text-dark border" data-queue-summary>Total: --</span>
+            <span class="badge bg-light text-dark border" data-queue-summary-queued>Queued: --</span>
+            <span class="badge bg-light text-dark border" data-queue-summary-processing>Processing: --</span>
+            <span class="badge bg-light text-dark border" data-queue-summary-sent>Sent: --</span>
+            <span class="badge bg-light text-dark border" data-queue-summary-failed>Failed: --</span>
+            <span class="badge bg-light text-dark border" data-queue-summary-skipped>Skipped: --</span>
+            <span class="badge bg-light text-dark border" data-queue-summary-canceled>Canceled: --</span>
+          </div>
+          <div class="table-responsive">
+            <table class="table align-middle">
+              <thead>
+                <tr>
+                  <th scope="col">Recipient</th>
+                  <th scope="col">Type</th>
+                  <th scope="col">Template</th>
+                  <th scope="col">Scheduled</th>
+                  <th scope="col">Status</th>
+                  <th scope="col">Reason</th>
+                  <th scope="col" class="text-end">Actions</th>
+                </tr>
+              </thead>
+              <tbody data-queue-list>
+                <tr>
+                  <td colspan="7" class="text-muted small">Loading queue...</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+      <div class="visually-hidden" aria-live="polite" data-queue-toast></div>
+    </section>
+
+    <section class="mb-5" data-automation-panel="blasts" hidden>
+      <% if (!canManageAutomations) { %>
+        <div class="alert alert-info">Company admin access is required to send blasts.</div>
+      <% } %>
+      <% if (canManageAutomations) { %>
+      <div class="row g-4">
+        <div class="col-lg-7">
+          <div class="schedule-workflow" data-blast-workflow>
+            <div class="schedule-workflow__nav" role="tablist" aria-label="Blast workflow">
+              <button class="schedule-workflow__tab is-active" type="button" data-blast-step="audience" role="tab">
+                1. Audience
+                <span class="ms-2 small text-success d-none" data-blast-step-complete="audience">Done</span>
+              </button>
+              <button class="schedule-workflow__tab" type="button" data-blast-step="content" role="tab">
+                2. Content
+                <span class="ms-2 small text-success d-none" data-blast-step-complete="content">Done</span>
+              </button>
+              <button class="schedule-workflow__tab" type="button" data-blast-step="schedule" role="tab">
+                3. Schedule
+                <span class="ms-2 small text-success d-none" data-blast-step-complete="schedule">Done</span>
+              </button>
+              <button class="schedule-workflow__tab" type="button" data-blast-step="confirm" role="tab">
+                4. Confirm
+                <span class="ms-2 small text-success d-none" data-blast-step-complete="confirm">Done</span>
+              </button>
+            </div>
+
+            <form data-blast-form>
+              <section class="schedule-workflow__panel" data-blast-step-panel="content" role="tabpanel" hidden>
+                <div class="card shadow-sm">
+                  <div class="card-body">
+                    <p class="text-uppercase text-muted fw-semibold small mb-1">Step 2</p>
+                    <h2 class="h5 mb-3">2. Choose your email</h2>
+                    <div class="mb-3">
+                      <label class="form-label">Blast Name</label>
+                      <input type="text" class="form-control" name="name" placeholder="e.g. Spring Update" required />
+                    </div>
+                      <div class="mb-3">
+                        <label class="form-label">Template</label>
+                        <select class="form-select" name="templateId" data-blast-template>
+                          <option value="">Select a template</option>
+                        </select>
+                      </div>
+                    <div class="border rounded-3 p-3 bg-light">
+                      <div class="d-flex align-items-center justify-content-between flex-wrap gap-2">
+                        <div class="fw-semibold">Email Preview</div>
+                        <button type="button" class="btn btn-outline-primary btn-sm" data-blast-email-preview>
+                          Preview as recipient
+                        </button>
+                      </div>
+                      <div class="mt-3">
+                        <div class="small text-muted">Subject</div>
+                        <div class="fw-semibold" data-blast-email-subject>--</div>
+                      </div>
+                    <div class="mt-2">
+                      <div class="small text-muted">Text</div>
+                      <div class="small text-muted" data-blast-email-text>--</div>
+                    </div>
+                  </div>
+                  <div class="mt-3 border rounded-3 p-3">
+                    <button type="button" class="btn btn-link text-decoration-none p-0" data-blast-recipient-toggle>
+                      Preview as recipient (optional)
+                    </button>
+                    <div class="mt-3 d-none" data-blast-recipient-panel>
+                      <div class="mb-2">
+                        <label class="form-label">Recipient type</label>
+                        <select class="form-select form-select-sm" data-blast-recipient-type>
+                          <option value="contact">Contact</option>
+                          <option value="realtor">Realtor</option>
+                        </select>
+                      </div>
+                      <div class="mb-2">
+                        <label class="form-label">Pick from preview sample</label>
+                        <select class="form-select form-select-sm" data-blast-recipient-sample>
+                          <option value="">Select a recipient</option>
+                        </select>
+                      </div>
+                      <div class="mb-2">
+                        <label class="form-label">Search by name or email</label>
+                        <div class="input-group">
+                          <input type="text" class="form-control form-control-sm" data-blast-recipient-search placeholder="Search..." />
+                          <button class="btn btn-outline-secondary btn-sm" type="button" data-blast-recipient-search-btn>Search</button>
+                        </div>
+                        <select class="form-select form-select-sm mt-2" data-blast-recipient-results>
+                          <option value="">Select a recipient</option>
+                        </select>
+                      </div>
+                      <button type="button" class="btn btn-sm btn-outline-primary" data-blast-recipient-render>
+                        Render preview
+                      </button>
+                      <div class="mt-3 border rounded-3 p-3 bg-light d-none" data-blast-recipient-preview>
+                        <div class="small text-muted">Subject</div>
+                        <div class="fw-semibold mb-2" data-blast-recipient-subject>--</div>
+                        <div class="small text-muted">Preview text</div>
+                        <div class="small text-muted mb-2" data-blast-recipient-text>--</div>
+                        <div class="template-preview-html" data-blast-recipient-html>--</div>
+                        <div class="mt-2 small text-muted d-none" data-blast-recipient-missing>--</div>
+                      </div>
+                    </div>
+                  </div>
+
+                    <div class="d-flex justify-content-between mt-4">
+                      <button type="button" class="btn btn-outline-secondary" data-blast-workflow-back>Back</button>
+                      <button type="button" class="btn btn-primary" data-blast-workflow-next>Next</button>
+                    </div>
+                  </div>
+                </div>
+              </section>
+
+              <section class="schedule-workflow__panel" data-blast-step-panel="audience" role="tabpanel">
+                <div class="card shadow-sm">
+                  <div class="card-body">
+                    <p class="text-uppercase text-muted fw-semibold small mb-1">Step 1</p>
+                    <h2 class="h5 mb-3">1. Choose your audience</h2>
+                    <div class="mb-3">
+                      <label class="form-label">Audience Type</label>
+                      <select class="form-select" name="audienceType" data-blast-audience-type>
+                        <option value="contacts" selected>Contacts</option>
+                        <option value="realtors">Realtors</option>
+                      </select>
+                    </div>
+                    <div class="row g-3">
+                      <div class="col-12">
+                          <div class="border rounded-3 p-3 mb-3 bg-light" data-blast-audience="contacts">
+                            <div class="fw-semibold mb-2">Audience Filters</div>
+                            <input type="hidden" name="communityIds" data-blast-community-input />
+                            <div class="mb-2">
+                              <label class="form-label">Communities</label>
+                              <div class="filter-pill-list" data-blast-community-pills>
+                              <span class="text-muted small">Loading communities...</span>
+                            </div>
+                          </div>
+                          <input type="hidden" name="statuses" data-blast-status-input />
+                          <div class="mb-2">
+                            <label class="form-label">Statuses</label>
+                            <div class="blast-status-rows" data-blast-status-pills>
+                              <% const blastNeutralGroup = statusGroups.find((group) => group.key === 'neutral') || { label: 'Neutral', items: [] }; %>
+                              <% const blastPositiveGroup = statusGroups.find((group) => group.key === 'positive') || { label: 'Positive', items: [] }; %>
+                              <% const blastNegativeGroup = statusGroups.find((group) => group.key === 'negative') || { label: 'Negative', items: [] }; %>
+                              <div class="blast-status-row">
+                                <div class="stop-pill-group">
+                                  <div class="stop-pill-group__label"><%= blastNeutralGroup.label %></div>
+                                  <div class="filter-pill-list">
+                                    <% blastNeutralGroup.items
+                                      .filter((status) => statusOptions.includes(status))
+                                      .forEach((status) => { %>
+                                      <button
+                                        type="button"
+                                        class="stop-pill status-badge <%= getStatusClass(status) %> has-count"
+                                        data-blast-status-pill="<%= status %>"
+                                        aria-pressed="false">
+                                        <span class="stop-pill__label"><%= status %></span>
+                                        <span class="stop-pill__count" data-blast-status-count="<%= status %>">--</span>
+                                      </button>
+                                    <% }) %>
+                                  </div>
+                                </div>
+                              </div>
+                              <div class="blast-status-row">
+                                <div class="stop-pill-group">
+                                  <div class="stop-pill-group__label"><%= blastPositiveGroup.label %></div>
+                                  <div class="filter-pill-list">
+                                    <% blastPositiveGroup.items
+                                      .filter((status) => statusOptions.includes(status))
+                                      .forEach((status) => { %>
+                                      <button
+                                        type="button"
+                                        class="stop-pill status-badge <%= getStatusClass(status) %> has-count"
+                                        data-blast-status-pill="<%= status %>"
+                                        aria-pressed="false">
+                                        <span class="stop-pill__label"><%= status %></span>
+                                        <span class="stop-pill__count" data-blast-status-count="<%= status %>">--</span>
+                                      </button>
+                                    <% }) %>
+                                  </div>
+                                </div>
+                              </div>
+                              <div class="blast-status-row">
+                                <div class="stop-pill-group">
+                                  <div class="stop-pill-group__label"><%= blastNegativeGroup.label %></div>
+                                  <div class="filter-pill-list">
+                                    <% blastNegativeGroup.items
+                                      .filter((status) => statusOptions.includes(status))
+                                      .forEach((status) => { %>
+                                      <button
+                                        type="button"
+                                        class="stop-pill status-badge <%= getStatusClass(status) %> has-count"
+                                        data-blast-status-pill="<%= status %>"
+                                        aria-pressed="false">
+                                        <span class="stop-pill__label"><%= status %></span>
+                                        <span class="stop-pill__count" data-blast-status-count="<%= status %>">--</span>
+                                      </button>
+                                    <% }) %>
+                                  </div>
+                                </div>
+                              </div>
+                            </div>
+                          </div>
+                            <div class="mb-2">
+                              <label class="form-label">Tags (comma-separated)</label>
+                              <input type="text" class="form-control" name="tags" placeholder="Unsubscribed, VIP" />
+                            </div>
+                            <div class="form-check form-switch">
+                              <input class="form-check-input" type="checkbox" role="switch" name="linkedLot" />
+                              <label class="form-check-label">Only contacts with linked lot</label>
+                            </div>
+                            <button type="button" class="btn btn-outline-primary btn-sm mt-3" data-blast-preview>
+                              Preview Audience
+                            </button>
+                          </div>
+                          <div class="border rounded-3 p-3 mb-3 bg-light d-none" data-blast-audience="realtors">
+                            <div class="fw-semibold mb-2">Realtor Filters</div>
+                            <div class="mb-2">
+                              <label class="form-label">Community (optional)</label>
+                              <select class="form-select" name="realtorCommunityId" data-realtor-community-select>
+                                <option value="">All communities</option>
+                                <option value="">Loading communities...</option>
+                              </select>
+                            </div>
+                            <div class="mb-2">
+                              <label class="form-label">Manager (optional)</label>
+                              <select class="form-select" name="realtorManagerId" data-realtor-manager-select>
+                                <option value="">All managers</option>
+                                <option value="">Loading managers...</option>
+                              </select>
+                            </div>
+                            <div class="mb-2">
+                              <label class="form-label">Search (name, email, brokerage)</label>
+                              <input type="text" class="form-control" name="realtorTextSearch" placeholder="e.g. Jane or brokerage" />
+                            </div>
+                            <div class="form-check form-switch">
+                              <input class="form-check-input" type="checkbox" role="switch" name="realtorIncludeInactive" />
+                              <label class="form-check-label">Include inactive realtors</label>
+                            </div>
+                            <button type="button" class="btn btn-outline-primary btn-sm mt-3" data-blast-preview>
+                              Preview Audience
+                            </button>
+                          </div>
+                      </div>
+                    </div>
+                    <div class="border rounded-3 p-3 bg-light mt-3">
+                      <div class="fw-semibold mb-2">Preview results</div>
+                      <div class="small text-muted mb-2" data-blast-preview-help>Run preview to see who will receive this.</div>
+                      <div class="d-flex justify-content-between">
+                        <span class="text-muted small">Matched</span>
+                        <span class="fw-semibold" data-blast-preview-total>--</span>
+                      </div>
+                      <div class="d-flex justify-content-between">
+                        <span class="text-muted small">Excluded total</span>
+                        <span class="fw-semibold" data-blast-preview-excluded>--</span>
+                      </div>
+                      <div class="d-flex justify-content-between">
+                        <span class="text-muted small">Suppressed</span>
+                        <span class="fw-semibold" data-blast-preview-suppressed>--</span>
+                      </div>
+                      <div class="d-flex justify-content-between">
+                        <span class="text-muted small">Paused</span>
+                        <span class="fw-semibold" data-blast-preview-paused>--</span>
+                      </div>
+                      <div class="d-flex justify-content-between">
+                        <span class="text-muted small">Invalid</span>
+                        <span class="fw-semibold" data-blast-preview-invalid>--</span>
+                      </div>
+                      <div class="d-flex justify-content-between">
+                        <span class="text-muted small">Missing email</span>
+                        <span class="fw-semibold" data-blast-preview-no-email>--</span>
+                      </div>
+                      <div class="d-flex justify-content-between mt-2">
+                        <span class="text-muted small">Final to send</span>
+                        <span class="fw-semibold" data-blast-preview-final>--</span>
+                      </div>
+                      <div class="d-flex justify-content-between">
+                        <span class="text-muted small">Est. first send</span>
+                        <span class="fw-semibold" data-blast-preview-first>--</span>
+                      </div>
+                      <div class="d-flex justify-content-between">
+                        <span class="text-muted small">Est. last send</span>
+                        <span class="fw-semibold" data-blast-preview-last>--</span>
+                      </div>
+                      <div class="d-flex justify-content-between">
+                        <span class="text-muted small">Est. days spanned</span>
+                        <span class="fw-semibold" data-blast-preview-days>--</span>
+                      </div>
+                      <div class="small text-muted mt-2" data-blast-preview-sample>--</div>
+                    </div>
+
+                    <div class="d-flex justify-content-between mt-4">
+                      <button type="button" class="btn btn-outline-secondary" data-blast-workflow-back>Back</button>
+                      <button type="button" class="btn btn-primary" data-blast-workflow-next>Next</button>
+                    </div>
+                  </div>
+                </div>
+              </section>
+
+              <section class="schedule-workflow__panel" data-blast-step-panel="schedule" role="tabpanel" hidden>
+                <div class="card shadow-sm">
+                  <div class="card-body">
+                    <p class="text-uppercase text-muted fw-semibold small mb-1">Step 3</p>
+                    <h2 class="h5 mb-3">3. When should it send?</h2>
+                    <div class="border rounded-3 p-3 mb-3 bg-light">
+                      <div class="fw-semibold mb-2">Schedule</div>
+                      <div class="form-check">
+                        <input class="form-check-input" type="radio" name="sendMode" value="now" checked />
+                        <label class="form-check-label">Send now</label>
+                      </div>
+                      <div class="form-check mb-2">
+                        <input class="form-check-input" type="radio" name="sendMode" value="scheduled" />
+                        <label class="form-check-label">Schedule for later</label>
+                      </div>
+                      <input type="datetime-local" class="form-control" name="scheduledFor" />
+                    </div>
+                    <div class="small text-muted mb-2" data-blast-window-note>
+                      Emails will only send during your allowed send window.
+                    </div>
+                    <div class="small text-muted mb-3 d-none" data-blast-pacing-note>
+                      This blast will be paced across days due to your daily send limit.
+                    </div>
+                    <div class="border rounded-3 p-3 bg-light d-none" data-blast-schedule-estimate>
+                      <div class="fw-semibold mb-2">Send timing estimate</div>
+                      <div class="d-flex justify-content-between">
+                        <span class="text-muted small">First send</span>
+                        <span class="fw-semibold" data-blast-schedule-first>--</span>
+                      </div>
+                      <div class="d-flex justify-content-between">
+                        <span class="text-muted small">Last send</span>
+                        <span class="fw-semibold" data-blast-schedule-last>--</span>
+                      </div>
+                      <div class="d-flex justify-content-between">
+                        <span class="text-muted small">Days spanned</span>
+                        <span class="fw-semibold" data-blast-schedule-days>--</span>
+                      </div>
+                    </div>
+
+                    <div class="d-flex justify-content-between mt-4">
+                      <button type="button" class="btn btn-outline-secondary" data-blast-workflow-back>Back</button>
+                      <button type="button" class="btn btn-primary" data-blast-workflow-next>Next</button>
+                    </div>
+                  </div>
+                </div>
+              </section>
+              <section class="schedule-workflow__panel" data-blast-step-panel="confirm" role="tabpanel" hidden>
+                <div class="card shadow-sm">
+                  <div class="card-body">
+                    <p class="text-uppercase text-muted fw-semibold small mb-1">Step 4</p>
+                    <h2 class="h5 mb-3">4. Review and confirm</h2>
+                    <div class="border rounded-3 p-3 bg-light mb-3">
+                      <div class="d-flex justify-content-between">
+                        <span class="text-muted small">Audience</span>
+                        <span class="fw-semibold" data-blast-summary-audience>--</span>
+                      </div>
+                      <div class="d-flex justify-content-between">
+                        <span class="text-muted small">Final recipients</span>
+                        <span class="fw-semibold" data-blast-summary-final>--</span>
+                      </div>
+                      <div class="d-flex justify-content-between">
+                        <span class="text-muted small">Template</span>
+                        <span class="fw-semibold" data-blast-summary-template>--</span>
+                      </div>
+                      <div class="d-flex justify-content-between">
+                        <span class="text-muted small">Schedule</span>
+                        <span class="fw-semibold" data-blast-summary-schedule>--</span>
+                      </div>
+                      <div class="d-flex justify-content-between">
+                        <span class="text-muted small">Pacing</span>
+                        <span class="fw-semibold" data-blast-summary-pacing>--</span>
+                      </div>
+                      <div class="d-flex justify-content-between">
+                        <span class="text-muted small">First send</span>
+                        <span class="fw-semibold" data-blast-summary-first>--</span>
+                      </div>
+                      <div class="d-flex justify-content-between">
+                        <span class="text-muted small">Last send</span>
+                        <span class="fw-semibold" data-blast-summary-last>--</span>
+                      </div>
+                    </div>
+                    <div class="mb-3 d-none" data-blast-confirmation>
+                      <label class="form-label">Confirmation</label>
+                      <input type="text" class="form-control" name="confirmationText" placeholder="Type: SEND 0" />
+                      <div class="form-text">Required for large sends.</div>
+                    </div>
+                    <div class="d-flex gap-2">
+                      <button type="submit" class="btn btn-primary" data-blast-create>Send blast</button>
+                      <button type="button" class="btn btn-outline-secondary" data-blast-reset>Clear</button>
+                      <button type="button" class="btn btn-outline-secondary" data-blast-copy-summary>Copy summary</button>
+                    </div>
+                    <div class="mt-3 d-none" data-blast-success-links>
+                      <a class="btn btn-sm btn-outline-primary me-2" data-blast-view-queue target="_blank" rel="noopener">
+                        View in Queue
+                      </a>
+                      <a class="btn btn-sm btn-outline-secondary" data-blast-view-details target="_blank" rel="noopener">
+                        View Blast details
+                      </a>
+                    </div>
+                    <div class="d-flex justify-content-between mt-4">
+                      <button type="button" class="btn btn-outline-secondary" data-blast-workflow-back>Back</button>
+                      <button type="button" class="btn btn-primary" data-blast-workflow-next>Next</button>
+                    </div>
+                  </div>
+                </div>
+              </section>
+            </form>
+            <div class="visually-hidden" aria-live="polite" data-blast-toast></div>
+          </div>
+        </div>
+        <div class="col-lg-5">
+          <div class="card shadow-sm h-100">
+            <div class="card-body">
+              <p class="text-uppercase text-muted fw-semibold small mb-1">Past Blasts</p>
+              <h2 class="h6 mb-3">Recent Sends</h2>
+              <div class="vstack gap-3" data-blast-list>
+                <div class="text-muted small">Loading blasts...</div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+      <% } %>
+    </section>
+    <section class="mb-5" data-automation-panel="settings" hidden>
+      <div class="row g-4">
+        <div class="col-lg-6">
+          <div class="card shadow-sm h-100">
+            <div class="card-body">
+              <p class="text-uppercase text-muted fw-semibold small mb-1">Settings</p>
+              <h2 class="h5 mb-3">Send Window & Guardrails</h2>
+              <form data-email-settings-form>
+                <div class="mb-3">
+                  <label class="form-label">Timezone</label>
+                  <input type="text" class="form-control" name="timezone" placeholder="America/Chicago" />
+                </div>
+                <div class="mb-3">
+                  <label class="form-label d-block">Allowed Days</label>
+                  <div class="d-flex flex-wrap gap-2">
+                    <% ['Sun','Mon','Tue','Wed','Thu','Fri','Sat'].forEach((day, index) => { %>
+                      <label class="form-check form-check-inline">
+                        <input class="form-check-input" type="checkbox" name="allowedDays" value="<%= index %>">
+                        <span class="form-check-label"><%= day %></span>
+                      </label>
+                    <% }) %>
+                  </div>
+                </div>
+                <div class="row g-3">
+                  <div class="col-md-6">
+                    <label class="form-label">Start Time</label>
+                    <input type="time" class="form-control" name="allowedStartTime" value="09:00" />
+                  </div>
+                  <div class="col-md-6">
+                    <label class="form-label">End Time</label>
+                    <input type="time" class="form-control" name="allowedEndTime" value="17:00" />
+                  </div>
+                </div>
+                <div class="form-check form-switch mt-3">
+                  <input class="form-check-input" type="checkbox" role="switch" name="quietHoursEnabled" checked />
+                  <label class="form-check-label">Enforce quiet hours</label>
+                </div>
+                <div class="row g-3 mt-2">
+                  <div class="col-md-6">
+                    <label class="form-label">Daily Cap</label>
+                    <input type="number" min="1" class="form-control" name="dailyCap" value="200" />
+                  </div>
+                  <div class="col-md-6">
+                    <label class="form-label">Rate Limit / Minute</label>
+                    <input type="number" min="1" class="form-control" name="rateLimitPerMinute" value="30" />
+                  </div>
+                </div>
+                <div class="mt-3">
+                  <label class="form-label">Unsubscribe Behavior</label>
+                  <select class="form-select" name="unsubscribeBehavior">
+                    <option value="do_not_email">Mark Do Not Email</option>
+                    <option value="set_not_interested">Set Status = Not Interested</option>
+                    <option value="tag_unsubscribed">Tag "Unsubscribed"</option>
+                  </select>
+                </div>
+                <div class="d-flex gap-2 mt-3">
+                  <button type="submit" class="btn btn-primary" data-email-settings-save>Save Settings</button>
+                  <button type="button" class="btn btn-outline-secondary" data-email-settings-refresh>Reload</button>
+                </div>
+              </form>
+            </div>
+          </div>
+        </div>
+        <div class="col-lg-6">
+          <div class="card shadow-sm mb-4">
+            <div class="card-body">
+              <p class="text-uppercase text-muted fw-semibold small mb-1">Suppression</p>
+              <h2 class="h6 mb-3">Add to Suppression List</h2>
+              <div class="d-flex gap-2">
+                <input type="email" class="form-control" placeholder="email@example.com" data-suppression-email />
+                <button class="btn btn-outline-primary" type="button" data-suppression-add>Add</button>
+              </div>
+              <div class="vstack gap-2 mt-3" data-suppression-list>
+                <div class="text-muted small">No suppressions loaded yet.</div>
+              </div>
+            </div>
+          </div>
+          <div class="card shadow-sm">
+            <div class="card-body">
+              <p class="text-uppercase text-muted fw-semibold small mb-1">Audience Builder</p>
+              <h2 class="h6 mb-3">Preview Audience</h2>
+              <form data-audience-form>
+                <div class="mb-2">
+                  <label class="form-label">Community IDs (comma-separated)</label>
+                  <input type="text" class="form-control" name="communityIds" placeholder="e.g. 65f... , 65a..." />
+                </div>
+                <div class="mb-2">
+                  <label class="form-label">Statuses (comma-separated)</label>
+                  <input type="text" class="form-control" name="statuses" placeholder="e.g. Hot, Possible" />
+                </div>
+                <div class="mb-2">
+                  <label class="form-label">Tags (comma-separated)</label>
+                  <input type="text" class="form-control" name="tags" placeholder="Unsubscribed, VIP" />
+                </div>
+                <div class="form-check form-switch mb-3">
+                  <input class="form-check-input" type="checkbox" role="switch" name="linkedLot" />
+                  <label class="form-check-label">Only contacts with linked lot</label>
+                </div>
+                <button type="submit" class="btn btn-outline-primary btn-sm">Preview Audience</button>
+              </form>
+              <div class="border rounded-3 p-3 mt-3 bg-light">
+                <div class="d-flex justify-content-between">
+                  <span class="text-muted small">Total</span>
+                  <span class="fw-semibold" data-audience-total>—</span>
+                </div>
+                <div class="d-flex justify-content-between">
+                  <span class="text-muted small">Excluded</span>
+                  <span class="fw-semibold" data-audience-excluded>—</span>
+                </div>
+                <div class="mt-2 small text-muted" data-audience-sample>—</div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+      <div class="visually-hidden" aria-live="polite" data-settings-toast></div>
     </section>
   </main>
 
@@ -422,15 +2014,31 @@
           builderPreset: builder,
           stats,
           teamAssignments,
+          canManageAutomations: false,
           endpoints: {
             schedules: '/api/task-schedules',
             assignments: '/api/task-schedules/assignments'
+          },
+          emailEndpoints: {
+            templates: '/api/email/templates',
+            rules: '/api/email/rules',
+            queue: '/api/email/queue',
+            settings: '/api/email/settings',
+            audiencePreview: '/api/email/audience/preview',
+            schedulesApply: '/api/email/schedules/apply',
+            suppressions: '/api/email/suppressions',
+            contacts: '/api/contacts',
+            commonAutomations: '/api/email/common-automations',
+            health: '/api/email/health',
+            blasts: '/api/email/blasts'
           }
         };
   %>
   <script id="task-settings-data" type="application/json">
     <%- JSON.stringify(taskSettingsJson) %>
   </script>
+  <script defer src="https://cdn.jsdelivr.net/npm/quill@1.3.7/dist/quill.min.js"></script>
+  <script defer src="/assets/js/shared/emailErrorLabels.js"></script>
   <script defer src="/assets/js/pages/task/settings.js"></script>
 </body>
 </html>

@@ -24,6 +24,7 @@ const PrimaryContactSchema = new Schema({
 const BuildrootzProfileSchema = new Schema({
   description: { type: String, trim: true, default: '' },
   logoUrl: { type: String, trim: true, default: '' },
+  websiteUrl: { type: String, trim: true, default: '' },
   publishedAt: { type: Date, default: null }
 }, { _id: false });
 
@@ -43,6 +44,22 @@ const WebsiteMapEntitlementSchema = new Schema({
   trialDaysOverride: { type: Number, default: null }
 }, { _id: false });
 
+const WarmupScheduleSchema = new Schema({
+  day: { type: Number, min: 1 },
+  cap: { type: Number, min: 1 }
+}, { _id: false });
+
+const EmailWarmupSchema = new Schema({
+  enabled: { type: Boolean, default: false },
+  startedAt: { type: Date, default: null },
+  endedAt: { type: Date, default: null },
+  dayIndex: { type: Number, default: null },
+  daysTotal: { type: Number, default: 14, min: 1 },
+  capOverrideToday: { type: Number, default: null },
+  schedule: { type: [WarmupScheduleSchema], default: undefined },
+  lastComputedAt: { type: Date, default: null }
+}, { _id: false });
+
 const EntitlementsSchema = new Schema({
   websiteMap: { type: WebsiteMapEntitlementSchema, default: () => ({}) }
 }, { _id: false });
@@ -52,9 +69,52 @@ const FeatureSchema = new Schema({
   websiteMap: { type: WebsiteMapFeatureSchema, default: () => ({}) }
 }, { _id: false });
 
+const BillingSchema = new Schema({
+  seatsPurchased: { type: Number },
+  stripeCustomerId: { type: String, default: null, trim: true },
+  stripeSubscriptionId: { type: String, default: null, trim: true },
+  stripeSubscriptionStatus: { type: String, default: null, trim: true },
+  hasPaymentMethodOnFile: { type: Boolean, default: false },
+  stripeDefaultPaymentMethodId: { type: String, default: null, trim: true },
+  stripeLastPaymentMethodCheckAt: { type: Date, default: null },
+  currentPeriodEnd: { type: Date, default: null },
+  hasStripe: { type: Boolean, default: false },
+  lastStripeSyncAt: { type: Date, default: null },
+  stripeLastSyncAt: { type: Date, default: null },
+  stripeLastSyncStatus: {
+    type: String,
+    enum: ['success', 'noop', 'error', null],
+    default: null,
+    trim: true
+  },
+  stripeLastSyncMessage: { type: String, default: null, trim: true },
+  stripeLastSyncUpdatedItems: {
+    type: [{
+      priceId: { type: String, default: null, trim: true },
+      oldQty: { type: Number, default: null },
+      newQty: { type: Number, default: null },
+      action: { type: String, default: null, trim: true }
+    }],
+    default: undefined
+  }
+}, { _id: false });
+
+const BillingPolicySchema = new Schema({
+  seats: {
+    mode: { type: String, enum: ['normal', 'waived', 'internal'], default: 'normal' },
+    minBilledOverride: { type: Number, default: null }
+  },
+  addons: {
+    buildrootz: { type: String, enum: ['normal', 'comped'], default: 'normal' },
+    websiteMap: { type: String, enum: ['normal', 'comped'], default: 'normal' }
+  },
+  notes: { type: String, trim: true, default: '' }
+}, { _id: false });
+
 const SettingsSchema = new Schema({
   timezone: { type: String, default: 'America/Chicago' },
   locale:   { type: String, default: 'en-US' },
+  emailFromMode: { type: String, enum: ['platform', 'company_domain'], default: 'platform' },
   features: { type: Map, of: Boolean, default: {} }, // e.g. { contacts: true, competitions: true }
 }, { _id: false });
 
@@ -73,6 +133,25 @@ const CompanySchema = new Schema({
   // Config & branding (safe containers you can extend anytime)
   settings: { type: SettingsSchema, default: () => ({}) },
   branding: { type: BrandingSchema, default: () => ({}) },
+  // Email sending safety caps (per-company)
+  emailDailyCapEnabled: { type: Boolean, default: true },
+  emailDailyCap: { type: Number, default: 500, min: 0 },
+  emailDomainVerifiedAt: { type: Date, default: null },
+  emailWarmup: { type: EmailWarmupSchema, default: null },
+  // Deliverability protection (per-company)
+  emailSendingPaused: { type: Boolean, default: false },
+  emailSendingPausedAt: { type: Date, default: null },
+  emailSendingPausedBy: { type: Schema.Types.Mixed, default: null },
+  emailSendingPausedReason: {
+    type: String,
+    enum: ['spamreport', 'bounce_rate', 'manual'],
+    default: null
+  },
+  emailSendingPausedMeta: { type: Schema.Types.Mixed, default: null },
+  emailAutoPauseOnSpamReport: { type: Boolean, default: true },
+  emailAutoPauseOnBounceRate: { type: Boolean, default: true },
+  emailBounceRateThreshold: { type: Number, default: 0.05, min: 0, max: 1 },
+  emailBounceMinSentForEvaluation: { type: Number, default: 50, min: 0 },
 
   // Listing map status colors (status key -> hex color)
   mapStatusPalette: {
@@ -83,6 +162,8 @@ const CompanySchema = new Schema({
 
   // Billing hooks (fill in when/if you adopt a provider)
   billingCustomerId: { type: String, default: null },
+  billing: { type: BillingSchema, default: () => ({}) },
+  billingPolicy: { type: BillingPolicySchema, default: () => ({}) },
   features: { type: FeatureSchema, default: () => ({}) },
   entitlements: { type: EntitlementsSchema, default: () => ({}) },
 
@@ -90,12 +171,30 @@ const CompanySchema = new Schema({
   address: { type: AddressSchema, default: () => ({}) },
   primaryContact: { type: PrimaryContactSchema, default: () => ({}) },
   notes: { type: String, trim: true, default: '' },
+  updatedByUserId: { type: Schema.Types.ObjectId, default: null },
 
   // BuildRootz profile content (builder-facing)
-  buildrootzProfile: { type: BuildrootzProfileSchema, default: () => ({}) }
+  buildrootzProfile: { type: BuildrootzProfileSchema, default: () => ({}) },
+  buildrootzPublishLastAt: { type: Date, default: null },
+  buildrootzPublishLastStatus: { type: String, enum: ['success', 'error', ''], default: '' },
+  buildrootzPublishLastMessage: { type: String, default: '' },
+  buildrootzPublishLastCounts: { type: Schema.Types.Mixed, default: null },
+  buildrootzPublishLastWarnings: { type: [String], default: [] },
+
+  buildrootzPackagePublishLastAt: { type: Date, default: null },
+  buildrootzPackagePublishLastStatus: { type: String, enum: ['success', 'error', ''], default: '' },
+  buildrootzPackagePublishLastMessage: { type: String, default: '' },
+  buildrootzPackagePublishLastCounts: { type: Schema.Types.Mixed, default: null },
+  buildrootzPackagePublishLastWarnings: { type: [String], default: [] },
+
+  buildrootzInventoryPublishLastAt: { type: Date, default: null },
+  buildrootzInventoryPublishLastStatus: { type: String, enum: ['success', 'error', ''], default: '' },
+  buildrootzInventoryPublishLastMessage: { type: String, default: '' },
+  buildrootzInventoryPublishLastCounts: { type: Schema.Types.Mixed, default: null },
+  buildrootzInventoryPublishLastWarnings: { type: [String], default: [] }
 }, { timestamps: true });
 
-// Helper: auto-generate slug from name on create (don’t clobber if provided)
+// Helper: auto-generate slug from name on create (don't clobber if provided)
 CompanySchema.pre('validate', function(next) {
   if (!this.slug && this.name) {
     this.slug = String(this.name)
@@ -109,5 +208,7 @@ CompanySchema.pre('validate', function(next) {
 // Useful indexes for lookups
 // Useful indexes for lookups (slug is already unique via the field definition)
 CompanySchema.index({ isActive: 1 });
+CompanySchema.index({ 'billing.stripeCustomerId': 1 });
+CompanySchema.index({ 'billing.stripeSubscriptionId': 1 });
 
 module.exports = mongoose.model('Company', CompanySchema);

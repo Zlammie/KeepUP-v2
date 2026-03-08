@@ -31,6 +31,11 @@ const LotSchema = new Schema({
   phase: String,
 
   address: String,
+  address1: { type: String, default: '' },
+  city: { type: String, default: '' },
+  state: { type: String, default: '' },
+  postalCode: { type: String, default: '' },
+  formattedAddress: { type: String, default: '' },
 
   floorPlan: { type: Schema.Types.ObjectId, ref: 'FloorPlan', default: null },
   elevation: String,
@@ -107,11 +112,24 @@ const LotSchema = new Schema({
   hasViewHomeLink: { type: Boolean, default: false },
   isPublished:        { type: Boolean, default: false },
   isListed:           { type: Boolean, default: false },
+  buildrootz: {
+    isPublished: { type: Boolean, default: false }
+  },
   publishedAt:        { type: Date, default: null },
   contentSyncedAt:    { type: Date, set: toDateOrNull, default: null },
   buildrootzId:       { type: Schema.Types.Mixed, default: null },
   publishVersion:     { type: Number, default: 0 },
   promoText:          { type: String, default: '' },
+  promo: {
+    headline: { type: String, default: '' },
+    description: { type: String, default: '' },
+    disclaimer: { type: String, default: '' }
+  },
+  promoMode: {
+    type: String,
+    enum: ['add', 'override'],
+    default: 'add'
+  },
   listingDescription: { type: String, default: '' },
   heroImage:          { type: String, default: '' },
   listingPhotos:      [{ type: String, default: undefined }],
@@ -145,6 +163,7 @@ const CommunitySchema = new Schema({
   // BuildRootz canonical mapping (prevents duplicate community records)
   buildrootz: {
     communityId:    { type: Schema.Types.Mixed, default: null },
+    publicCommunityId: { type: String },
     canonicalName:  { type: String, default: '' },
     mappedAt:       { type: Date, default: null },
     mappedByUserId: { type: Schema.Types.ObjectId, default: null },
@@ -155,11 +174,13 @@ const CommunitySchema = new Schema({
       requestedAt:      { type: Date, default: null },
       lastCheckedAt:    { type: Date, default: null },
       resolvedCommunityId: { type: String, default: null },
+      resolvedPublicCommunityId: { type: String, default: null },
       resolvedAt:       { type: Date, default: null },
       rejectedReason:   { type: String, default: '' }
     }
   },
   websiteMap: { type: WebsiteMapSchema, default: () => ({}) },
+  updatedByUserId: { type: Schema.Types.ObjectId, default: null },
 
   // Listing map plan colors (plan class -> hex color)
   planPalette: {

@@ -237,13 +237,28 @@
           status.className = `status-pill ${statusClass(lot.status)}`;
           status.textContent = lot.status || 'Available';
 
+          const addressWrap = document.createElement('div');
+          const street = document.createElement('div');
+          street.textContent = lot.address || '';
+          const cityState = [lot.city, lot.state].filter(Boolean).join(', ');
+          const cityStateZip = [cityState, lot.zip].filter(Boolean).join(' ');
+          const secondary = document.createElement('div');
+          secondary.className = 'text-muted small';
+          secondary.textContent = cityStateZip;
+
+          if (street.textContent) addressWrap.appendChild(street);
+          if (cityStateZip) addressWrap.appendChild(secondary);
+          if (!street.textContent && !cityStateZip) {
+            addressWrap.textContent = '-';
+          }
+
           row.appendChild(createActionsCell(lot));
           row.appendChild(createViewCell(lot));
           row.appendChild(createCell(communityWrap));
           row.appendChild(createCell(lot.lot || ''));
           row.appendChild(createCell(lot.block || ''));
           row.appendChild(createCell(lot.jobNumber || ''));
-          row.appendChild(createCell(lot.address || ''));
+          row.appendChild(createCell(addressWrap));
           row.appendChild(createCell(status));
           row.appendChild(createCell(lot.listed ? 'Published' : 'Not Published'));
           row.appendChild(createCell(formatDate(lot.publishedAt)));

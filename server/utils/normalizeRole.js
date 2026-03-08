@@ -2,6 +2,7 @@
 // Convert loose role strings into canonical enum names (e.g., "Super Admin" -> "SUPER_ADMIN")
 const CANONICAL = Object.freeze([
   'SUPER_ADMIN',
+  'KEEPUP_ADMIN',
   'COMPANY_ADMIN',
   'MANAGER',
   'USER',

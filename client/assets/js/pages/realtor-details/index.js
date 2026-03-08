@@ -1,6 +1,7 @@
 import { setRealtorIdFromURL, state } from './state.js';
-import { fetchRealtor, fetchRelatedContacts } from './api.js';
+import { fetchRealtor, fetchRelatedContacts, setRealtorEmailPause } from './api.js';
 import { populateForm, setupAutosave } from './editor.js';
+import { dom } from './domCache.js';
 import { updateHeaderFromInputs, disableEditor, wireEditorToggle } from './identity.js';
 import { initTopBar } from './topbar.js';
 import { initTaskPanel } from '../contact-details/tasks.js';
@@ -153,6 +154,23 @@ function wireTaskButtons() {
   }
 }
 
+function wireEmailPauseToggle() {
+  const toggle = dom.inputs.emailPaused;
+  if (!toggle) return;
+  toggle.addEventListener('change', async () => {
+    const desired = Boolean(toggle.checked);
+    toggle.disabled = true;
+    try {
+      await setRealtorEmailPause(state.realtorId, desired);
+    } catch (err) {
+      console.error('[realtor-details] Failed to update email pause', err);
+      toggle.checked = !desired;
+    } finally {
+      toggle.disabled = false;
+    }
+  });
+}
+
 async function init() {
   setRealtorIdFromURL();
   if (!state.realtorId) {
@@ -167,6 +185,7 @@ async function init() {
     disableEditor(true);
     setupAutosave();
     wireEditorToggle();
+    wireEmailPauseToggle();
 
     // Load linked contacts and start the top bar + table
     state.allContacts = await fetchRelatedContacts(state.realtorId);

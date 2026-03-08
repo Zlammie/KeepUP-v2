@@ -8,7 +8,7 @@ const slugify = (value = '') =>
     .replace(/[^a-z0-9]+/g, '-')
     .replace(/(^-|-$)+/g, '');
 
-async function publishBuilderProfile({ companyId, name, logoUrl, description, slug: slugInput }) {
+async function publishBuilderProfile({ companyId, name, logoUrl, websiteUrl, description, slug: slugInput }) {
   if (!companyId) throw new Error('companyId is required');
 
   const company = await Company.findById(companyId).select('_id name slug buildrootzProfile').lean();
@@ -22,6 +22,7 @@ async function publishBuilderProfile({ companyId, name, logoUrl, description, sl
   const slug = slugify(slugInput || company.slug || nameToUse);
   const descriptionToUse = description ?? company.buildrootzProfile?.description ?? '';
   const logoToUse = logoUrl ?? company.buildrootzProfile?.logoUrl ?? '';
+  const websiteToUse = websiteUrl ?? company.buildrootzProfile?.websiteUrl ?? '';
   const publishedAt = new Date();
 
   const doc = await BuilderProfile.findOneAndUpdate(
@@ -31,6 +32,7 @@ async function publishBuilderProfile({ companyId, name, logoUrl, description, sl
         name: nameToUse,
         slug,
         logoUrl: logoToUse || '',
+        websiteUrl: websiteToUse || '',
         description: descriptionToUse || '',
         publishedAt
       }

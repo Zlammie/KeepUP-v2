@@ -26,6 +26,7 @@ export const salesPersonEmail = document.getElementById('salesPersonEmail');
 
 export const address = document.getElementById('address');
 export const city = document.getElementById('city');
+export const state = document.getElementById('state');
 export const zip = document.getElementById('zip');
 export const modelPlan = document.getElementById('modelPlan');
 export const lotSize = document.getElementById('lotSize');
@@ -46,7 +47,8 @@ export const feePid = document.getElementById('feePid');
 export const feeNone = document.getElementById('feeNone');
 export const mudFeeGroup = document.getElementById('mudFeeGroup');
 export const pidFeeGroup = document.getElementById('pidFeeGroup');
-export const mudFee = document.getElementById('mudFee');
+export const mudTaxRate = document.getElementById('mudTaxRate');
+export const mudLegacyAmountNote = document.getElementById('mudLegacyAmountNote');
 export const pidFee = document.getElementById('pidFee');
 export const pidFeeFrequency = document.getElementById('pidFeeFrequency');
 export const earnestAmount = document.getElementById('earnestAmount');

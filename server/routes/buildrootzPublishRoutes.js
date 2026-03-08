@@ -4,6 +4,9 @@ const ensureAuth = require('../middleware/ensureAuth');
 const requireRole = require('../middleware/requireRole');
 const { publishHome, unpublishHome, syncHome } = require('../services/buildrootzPublisher');
 
+// Legacy direct publish endpoints.
+// Listing-details workflow now uses /listing-details/publish + brzPublishingService inventory bundle flow.
+
 const router = express.Router();
 const isObjectId = (v) => mongoose.Types.ObjectId.isValid(String(v));
 const WRITE_ROLES = ['USER', 'MANAGER', 'COMPANY_ADMIN', 'SUPER_ADMIN'];

@@ -60,11 +60,14 @@ module.exports = async function currentUserLocals(req, res, next) {
     const roleSet = new Set(uniqueRoles);
 
     const isSuperAdmin = roleSet.has(User.ROLES ? User.ROLES.SUPER_ADMIN : 'SUPER_ADMIN');
+    const isKeepupAdmin = roleSet.has(User.ROLES ? User.ROLES.KEEPUP_ADMIN : 'KEEPUP_ADMIN');
     const isCompanyAdmin = roleSet.has(User.ROLES ? User.ROLES.COMPANY_ADMIN : 'COMPANY_ADMIN');
     const isManager = roleSet.has(User.ROLES ? User.ROLES.MANAGER : 'MANAGER');
 
     const canManageUsers = isManager || isCompanyAdmin || isSuperAdmin;
     const canEditCompany = isCompanyAdmin || isSuperAdmin;
+    const isPlatformAdmin = isSuperAdmin || isKeepupAdmin;
+    const canAccessAdminSection = canManageUsers || isPlatformAdmin;
 
     const impersonationSession =
       req.session?.impersonation && req.session.impersonation.companyId
@@ -102,15 +105,18 @@ module.exports = async function currentUserLocals(req, res, next) {
     res.locals.permissions = {
       roles: uniqueRoles,
       isSuperAdmin,
+      isKeepupAdmin,
+      isPlatformAdmin,
       isCompanyAdmin,
       isManager,
-      canAccessAdminSection: canManageUsers,
+      canAccessAdminSection,
       canManageUsers,
       canEditCompany,
       canUseImpersonation: isSuperAdmin,
       isImpersonating: Boolean(impersonationSession?.companyId && isSuperAdmin),
       impersonation: impersonationSession,
-      effectiveCompanyName
+      effectiveCompanyName,
+      platformAccessLabel: isSuperAdmin ? 'Super Admin' : isKeepupAdmin ? 'KeepUp Admin' : ''
     };
     req.currentUser = currentUser;
 

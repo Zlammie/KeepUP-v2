@@ -4,6 +4,14 @@ const requireRole = require('../../middleware/requireRole');
 const Company = require('../../models/Company');
 const Community = require('../../models/Community');
 const FeatureRequest = require('../../models/FeatureRequest');
+const { getSeatCounts } = require('../../utils/seatCounts');
+const { pricingConfig, formatCents } = require('../../config/pricingConfig');
+const { computeEstimatedMonthlySummary, isTrialExpired, getTrialCountdown } = require('../../utils/billingMath');
+const {
+  KEEPUP_MANAGED_BILLING_MESSAGE,
+  deriveStripeBillability,
+  isSelfServeBillingBlocked
+} = require('../../utils/stripeBillingPolicy');
 
 const router = express.Router();
 
@@ -18,6 +26,44 @@ const resolveCompanyId = (req, rawCompanyId) => {
 };
 
 const normalizeFeature = (value) => String(value || '').trim();
+const normalizeStripeStatus = (status) => String(status || '').trim().toLowerCase();
+const canceledLikeStatuses = new Set(['canceled', 'incomplete_expired']);
+const addonBillableStatuses = new Set(['active', 'trialing', 'past_due']);
+
+const isBuildrootzActiveForStripe = (company) => {
+  const feature = company?.features?.buildrootz || {};
+  const status = normalizeStripeStatus(feature.status);
+  if (status) return status === 'active';
+  return !!feature.enabled;
+};
+
+const computeStripeSubscriptionDisplay = ({
+  selfServeEligible,
+  hasStoredSubscriptionId,
+  normalizedSubscriptionStatus,
+  hasBillableActiveAddons
+}) => {
+  if (selfServeEligible) {
+    if (hasStoredSubscriptionId) {
+      return normalizedSubscriptionStatus || 'unknown';
+    }
+    return 'Not started';
+  }
+
+  if (!hasStoredSubscriptionId) {
+    return 'No subscription (managed seats)';
+  }
+
+  if (canceledLikeStatuses.has(normalizedSubscriptionStatus) && !hasBillableActiveAddons) {
+    return 'No subscription (managed seats)';
+  }
+
+  if (hasBillableActiveAddons && addonBillableStatuses.has(normalizedSubscriptionStatus)) {
+    return normalizedSubscriptionStatus;
+  }
+
+  return normalizedSubscriptionStatus || 'No subscription (managed seats)';
+};
 
 router.get(
   '/overview',
@@ -29,7 +75,7 @@ router.get(
         return res.status(400).json({ error: 'Invalid company context' });
       }
 
-      const [company, communities, pendingRequests] = await Promise.all([
+      const [company, communities, pendingRequests, seatCounts] = await Promise.all([
         Company.findById(companyId),
         Community.find({ company: companyId }).select('name websiteMap').lean(),
         FeatureRequest.find({
@@ -37,54 +83,196 @@ router.get(
           status: 'pending',
           feature: { $in: ['buildrootz', 'websiteMap'] }
         })
-          .select('feature communityId status createdAt')
-          .lean()
+          .select('feature communityId status createdAt action')
+          .lean(),
+        getSeatCounts(companyId)
       ]);
 
       if (!company) {
         return res.status(404).json({ error: 'Company not found' });
       }
 
-      const buildrootzPending = pendingRequests.some(
-        (request) => request.feature === 'buildrootz' && !request.communityId
+      const pendingBuildrootzEnable = pendingRequests.some(
+        (request) => request.feature === 'buildrootz' && (request.action || 'enable') === 'enable'
       );
-      const websiteMapPendingSet = new Set(
+      const pendingBuildrootzCancel = pendingRequests.some(
+        (request) => request.feature === 'buildrootz' && (request.action || 'enable') === 'cancel'
+      );
+      const websiteMapEnableSet = new Set(
         pendingRequests
-          .filter((request) => request.feature === 'websiteMap' && request.communityId)
+          .filter((request) => request.feature === 'websiteMap' && (request.action || 'enable') === 'enable' && request.communityId)
           .map((request) => String(request.communityId))
+      );
+      const websiteMapCancelSet = new Set(
+        pendingRequests
+          .filter((request) => request.feature === 'websiteMap' && (request.action || 'enable') === 'cancel' && request.communityId)
+          .map((request) => String(request.communityId))
+      );
+      const websiteMapCancelAll = pendingRequests.some(
+        (request) => request.feature === 'websiteMap' && (request.action || 'enable') === 'cancel' && !request.communityId
       );
 
       const featureData = company.features || {};
       const buildrootzFeature = featureData.buildrootz || {};
       const buildrootzStatusRaw = buildrootzFeature.status || (buildrootzFeature.enabled ? 'active' : 'inactive');
-      const buildrootzStatus = buildrootzStatusRaw === 'inactive' && buildrootzPending
-        ? 'pending'
-        : buildrootzStatusRaw;
+      const buildrootzDisplayStatus = pendingBuildrootzCancel
+        ? 'pending_cancel'
+        : pendingBuildrootzEnable
+          ? 'pending_enable'
+          : ['active', 'trial'].includes(buildrootzStatusRaw)
+            ? 'active'
+            : 'inactive';
 
       const websiteMapFeature = featureData.websiteMap || {};
       const websiteMapEntitlements = company.entitlements?.websiteMap || {};
+      const now = new Date();
 
-      const communityPayload = communities.map((community) => ({
-        id: String(community._id),
-        name: community.name || 'Unnamed Community',
-        websiteMap: {
-          status: community.websiteMap?.status || 'inactive',
-          trialEndsAt: community.websiteMap?.trialEndsAt || null,
-          setupFeeApplied: !!community.websiteMap?.setupFeeApplied
-        },
-        pendingRequest: websiteMapPendingSet.has(String(community._id))
-      }));
+      const communityPayload = communities.map((community) => {
+        const id = String(community._id);
+        const rawStatus = community.websiteMap?.status || 'inactive';
+        const trialExpired = isTrialExpired(community.websiteMap, now);
+        const trialCountdown = getTrialCountdown(community.websiteMap?.trialEndsAt, now);
+        const hasActiveTrial = rawStatus === 'trial' && !trialExpired;
+        const pendingEnable = websiteMapEnableSet.has(id);
+        const pendingCancel = websiteMapCancelAll || websiteMapCancelSet.has(id);
+        let displayStatus = rawStatus;
+        if (pendingCancel) {
+          displayStatus = 'pending_cancel';
+        } else if (pendingEnable) {
+          displayStatus = 'pending_enable';
+        } else if (rawStatus === 'trial' && trialExpired) {
+          displayStatus = 'trial_expired';
+        }
+        const billable = displayStatus === 'active';
+
+        return {
+          id,
+          name: community.name || 'Unnamed Community',
+          websiteMap: {
+            status: rawStatus,
+            displayStatus,
+            trialEndsAt: community.websiteMap?.trialEndsAt || null,
+            trialEndsAtFormatted: trialCountdown.trialEndsAtFormatted,
+            trialEndsInDays: hasActiveTrial ? trialCountdown.trialEndsInDays : null,
+            trialExpired,
+            billable,
+            pendingEnable,
+            pendingCancel,
+            setupFeeApplied: !!community.websiteMap?.setupFeeApplied
+          }
+        };
+      });
+
+      const websiteMapPendingEnable = websiteMapEnableSet.size > 0;
+      const websiteMapPendingCancel = websiteMapCancelAll || websiteMapCancelSet.size > 0;
+      const websiteMapHasActive = communityPayload.some((community) =>
+        ['active', 'trial'].includes(community.websiteMap?.displayStatus)
+      );
+      const websiteMapDisplayStatus = websiteMapPendingCancel
+        ? 'pending_cancel'
+        : websiteMapPendingEnable
+          ? 'pending_enable'
+          : websiteMapHasActive || websiteMapFeature.enabled
+            ? 'active'
+            : 'inactive';
+
+      const billingPolicy = company.billingPolicy || {};
+      const estimated = computeEstimatedMonthlySummary({
+        seatCounts,
+        entitlements: company.entitlements || {},
+        communities: communityPayload,
+        buildrootzStatus: buildrootzStatusRaw,
+        billingPolicy
+      });
+      const hasPolicyAdjustments = (
+        (billingPolicy.seats?.mode && billingPolicy.seats.mode !== 'normal')
+        || (billingPolicy.seats?.minBilledOverride !== null && billingPolicy.seats?.minBilledOverride !== undefined)
+        || billingPolicy.addons?.buildrootz === 'comped'
+        || billingPolicy.addons?.websiteMap === 'comped'
+      );
+      const stripeManagedByKeepUp = isSelfServeBillingBlocked(company);
+      const selfServeEligible = !stripeManagedByKeepUp;
+      const stripeBilling = company.billing || {};
+      const normalizedSubscriptionStatus = normalizeStripeStatus(stripeBilling.stripeSubscriptionStatus);
+      const hasStoredSubscriptionId = !!String(stripeBilling.stripeSubscriptionId || '').trim();
+      const hasActiveSubscriptionLink = hasStoredSubscriptionId && !canceledLikeStatuses.has(normalizedSubscriptionStatus);
+
+      const websiteMapActiveQty = communities.reduce((count, community) => {
+        const rawStatus = normalizeStripeStatus(community?.websiteMap?.status);
+        return count + (rawStatus === 'active' ? 1 : 0);
+      }, 0);
+      const billability = deriveStripeBillability(company, {
+        activeUsers: Number(seatCounts.active || 0),
+        buildrootzActive: isBuildrootzActiveForStripe(company),
+        websiteMapActiveQty
+      });
+      const hasBillableActiveAddons = !!(billability.buildrootzBillable || billability.websiteMapBillable);
+      const subscriptionStatusDisplay = computeStripeSubscriptionDisplay({
+        selfServeEligible,
+        hasStoredSubscriptionId,
+        normalizedSubscriptionStatus,
+        hasBillableActiveAddons
+      });
+      const isStaleCanceledSubscription = !selfServeEligible
+        && hasStoredSubscriptionId
+        && canceledLikeStatuses.has(normalizedSubscriptionStatus)
+        && !hasBillableActiveAddons;
 
       return res.json({
         companyId: String(companyId),
         serverTime: new Date().toISOString(),
+        seatBilling: {
+          used: estimated.seats.used,
+          minimum: estimated.seats.minimum,
+          billed: estimated.seats.billed,
+          monthlyCents: estimated.seats.monthlyCents,
+          monthlyFormatted: estimated.seats.monthlyFormatted
+        },
+        seats: {
+          used: seatCounts.active,
+          invited: seatCounts.invited,
+          minimumBilled: estimated.seats.minimum,
+          billed: estimated.seats.billed
+        },
+        pricing: pricingConfig,
+        pricingDisplay: {
+          seats: {
+            minBilled: pricingConfig.seats.minBilled,
+            pricePerSeatMonthlyCents: pricingConfig.seats.pricePerSeatMonthlyCents,
+            pricePerSeatMonthlyFormatted: formatCents(pricingConfig.seats.pricePerSeatMonthlyCents)
+          },
+          buildrootz: {
+            monthlyCents: pricingConfig.buildrootz.monthlyCents,
+            monthlyFormatted: formatCents(pricingConfig.buildrootz.monthlyCents)
+          },
+          websiteMap: {
+            monthlyCents: pricingConfig.websiteMap.monthlyCents,
+            monthlyFormatted: formatCents(pricingConfig.websiteMap.monthlyCents),
+            annualCents: pricingConfig.websiteMap.annualCents,
+            annualFormatted: formatCents(pricingConfig.websiteMap.annualCents),
+            setupFeeCents: pricingConfig.websiteMap.setupFeeCents,
+            setupFeeFormatted: formatCents(pricingConfig.websiteMap.setupFeeCents),
+            defaultTrialDays: pricingConfig.websiteMap.defaultTrialDays
+          }
+        },
+        estimated: {
+          lineItems: estimated.lineItems,
+          totalMonthlyCents: estimated.totalMonthlyCents,
+          totalMonthlyFormatted: estimated.totalMonthlyFormatted
+        },
         features: {
           buildrootz: {
             enabled: !!buildrootzFeature.enabled,
-            status: buildrootzStatus
+            status: buildrootzStatusRaw,
+            displayStatus: buildrootzDisplayStatus,
+            pendingEnable: pendingBuildrootzEnable,
+            pendingCancel: pendingBuildrootzCancel
           },
           websiteMap: {
-            enabled: !!websiteMapFeature.enabled
+            enabled: !!websiteMapFeature.enabled,
+            displayStatus: websiteMapDisplayStatus,
+            pendingEnable: websiteMapPendingEnable,
+            pendingCancel: websiteMapPendingCancel
           }
         },
         entitlements: {
@@ -96,9 +284,39 @@ router.get(
                 : Number(websiteMapEntitlements.trialDaysOverride || 0)
           }
         },
-        pendingRequests: {
-          buildrootz: buildrootzPending,
-          websiteMap: Array.from(websiteMapPendingSet)
+        billing: {
+          seatsPurchased: stripeBilling.seatsPurchased ?? null,
+          stripeCustomerId: stripeBilling.stripeCustomerId || null,
+          stripeSubscriptionId: stripeBilling.stripeSubscriptionId || null,
+          stripeSubscriptionStatus: stripeBilling.stripeSubscriptionStatus || null,
+          currentPeriodEnd: stripeBilling.currentPeriodEnd || null,
+          hasStripe: !!stripeBilling.hasStripe,
+          lastStripeSyncAt: stripeBilling.lastStripeSyncAt || null
+        },
+        stripe: {
+          managedByKeepUp: stripeManagedByKeepUp,
+          selfServeEligible,
+          managedMessage: stripeManagedByKeepUp ? KEEPUP_MANAGED_BILLING_MESSAGE : null,
+          hasCustomer: !!stripeBilling.stripeCustomerId,
+          hasSubscription: hasActiveSubscriptionLink,
+          subscriptionStatus: stripeBilling.stripeSubscriptionStatus || null,
+          subscriptionStatusDisplay,
+          hasPaymentMethodOnFile: !!stripeBilling.hasPaymentMethodOnFile,
+          isStaleCanceledSubscription
+        },
+        billingPolicy: {
+          seats: {
+            mode: billingPolicy.seats?.mode || 'normal',
+            minBilledOverride:
+              billingPolicy.seats?.minBilledOverride === null || billingPolicy.seats?.minBilledOverride === undefined
+                ? null
+                : Number(billingPolicy.seats.minBilledOverride)
+          },
+          addons: {
+            buildrootz: billingPolicy.addons?.buildrootz || 'normal',
+            websiteMap: billingPolicy.addons?.websiteMap || 'normal'
+          },
+          hasOverrides: hasPolicyAdjustments
         },
         communities: communityPayload
       });
@@ -113,10 +331,14 @@ router.post(
   requireRole('MANAGER', 'COMPANY_ADMIN', 'SUPER_ADMIN'),
   async (req, res, next) => {
     try {
-      const { feature, communityId, companyId: rawCompanyId } = req.body || {};
+      const { feature, communityId, companyId: rawCompanyId, action } = req.body || {};
       const normalizedFeature = normalizeFeature(feature);
       if (!['buildrootz', 'websiteMap'].includes(normalizedFeature)) {
         return res.status(400).json({ error: 'Invalid feature.' });
+      }
+      const normalizedAction = action ? String(action).trim().toLowerCase() : 'enable';
+      if (!['enable', 'cancel'].includes(normalizedAction)) {
+        return res.status(400).json({ error: 'Invalid action.' });
       }
 
       const companyId = resolveCompanyId(req, rawCompanyId);
@@ -126,7 +348,7 @@ router.post(
 
       let community = null;
       let communityObjectId = null;
-      if (normalizedFeature === 'websiteMap') {
+      if (normalizedFeature === 'websiteMap' && communityId) {
         if (!isObjectId(communityId)) {
           return res.status(400).json({ error: 'Valid communityId is required.' });
         }
@@ -136,12 +358,16 @@ router.post(
           return res.status(404).json({ error: 'Community not found.' });
         }
       }
+      if (normalizedFeature === 'websiteMap' && normalizedAction === 'enable' && !communityObjectId) {
+        return res.status(400).json({ error: 'Community is required for Website Map activation.' });
+      }
 
       const existing = await FeatureRequest.findOne({
         companyId,
         feature: normalizedFeature,
         communityId: communityObjectId,
-        status: 'pending'
+        status: 'pending',
+        action: normalizedAction
       }).select('_id');
       if (existing) {
         return res.json({ requestId: String(existing._id), status: 'pending' });
@@ -152,10 +378,11 @@ router.post(
         feature: normalizedFeature,
         communityId: communityObjectId,
         status: 'pending',
+        action: normalizedAction,
         createdByUserId: req.user?._id || null
       });
 
-      if (normalizedFeature === 'buildrootz') {
+      if (normalizedFeature === 'buildrootz' && normalizedAction === 'enable') {
         const company = await Company.findById(companyId);
         if (company) {
           company.features = company.features || {};
@@ -209,7 +436,8 @@ router.post(
         companyId,
         feature: 'websiteMap',
         communityId: community._id,
-        status: 'pending'
+        status: 'pending',
+        action: 'enable'
       }).select('_id');
       if (pendingRequest) {
         return res.status(400).json({ error: 'Activation request is already pending.' });
@@ -217,7 +445,8 @@ router.post(
 
       const company = await Company.findById(companyId).select('entitlements features');
       const trialOverride = company?.entitlements?.websiteMap?.trialDaysOverride;
-      const trialDays = Number.isFinite(trialOverride) && trialOverride > 0 ? trialOverride : 14;
+      const defaultTrialDays = pricingConfig.websiteMap?.defaultTrialDays || 30;
+      const trialDays = Number.isFinite(trialOverride) && trialOverride > 0 ? trialOverride : defaultTrialDays;
       const trialEndsAt = new Date();
       trialEndsAt.setDate(trialEndsAt.getDate() + trialDays);
 

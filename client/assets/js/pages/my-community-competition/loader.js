@@ -4,11 +4,11 @@ import {
   statTotalLots, statLotsSold, statLotsRemaining, statQmiAvailable,
   promoText, hoaDisplay, taxDisplay,
   salesPerson, salesPersonPhone, salesPersonEmail,
-  address, city, zip, modelPlan, lotSize, totalLots,
+  address, city, state, zip, modelPlan, lotSize, totalLots,
   garageTypeFront, garageTypeRear,
   schoolISD, elementarySchool, middleSchool, highSchool,
   hoaFee, hoaFrequency, tax, feeMud, feePid, feeNone,
-  mudFeeGroup, pidFeeGroup, mudFee, pidFee, pidFeeFrequency,
+  mudFeeGroup, pidFeeGroup, mudTaxRate, mudLegacyAmountNote, pidFee, pidFeeFrequency,
   earnestAmount, realtorCommission
 } from './dom.js';
 
@@ -23,6 +23,20 @@ import { formatPhoneDisplay } from '../../shared/phone.js';
 const normalizeText = (value) => {
   if (value == null) return '';
   return String(value).trim();
+};
+
+const formatPercentFromDecimal = (value) => {
+  if (value == null || value === '') return '';
+  const parsed = Number(value);
+  if (!Number.isFinite(parsed) || parsed < 0) return '';
+  return String(Number((parsed * 100).toFixed(3)));
+};
+
+const syncMudLegacyAmountNote = () => {
+  if (!mudLegacyAmountNote) return;
+  const hasLegacyMudAmount = mudLegacyAmountNote.dataset.hasLegacyMudAmount === '1';
+  const hasMudTaxRate = Boolean(normalizeText(mudTaxRate?.value));
+  mudLegacyAmountNote.style.display = (feeMud?.checked && hasLegacyMudAmount && !hasMudTaxRate) ? '' : 'none';
 };
 
 const planAliases = (plan) => {
@@ -80,6 +94,7 @@ const syncFeeGroups = () => {
     pidFeeGroup.style.display = showPid ? '' : 'none';
     if (!showPid && pidFeeFrequency) pidFeeFrequency.value = '';
   }
+  syncMudLegacyAmountNote();
 };
 
 let feeToggleListenersBound = false;
@@ -109,6 +124,10 @@ const ensureFeeToggleListeners = () => {
       }
       handleToggle();
     });
+  }
+  if (mudTaxRate) {
+    mudTaxRate.addEventListener('input', syncMudLegacyAmountNote);
+    mudTaxRate.addEventListener('change', syncMudLegacyAmountNote);
   }
   feeToggleListenersBound = true;
 };
@@ -276,6 +295,7 @@ export async function onSelectCommunity(id) {
     salesPersonEmail.value   = profile?.salesPersonEmail || '';
     address.value            = (profile?.address ?? community?.address ?? '');
     city.value               = (profile?.city    ?? community?.city    ?? '');
+    state.value              = (profile?.state   ?? profile?.webData?.state ?? community?.state ?? 'TX');
     zip.value                = (profile?.zip     ?? community?.zip     ?? '');
     lotSize.value            = profile?.lotSize || '';
     totalLots.value          = profile?.lotCounts?.total ?? '';
@@ -294,7 +314,12 @@ export async function onSelectCommunity(id) {
     feeMud.checked  = fees.includes('MUD');
     feePid.checked  = fees.includes('PID');
     feeNone.checked = fees.includes('None');
-    mudFee.value    = profile?.mudFee ?? '';
+    const mudTaxRateDecimal = profile?.webData?.mudTaxRate;
+    mudTaxRate.value = formatPercentFromDecimal(mudTaxRateDecimal);
+    if (mudLegacyAmountNote) {
+      const hasLegacyMudAmount = profile?.mudFee != null && profile?.mudFee !== '';
+      mudLegacyAmountNote.dataset.hasLegacyMudAmount = hasLegacyMudAmount ? '1' : '0';
+    }
     pidFee.value    = profile?.pidFee ?? '';
     if (pidFeeFrequency) {
       pidFeeFrequency.value = fees.includes('PID') ? (profile?.pidFeeFrequency || '') : '';

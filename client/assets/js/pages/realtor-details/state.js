@@ -5,7 +5,7 @@ export const state = {
   allContacts: [],
   activeStatuses: new Set(),
   statusOptions: [
-    'New','Target','Possible','Negotiation','Be-Back','Cold',
+    'New','Target','Possible','Negotiating','Be-Back','Cold',
     'Purchased','Closed','Not-Interested','Bust'
   ]
 };

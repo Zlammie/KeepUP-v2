@@ -3,6 +3,7 @@ const { Schema } = mongoose;
 
 const ROLES = Object.freeze({
   SUPER_ADMIN: 'SUPER_ADMIN',
+  KEEPUP_ADMIN: 'KEEPUP_ADMIN',
   COMPANY_ADMIN: 'COMPANY_ADMIN',
   MANAGER: 'MANAGER',
   USER: 'USER',

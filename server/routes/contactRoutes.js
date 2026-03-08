@@ -10,7 +10,10 @@ const FloorPlan = require('../models/FloorPlan');
 const Realtor   = require('../models/Realtor');
 const Task      = require('../models/Task');
 const AutoFollowUpSchedule = require('../models/AutoFollowUpSchedule');
+const EmailJob = require('../models/EmailJob');
+const EmailTemplate = require('../models/EmailTemplate');
 const { applyTaskAttentionFlags } = require('../utils/taskAttention');
+const { handleContactStatusChange } = require('../services/email/triggers');
 
 const ensureAuth  = require('../middleware/ensureAuth');
 const requireRole = require('../middleware/requireRole');
@@ -110,6 +113,10 @@ function toStatusCase(v){
     .filter(Boolean)
     .map(part => part.charAt(0).toUpperCase() + part.slice(1).toLowerCase())
     .join('-');
+}
+
+function normalizeStatusValue(value) {
+  return String(value || '').trim().toLowerCase();
 }
 
 function splitMulti(value = '') {
@@ -412,13 +419,13 @@ router.get('/search',
     const q = toStr(req.query.q);
     if (!q) return res.json([]);
     const regex = new RegExp(q, 'i');
-    const results = await Lender.find({
-      ...companyFilter(req),
-      $or: [
-        { firstName: regex },
-        { lastName: regex },
-        { email: regex },
-        { phone: regex }
+      const results = await Contact.find({
+        ...companyFilter(req),
+        $or: [
+          { firstName: regex },
+          { lastName: regex },
+          { email: regex },
+          { phone: regex }
       ]
     }).limit(10).lean();
     res.json(results);
@@ -435,7 +442,7 @@ router.get('/:id',
       if (!isObjectId(id)) return res.status(400).json({ error: 'Invalid id' });
 
       const contact = await Contact.findOne(contactQuery(req, { _id: new mongoose.Types.ObjectId(id) }))
-        .select('firstName lastName email phone status notes source communityIds floorplans realtorId lenderId lotId ownerId visitDate lotLineUp buyTime buyMonth facing living investor renting ownSelling ownNotSelling lenderStatus lenderInviteDate lenderApprovedDate lenders updatedAt followUpSchedule beBackDate statusHistory financeType fundsVerified fundsVerifiedDate')
+        .select('firstName lastName email phone status notes source communityIds floorplans realtorId lenderId lotId ownerId visitDate lotLineUp buyTime buyMonth facing living investor renting ownSelling ownNotSelling lenderStatus lenderInviteDate lenderApprovedDate lenders updatedAt followUpSchedule beBackDate statusHistory financeType fundsVerified fundsVerifiedDate doNotEmail emailPaused emailPausedAt emailPausedBy tags')
         .populate('communityIds', 'name')
         .populate('floorplans', 'name planNumber')                                       // ✅ array of communities
         .populate('realtorId', 'firstName lastName brokerage email phone')      // ✅ real field
@@ -484,6 +491,7 @@ router.put('/:id',
 
       const historyEntries = [];
       const previousStatus = existing.status || '';
+      let statusChangeForAutomation = null;
       let beBackDateValue = null;
       const previousCommunityIds = Array.isArray(existing.communityIds)
         ? existing.communityIds.map((id) => id.toString())
@@ -758,6 +766,9 @@ router.put('/:id',
           const normalizedNext = String(statusValue || '').trim().toLowerCase();
           const normalizedPrev = String(previousStatus || '').trim().toLowerCase();
           const statusChanged = normalizedNext !== normalizedPrev;
+          if (statusChanged) {
+            statusChangeForAutomation = { previousStatus, nextStatus: statusValue };
+          }
 
           if (normalizedNext === 'be-back' && !beBackDateValue) {
             beBackDateValue = new Date();
@@ -786,6 +797,9 @@ router.put('/:id',
           (typeof rawStatus === 'string' && rawStatus.trim() === '')
         ) {
           $set.status = '';
+          if (String(previousStatus || '').trim()) {
+            statusChangeForAutomation = { previousStatus, nextStatus: '' };
+          }
         }
       }
 
@@ -833,6 +847,11 @@ router.put('/:id',
           $set.fundsVerifiedDate = parsed;
           if (Object.prototype.hasOwnProperty.call($unset, 'fundsVerifiedDate')) delete $unset.fundsVerifiedDate;
         }
+      }
+
+      if (Object.prototype.hasOwnProperty.call(b, 'doNotEmail')) {
+        $set.doNotEmail = !!b.doNotEmail;
+        if (Object.prototype.hasOwnProperty.call($unset, 'doNotEmail')) delete $unset.doNotEmail;
       }
 
       // --- Build update doc
@@ -888,11 +907,67 @@ router.put('/:id',
 
       if (!updated) return res.status(404).json({ error: 'Contact not found' });
 
-      return res.json({
-        ...updated,
-        status: typeof updated.status === 'string' ? updated.status.toLowerCase() : updated.status,
-        beBackDate: toIsoStringOrNull(updated.beBackDate),
-        statusHistory: updated.statusHistory || [],
+        if (statusChangeForAutomation && updated?._id) {
+          try {
+            // Status-change automation trigger lives here (MVP: contact.status.changed).
+            await handleContactStatusChange({
+              companyId: updated.company,
+              contactId: updated._id,
+              previousStatus: statusChangeForAutomation.previousStatus,
+              nextStatus: statusChangeForAutomation.nextStatus
+            });
+          } catch (triggerErr) {
+            console.error('[contacts] status trigger enqueue failed', triggerErr);
+          }
+        }
+
+        if (statusChangeForAutomation && updated?.followUpSchedule?.scheduleId) {
+          try {
+            const scheduleId = updated.followUpSchedule.scheduleId;
+            const schedule = await AutoFollowUpSchedule.findOne({
+              _id: scheduleId,
+              company: updated.company
+            })
+              .select('stopOnStatuses')
+              .lean();
+
+            const stopStatuses = Array.isArray(schedule?.stopOnStatuses)
+              ? schedule.stopOnStatuses.map(normalizeStatusValue).filter(Boolean)
+              : [];
+            const normalizedNext = normalizeStatusValue(statusChangeForAutomation.nextStatus);
+
+            if (normalizedNext && stopStatuses.includes(normalizedNext)) {
+              await EmailJob.updateMany(
+                {
+                  companyId: updated.company,
+                  contactId: updated._id,
+                  scheduleId,
+                  status: EmailJob.STATUS.QUEUED
+                },
+                {
+                  $set: {
+                    status: EmailJob.STATUS.CANCELED,
+                    lastError: 'SCHEDULE_STOP_STATUS'
+                  }
+                }
+              );
+
+              await Contact.updateOne(
+                { _id: updated._id, company: updated.company },
+                { $unset: { followUpSchedule: '' } }
+              );
+              updated.followUpSchedule = null;
+            }
+          } catch (scheduleErr) {
+            console.error('[contacts] schedule stop-status cancel failed', scheduleErr);
+          }
+        }
+
+        return res.json({
+          ...updated,
+          status: typeof updated.status === 'string' ? updated.status.toLowerCase() : updated.status,
+          beBackDate: toIsoStringOrNull(updated.beBackDate),
+          statusHistory: updated.statusHistory || [],
         communities: updated.communityIds || [],
         floorplans: updated.floorplans || [],
         realtor: updated.realtorId || null,
@@ -1568,6 +1643,205 @@ router.delete(
     } catch (err) {
       console.error('[contacts] failed to unassign follow-up schedule', err);
       return res.status(500).json({ error: 'Failed to unassign schedule' });
+    }
+  }
+);
+
+router.post(
+  '/:id/followup-schedule/unenroll',
+  requireRole(...WRITE_ROLES),
+  async (req, res) => {
+    try {
+      const { id } = req.params;
+      if (!isObjectId(id)) return res.status(400).json({ error: 'Invalid contact id' });
+      const contactObjectId = new mongoose.Types.ObjectId(id);
+
+      const cleanup =
+        req.query.cleanup === '1' ||
+        req.query.cleanup === 'true' ||
+        req.query.cleanup === 'yes';
+
+      const contact = await Contact.findOne(contactQuery(req, { _id: contactObjectId }));
+      if (!contact) {
+        return res.status(404).json({ error: 'Contact not found' });
+      }
+
+      const previous = contact.followUpSchedule || null;
+      if (!previous?.scheduleId) {
+        return res.json({ ok: true, followUpSchedule: null, canceledJobs: 0, removedTasks: 0 });
+      }
+
+      const scheduleId = previous.scheduleId;
+      const cancellation = await EmailJob.updateMany(
+        {
+          companyId: contact.company,
+          contactId: contactObjectId,
+          scheduleId,
+          status: EmailJob.STATUS.QUEUED
+        },
+        {
+          $set: {
+            status: EmailJob.STATUS.CANCELED,
+            lastError: 'SCHEDULE_UNENROLLED'
+          }
+        }
+      );
+
+      let removedTasks = 0;
+      if (cleanup) {
+        const contactIdStr = contactObjectId.toString();
+        const scheduleIdStr = scheduleId.toString();
+        const reasonPrefix =
+          typeof previous.reasonPrefix === 'string' && previous.reasonPrefix.trim().length
+            ? previous.reasonPrefix.trim()
+            : `followup:${contactIdStr}:${scheduleIdStr}:`;
+        const pattern = new RegExp(`^${escapeRegExp(reasonPrefix)}`);
+
+        const deletion = await Task.deleteMany({
+          company: contact.company,
+          linkedModel: 'Contact',
+          linkedId: contactObjectId,
+          reason: { $regex: pattern }
+        });
+        removedTasks = deletion?.deletedCount || 0;
+      }
+
+      contact.set('followUpSchedule', undefined);
+      await contact.save();
+
+      return res.json({
+        ok: true,
+        followUpSchedule: null,
+        canceledJobs: cancellation?.modifiedCount ?? cancellation?.nModified ?? 0,
+        removedTasks
+      });
+    } catch (err) {
+      console.error('[contacts] failed to unenroll follow-up schedule', err);
+      return res.status(500).json({ error: 'Failed to unenroll schedule' });
+    }
+  }
+);
+
+// ───────────────────────── email activity ─────────────────────────
+router.get(
+  '/:id/email-activity',
+  requireRole(...READ_ROLES),
+  async (req, res) => {
+    try {
+      const { id } = req.params;
+      if (!isObjectId(id)) return res.status(400).json({ error: 'Invalid contact id' });
+      const contactObjectId = new mongoose.Types.ObjectId(id);
+
+      const contact = await Contact.findOne(contactQuery(req, { _id: contactObjectId }))
+        .select('emailPaused emailPausedAt')
+        .lean();
+      if (!contact) return res.status(404).json({ error: 'Contact not found' });
+
+      const now = new Date();
+      const fiveMinutesAgo = new Date(now.getTime() - 5 * 60 * 1000);
+
+      const upcoming = await EmailJob.find({
+        companyId: req.user.company,
+        contactId: contactObjectId,
+        status: { $in: [EmailJob.STATUS.QUEUED, EmailJob.STATUS.PROCESSING] },
+        scheduledFor: { $gte: fiveMinutesAgo }
+      })
+        .sort({ scheduledFor: 1 })
+        .limit(10)
+        .lean();
+
+      const recent = await EmailJob.find({
+        companyId: req.user.company,
+        contactId: contactObjectId,
+        status: {
+          $in: [
+            EmailJob.STATUS.SENT,
+            EmailJob.STATUS.FAILED,
+            EmailJob.STATUS.SKIPPED,
+            EmailJob.STATUS.CANCELED
+          ]
+        }
+      })
+        .sort({ sentAt: -1, updatedAt: -1 })
+        .limit(20)
+        .lean();
+
+      const templateIds = new Set();
+      [...upcoming, ...recent].forEach((job) => {
+        if (job.templateId) templateIds.add(String(job.templateId));
+      });
+
+      const templates = templateIds.size
+        ? await EmailTemplate.find({
+            _id: { $in: Array.from(templateIds) },
+            companyId: req.user.company
+          })
+            .select('name')
+            .lean()
+        : [];
+      const templateMap = new Map(templates.map((tpl) => [String(tpl._id), tpl.name]));
+
+      const reasonForJob = (job) => {
+        if (job.blastId) return 'Blast';
+        if (job.ruleId) return 'Rule';
+        if (job.scheduleId) return 'Schedule';
+        return 'Email';
+      };
+
+      const mapJob = (job) => ({
+        _id: job._id,
+        status: job.status,
+        scheduledFor: job.scheduledFor || null,
+        sentAt: job.sentAt || null,
+        updatedAt: job.updatedAt || null,
+        templateId: job.templateId || null,
+        templateName: templateMap.get(String(job.templateId)) || null,
+        reasonLabel: reasonForJob(job),
+        blastId: job.blastId || null,
+        ruleId: job.ruleId || null,
+        lastError: job.lastError || null
+      });
+
+      res.json({
+        paused: Boolean(contact.emailPaused),
+        pausedAt: contact.emailPausedAt || null,
+        upcoming: upcoming.map(mapJob),
+        recent: recent.map(mapJob)
+      });
+    } catch (err) {
+      console.error('[contacts] email activity failed', err);
+      res.status(500).json({ error: 'Failed to load email activity' });
+    }
+  }
+);
+
+router.post(
+  '/:id/email-pause',
+  requireRole(...WRITE_ROLES),
+  async (req, res) => {
+    try {
+      const { id } = req.params;
+      if (!isObjectId(id)) return res.status(400).json({ error: 'Invalid contact id' });
+      const contactObjectId = new mongoose.Types.ObjectId(id);
+
+      const paused = Boolean(req.body?.paused);
+      const updates = {
+        emailPaused: paused,
+        emailPausedAt: paused ? new Date() : null,
+        emailPausedBy: paused ? req.user._id : null
+      };
+
+      const updated = await Contact.findOneAndUpdate(
+        contactQuery(req, { _id: contactObjectId }),
+        { $set: updates },
+        { new: true }
+      ).lean();
+      if (!updated) return res.status(404).json({ error: 'Contact not found' });
+
+      res.json({ ok: true, paused: Boolean(updated.emailPaused), pausedAt: updated.emailPausedAt || null });
+    } catch (err) {
+      console.error('[contacts] email pause failed', err);
+      res.status(500).json({ error: 'Failed to update email pause' });
     }
   }
 );

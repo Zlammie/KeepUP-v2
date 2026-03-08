@@ -5,6 +5,11 @@ const CommunityCompetitionProfile = require('../models/communityCompetitionProfi
 const Company = require('../models/Company');
 const PublicHome = require('../models/buildrootz/PublicHome');
 const PublicCommunity = require('../models/buildrootz/PublicCommunity');
+const { competitionProfileToWebData } = require('./communityWebDataService');
+
+// Legacy direct publisher.
+// Listing-details workflow now uses brzPublishingService.publishCompanyInventory
+// (bundle/internal endpoint) and should not call these methods.
 
 const isObjectId = (v) => mongoose.Types.ObjectId.isValid(String(v));
 
@@ -88,7 +93,7 @@ async function fetchHomeContext(homeId, companyId, { requireMapping = true } = {
           .lean()
       : null,
     CommunityCompetitionProfile.findOne({ community: community._id, company: companyId })
-      .select('hoaFee hoaFrequency tax feeTypes mudFee pidFee pidFeeFrequency communityAmenities promotion city state zip schoolISD elementarySchool middleSchool highSchool lotSize salesPerson salesPersonPhone salesPersonEmail address')
+      .select('hoaFee hoaFrequency tax feeTypes mudFee pidFee pidFeeFrequency communityAmenities promotion city state zip schoolISD elementarySchool middleSchool highSchool lotSize salesPerson salesPersonPhone salesPersonEmail address webData')
       .lean(),
     Company.findById(companyId).select('name slug').lean()
   ]);
@@ -214,6 +219,17 @@ function buildPublicHomePayload({ community, lot, floorPlan, profile, company, b
   const builderSlug = slugify(company?.slug || builderName);
 
   const floorPlanSpecs = floorPlan?.specs || {};
+  const communityWebData = competitionProfileToWebData(profile, community);
+  const publicContact = {};
+  if (communityWebData?.contactVisibility?.showName && communityWebData?.primaryContact?.name) {
+    publicContact.name = communityWebData.primaryContact.name;
+  }
+  if (communityWebData?.contactVisibility?.showPhone && communityWebData?.primaryContact?.phone) {
+    publicContact.phone = communityWebData.primaryContact.phone;
+  }
+  if (communityWebData?.contactVisibility?.showEmail && communityWebData?.primaryContact?.email) {
+    publicContact.email = communityWebData.primaryContact.email;
+  }
 
   const elevationFromPlan = (() => {
     const el = Array.isArray(floorPlan?.elevations) ? floorPlan.elevations.find((e) => e?.asset?.previewUrl || e?.asset?.fileUrl) : null;
@@ -296,15 +312,11 @@ function buildPublicHomePayload({ community, lot, floorPlan, profile, company, b
     elevationImage: liveElevation || elevationFromPlan || '',
     schools: {
       isd: profile?.schoolISD || '',
-      elementary: profile?.elementarySchool || '',
-      middle: profile?.middleSchool || '',
-      high: profile?.highSchool || ''
+      elementary: communityWebData?.schools?.elementary || profile?.elementarySchool || '',
+      middle: communityWebData?.schools?.middle || profile?.middleSchool || '',
+      high: communityWebData?.schools?.high || profile?.highSchool || ''
     },
-    salesContact: {
-      name: lot.salesContactName || profile?.salesPerson || '',
-      phone: lot.salesContactPhone || profile?.salesPersonPhone || '',
-      email: lot.salesContactEmail || profile?.salesPersonEmail || ''
-    },
+    salesContact: publicContact,
     modelAddress: {
       street: profile?.address || '',
       city: profile?.city || community.city || '',
@@ -349,12 +361,14 @@ async function publishHome(homeId, companyId, userId) {
 
   const mappedObjectId = new mongoose.Types.ObjectId(mappedCommunityId);
   const prevMappedId = lot.buildrootzCommunityId ? String(lot.buildrootzCommunityId) : null;
-  if (prevMappedId && prevMappedId !== String(mappedObjectId)) {
-    const err = new Error('Community mapping changed. Remap and republish the listing.');
-    err.status = 409;
-    err.code = 'COMMUNITY_MAPPING_CHANGED';
-    err.mappingUrl = '/admin/buildrootz/communities';
-    throw err;
+  const mappingChanged = Boolean(prevMappedId && prevMappedId !== String(mappedObjectId));
+  if (mappingChanged) {
+    console.info('[buildrootz] listing publish detected mapping change; auto-healing lot mapping', {
+      homeId: String(homeId),
+      companyId: String(companyId),
+      previousMapping: prevMappedId,
+      currentMapping: String(mappedObjectId)
+    });
   }
 
   const prev = {

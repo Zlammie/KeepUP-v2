@@ -45,6 +45,16 @@
   animation: admin-panel-fade 0.2s ease-in-out;
 }
 
+.company-logo-preview {
+  max-height: 64px;
+  max-width: 100%;
+  width: auto;
+  border: 1px solid rgba(0, 0, 0, 0.08);
+  border-radius: 0.5rem;
+  padding: 0.25rem;
+  background: #fff;
+}
+
 .table-editing textarea {
   min-height: 2.25rem;
   resize: vertical;
