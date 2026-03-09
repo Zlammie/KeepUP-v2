@@ -5,6 +5,19 @@ const normalizeRole = require('../utils/normalizeRole');
 const VALID_ROLES = new Set(Object.values(User.ROLES || {}));
 const DEFAULT_ROLE = User.ROLES?.USER || 'USER';
 
+const isApiRequest = (req) => {
+  const baseUrl = typeof req.baseUrl === 'string' ? req.baseUrl : '';
+  const path = typeof req.path === 'string' ? req.path : '';
+  const originalUrl = typeof req.originalUrl === 'string' ? req.originalUrl : '';
+  const combined = `${baseUrl}${path}`;
+
+  if (combined === '/api' || combined.startsWith('/api/')) return true;
+  if (originalUrl === '/api' || originalUrl.startsWith('/api/')) return true;
+
+  const accept = String(req.get?.('accept') || '').toLowerCase();
+  return accept.includes('application/json');
+};
+
 /**
  * Unified auth gate:
  * - If not authenticated:
@@ -28,7 +41,7 @@ module.exports = async function ensureAuth(req, res, next) {
 
     if (!userId) {
       // Not logged in
-      if (req.path.startsWith('/api/')) {
+      if (isApiRequest(req)) {
         return res.status(401).json({ error: 'Unauthorized' });
       }
       return res.redirect('/login');
@@ -40,7 +53,7 @@ module.exports = async function ensureAuth(req, res, next) {
       .lean();
 
     if (!u || u.isActive === false) {
-      if (req.path.startsWith('/api/')) {
+      if (isApiRequest(req)) {
         return res.status(401).json({ error: 'Unauthorized' });
       }
       return res.redirect('/login');
@@ -101,7 +114,7 @@ module.exports = async function ensureAuth(req, res, next) {
     return next();
   } catch (err) {
     console.error('ensureAuth error:', err);
-    if (req.path.startsWith('/api/')) {
+    if (isApiRequest(req)) {
       return res.status(401).json({ error: 'Unauthorized' });
     }
     return res.redirect('/login');
