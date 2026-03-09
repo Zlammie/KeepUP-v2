@@ -5,13 +5,13 @@ const Company = require('../../models/Company');
 const Community = require('../../models/Community');
 const { publishBuilderProfile } = require('../../services/buildrootzBuilderProfile');
 const BuildRootzCommunityRequest = require('../../models/BuildRootzCommunityRequest');
+const { buildrootzFetch } = require('../../services/buildrootzClient');
 
 const router = express.Router();
 
 const isObjectId = (value) => mongoose.Types.ObjectId.isValid(String(value || ''));
 const isSuper = (req) => Array.isArray(req.user?.roles) && req.user.roles.includes('SUPER_ADMIN');
 const ADMIN_ROLES = ['MANAGER', 'COMPANY_ADMIN', 'SUPER_ADMIN'];
-const { BUILDROOTZ_API_BASE, BUILDROOTZ_INTERNAL_API_KEY } = process.env;
 
 const trimToNull = (value) => {
   if (value == null) return null;
@@ -204,42 +204,9 @@ const serializeCommunityMapping = (community) => ({
   }
 });
 
-const getFetch = async () => {
-  if (typeof fetch !== 'undefined') return fetch;
-  const { default: nodeFetch } = await import('node-fetch');
-  return nodeFetch;
-};
-
 async function buildrootzRequest(path, { method = 'GET', body, signal } = {}) {
-  if (!BUILDROOTZ_API_BASE || !BUILDROOTZ_INTERNAL_API_KEY) {
-    const err = new Error('BuildRootz API not configured');
-    err.status = 500;
-    throw err;
-  }
-  const fetchFn = await getFetch();
-  const url = `${BUILDROOTZ_API_BASE.replace(/\/+$/, '')}${path}`;
-  const headers = {
-    Accept: 'application/json',
-    'x-api-key': BUILDROOTZ_INTERNAL_API_KEY
-  };
-  const opts = { method, headers, signal };
-  if (body !== undefined) {
-    headers['Content-Type'] = 'application/json';
-    opts.body = JSON.stringify(body);
-  }
-  const res = await fetchFn(url, opts);
-  const resBody = await res.json().catch(() => ({}));
-  if (res.status === 401) {
-    const err = new Error('BUILDROOTZ_AUTH_FAILED');
-    err.status = 500;
-    throw err;
-  }
-  if (!res.ok) {
-    const err = new Error(resBody?.error || `BuildRootz request failed (${res.status})`);
-    err.status = res.status === 404 ? 404 : 502;
-    throw err;
-  }
-  return resBody;
+  const data = await buildrootzFetch(path, { method, body, signal });
+  return data;
 }
 
 router.get(

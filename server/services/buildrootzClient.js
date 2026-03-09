@@ -31,6 +31,12 @@ const getErrorMessageFromBody = (body) => {
   return '';
 };
 
+const resolveInternalFallbackPath = (path) => {
+  const match = String(path || '').match(/^\/api\/internal(\/.*)?$/i);
+  if (!match) return '';
+  return `/internal${match[1] || ''}`;
+};
+
 const getFetch = async () => {
   if (typeof fetch !== 'undefined') return fetch;
   const { default: nodeFetch } = await import('node-fetch');
@@ -44,7 +50,7 @@ async function buildrootzFetch(path, { method = 'GET', body, signal, timeoutMs }
     throw err;
   }
 
-  const url = `${BUILDROOTZ_API_BASE.replace(/\/+$/, '')}${path}`;
+  const baseUrl = BUILDROOTZ_API_BASE.replace(/\/+$/, '');
   const headers = {
     Accept: 'application/json',
     'x-api-key': BUILDROOTZ_INTERNAL_API_KEY
@@ -63,8 +69,22 @@ async function buildrootzFetch(path, { method = 'GET', body, signal, timeoutMs }
   }
   if (controller) setTimeout(() => controller.abort(), timeoutMs).unref?.();
 
-  const res = await fetchFn(url, { ...options, signal: finalSignal, redirect: 'manual' });
-  const { body: resBody, hasBody, isJson } = await parseResponseBody(res);
+  const requestOnce = async (requestPath) => {
+    const url = `${baseUrl}${requestPath}`;
+    const res = await fetchFn(url, { ...options, signal: finalSignal, redirect: 'manual' });
+    const parsed = await parseResponseBody(res);
+    return { res, requestPath, url, ...parsed };
+  };
+
+  let result = await requestOnce(path);
+  if (result.res.status === 404) {
+    const fallbackPath = resolveInternalFallbackPath(path);
+    if (fallbackPath && fallbackPath !== path) {
+      result = await requestOnce(fallbackPath);
+    }
+  }
+
+  const { res, body: resBody, hasBody, isJson, requestPath: finalPath, url: finalUrl } = result;
 
   if ([301, 302, 303, 307, 308].includes(res.status)) {
     const location = res.headers.get('location') || '';
@@ -72,7 +92,7 @@ async function buildrootzFetch(path, { method = 'GET', body, signal, timeoutMs }
       `BuildRootz request redirected (${res.status})${location ? ` to ${location}` : ''}`
     );
     err.status = 502;
-    err.payload = { location, body: resBody };
+    err.payload = { location, requestPath: finalPath, url: finalUrl, body: resBody };
     throw err;
   }
 
@@ -83,16 +103,21 @@ async function buildrootzFetch(path, { method = 'GET', body, signal, timeoutMs }
   }
 
   if (!res.ok) {
-    const err = new Error(getErrorMessageFromBody(resBody) || `BuildRootz request failed (${res.status})`);
+    const message =
+      getErrorMessageFromBody(resBody)
+      || (res.status === 404 && !isJson
+        ? 'BuildRootz endpoint not found (404). Check BUILDROOTZ_API_BASE or internal route prefix.'
+        : `BuildRootz request failed (${res.status})`);
+    const err = new Error(message);
     err.status = res.status;
-    err.payload = resBody;
+    err.payload = { requestPath: finalPath, url: finalUrl, body: resBody };
     throw err;
   }
 
   if (hasBody && !isJson) {
     const err = new Error('BuildRootz returned non-JSON response');
     err.status = 502;
-    err.payload = resBody;
+    err.payload = { requestPath: finalPath, url: finalUrl, body: resBody };
     throw err;
   }
 
