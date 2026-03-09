@@ -243,6 +243,12 @@ router.post(
             slug: err.payload.slug || ''
           };
         } else {
+          console.error('[buildrootz request approve-create] upstream create failed', {
+            status: err.status || null,
+            message: err.message || '',
+            requestPath: err.payload?.requestPath || null,
+            url: err.payload?.url || null
+          });
           return res.status(err.status || 502).json({ error: err.message || 'BUILDROOTZ_UNAVAILABLE' });
         }
       }

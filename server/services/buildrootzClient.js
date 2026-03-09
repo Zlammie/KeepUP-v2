@@ -26,8 +26,16 @@ const parseResponseBody = async (res) => {
 
 const getErrorMessageFromBody = (body) => {
   if (!body || typeof body !== 'object') return '';
-  const direct = body.error || body.message || body.raw || '';
+  const direct = body.error || body.message || '';
   if (direct) return String(direct);
+  if (Array.isArray(body.errors) && body.errors.length) {
+    const first = body.errors[0];
+    if (typeof first === 'string' && first.trim()) return first.trim();
+    if (first && typeof first === 'object') {
+      const nested = first.error || first.message || first.code || '';
+      if (nested) return String(nested);
+    }
+  }
   return '';
 };
 
