@@ -17,6 +17,22 @@ const firstNonEmptyString = (...values) => {
   return '';
 };
 
+const firstNonEmptyScalarString = (...values) => {
+  for (const value of values) {
+    if (value == null) continue;
+    if (typeof value === 'string') {
+      const trimmed = value.trim();
+      if (trimmed) return trimmed;
+      continue;
+    }
+    if (typeof value === 'number' || typeof value === 'boolean') {
+      const trimmed = String(value).trim();
+      if (trimmed) return trimmed;
+    }
+  }
+  return '';
+};
+
 const resolvePublicCommunityIdFromPayload = (payload, fallbackCommunityId = '') =>
   firstNonEmptyString(
     payload?.publicCommunityId,
@@ -133,22 +149,86 @@ router.post(
   async (req, res) => {
     try {
       const { id } = req.params;
-      const { name, city, state, notes } = req.body || {};
       if (!isObjectId(id)) return res.status(400).json({ error: 'Invalid request id' });
-      if (!name || !city || !state) {
-        return res.status(400).json({ error: 'name, city, and state are required' });
-      }
 
       const requestDoc = await loadRequestOr404(id);
       if (!requestDoc) return res.status(404).json({ error: 'Request not found' });
       if (requestDoc.status !== 'pending') return res.status(400).json({ error: 'Request is not pending' });
+
+      const requestBody = req.body || {};
+      const sourceCommunity = await Community.findById(requestDoc.keepupCommunityId)
+        .select('name city state slug')
+        .lean()
+        .catch(() => null);
+
+      const payload = {
+        name: firstNonEmptyScalarString(
+          requestBody.name,
+          requestBody.communityName,
+          requestDoc.requestedName,
+          sourceCommunity?.name,
+          sourceCommunity?.communityName
+        ),
+        city: firstNonEmptyScalarString(
+          requestBody.city,
+          requestBody.location?.city,
+          requestDoc.city,
+          sourceCommunity?.city,
+          sourceCommunity?.location?.city
+        ),
+        state: firstNonEmptyScalarString(
+          requestBody.state,
+          requestBody.location?.state,
+          requestDoc.state,
+          sourceCommunity?.state,
+          sourceCommunity?.location?.state
+        )
+      };
+
+      const optionalSlug = firstNonEmptyScalarString(
+        requestBody.slug,
+        sourceCommunity?.slug
+      );
+      if (optionalSlug) payload.slug = optionalSlug;
+
+      const optionalDescription = firstNonEmptyScalarString(
+        requestBody.description,
+        sourceCommunity?.description
+      );
+      if (optionalDescription) payload.description = optionalDescription;
+
+      const optionalNotes = firstNonEmptyScalarString(
+        requestBody.notes,
+        requestDoc.notes
+      );
+      if (optionalNotes) payload.notes = optionalNotes;
+
+      const missingFields = ['name', 'city', 'state'].filter((field) => !payload[field]);
+      if (missingFields.length) {
+        console.error('[buildrootz request approve-create] invalid payload source', {
+          requestId: id,
+          keepupCommunityId: requestDoc.keepupCommunityId ? String(requestDoc.keepupCommunityId) : null,
+          missingFields,
+          requestDoc: {
+            requestedName: requestDoc.requestedName || '',
+            city: requestDoc.city || '',
+            state: requestDoc.state || ''
+          },
+          bodyKeys: Object.keys(requestBody)
+        });
+        return res.status(400).json({
+          error: `Missing required fields for BuildRootz create payload: ${missingFields.join(', ')}`
+        });
+      }
+
+      console.log('[BuildRootz create payload]', payload);
 
       let brCommunity;
       let created = true;
       try {
         brCommunity = await buildrootzFetch('/api/internal/communities', {
           method: 'POST',
-          body: { name, city, state, notes }
+          body: payload
         });
       } catch (err) {
         if (err.message === 'BUILDROOTZ_AUTH_FAILED') return res.status(500).json({ error: 'BUILDROOTZ_AUTH_FAILED' });
@@ -157,9 +237,9 @@ router.post(
           brCommunity = {
             communityId: err.payload.communityId,
             publicCommunityId: err.payload.publicCommunityId || '',
-            canonicalName: err.payload.canonicalName || name,
-            city: err.payload.city || city,
-            state: err.payload.state || state,
+            canonicalName: err.payload.canonicalName || payload.name,
+            city: err.payload.city || payload.city,
+            state: err.payload.state || payload.state,
             slug: err.payload.slug || ''
           };
         } else {
@@ -175,7 +255,7 @@ router.post(
       if (!resolvedCommunityId) {
         return res.status(502).json({ error: 'BUILDROOTZ_COMMUNITY_ID_MISSING' });
       }
-      const resolvedCanonicalName = brCommunity.canonicalName || brCommunity.name || name;
+      const resolvedCanonicalName = brCommunity.canonicalName || brCommunity.name || payload.name;
 
       requestDoc.status = created ? 'approved' : 'linked';
       requestDoc.decision = created ? 'create' : 'link';
@@ -184,7 +264,7 @@ router.post(
       requestDoc.resolvedCanonicalName = resolvedCanonicalName;
       requestDoc.reviewedByUserId = req.user?._id || null;
       requestDoc.reviewedAt = new Date();
-      requestDoc.buildrootzCreatePayload = { name, city, state, notes: notes || '' };
+      requestDoc.buildrootzCreatePayload = payload;
       await requestDoc.save();
 
       await Community.findByIdAndUpdate(requestDoc.keepupCommunityId, {
