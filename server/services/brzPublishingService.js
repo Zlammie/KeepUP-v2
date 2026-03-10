@@ -2177,12 +2177,6 @@ const dedupeStrings = (items) => {
   return out;
 };
 
-const resolveAssetBaseUrl = () => {
-  const raw = trimString(process.env.KEEPUP_PUBLIC_BASE_URL || process.env.BASE_URL);
-  if (!raw) return '';
-  return raw.replace(/\/+$/, '');
-};
-
 const isRelativeUploadUrl = (url) => {
   const normalized = trimString(url);
   return normalized.startsWith('/uploads/') || normalized.startsWith('uploads/');
@@ -2191,13 +2185,19 @@ const isRelativeUploadUrl = (url) => {
 const absolutizeAssetUrl = (url) => {
   const normalized = trimString(url);
   if (!normalized) return '';
-  if (/^https?:\/\//i.test(normalized)) return normalized;
-  if (isRelativeUploadUrl(normalized)) {
-    const baseUrl = resolveAssetBaseUrl();
-    if (!baseUrl) {
-      return normalized.startsWith('/') ? normalized : `/${normalized}`;
+  if (/^https?:\/\//i.test(normalized)) {
+    try {
+      const parsed = new URL(normalized);
+      if (parsed.pathname.startsWith('/uploads/')) {
+        return `${parsed.pathname}${parsed.search || ''}`;
+      }
+      return normalized;
+    } catch (_) {
+      return normalized;
     }
-    return `${baseUrl}${normalized.startsWith('/') ? normalized : `/${normalized}`}`;
+  }
+  if (isRelativeUploadUrl(normalized)) {
+    return normalized.startsWith('/') ? normalized : `/${normalized}`;
   }
   return normalized;
 };
@@ -2227,12 +2227,6 @@ function serializePlanAssetForBundle({ floorPlan, pushWarning } = {}) {
   const mimeType = trimString(asset.mimeType) || null;
   const planLabel = trimString(floorPlan?.name || floorPlan?.planNumber || floorPlan?._id) || 'Unknown plan';
 
-  if (rawFileUrl && isRelativeUploadUrl(rawFileUrl) && fileUrl === (rawFileUrl.startsWith('/') ? rawFileUrl : `/${rawFileUrl}`)) {
-    pushWarning?.(`Plan ${planLabel}: relative upload URL may not resolve in BRZ: ${fileUrl}`);
-  }
-  if (rawPreviewUrl && isRelativeUploadUrl(rawPreviewUrl) && previewUrl === (rawPreviewUrl.startsWith('/') ? rawPreviewUrl : `/${rawPreviewUrl}`)) {
-    pushWarning?.(`Plan ${planLabel}: relative upload URL may not resolve in BRZ: ${previewUrl}`);
-  }
   if (rawFileUrl && looksLikePdf(rawFileUrl) && !previewUrl) {
     pushWarning?.(`Plan ${planLabel}: missing previewUrl for floor plan asset`);
   }
@@ -2247,6 +2241,57 @@ function serializePlanAssetForBundle({ floorPlan, pushWarning } = {}) {
 
 const mapUrlsToMediaObjects = (items) =>
   dedupeStrings(items).map((url) => ({ url }));
+
+const MEDIA_URL_FIELD_KEYS = new Set([
+  'url',
+  'primaryPhotoUrl',
+  'heroImage',
+  'heroImageUrl',
+  'floorPlanImage',
+  'image',
+  'imageUrl',
+  'mapImage',
+  'mapImageUrl',
+  'communityImage',
+  'communityImageUrl',
+  'primaryImageOverrideUrl'
+]);
+
+const MEDIA_URL_ARRAY_KEYS = new Set([
+  'heroImages',
+  'images',
+  'photos',
+  'photoUrls'
+]);
+
+const normalizeMediaUrlsForPublish = (value, parentKey = '') => {
+  if (typeof value === 'string') {
+    if (MEDIA_URL_FIELD_KEYS.has(parentKey) || MEDIA_URL_ARRAY_KEYS.has(parentKey)) {
+      return absolutizeAssetUrl(value);
+    }
+    return value;
+  }
+
+  if (Array.isArray(value)) {
+    return value.map((item) => {
+      if (typeof item === 'string') {
+        return MEDIA_URL_ARRAY_KEYS.has(parentKey) ? absolutizeAssetUrl(item) : item;
+      }
+      if (item && typeof item === 'object') {
+        return normalizeMediaUrlsForPublish(item, parentKey);
+      }
+      return item;
+    });
+  }
+
+  if (!value || typeof value !== 'object') return value;
+
+  const out = {};
+  Object.entries(value).forEach(([key, entry]) => {
+    out[key] = normalizeMediaUrlsForPublish(entry, key);
+  });
+  return out;
+};
 
 const capWarnings = (warnings, cap = 25) =>
   (Array.isArray(warnings) ? warnings : [])
@@ -2274,6 +2319,60 @@ const pickFirstNumber = (...values) => {
   }
   return null;
 };
+
+const isValidLat = (value) => Number.isFinite(value) && value >= -90 && value <= 90;
+const isValidLng = (value) => Number.isFinite(value) && value >= -180 && value <= 180;
+
+const toValidCoordinatesOrNull = (latValue, lngValue) => {
+  const lat = toNullableNumber(latValue);
+  const lng = toNullableNumber(lngValue);
+  if (!isValidLat(lat) || !isValidLng(lng)) return null;
+  return { lat, lng };
+};
+
+const readCoordinatesFromObject = (source) => {
+  if (!source || typeof source !== 'object') return null;
+
+  return (
+    toValidCoordinatesOrNull(source.lat, source.lng)
+    || toValidCoordinatesOrNull(source.latitude, source.longitude)
+    || toValidCoordinatesOrNull(source.coordinates?.lat, source.coordinates?.lng)
+    || toValidCoordinatesOrNull(source.location?.lat, source.location?.lng)
+    || toValidCoordinatesOrNull(source.location?.latitude, source.location?.longitude)
+    || toValidCoordinatesOrNull(source.geo?.lat, source.geo?.lng)
+    || null
+  );
+};
+
+const readCoordinatesFromCommunityLots = (community) => {
+  const lots = Array.isArray(community?.lots) ? community.lots : [];
+  let sumLat = 0;
+  let sumLng = 0;
+  let count = 0;
+
+  lots.forEach((lot) => {
+    const coordinates = readCoordinatesFromObject(lot);
+    if (!coordinates) return;
+    sumLat += coordinates.lat;
+    sumLng += coordinates.lng;
+    count += 1;
+  });
+
+  if (!count) return null;
+
+  const lat = Number((sumLat / count).toFixed(6));
+  const lng = Number((sumLng / count).toFixed(6));
+  return toValidCoordinatesOrNull(lat, lng);
+};
+
+const resolveCommunityCoordinatesForPublish = ({ webData, draft, competitionProfile, community }) =>
+  readCoordinatesFromObject(webData)
+  || readCoordinatesFromObject(draft?.competitionWebData)
+  || readCoordinatesFromObject(competitionProfile?.webData)
+  || readCoordinatesFromObject(competitionProfile)
+  || readCoordinatesFromObject(community)
+  || readCoordinatesFromCommunityLots(community)
+  || null;
 
 const resolveInventoryAuditMode = ({ lotIds, unpublishMissingHomes, bundle }) => {
   const bundleMode = trimString(bundle?.meta?.publishMode).toUpperCase();
@@ -2433,7 +2532,7 @@ const normalizeWebDataForBundle = (webData) => {
   if (realtorCommission) result.realtorCommission = realtorCommission;
 
   delete result.notesInternal;
-  return result;
+  return normalizeMediaUrlsForPublish(result);
 };
 
 const toGarageStringOrNull = (value) => {
@@ -2703,6 +2802,48 @@ async function buildPackageBundle({ companyId, requestedAt = new Date().toISOStr
       community,
       draft
     });
+    const communityCoordinates = resolveCommunityCoordinatesForPublish({
+      webData,
+      draft,
+      competitionProfile,
+      community
+    });
+    if (!communityCoordinates) {
+      const err = new Error(
+        `Community ${communityName} is missing valid coordinates. Add community coordinates before publishing.`
+      );
+      err.status = 400;
+      throw err;
+    }
+
+    const resolvedCity = trimString(webData?.city) || trimString(community?.city);
+    const resolvedState = trimString(webData?.state) || trimString(community?.state);
+    if (!resolvedCity || !resolvedState) {
+      const err = new Error(
+        `Community ${communityName} is missing required city/state for BuildRootz publish.`
+      );
+      err.status = 400;
+      throw err;
+    }
+
+    const normalizedWebData = normalizeWebDataForBundle(webData);
+    normalizedWebData.location = {
+      ...(normalizedWebData.location && typeof normalizedWebData.location === 'object'
+        ? normalizedWebData.location
+        : {}),
+      lat: communityCoordinates.lat,
+      lng: communityCoordinates.lng
+    };
+    normalizedWebData.coordinates = {
+      ...(normalizedWebData.coordinates && typeof normalizedWebData.coordinates === 'object'
+        ? normalizedWebData.coordinates
+        : {}),
+      lat: communityCoordinates.lat,
+      lng: communityCoordinates.lng
+    };
+    normalizedWebData.lat = communityCoordinates.lat;
+    normalizedWebData.lng = communityCoordinates.lng;
+
     const promotionValue = trimString(draft?.competitionPromotion);
     const modelsSummary = serializeCommunityModelListings(community, floorPlanNameById).map((model) => ({
       keepupLotId: toStringId(model.listingId),
@@ -2716,14 +2857,21 @@ async function buildPackageBundle({ companyId, requestedAt = new Date().toISOStr
       companyId: toStringId(company._id),
       publicCommunityId,
       keepupCommunityId: communityId,
-      webData: normalizeWebDataForBundle(webData),
+      name: communityName,
+      city: resolvedCity,
+      state: resolvedState,
+      location: { lat: communityCoordinates.lat, lng: communityCoordinates.lng },
+      coordinates: { lat: communityCoordinates.lat, lng: communityCoordinates.lng },
+      lat: communityCoordinates.lat,
+      lng: communityCoordinates.lng,
+      webData: normalizedWebData,
       modelsSummary
     };
     if (trimString(draft?.descriptionOverride)) {
       payload.descriptionOverride = trimString(draft.descriptionOverride);
     }
     if (trimString(draft?.heroImage?.url)) {
-      payload.heroImageUrl = trimString(draft.heroImage.url);
+      payload.heroImageUrl = absolutizeAssetUrl(trimString(draft.heroImage.url));
     }
     if (promotionValue) {
       payload.promotion = promotionValue;
@@ -2738,8 +2886,8 @@ async function buildPackageBundle({ companyId, requestedAt = new Date().toISOStr
       if (!floorPlan || !draft || draft.isIncluded === false) return null;
       const specs = floorPlan.specs || {};
       const images = dedupeStrings([
-        trimString(draft?.primaryImage?.url),
-        resolveFloorPlanUploadedPreviewUrl(floorPlan)
+        absolutizeAssetUrl(trimString(draft?.primaryImage?.url)),
+        absolutizeAssetUrl(resolveFloorPlanUploadedPreviewUrl(floorPlan))
       ]);
       const structuredAsset = serializePlanAssetForBundle({
         floorPlan,
@@ -2802,7 +2950,9 @@ async function buildPackageBundle({ companyId, requestedAt = new Date().toISOStr
           payload.descriptionOverride = trimString(communityPlanDraft.descriptionOverride);
         }
         if (trimString(communityPlanDraft?.primaryImageOverride?.url)) {
-          payload.primaryImageOverrideUrl = trimString(communityPlanDraft.primaryImageOverride.url);
+          payload.primaryImageOverrideUrl = absolutizeAssetUrl(
+            trimString(communityPlanDraft.primaryImageOverride.url)
+          );
         }
         return payload;
       });
@@ -2931,19 +3081,9 @@ async function buildInventoryBundle({
         const floorPlan = floorPlanById.get(keepupFloorPlanId);
         const lotLabel = trimString(lot?.address) || keepupLotId || 'listing';
         const { heroUrl, urls: listingImageUrls } = collectListingImageUrls({ lot });
-        const relativeUploadWarnings = [];
         const absolutizedHeroUrl = heroUrl ? absolutizeAssetUrl(heroUrl) : '';
-        if (heroUrl && isRelativeUploadUrl(heroUrl) && absolutizedHeroUrl === (heroUrl.startsWith('/') ? heroUrl : `/${heroUrl}`)) {
-          relativeUploadWarnings.push(`Relative upload URL; may not resolve in BRZ: ${absolutizedHeroUrl}`);
-        }
         const photoUrls = listingImageUrls
-          .map((url) => {
-            const absolutized = absolutizeAssetUrl(url);
-            if (isRelativeUploadUrl(url) && absolutized === (url.startsWith('/') ? url : `/${url}`)) {
-              relativeUploadWarnings.push(`Relative upload URL; may not resolve in BRZ: ${absolutized}`);
-            }
-            return absolutized;
-          })
+          .map((url) => absolutizeAssetUrl(url))
           .filter(Boolean);
 
         const {
@@ -3082,9 +3222,6 @@ async function buildInventoryBundle({
         if (!absolutizedHeroUrl && !photoUrls.length) {
           pushInventoryWarning(`No listing photos for ${lotLabel}`);
         }
-        capWarnings(relativeUploadWarnings, 3).forEach((warning) => {
-          pushInventoryWarning(warning);
-        });
 
         const payload = {
           companyId: toStringId(company._id),
@@ -3109,7 +3246,11 @@ async function buildInventoryBundle({
         if (price) payload.price = price;
         if (listPrice != null) payload.listPrice = listPrice;
         if (salePrice != null) payload.salePrice = salePrice;
-        if (geo) payload.geo = geo;
+        if (geo) {
+          payload.geo = geo;
+          payload.lat = geo.lat;
+          payload.lng = geo.lng;
+        }
         if (beds != null) payload.beds = beds;
         if (baths != null) payload.baths = baths;
         if (sqft != null) payload.sqft = sqft;
