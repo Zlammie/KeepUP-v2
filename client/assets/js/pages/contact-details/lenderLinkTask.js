@@ -8,7 +8,7 @@ const COMMUNITY_SELECT_ID = 'community-select';
 const WARNING_ATTR = 'data-lender-warning';
 const INPUT_WARNING_CLASS = 'input-lender-missing';
 const CARD_PRIMARY_WARNING_CLASS = 'lender-card-missing-primary';
-const LABEL_PRIMARY_WARNING_CLASS = 'primary-label-missing-primary';
+const PRIMARY_RADIO_WARNING_CLASS = 'primary-lender-radio-missing-primary';
 const INVITE_INPUT_WARNING_CLASS = 'lender-invite-date-missing';
 const APPROVED_INPUT_WARNING_CLASS = 'lender-approved-date-missing';
 const COMMUNITY_WARNING_CLASS = 'community-select-missing';
@@ -108,16 +108,16 @@ function applyHighlight({
 
     card.classList.toggle(CARD_PRIMARY_WARNING_CLASS, highlightPrimary);
 
-    const primaryLabel = card.querySelector('.primary-label');
-    if (primaryLabel) {
-      primaryLabel.classList.toggle(
-        LABEL_PRIMARY_WARNING_CLASS,
+    const primaryControl = card.querySelector('.primary-lender-radio, .primary-label');
+    if (primaryControl) {
+      primaryControl.classList.toggle(
+        PRIMARY_RADIO_WARNING_CLASS,
         highlightPrimary
       );
       if (highlightPrimary) {
-        primaryLabel.setAttribute('aria-invalid', 'true');
+        primaryControl.setAttribute('aria-invalid', 'true');
       } else {
-        primaryLabel.removeAttribute('aria-invalid');
+        primaryControl.removeAttribute('aria-invalid');
       }
     }
 

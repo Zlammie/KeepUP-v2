@@ -3,11 +3,88 @@
   --realtor-negotiation: #3cb371;
   --realtor-purchased: #2e8b57;
   --realtor-closed: #495057;
+  padding-top: 75px !important;
+  margin-top: 0 !important;
+}
+
+.realtors-section-header {
+  margin: 0 0 12px;
+  padding-bottom: 8px;
+  border-bottom: 1px solid #e6e8ec;
+  font-size: 18px;
+  font-weight: 600;
+  line-height: 1.35;
+  letter-spacing: 0.2px;
+  color: #5f6b7a;
+  text-align: left;
+}
+
+.realtors-section-header__count {
+  color: #738091;
+  font-weight: 500;
 }
 
 #realtorsTopBar { width: 100%; }
 #realtorFilters { min-height: 40px; }
 #realtorSearch { min-width: 340px; }
+
+.realtors-page .topbar-actions {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+}
+
+.realtors-utility-bar {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 8px 12px;
+  border: 1px solid #e1e5ea;
+  border-radius: 10px;
+  background: #fff;
+  margin-bottom: 12px;
+  flex-wrap: wrap;
+}
+
+.realtors-utility-bar .utility-search {
+  flex: 1 1 240px;
+}
+
+.realtors-utility-bar .utility-search input {
+  border-radius: 999px;
+  padding-left: 16px;
+}
+
+.realtors-utility-bar .utility-add-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-weight: 600;
+}
+
+.realtors-utility-bar .utility-add-btn img {
+  width: 18px;
+  height: 18px;
+}
+
+.realtors-inline-form {
+  border: 1px solid #e1e5ea;
+  border-radius: 12px;
+  padding: 12px;
+  background: #fdfdfd;
+  margin-bottom: 16px;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.04);
+}
+
+.realtors-inline-form .form-label {
+  font-size: 0.75rem;
+  font-weight: 600;
+  color: #495057;
+}
+
+.realtors-inline-form .form-control {
+  font-size: 0.875rem;
+}
 
 .status-pill.has-negotiation     { border-color: var(--realtor-negotiation); }
 .status-pill.has-negotiation.active { color: var(--realtor-negotiation); }

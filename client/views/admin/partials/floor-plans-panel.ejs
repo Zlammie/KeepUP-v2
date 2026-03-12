@@ -5,6 +5,82 @@
       opacity: 1 !important;
       pointer-events: auto !important;
     }
+
+    .admin-floorplans-table .floor-plans-toolbar {
+      display: flex;
+      align-items: end;
+      gap: 0.75rem;
+      flex-wrap: wrap;
+      margin-bottom: 0.5rem;
+    }
+
+    .admin-floorplans-table .floor-plans-toolbar__search {
+      flex: 1 1 360px;
+      min-width: 240px;
+    }
+
+    .admin-floorplans-table .floor-plans-toolbar__community {
+      flex: 0 1 260px;
+      min-width: 210px;
+    }
+
+    .admin-floorplans-table .floor-plans-toolbar__clear {
+      flex: 0 0 auto;
+      height: 38px;
+      align-self: end;
+    }
+
+    .admin-floorplans-table .floor-plans-results {
+      font-size: 0.88rem;
+      color: #4b5563;
+      margin: 0 0 0.75rem;
+    }
+
+    .floor-plans-table .plan-specs-text {
+      display: block;
+      color: #1f2937;
+      line-height: 1.35;
+      font-size: 0.88rem;
+      min-width: 220px;
+    }
+
+    .floor-plans-table .plan-spec-token {
+      white-space: nowrap;
+    }
+
+    .floor-plans-table .plan-spec-separator {
+      color: #9ca3af;
+      margin: 0 0.2rem;
+    }
+
+    .floor-plans-table .plan-specs-text.is-empty {
+      color: #6b7280;
+    }
+
+    .floor-plans-table .plan-community-text {
+      color: #1f2937;
+      font-size: 0.88rem;
+      line-height: 1.35;
+      display: block;
+      min-width: 170px;
+    }
+
+    .floor-plans-table .floor-plans-empty-row td {
+      background: #f8fafc;
+      color: #6b7280;
+      padding: 1rem 0.75rem;
+    }
+
+    @media (max-width: 767.98px) {
+      .admin-floorplans-table .floor-plans-toolbar {
+        gap: 0.6rem;
+      }
+
+      .admin-floorplans-table .floor-plans-toolbar__search,
+      .admin-floorplans-table .floor-plans-toolbar__community {
+        flex-basis: 100%;
+      }
+    }
   </style>
   <div class="admin-floorplans-layout">
     <div class="d-flex align-items-center justify-content-between flex-wrap mb-3">
@@ -78,6 +154,28 @@
 
     <section class="mt-4 admin-floorplans-table tab-panel" id="existing-tab" style="display:none;">
       <h2 class="h5 mb-3">Existing Floor Plans</h2>
+      <div class="floor-plans-toolbar" role="region" aria-label="Filter existing floor plans">
+        <div class="floor-plans-toolbar__search">
+          <label for="plansSearch" class="visually-hidden">Search floor plans</label>
+          <input
+            id="plansSearch"
+            class="form-control"
+            type="search"
+            placeholder="Search by plan, specs, or community"
+            autocomplete="off"
+          />
+        </div>
+        <div class="floor-plans-toolbar__community">
+          <label for="plansCommunityFilter" class="visually-hidden">Filter by community</label>
+          <select id="plansCommunityFilter" class="form-select">
+            <option value="">All Communities</option>
+          </select>
+        </div>
+        <button type="button" class="btn btn-outline-secondary btn-sm floor-plans-toolbar__clear" id="plansClearFilters">
+          Clear Filters
+        </button>
+      </div>
+      <p class="floor-plans-results" id="plansResultCount" aria-live="polite">0 floor plans</p>
       <div class="table-responsive">
         <table class="table table-striped table-sm align-middle floor-plans-table" id="plansTable">
           <thead>
@@ -123,6 +221,7 @@
           <div class="col-md-12">
             <label for="editPlanSlug" class="form-label">Website Slug</label>
             <input id="editPlanSlug" class="form-control" name="websiteSlug" placeholder="sequoia-veranda" />
+            <div class="form-text">Used for community maps.</div>
           </div>
         </div>
         <div class="row g-3 mt-2">
@@ -200,6 +299,10 @@
       const tabButtons = document.querySelectorAll('[data-tab-target]');
       const tabPanels = document.querySelectorAll('.tab-panel');
       const plansTableBody = document.querySelector('#plansTable tbody');
+      const plansSearchInput = document.getElementById('plansSearch');
+      const plansCommunityFilter = document.getElementById('plansCommunityFilter');
+      const plansClearFiltersBtn = document.getElementById('plansClearFilters');
+      const plansResultCount = document.getElementById('plansResultCount');
       const editModal = document.getElementById('editPlanModal');
       const editForm = document.getElementById('editPlanForm');
       const editCommunitiesSelect = document.getElementById('editCommunities');
@@ -264,6 +367,29 @@
         dateStyle: 'medium',
         timeStyle: 'short'
       });
+      const FILTER_DELIMITER = '||';
+
+      const normalizeFilterText = (value) => String(value || '')
+        .toLowerCase()
+        .replace(/\s+/g, ' ')
+        .trim();
+
+      const splitFilterValues = (value) => String(value || '')
+        .split(FILTER_DELIMITER)
+        .map((entry) => entry.trim())
+        .filter(Boolean);
+
+      const escapeHtml = (value) => String(value ?? '')
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;')
+        .replace(/'/g, '&#39;');
+
+      const formatResultCount = (count, isFiltered) => {
+        const noun = count === 1 ? 'floor plan' : 'floor plans';
+        return isFiltered ? `${count} ${noun} found` : `${count} ${noun}`;
+      };
 
       const formatInteger = (value) => {
         if (value == null || value === '') return null;
@@ -538,54 +664,174 @@
         populateSelectOptions(editCommunitiesSelect);
       }
 
+      function getFilterablePlanRows() {
+        if (!plansTableBody) return [];
+        return Array.from(plansTableBody.querySelectorAll('tr[data-plan-row="true"]'));
+      }
+
+      function setPlansResultCount(visibleCount, isFiltered) {
+        if (!plansResultCount) return;
+        plansResultCount.textContent = formatResultCount(visibleCount, isFiltered);
+      }
+
+      function setClearFiltersState(hasFilters) {
+        if (!plansClearFiltersBtn) return;
+        plansClearFiltersBtn.disabled = !hasFilters;
+      }
+
+      function syncCommunityFilterOptionsFromRows() {
+        if (!plansCommunityFilter) return;
+
+        const previousValue = normalizeFilterText(plansCommunityFilter.value);
+        const communityMap = new Map();
+
+        getFilterablePlanRows().forEach((row) => {
+          const labels = splitFilterValues(row.dataset.communityLabels);
+          const tokens = splitFilterValues(row.dataset.communityTokens);
+          labels.forEach((label, idx) => {
+            const token = tokens[idx] || normalizeFilterText(label);
+            if (!token || communityMap.has(token)) return;
+            communityMap.set(token, label);
+          });
+        });
+
+        plansCommunityFilter.innerHTML = '<option value="">All Communities</option>';
+
+        Array.from(communityMap.entries())
+          .sort((a, b) => a[1].localeCompare(b[1], undefined, { sensitivity: 'base' }))
+          .forEach(([token, label]) => {
+            const option = document.createElement('option');
+            option.value = token;
+            option.textContent = label;
+            plansCommunityFilter.appendChild(option);
+          });
+
+        plansCommunityFilter.value = communityMap.has(previousValue) ? previousValue : '';
+      }
+
+      function getOrCreateNoMatchesRow() {
+        if (!plansTableBody) return null;
+        let row = plansTableBody.querySelector('tr[data-empty-state="filtered"]');
+        if (row) return row;
+
+        row = document.createElement('tr');
+        row.className = 'floor-plans-empty-row';
+        row.dataset.emptyState = 'filtered';
+        row.hidden = true;
+        row.innerHTML = '<td colspan="5" class="text-center">No floor plans match your current filters.</td>';
+        plansTableBody.appendChild(row);
+        return row;
+      }
+
+      function applyPlanFilters() {
+        const searchTerm = normalizeFilterText(plansSearchInput?.value || '');
+        const selectedCommunity = normalizeFilterText(plansCommunityFilter?.value || '');
+        const hasFilters = Boolean(searchTerm || selectedCommunity);
+        const rows = getFilterablePlanRows();
+
+        let visibleCount = 0;
+        rows.forEach((row) => {
+          const searchableText = row.dataset.searchText || '';
+          const rowCommunities = splitFilterValues(row.dataset.communityTokens);
+          const matchesSearch = !searchTerm || searchableText.includes(searchTerm);
+          const matchesCommunity = !selectedCommunity || rowCommunities.includes(selectedCommunity);
+          const show = matchesSearch && matchesCommunity;
+
+          row.hidden = !show;
+          if (show) visibleCount += 1;
+        });
+
+        const emptyRow = getOrCreateNoMatchesRow();
+        if (emptyRow) {
+          const showNoMatches = rows.length > 0 && hasFilters && visibleCount === 0;
+          emptyRow.hidden = !showNoMatches;
+          if (showNoMatches) plansTableBody.appendChild(emptyRow);
+        }
+
+        setPlansResultCount(visibleCount, hasFilters);
+        setClearFiltersState(hasFilters);
+      }
+
+      function clearPlanFilters({ focusSearch = false } = {}) {
+        if (plansSearchInput) plansSearchInput.value = '';
+        if (plansCommunityFilter) plansCommunityFilter.value = '';
+        applyPlanFilters();
+        if (focusSearch && plansSearchInput) plansSearchInput.focus();
+      }
+
       function renderPlans(plans) {
+        const hasActiveFilters = Boolean(
+          normalizeFilterText(plansSearchInput?.value || '') || normalizeFilterText(plansCommunityFilter?.value || '')
+        );
+
         if (!plans.length) {
           plansTableBody.innerHTML = '<tr><td colspan="5" class="text-center text-muted">No floor plans yet.</td></tr>';
+          syncCommunityFilterOptionsFromRows();
+          setPlansResultCount(0, hasActiveFilters);
+          setClearFiltersState(hasActiveFilters);
           return;
         }
 
-        const rows = plans.map(plan => {
+        const rows = plans.map((plan) => {
           const specs = plan.specs || {};
           const specBadges = buildSpecBadges(specs);
           const communityLabels = getCommunityLabels(plan).filter(Boolean);
           const created = plan.createdAt ? new Date(plan.createdAt) : null;
           const planId = planIdOf(plan);
+          const planNumberDisplay = plan.planNumber || '-';
+          const planNameDisplay = plan.name || '';
+          const specsSearchText = specBadges.length ? specBadges.join(' ') : '-';
+          const specsDisplayHtml = specBadges.length
+            ? specBadges
+              .map((label) => `<span class="plan-spec-token">${escapeHtml(label)}</span>`)
+              .join(' <span class="plan-spec-separator" aria-hidden="true">&bull;</span> ')
+            : '<span class="plan-spec-token is-empty">-</span>';
+          const communitiesDisplay = communityLabels.length ? communityLabels.join(', ') : 'None';
+          const communityTokens = communityLabels
+            .map((label) => normalizeFilterText(label))
+            .filter(Boolean);
+          const searchBlob = normalizeFilterText([
+            planNumberDisplay,
+            planNameDisplay,
+            specsSearchText,
+            communitiesDisplay
+          ].join(' '));
+
           const actionCell = planId
-            ? `<button type="button" class="btn btn-sm btn-outline-primary plan-edit-btn" data-action="edit-plan" data-plan-id="${planId}">Edit</button>`
+            ? `<button type="button" class="btn btn-sm btn-outline-primary plan-edit-btn" data-action="edit-plan" data-plan-id="${escapeHtml(planId)}">Edit</button>`
             : '<span class="text-muted">N/A</span>';
-
-          const specsHtml = specBadges.length
-            ? specBadges.map((label) => `<span class="plan-chip">${label}</span>`).join('')
-            : '<span class="text-muted">—</span>';
-
-          const communitiesHtml = communityLabels.length
-            ? communityLabels.map((label) => `<span class="plan-chip plan-chip--muted">${label}</span>`).join('')
-            : '<span class="text-muted">None</span>';
 
           const createdDisplay =
             created && !Number.isNaN(created.valueOf()) ? dateFormatter.format(created) : 'N/A';
 
-          return html`<tr>
+          return html`<tr
+            data-plan-row="true"
+            data-search-text="${escapeHtml(searchBlob)}"
+            data-community-tokens="${escapeHtml(communityTokens.join(FILTER_DELIMITER))}"
+            data-community-labels="${escapeHtml(communityLabels.join(FILTER_DELIMITER))}"
+          >
             <td>
               <div class="plan-meta">
-                <span class="plan-number">${plan.planNumber || '—'}</span>
-                <span class="plan-name">${plan.name || ''}</span>
+                <span class="plan-number">${escapeHtml(planNumberDisplay)}</span>
+                <span class="plan-name">${escapeHtml(planNameDisplay)}</span>
               </div>
             </td>
             <td>
-              <div class="plan-specs">${specsHtml}</div>
+              <span class="plan-specs-text${specBadges.length ? '' : ' is-empty'}">${specsDisplayHtml}</span>
             </td>
             <td>
-              <div class="plan-communities">${communitiesHtml}</div>
+              <span class="plan-community-text">${escapeHtml(communitiesDisplay)}</span>
             </td>
             <td>
-              <div class="plan-created">${createdDisplay}</div>
+              <div class="plan-created">${escapeHtml(createdDisplay)}</div>
             </td>
             <td class="text-end actions-cell">${actionCell}</td>
           </tr>`;
         });
 
         plansTableBody.innerHTML = rows.join('');
+        syncCommunityFilterOptionsFromRows();
+        applyPlanFilters();
       }
 
       async function loadCommunities() {
@@ -609,6 +855,12 @@
         } catch (err) {
           console.error('Failed to hydrate page:', err);
           plansTableBody.innerHTML = '<tr><td colspan="5" class="text-center text-danger">Failed to load floor plans.</td></tr>';
+          syncCommunityFilterOptionsFromRows();
+          const hasActiveFilters = Boolean(
+            normalizeFilterText(plansSearchInput?.value || '') || normalizeFilterText(plansCommunityFilter?.value || '')
+          );
+          setPlansResultCount(0, hasActiveFilters);
+          setClearFiltersState(hasActiveFilters);
         }
       }
 
@@ -748,6 +1000,12 @@
           activateTab(target);
         });
       });
+      plansSearchInput?.addEventListener('input', applyPlanFilters);
+      plansCommunityFilter?.addEventListener('change', applyPlanFilters);
+      plansClearFiltersBtn?.addEventListener('click', () => clearPlanFilters({ focusSearch: true }));
+
+      setPlansResultCount(0, false);
+      setClearFiltersState(false);
       // set default tab
       activateTab('add-tab');
 
@@ -943,3 +1201,4 @@
   <script src="/assets/vendor/pdfjs/pdf.min.js" nonce="<%= cspNonce %>"></script>
 </body>
 </html>
+

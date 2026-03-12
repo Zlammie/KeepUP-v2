@@ -1,5 +1,5 @@
 // /assets/js/realtors/index.js
-import { fetchRealtors, deleteRealtor } from './api.js';
+import { fetchRealtors, deleteRealtor, createRealtor } from './api.js';
 import { renderTable, setActionHandlers } from './render.js';
 import { initTaskPanel } from '../contact-details/tasks.js';
 
@@ -132,7 +132,8 @@ const state = {
   statsByRealtor: new Map(),
   search: '',
   filter: 'all', // 'all' | 'has-purchased' | 'has-negotiation' | 'has-closed'
-  attentionOnly: false
+  attentionOnly: false,
+  isCreating: false
 };
 
 function matchesSearch(r, q) {
@@ -173,9 +174,107 @@ function applyFilters() {
 
   const totalEl = document.getElementById('realtorTotal');
   if (totalEl) totalEl.textContent = counts.all;
+  const headerCountEl = document.getElementById('realtorsHeaderCount');
+  if (headerCountEl) headerCountEl.textContent = `(${counts.all})`;
   Object.entries(counts).forEach(([k, v]) => {
     const el = document.querySelector(`[data-count="${k}"]`);
     if (el) el.textContent = v;
+  });
+}
+
+function serializeInlineRealtorForm(form) {
+  const formData = new FormData(form);
+  const trimValue = (key) => (formData.get(key) || '').toString().trim();
+
+  const payload = {
+    firstName: trimValue('firstName'),
+    lastName: trimValue('lastName'),
+    email: trimValue('email'),
+    phone: trimValue('phone'),
+    brokerage: trimValue('brokerage')
+  };
+
+  const visitDate = trimValue('visitDate');
+  if (visitDate) payload.visitDate = visitDate;
+
+  Object.keys(payload).forEach((key) => {
+    if (payload[key] === '') delete payload[key];
+  });
+
+  return payload;
+}
+
+function showInlineRealtorForm() {
+  const form = document.getElementById('inlineRealtorForm');
+  const addBtn = document.getElementById('inlineAddRealtorBtn');
+  if (!form || !addBtn) return;
+
+  state.isCreating = true;
+  form.classList.remove('d-none');
+  addBtn.disabled = true;
+  addBtn.setAttribute('aria-expanded', 'true');
+
+  const firstInput = form.querySelector('input[name="firstName"]');
+  if (firstInput) firstInput.focus();
+}
+
+function hideInlineRealtorForm() {
+  const form = document.getElementById('inlineRealtorForm');
+  const addBtn = document.getElementById('inlineAddRealtorBtn');
+  if (!form || !addBtn) return;
+
+  state.isCreating = false;
+  form.classList.add('d-none');
+  form.reset();
+  addBtn.disabled = false;
+  addBtn.setAttribute('aria-expanded', 'false');
+}
+
+function initInlineRealtorForm() {
+  const form = document.getElementById('inlineRealtorForm');
+  const addBtn = document.getElementById('inlineAddRealtorBtn');
+  if (!form || !addBtn) return;
+
+  const cancelBtn = document.getElementById('cancelInlineRealtor');
+
+  addBtn.addEventListener('click', () => {
+    if (state.isCreating) return;
+    showInlineRealtorForm();
+  });
+
+  cancelBtn?.addEventListener('click', () => {
+    hideInlineRealtorForm();
+  });
+
+  form.addEventListener('submit', async (event) => {
+    event.preventDefault();
+    if (form.dataset.submitting === 'true') return;
+
+    form.dataset.submitting = 'true';
+    const submitBtn = form.querySelector('button[type="submit"]');
+    submitBtn?.setAttribute('disabled', 'true');
+
+    try {
+      const payload = serializeInlineRealtorForm(form);
+      const realtor = await createRealtor(payload);
+      if (!realtor || !realtor._id) throw new Error('Realtor not returned from server');
+
+      const idx = state.allRealtors.findIndex((item) => String(item._id) === String(realtor._id));
+      if (idx >= 0) {
+        state.allRealtors[idx] = { ...state.allRealtors[idx], ...realtor };
+      } else {
+        state.allRealtors.unshift(realtor);
+      }
+
+      hideInlineRealtorForm();
+      applyFilters();
+    } catch (err) {
+      console.error(err);
+      alert(err?.message || 'Failed to save realtor. Please try again.');
+    } finally {
+      form.dataset.submitting = 'false';
+      submitBtn?.removeAttribute('disabled');
+    }
   });
 }
 
@@ -185,6 +284,7 @@ function initTopBar() {
   const resetBtn   = document.getElementById('resetRealtorFilters');
   const delToggle  = document.getElementById('toggleDeleteMode');
   const attentionToggle = document.getElementById('attentionFilterToggle');
+  initInlineRealtorForm();
 
   // Delete mode toggle (show/hide last column)
   delToggle?.addEventListener('click', () => {

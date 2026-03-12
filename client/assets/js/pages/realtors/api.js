@@ -3,6 +3,9 @@ import { getJson, putJson, postJson, deleteJson } from '../../core/http.js';
 
 export const fetchRealtors = () => getJson('/api/realtors');
 
+export const createRealtor = (payload) =>
+  postJson('/api/realtors', payload);
+
 export const updateRealtor = (id, patch) =>
   putJson(`/api/realtors/${id}`, patch).catch(() => ({}));
 

@@ -86,12 +86,13 @@
 <body class="realtors-page contacts-shared mt-5" data-current-user-id="<%= currentUser ? currentUser.id : '' %>">
   <%- include('../partials/nav') %>
   <%- include('../partials/top-nav-contacts') %>
+  <h2 class="realtors-section-header">
+    Realtors <span id="realtorsHeaderCount" class="realtors-section-header__count">(0)</span>
+  </h2>
 
   <!-- Realtors Top Bar -->
   <div class="contact-topbar" id="realtorsTopBar">
     <div class="topbar-left" style="gap:12px;">
-      <input id="realtorSearch" class="form-control form-control-sm" type="search"
-             placeholder="Search name, email, phone, brokerage" />
       <div class="topbar-total">
         <span class="total-label">Total:</span>
         <span id="realtorTotal" class="total-value">0</span>
@@ -117,9 +118,63 @@
       </button>
     </div>
 
-    <button id="resetRealtorFilters" class="btn btn-sm btn-outline-secondary">Reset</button>
-    <button id="toggleDeleteMode" class="btn btn-sm btn-outline-danger">Delete</button>
+    <div class="topbar-actions">
+      <button id="resetRealtorFilters" class="btn btn-sm btn-outline-secondary">Reset</button>
+      <button id="toggleDeleteMode" class="btn btn-sm btn-outline-danger">Delete</button>
+    </div>
   </div>
+
+  <div id="realtorsUtilityBar" class="realtors-utility-bar">
+    <div id="realtorsSearchWrapper" class="utility-search">
+      <label for="realtorSearch" class="visually-hidden">Search realtors</label>
+      <input
+        id="realtorSearch"
+        class="form-control form-control-sm"
+        type="search"
+        placeholder="Search name, email, phone, brokerage"
+        autocomplete="off"
+      />
+    </div>
+    <button type="button" id="inlineAddRealtorBtn" class="btn btn-primary btn-sm utility-add-btn">
+      <img src="/assets/icons/add-circle-icon.svg" alt="Add realtor" />
+      <span>Add Realtor</span>
+    </button>
+  </div>
+
+  <form id="inlineRealtorForm" class="realtors-inline-form d-none" autocomplete="off">
+    <div class="row g-2 align-items-end">
+      <div class="col-sm-6 col-lg">
+        <label for="inlineRealtorFirstName" class="form-label">First Name</label>
+        <input type="text" id="inlineRealtorFirstName" name="firstName" class="form-control form-control-sm" />
+      </div>
+      <div class="col-sm-6 col-lg">
+        <label for="inlineRealtorLastName" class="form-label">Last Name</label>
+        <input type="text" id="inlineRealtorLastName" name="lastName" class="form-control form-control-sm" />
+      </div>
+      <div class="col-sm-6 col-lg">
+        <label for="inlineRealtorEmail" class="form-label">Email</label>
+        <input type="email" id="inlineRealtorEmail" name="email" class="form-control form-control-sm" />
+      </div>
+      <div class="col-sm-6 col-lg">
+        <label for="inlineRealtorPhone" class="form-label">Phone</label>
+        <input type="tel" id="inlineRealtorPhone" name="phone" class="form-control form-control-sm" />
+      </div>
+      <div class="col-sm-6 col-lg">
+        <label for="inlineRealtorVisitDate" class="form-label">Visit Date</label>
+        <input type="date" id="inlineRealtorVisitDate" name="visitDate" class="form-control form-control-sm" />
+      </div>
+      <div class="col-sm-6 col-lg">
+        <label for="inlineRealtorBrokerage" class="form-label">Brokerage</label>
+        <input type="text" id="inlineRealtorBrokerage" name="brokerage" class="form-control form-control-sm" />
+      </div>
+      <div class="col-auto">
+        <button type="submit" class="btn btn-success btn-sm">Save Realtor</button>
+      </div>
+      <div class="col-auto">
+        <button type="button" id="cancelInlineRealtor" class="btn btn-outline-secondary btn-sm">Cancel</button>
+      </div>
+    </div>
+  </form>
 
   <table class="table table-bordered realtors-table" id="realtorsTable">
       <colgroup>

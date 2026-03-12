@@ -66,7 +66,7 @@ async function onType(input, results) {
 
 function resultRow(realtor, results) {
   const div = document.createElement('div');
-  div.className = 'search-result';
+  div.className = 'search-result ku-search-result';
   const name = [realtor.firstName, realtor.lastName].filter(Boolean).join(' ') || '(no name)';
   const emailPart = realtor.email ? ` (${realtor.email})` : '';
   div.textContent = `${name}${emailPart}`;

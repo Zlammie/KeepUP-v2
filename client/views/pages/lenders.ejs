@@ -80,6 +80,9 @@
 <body class="lenders-page contacts-shared mt-5" data-current-user-id="<%= currentUser ? currentUser.id : '' %>">
   <%- include('../partials/nav') %>
   <%- include('../partials/top-nav-contacts') %>
+  <h2 class="lenders-section-header">
+    Lenders <span id="lendersHeaderCount" class="lenders-section-header__count">(0)</span>
+  </h2>
 
   <!-- Lenders Top Bar -->
   <div class="contact-topbar" id="lendersTopBar">

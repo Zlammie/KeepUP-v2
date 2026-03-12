@@ -73,6 +73,8 @@ export function renderTable(rows) {
     const lenderMeta = getLenderStatusMeta(c.lenderStatus);
 
     const communities = Array.isArray(c.communities) ? c.communities.join(', ') : (c.communities || 'N/A');
+    const linkedLotAddress = String(c.linkedLotAddress || c?.linkedLot?.address || c?.lotId?.address || '').trim();
+    const showLinkedLotAddress = Boolean(linkedLotAddress);
     const owner = c.owner || 'N/A';
 
     const requiresAttention = Boolean(c.requiresAttention);
@@ -115,7 +117,14 @@ export function renderTable(rows) {
           </div>
         </div>
       </td>
-      <td>${escapeHtml(communities)}</td>
+      <td class="community-column-cell">
+        <div class="community-primary-line">${escapeHtml(communities)}</div>
+        ${
+          showLinkedLotAddress
+            ? `<div class="community-lot-address">${escapeHtml(linkedLotAddress)}</div>`
+            : ''
+        }
+      </td>
       <td>${escapeHtml(owner)}</td>
     `;
     tbody.appendChild(tr);

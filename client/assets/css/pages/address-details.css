@@ -1812,10 +1812,10 @@ body.task-modal-open{
   margin-top:0.35rem;
 }
 .task-type-button{
-  border:1px solid #cbd5e1;
+  border:1px solid rgba(13,110,253,0.35);
   border-radius:999px;
-  background:#fff;
-  color:#344054;
+  background:rgba(13,110,253,0.12);
+  color:#0d6efd;
   font-size:0.85rem;
   font-weight:600;
   padding:0.45rem 0.9rem;
@@ -1824,6 +1824,7 @@ body.task-modal-open{
 }
 .task-type-button:hover,
 .task-type-button:focus-visible{
+  background:rgba(13,110,253,0.18);
   border-color:#0d6efd;
   color:#0d6efd;
   box-shadow:0 0 0 3px rgba(13,110,253,0.15);
@@ -1857,10 +1858,10 @@ body.task-modal-open{
   gap:0.4rem;
 }
 .task-type-subbutton{
-  border:1px solid #d0d5dd;
+  border:1px solid rgba(13,110,253,0.35);
   border-radius:999px;
-  background:#fff;
-  color:#475467;
+  background:rgba(13,110,253,0.12);
+  color:#0d6efd;
   font-size:0.8rem;
   font-weight:600;
   padding:0.35rem 0.75rem;
@@ -1869,6 +1870,7 @@ body.task-modal-open{
 }
 .task-type-subbutton:hover,
 .task-type-subbutton:focus-visible{
+  background:rgba(13,110,253,0.18);
   border-color:#0d6efd;
   color:#0d6efd;
   box-shadow:0 0 0 3px rgba(13,110,253,0.15);

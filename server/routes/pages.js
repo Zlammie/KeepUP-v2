@@ -43,6 +43,10 @@ const {
   normalizeQueueParams,
   paginateRows
 } = require('../lib/brzReadinessQueue');
+const {
+  buildLotOperationsRows,
+  buildLotOperationsSummary
+} = require('../lib/brzLotOperations');
 const { resolveListingLocationDefaults } = require('../services/locationService');
 const { hydrateTaskLinks, groupTasksByAttachment } = require('../utils/taskLinkedDetails');
 const upload = require('../middleware/upload');
@@ -1071,6 +1075,115 @@ router.get('/buildrootz-community', ensureAuth, requireRole('READONLY','USER','M
   }
 );
 
+router.get(
+  '/admin/buildrootz',
+  ensureAuth,
+  requireRole('READONLY', 'USER', 'MANAGER', 'COMPANY_ADMIN', 'SUPER_ADMIN'),
+  (_req, res) => {
+    res.redirect('/admin/buildrootz/dashboard');
+  }
+);
+
+router.get(
+  '/admin/buildrootz/dashboard',
+  ensureAuth,
+  requireRole('READONLY', 'USER', 'MANAGER', 'COMPANY_ADMIN', 'SUPER_ADMIN'),
+  async (req, res, next) => {
+    try {
+      const filter = { ...base(req) };
+      const allowed = getAllowedCommunityIds(req.user || {});
+
+      if (allowed.length) {
+        const allowedObjectIds = allowed
+          .filter(isId)
+          .map((id) => new mongoose.Types.ObjectId(id));
+        filter._id = { $in: allowedObjectIds };
+      }
+
+      const communities = await Community.find(filter)
+        .select('name city state buildrootz lots')
+        .lean();
+
+      const scopedCommunities = filterCommunitiesForUser(req.user, communities);
+      const summary = scopedCommunities.reduce((acc, community) => {
+        const isMapped = Boolean(
+          community?.buildrootz?.communityId || community?.buildrootz?.publicCommunityId
+        );
+        if (isMapped) acc.mappedCommunities += 1;
+
+        const lots = Array.isArray(community?.lots) ? community.lots : [];
+        acc.totalLots += lots.length;
+        lots.forEach((lot) => {
+          if (isLotPublishedForBuildrootz(lot)) acc.publishedLots += 1;
+        });
+
+        return acc;
+      }, {
+        totalCommunities: scopedCommunities.length,
+        mappedCommunities: 0,
+        totalLots: 0,
+        publishedLots: 0
+      });
+
+      const roles = Array.isArray(req.user?.roles) ? req.user.roles : [];
+      const isManager = roles.includes('MANAGER');
+      const canAccessMapping = isManager || isCompanyAdmin(req) || isSuper(req);
+      const canAccessPublishing = isCompanyAdmin(req) || isSuper(req);
+      const canAccessReadiness = isCompanyAdmin(req) || isSuper(req);
+      const canAccessLotOperations = isCompanyAdmin(req) || isSuper(req);
+
+      const quickLinks = [
+        {
+          title: 'Listings',
+          description: 'Browse and filter lots scoped to your communities.',
+          href: '/listings',
+          enabled: true
+        },
+        {
+          title: 'Listing Map',
+          description: 'Upload community map assets and preview overlays.',
+          href: '/listing-map',
+          enabled: true
+        },
+        {
+          title: 'BRZ Publishing',
+          description: 'Publish KeepUp inventory bundles to BuildRootz.',
+          href: '/admin/buildrootz/publishing',
+          enabled: canAccessPublishing,
+          requires: 'Company Admin+'
+        },
+        {
+          title: 'Readiness Queue',
+          description: 'Review readiness and reconcile publish flags in bulk.',
+          href: '/admin/brz/readiness',
+          enabled: canAccessReadiness,
+          requires: 'Company Admin+'
+        },
+        {
+          title: 'Lot Operations (Merged)',
+          description: 'Merged Listings + Readiness workflow for BuildRootz lot operations.',
+          href: '/admin/brz/lot-operations',
+          enabled: canAccessLotOperations,
+          requires: 'Company Admin+'
+        }
+      ];
+
+      res.render('pages/admin/buildrootz-dashboard', {
+        active: 'community',
+        summary: {
+          ...summary,
+          unmappedCommunities: Math.max(summary.totalCommunities - summary.mappedCommunities, 0),
+          unpublishedLots: Math.max(summary.totalLots - summary.publishedLots, 0)
+        },
+        canAccessMapping,
+        quickLinks
+      });
+    } catch (err) {
+      next(err);
+    }
+  }
+);
+
 router.get('/admin/buildrootz/communities', ensureAuth, requireRole('MANAGER','COMPANY_ADMIN','SUPER_ADMIN'),
   async (req, res) => {
     const communities = await Community.find({ ...base(req) })
@@ -1094,6 +1207,160 @@ router.get(
   requireCompanyAdmin,
   (req, res) => {
     res.render('pages/admin/buildrootz-publishing', { active: 'community' });
+  }
+);
+
+router.get(
+  '/admin/brz/lot-operations',
+  ensureAuth,
+  requireRole('COMPANY_ADMIN', 'SUPER_ADMIN'),
+  async (req, res, next) => {
+    try {
+      const allowedCommunityIds = getAllowedCommunityIds(req.user).filter(isId);
+      const companyId = isId(req.user?.company) ? String(req.user.company) : null;
+      if (!companyId) {
+        return res.status(400).send('Invalid company context');
+      }
+
+      const communityQuery = { company: companyId };
+      if (!isSuper(req) && allowedCommunityIds.length) {
+        communityQuery._id = { $in: allowedCommunityIds };
+      }
+
+      const communities = await Community.find(communityQuery)
+        .select([
+          'name',
+          'city',
+          'state',
+          'description',
+          'buildrootzDescription',
+          'updatedAt',
+          'lots._id',
+          'lots.jobNumber',
+          'lots.lot',
+          'lots.block',
+          'lots.phase',
+          'lots.address',
+          'lots.city',
+          'lots.state',
+          'lots.postalCode',
+          'lots.zip',
+          'lots.generalStatus',
+          'lots.status',
+          'lots.floorPlan',
+          'lots.heroImage',
+          'lots.listingPhotos',
+          'lots.liveElevationPhoto',
+          'lots.latitude',
+          'lots.longitude',
+          'lots.listPrice',
+          'lots.salesPrice',
+          'lots.listingDescription',
+          'lots.description',
+          'lots.beds',
+          'lots.bedrooms',
+          'lots.baths',
+          'lots.bathrooms',
+          'lots.sqft',
+          'lots.squareFeet',
+          'lots.sqFeet',
+          'lots.isPublished',
+          'lots.isListed',
+          'lots.listed',
+          'lots.listingActive',
+          'lots.publishedAt',
+          'lots.listDate',
+          'lots.contentSyncedAt',
+          'lots.buildrootzSyncedAt',
+          'lots.syncedAt',
+          'lots.buildrootzLastPublishStatus',
+          'lots.buildrootz',
+          'lots.updatedAt'
+        ].join(' '))
+        .sort({ name: 1, _id: 1 })
+        .lean();
+
+      const communityOptions = communities.map((community) => ({
+        id: String(community._id),
+        name: community.name || 'Community',
+        location: [community.city, community.state].filter(Boolean).join(', ')
+      }));
+
+      const normalizeFilterValue = (value) => String(value || '').trim().toLowerCase();
+      const allowedStatusFilters = new Set(['all', 'available', 'spec', 'hold']);
+      const allowedPublishedFilters = new Set(['all', 'published', 'unpublished']);
+      const allowedReadinessFilters = new Set(['all', 'ready', 'warning', 'incomplete']);
+
+      const requestedCommunityId = String(req.query.communityId || '').trim();
+      const initialFilters = {
+        communityId: communityOptions.some((community) => community.id === requestedCommunityId)
+          ? requestedCommunityId
+          : '',
+        status: allowedStatusFilters.has(normalizeFilterValue(req.query.status))
+          ? normalizeFilterValue(req.query.status)
+          : 'all',
+        published: allowedPublishedFilters.has(normalizeFilterValue(req.query.published))
+          ? normalizeFilterValue(req.query.published)
+          : 'all',
+        readiness: allowedReadinessFilters.has(normalizeFilterValue(req.query.readiness))
+          ? normalizeFilterValue(req.query.readiness)
+          : 'all'
+      };
+
+      const floorPlanIds = new Set();
+      communities.forEach((community) => {
+        if (initialFilters.communityId && String(community._id) !== initialFilters.communityId) return;
+        const lots = Array.isArray(community?.lots) ? community.lots : [];
+        lots.forEach((lot) => {
+          const rawFloorPlan = lot?.floorPlan;
+          const floorPlanId = (() => {
+            if (!rawFloorPlan) return '';
+            if (typeof rawFloorPlan === 'string') return rawFloorPlan.trim();
+            if (typeof rawFloorPlan === 'object' && rawFloorPlan._id) return String(rawFloorPlan._id);
+            if (typeof rawFloorPlan === 'object' && typeof rawFloorPlan.toString === 'function') {
+              const text = rawFloorPlan.toString();
+              return text && text !== '[object Object]' ? text : '';
+            }
+            return '';
+          })();
+
+          if (floorPlanId && isId(floorPlanId)) {
+            floorPlanIds.add(floorPlanId);
+          }
+        });
+      });
+
+      const floorPlanDocs = floorPlanIds.size
+        ? await FloorPlan.find({
+            _id: { $in: Array.from(floorPlanIds) },
+            company: companyId
+          })
+            .select('name planNumber specs')
+            .lean()
+        : [];
+
+      const floorPlanById = floorPlanDocs.reduce((acc, floorPlan) => {
+        acc[String(floorPlan._id)] = floorPlan;
+        return acc;
+      }, {});
+
+      const rows = buildLotOperationsRows({
+        communities,
+        floorPlanById,
+        communityId: initialFilters.communityId
+      });
+      const summary = buildLotOperationsSummary(rows);
+
+      res.render('pages/admin/brz-lot-operations', {
+        active: 'community',
+        summary,
+        rows,
+        communityOptions,
+        initialFilters
+      });
+    } catch (err) {
+      next(err);
+    }
   }
 );
 

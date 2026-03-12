@@ -154,19 +154,35 @@ function wireTaskButtons() {
   }
 }
 
+function setEmailPauseUi(paused) {
+  const isPaused = Boolean(paused);
+  state.emailPaused = isPaused;
+
+  if (dom.emailStatusBadge) {
+    dom.emailStatusBadge.textContent = isPaused ? 'Paused' : 'Active';
+    dom.emailStatusBadge.classList.toggle('is-paused', isPaused);
+    dom.emailStatusBadge.classList.toggle('is-active', !isPaused);
+  }
+
+  if (dom.emailPauseBtn) {
+    dom.emailPauseBtn.textContent = isPaused ? 'Resume Emails' : 'Pause Emails';
+    dom.emailPauseBtn.setAttribute('aria-label', isPaused ? 'Resume emails for this realtor' : 'Pause emails for this realtor');
+  }
+}
+
 function wireEmailPauseToggle() {
-  const toggle = dom.inputs.emailPaused;
-  if (!toggle) return;
-  toggle.addEventListener('change', async () => {
-    const desired = Boolean(toggle.checked);
-    toggle.disabled = true;
+  const button = dom.emailPauseBtn;
+  if (!button) return;
+  button.addEventListener('click', async () => {
+    const desired = !state.emailPaused;
+    button.disabled = true;
     try {
       await setRealtorEmailPause(state.realtorId, desired);
+      setEmailPauseUi(desired);
     } catch (err) {
       console.error('[realtor-details] Failed to update email pause', err);
-      toggle.checked = !desired;
     } finally {
-      toggle.disabled = false;
+      button.disabled = false;
     }
   });
 }
@@ -181,6 +197,7 @@ async function init() {
   try {
     const r = await fetchRealtor(state.realtorId);
     populateForm(r);
+    setEmailPauseUi(Boolean(r.emailPaused));
     updateHeaderFromInputs();
     disableEditor(true);
     setupAutosave();

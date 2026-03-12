@@ -112,6 +112,97 @@
   text-align: center;
 }
 
+/* Reusable search input + results dropdown */
+.ku-search {
+  position: relative;
+  width: 100%;
+  max-width: 100%;
+  min-width: 0;
+}
+
+.ku-search .ku-search-input {
+  display: block;
+  width: 100%;
+  max-width: 100%;
+  min-width: 0;
+  box-sizing: border-box;
+  height: 40px;
+  border-radius: 8px;
+  border: 1px solid #d6dbe1;
+  padding: 0 12px 0 36px;
+  font-size: 14px;
+  background: #fff;
+  transition: border-color 0.15s ease, box-shadow 0.15s ease;
+}
+
+.ku-search .ku-search-input:focus {
+  border-color: #0e79b2;
+  box-shadow: 0 0 0 2px rgba(14, 121, 178, 0.15);
+  outline: none;
+}
+
+.ku-search-icon {
+  position: absolute;
+  top: 50%;
+  left: 12px;
+  transform: translateY(-50%);
+  color: #8a94a6;
+  pointer-events: none;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.ku-search-icon svg {
+  width: 16px;
+  height: 16px;
+  stroke: currentColor;
+  fill: none;
+}
+
+.ku-search-results {
+  width: 100%;
+  max-width: 100%;
+  box-sizing: border-box;
+  background: #fff;
+  border: 1px solid #d6dbe1;
+  border-radius: 8px;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08);
+  max-height: 220px;
+  overflow-x: hidden;
+  overflow-y: auto;
+  margin-top: 6px;
+}
+
+.ku-search-results:empty {
+  display: none;
+}
+
+.ku-search-result {
+  padding: 8px 12px;
+  cursor: pointer;
+  font-size: 14px;
+}
+
+.ku-search-result:hover {
+  background: #f3f7fb;
+  transition: background 0.12s ease;
+}
+
+.ku-search-result.is-active,
+.ku-search-result.selected {
+  background: #e8f2f9;
+}
+
+.ku-search-results .search-empty,
+.ku-search-results .search-error,
+.ku-search-results .search-hint,
+.ku-search-results .results-note {
+  padding: 8px 12px;
+  font-size: 13px;
+  color: #6b7280;
+}
+
 
 /* Individual fields - address details */
 .field {

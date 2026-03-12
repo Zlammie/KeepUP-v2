@@ -2,6 +2,25 @@
 .contacts-page {
   --contact-primary: var(--ku-blue, #0e79b2);
   --contact-danger: #dc3545;
+  padding-top: 75px !important;
+  margin-top: 0 !important;
+}
+
+.contacts-section-header {
+  margin: 0 0 12px;
+  padding-bottom: 8px;
+  border-bottom: 1px solid #e6e8ec;
+  font-size: 18px;
+  font-weight: 600;
+  line-height: 1.35;
+  letter-spacing: 0.2px;
+  color: #5f6b7a;
+  text-align: left;
+}
+
+.contacts-section-header__count {
+  color: #738091;
+  font-weight: 500;
 }
 
 

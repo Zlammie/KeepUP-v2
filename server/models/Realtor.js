@@ -18,6 +18,7 @@ const RealtorSchema = new Schema({
   phone:      { type: String, set: v => normalizePhoneForDb(v).phone, default: '', index: true },
 
   brokerage:  { type: String, set: toTrim, default: '' },
+  visitDate:  { type: Date, default: null },
 
   // 🌱 optional (handy later; harmless now)
   licenseId:  { type: String, set: toTrim, default: '' },

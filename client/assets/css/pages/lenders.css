@@ -1,6 +1,25 @@
 /* Page tokens */
 .lenders-page {
   --lenders-primary: var(--ku-blue, #0e79b2);
+  padding-top: 75px !important;
+  margin-top: 0 !important;
+}
+
+.lenders-section-header {
+  margin: 0 0 12px;
+  padding-bottom: 8px;
+  border-bottom: 1px solid #e6e8ec;
+  font-size: 18px;
+  font-weight: 600;
+  line-height: 1.35;
+  letter-spacing: 0.2px;
+  color: #5f6b7a;
+  text-align: left;
+}
+
+.lenders-section-header__count {
+  color: #738091;
+  font-weight: 500;
 }
 
 /* Lenders top-bar pill colors (outline only; color on .active) */

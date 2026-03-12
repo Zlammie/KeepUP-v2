@@ -1,0 +1,52 @@
+.brz-dashboard-page .brz-summary-card {
+  border-radius: 12px;
+}
+
+.brz-dashboard-page .brz-summary-card .display-6 {
+  font-size: 2rem;
+  font-weight: 700;
+  letter-spacing: -0.02em;
+  color: #0f172a;
+}
+
+.brz-dashboard-page .brz-link-card {
+  border-radius: 12px;
+}
+
+.brz-dashboard-page .brz-link-card .h6 {
+  color: #0f172a;
+}
+
+.brz-dashboard-page .brz-plus-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  height: 32px;
+  border: 0;
+  background: transparent;
+  padding: 0;
+  border-radius: 999px;
+}
+
+.brz-dashboard-page .brz-plus-btn img {
+  width: 24px;
+  height: 24px;
+}
+
+.brz-dashboard-page .brz-plus-btn:hover,
+.brz-dashboard-page .brz-plus-btn:focus-visible {
+  background: #eef2ff;
+  outline: none;
+}
+
+.brz-dashboard-page .brz-plus-btn.is-disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.brz-dashboard-page .badge.text-bg-light {
+  border: 1px solid #dbe0ea;
+  background: #f8fafc;
+  color: #334155;
+}

@@ -140,6 +140,8 @@ function applyFilters() {
 
   const totalEl = document.getElementById('lenderTotal');
   if (totalEl) totalEl.textContent = counts.all;
+  const headerCountEl = document.getElementById('lendersHeaderCount');
+  if (headerCountEl) headerCountEl.textContent = `(${counts.all})`;
 
   Object.entries(counts).forEach(([k,v]) => {
     const el = document.querySelector(`[data-count="${k}"]`);

@@ -47,7 +47,7 @@ const hasLinkedLotLocal = (contact = {}) => {
 
 const computePurchasedFlag = (contact = {}) => {
   const status = String(contact.status || '').trim().toLowerCase();
-  return status === 'purchased';
+  return status === 'purchased' || status === 'closed';
 };
 
 const annotateContacts = (list = []) =>

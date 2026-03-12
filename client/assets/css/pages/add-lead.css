@@ -28,3 +28,12 @@
   background-color: #e7f1ff;   /* light blue hover */
   border-color: var(--lead-primary);
 }
+
+/* Align the add-lead card to the global top search bar centerline on desktop.
+   Body has left nav padding, so we shift the card left by half that offset. */
+@media (min-width: 992px) {
+  .add-lead-page .add-lead-wrapper {
+    position: relative;
+    left: calc((var(--nav-side-width) + var(--nav-content-gutter)) / -2);
+  }
+}

@@ -1,0 +1,290 @@
+.brz-lot-ops-page {
+  margin-left: 170px;
+  margin-right: 1rem;
+  padding-right: 0.5rem;
+  max-width: calc(100vw - 170px - 1rem);
+}
+
+.brz-lot-ops-stat {
+  font-size: 2rem;
+  font-weight: 700;
+  line-height: 1.1;
+}
+
+.brz-lot-ops-stat--ready {
+  color: #166534;
+}
+
+.brz-lot-ops-stat--warning {
+  color: #b45309;
+}
+
+.brz-lot-ops-stat--incomplete {
+  color: #b91c1c;
+}
+
+.brz-lot-ops-stat--published {
+  color: #1d4ed8;
+}
+
+.brz-lot-ops-stat--sync {
+  color: #7c2d12;
+}
+
+.brz-lot-ops-filters {
+  border-bottom: 1px solid #eef2f6;
+  padding-bottom: 8px;
+}
+
+.brz-lot-ops-status-btn.active,
+.brz-lot-ops-published-btn.active,
+.brz-lot-ops-readiness-btn.active {
+  background: #0e79b2;
+  color: #fff;
+  border-color: #0e79b2;
+}
+
+.brz-lot-ops-table {
+  min-width: 1400px;
+  margin-bottom: 0;
+}
+
+.brz-lot-ops-table th {
+  white-space: nowrap;
+}
+
+.brz-lot-ops-table-wrap {
+  --brz-table-head-h: 42px;
+  max-height: calc(100vh - 290px);
+  overflow: auto;
+  border: 1px solid #e2e8f0;
+  border-radius: 10px;
+  background: #fff;
+  margin: 0 5px;
+}
+
+.brz-lot-ops-table-card-body {
+  padding-left: 5px;
+  padding-right: 5px;
+  padding-bottom: 0.55rem;
+}
+
+.brz-lot-ops-table-card-body .alert {
+  margin-left: 5px;
+  margin-right: 5px;
+}
+
+.brz-lot-ops-bulk-bar {
+  padding-left: 5px;
+  padding-right: 5px;
+}
+
+#brzLotOpsBulkPublishBtn {
+  font-size: 15px;
+}
+
+.brz-lot-ops-table thead th {
+  position: sticky;
+  top: 0;
+  z-index: 3;
+  background: #f8fafc;
+  box-shadow: inset 0 -1px 0 #e2e8f0;
+}
+
+.brz-lot-ops-table th,
+.brz-lot-ops-table td {
+  padding: 0.36rem 0.45rem;
+  line-height: 1.25;
+}
+
+.brz-lot-ops-col-select {
+  width: 2.15rem;
+  min-width: 2.15rem;
+  text-align: center;
+}
+
+.brz-lot-ops-table .listings-actions-col {
+  width: 112px;
+  min-width: 112px;
+}
+
+.brz-lot-ops-table .listings-view-col,
+.brz-lot-ops-table .brz-col-view {
+  width: 72px;
+  min-width: 72px;
+}
+
+.brz-lot-ops-table .brz-col-status {
+  width: 92px;
+  min-width: 92px;
+}
+
+.brz-lot-ops-table .brz-col-published {
+  width: 98px;
+  min-width: 98px;
+}
+
+.brz-lot-ops-table .brz-col-readiness {
+  width: 108px;
+  min-width: 108px;
+}
+
+.brz-lot-ops-table th:nth-child(9),
+.brz-lot-ops-table td:nth-child(9) {
+  width: 62px;
+  min-width: 62px;
+  text-align: center;
+}
+
+.brz-lot-ops-table th:nth-child(10),
+.brz-lot-ops-table td:nth-child(10) {
+  min-width: 118px;
+}
+
+.brz-lot-ops-table th:nth-child(11),
+.brz-lot-ops-table td:nth-child(11) {
+  min-width: 156px;
+}
+
+.brz-lot-ops-table .table-action-buttons {
+  gap: 0.4rem;
+}
+
+.brz-lot-ops-table .table-icon-btn img {
+  width: 19px;
+  height: 19px;
+}
+
+.brz-lot-ops-community {
+  font-weight: 600;
+  line-height: 1.12;
+}
+
+.brz-lot-ops-community-meta {
+  color: #64748b;
+  font-size: 0.78rem;
+  line-height: 1.1;
+  margin-top: 1px;
+}
+
+.brz-lot-ops-listing-primary {
+  font-weight: 600;
+  line-height: 1.12;
+}
+
+.brz-lot-ops-listing-secondary,
+.brz-lot-ops-listing-tertiary {
+  font-size: 0.78rem;
+  color: #64748b;
+  line-height: 1.1;
+  margin-top: 1px;
+}
+
+.brz-lot-ops-sync-cell {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.brz-lot-ops-sync-text {
+  font-size: 0.74rem;
+  color: #475569;
+  line-height: 1.1;
+  white-space: nowrap;
+}
+
+.brz-needs-sync-badge {
+  display: inline-flex;
+  align-items: center;
+  width: fit-content;
+  padding: 0.2rem 0.5rem;
+  border: 1px solid #fdba74;
+  border-radius: 999px;
+  background: #fff7ed;
+  color: #9a3412;
+  font-size: 0.72rem;
+  font-weight: 700;
+  line-height: 1;
+}
+
+.brz-lot-ops-group-row td {
+  background: #f8fafc;
+  border-top-width: 2px;
+  border-top-color: #e2e8f0;
+  padding: 0.45rem 0.55rem;
+  position: sticky;
+  top: var(--brz-table-head-h);
+  z-index: 2;
+  box-shadow: inset 0 -1px 0 #e2e8f0;
+}
+
+.brz-lot-ops-group-name {
+  font-weight: 700;
+  line-height: 1.12;
+}
+
+.brz-lot-ops-group-meta {
+  color: #475569;
+  font-size: 0.74rem;
+  line-height: 1.1;
+  margin-top: 1px;
+}
+
+.brz-lot-ops-group-actions {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  flex-wrap: wrap;
+}
+
+.brz-lot-ops-group-actions .btn {
+  padding: 0.18rem 0.45rem;
+  font-size: 0.72rem;
+  line-height: 1.15;
+  white-space: normal;
+}
+
+.brz-lot-ops-missing-cell {
+  min-width: 118px;
+}
+
+.brz-missing-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 2px 3px;
+  max-width: 114px;
+}
+
+.brz-lot-ops-table .brz-missing-chip {
+  padding: 0.22rem 0.45rem;
+  font-size: 0.69rem;
+  max-width: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.brz-lot-ops-table .brz-readiness-pill {
+  min-width: 5.25rem;
+  padding: 0.24rem 0.46rem;
+  font-size: 0.69rem;
+}
+
+.brz-lot-ops-table .brz-published-badge {
+  min-width: 0;
+  padding: 0.24rem 0.46rem;
+  font-size: 0.69rem;
+}
+
+@media (max-width: 991.98px) {
+  .brz-lot-ops-page {
+    margin-left: 0;
+    margin-right: 1rem;
+    padding-right: 1rem;
+    max-width: none;
+  }
+
+  .brz-lot-ops-table-wrap {
+    max-height: calc(100vh - 250px);
+  }
+}

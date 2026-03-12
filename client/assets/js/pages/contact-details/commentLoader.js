@@ -4,6 +4,48 @@ import { getState } from './state.js';
 let loadPromise = null;
 let hasLoadedOnce = false;
 
+const COMMENT_TYPE_CONFIG = {
+  note: { label: 'Note', icon: '/assets/icons/note.svg' },
+  phone: { label: 'Call', icon: '/assets/icons/phone.svg' },
+  call: { label: 'Call', icon: '/assets/icons/phone.svg' },
+  email: { label: 'Email', icon: '/assets/icons/email.svg' },
+  text: { label: 'Text', icon: '/assets/icons/sms.svg' },
+  sms: { label: 'Text', icon: '/assets/icons/sms.svg' }
+};
+
+function normalizeType(value) {
+  return String(value || '').trim().toLowerCase();
+}
+
+function getCommentTypeUI(type) {
+  const normalized = normalizeType(type);
+  return COMMENT_TYPE_CONFIG[normalized] || { label: type || 'Note', icon: '/assets/icons/note.svg' };
+}
+
+function formatCommentTimestamp(timestamp) {
+  const date = new Date(timestamp);
+  if (Number.isNaN(date.getTime())) return '--';
+  const datePart = date.toLocaleDateString(undefined, {
+    month: 'short',
+    day: 'numeric',
+    year: 'numeric'
+  });
+  const timePart = date.toLocaleTimeString(undefined, {
+    hour: 'numeric',
+    minute: '2-digit'
+  });
+  return `${datePart} • ${timePart}`;
+}
+
+function escapeHtml(value) {
+  return String(value || '')
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#39;');
+}
+
 export function setupCommentSection() {
   const saveBtn = document.getElementById('save-comment');
   if (!saveBtn) {
@@ -89,11 +131,20 @@ async function loadComments(force = false) {
 
       container.innerHTML = '';
       comments.forEach((comment) => {
+        const ui = getCommentTypeUI(comment?.type);
+        const timeLabel = formatCommentTimestamp(comment?.timestamp);
+        const content = escapeHtml(comment?.content || '');
+
         const div = document.createElement('div');
         div.classList.add('comment-entry');
         div.innerHTML = `
-          <div class="meta">${comment.type} - ${new Date(comment.timestamp).toLocaleString()}</div>
-          <div>${comment.content}</div>
+          <div class="comment-entry-icon-badge" aria-hidden="true">
+            <img class="comment-entry-icon" src="${ui.icon}" alt="" />
+          </div>
+          <div class="comment-entry-content">
+            <div class="comment-entry-meta">${ui.label} • ${timeLabel}</div>
+            <div class="comment-entry-body">${content}</div>
+          </div>
         `;
         container.appendChild(div);
       });

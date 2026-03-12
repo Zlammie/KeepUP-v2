@@ -43,6 +43,10 @@ router.post('/',
       body.company = isSuper(req) ? (body.company || req.user.company) : req.user.company;
       if (body.email) body.email = normalizeEmail(body.email);
       if (body.phone) body.phone = normalizePhoneForDb(body.phone).phone;
+      if (body.visitDate) {
+        const parsedVisitDate = new Date(body.visitDate);
+        body.visitDate = Number.isNaN(parsedVisitDate.valueOf()) ? null : parsedVisitDate;
+      }
 
       // 1) find by identity within company
       let realtor = null;
@@ -62,6 +66,7 @@ router.post('/',
         if (!realtor.firstName && body.firstName) patch.firstName = String(body.firstName).trim();
         if (!realtor.lastName  && body.lastName)  patch.lastName  = String(body.lastName).trim();
         if (!realtor.brokerage && body.brokerage) patch.brokerage = String(body.brokerage).trim();
+        if (!realtor.visitDate && body.visitDate) patch.visitDate = body.visitDate;
         if (Object.keys(patch).length) {
           await Realtor.updateOne({ _id: realtor._id, company: body.company }, { $set: patch });
           realtor = await Realtor.findById(realtor._id).lean();

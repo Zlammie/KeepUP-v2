@@ -47,7 +47,7 @@
             <!-- keep this if your existing save code expects it; our JS will fill it -->
             <input type="hidden" id="communities" />
           </div>
-          <div class="form-group">
+          <div class="form-group visit-date-field">
             <label for="visit-date">Visit Date</label>
             <input
               type="date"
@@ -170,8 +170,16 @@
 
           <div class="form-group">
             <label for="realtor-search">Search Realtor</label>
-            <input type="text" id="realtor-search" placeholder="Search by name, email, or phone" />
-            <div id="realtor-search-results" class="search-results"></div>
+            <div class="ku-search">
+              <span class="ku-search-icon" aria-hidden="true">
+                <svg viewBox="0 0 24 24" stroke-width="2">
+                  <circle cx="11" cy="11" r="7"></circle>
+                  <line x1="16.65" y1="16.65" x2="21" y2="21"></line>
+                </svg>
+              </span>
+              <input type="text" id="realtor-search" class="ku-search-input" placeholder="Search by name, email, or phone" />
+            </div>
+            <div id="realtor-search-results" class="search-results ku-search-results"></div>
           </div>
           <div class="form-group">
             <label for="realtorFirstName">First Name</label>
@@ -228,39 +236,48 @@
 
         <!-- Search input -->
         <div class="form-group" data-hide-when-cash>
-          <input
-            id="lender-search-input"
-            type="text"
-            placeholder="Search lenders by name, email, or phone"
-          />
+          <div class="ku-search">
+            <span class="ku-search-icon" aria-hidden="true">
+              <svg viewBox="0 0 24 24" stroke-width="2">
+                <circle cx="11" cy="11" r="7"></circle>
+                <line x1="16.65" y1="16.65" x2="21" y2="21"></line>
+              </svg>
+            </span>
+            <input
+              id="lender-search-input"
+              class="ku-search-input"
+              type="text"
+              placeholder="Search lenders by name, email, or phone"
+            />
+          </div>
         </div>
 
-        <div id="lender-search-results" class="search-results" data-hide-when-cash></div>
+        <div id="lender-search-results" class="search-results ku-search-results" data-hide-when-cash></div>
 
         <!-- Auto-filled fields -->
         <div id="lender-info-fields" class="lender-info" style="display:none;" data-hide-when-cash>
           <div class="form-pair">
             <label>First Name</label>
-            <input id="lender-firstName" readonly />
+            <input id="lender-firstName" class="ku-readonly-field" readonly />
           </div>
           <div class="form-pair">
             <label>Last Name</label>
-            <input id="lender-lastName" readonly />
+            <input id="lender-lastName" class="ku-readonly-field" readonly />
           </div>
           <div class="form-pair">
             <label>Email</label>
-            <input id="lender-email" readonly />
+            <input id="lender-email" class="ku-readonly-field" readonly />
           </div>
           <div class="form-pair">
             <label>Phone</label>
-            <input id="lender-phone" readonly />
+            <input id="lender-phone" class="ku-readonly-field" readonly />
           </div>
           <div class="form-pair">
             <label>Brokerage</label>
-            <input id="lender-brokerage" readonly />
+            <input id="lender-brokerage" class="ku-readonly-field" readonly />
           </div>
           <div class="form-actions">
-            <button id="lender-link-btn" type="button" disabled data-hide-when-cash>
+            <button id="lender-link-btn" class="btn-soft-primary" type="button" disabled data-hide-when-cash>
               Link to Contact
             </button>
           </div>
@@ -350,9 +367,17 @@
             <div id="lot-link-container">
                 <div id="purchased-community-selector" style="display: none;">
                   <label for="lot-search">Search for Lot Address</label>
-                  <input type="text" id="lot-search" placeholder="Start typing an address..." />
-                  <div id="lot-search-results" class="search-results"></div>
-                  <button id="link-lot-btn" disabled>Link Lot to Contact</button>
+                  <div class="ku-search">
+                    <span class="ku-search-icon" aria-hidden="true">
+                      <svg viewBox="0 0 24 24" stroke-width="2">
+                        <circle cx="11" cy="11" r="7"></circle>
+                        <line x1="16.65" y1="16.65" x2="21" y2="21"></line>
+                      </svg>
+                    </span>
+                    <input type="text" id="lot-search" class="ku-search-input" placeholder="Start typing an address..." />
+                  </div>
+                  <div id="lot-search-results" class="search-results ku-search-results"></div>
+                  <button id="link-lot-btn" class="btn-soft-primary" disabled>Link Lot to Contact</button>
                 </div>
                    <!-- NEW: Sales details captured at link time -->
                <div id="sales-details" class="form-row" style="margin-top:.5rem; display:none;">
@@ -386,11 +411,11 @@
         <a class="small text-primary" data-email-queue-link href="#" role="button">View in Queue</a>
       </div>
       <div class="email-activity-section">
-        <div class="fw-semibold mb-2">Upcoming</div>
+        <div class="email-activity-section-title">Upcoming</div>
         <div data-email-upcoming class="small text-muted">Loading...</div>
       </div>
       <div class="email-activity-section">
-        <div class="fw-semibold mb-2">Recent</div>
+        <div class="email-activity-section-title">Recent</div>
         <div data-email-recent class="small text-muted">Loading...</div>
       </div>
       <div class="visually-hidden" aria-live="polite" data-email-activity-toast></div>
@@ -401,10 +426,22 @@
   
       <div class="comment-form">
         <div class="comment-type-nav" id="comment-type-buttons">
-          <button type="button" data-type="Note" class="active" title="Note"><img src="/assets/icons/note.svg" alt=""></button>
-          <button type="button" data-type="Phone" title="Phone"><img src="/assets/icons/phone.svg" alt=""></button>
-          <button type="button" data-type="Email" title="Email"><img src="/assets/icons/email.svg" alt=""></button>
-          <button type="button" data-type="Text" title="Text"><img src="/assets/icons/sms.svg" alt=""></button>
+          <button type="button" data-type="Note" class="comment-action-btn active" title="Note">
+            <img src="/assets/icons/note.svg" alt="" aria-hidden="true">
+            <span>Note</span>
+          </button>
+          <button type="button" data-type="Phone" class="comment-action-btn" title="Phone">
+            <img src="/assets/icons/phone.svg" alt="" aria-hidden="true">
+            <span>Call</span>
+          </button>
+          <button type="button" data-type="Email" class="comment-action-btn" title="Email">
+            <img src="/assets/icons/email.svg" alt="" aria-hidden="true">
+            <span>Email</span>
+          </button>
+          <button type="button" data-type="Text" class="comment-action-btn" title="Text">
+            <img src="/assets/icons/sms.svg" alt="" aria-hidden="true">
+            <span>Text</span>
+          </button>
         </div>
         <textarea id="comment-text" placeholder="Add a comment..."></textarea>
         <button id="save-comment" type="button">Save Comment</button>

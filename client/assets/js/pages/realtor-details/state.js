@@ -3,6 +3,7 @@
 export const state = {
   realtorId: null,
   allContacts: [],
+  emailPaused: false,
   activeStatuses: new Set(),
   statusOptions: [
     'New','Target','Possible','Negotiating','Be-Back','Cold',

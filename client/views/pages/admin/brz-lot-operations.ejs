@@ -1,0 +1,190 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>BuildRootz Lot Operations</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet" />
+    <link rel="stylesheet" href="/assets/css/main.css" />
+    <link rel="stylesheet" href="/assets/css/pages/contacts-shared.css" />
+    <link rel="stylesheet" href="/assets/css/pages/listings.css" />
+    <link rel="stylesheet" href="/assets/css/pages/brz-readiness.css" />
+    <link rel="stylesheet" href="/assets/css/pages/brz-lot-operations.css" />
+  </head>
+  <body>
+    <% const safeRows = Array.isArray(rows) ? rows : []; %>
+    <% const safeCommunities = Array.isArray(communityOptions) ? communityOptions : []; %>
+    <% const safeSummary = summary || { total: 0, ready: 0, warning: 0, incomplete: 0, published: 0, needsSync: 0 }; %>
+    <% const safeInitialFilters = initialFilters || { communityId: '', status: 'all', published: 'all', readiness: 'all' }; %>
+    <% const lotOpsPayload = JSON.stringify({
+         rows: safeRows,
+         communities: safeCommunities,
+         summary: safeSummary,
+         initialFilters: safeInitialFilters
+       }).replace(/</g, '\\u003c'); %>
+
+    <%- include('../../partials/nav') %>
+    <%- include('../../partials/top-nav-buildrootz') %>
+
+    <main class="main-content p-4 brz-lot-ops-page">
+      <header class="d-flex justify-content-between align-items-start flex-wrap gap-3 mb-4">
+        <div>
+          <p class="text-uppercase text-muted small mb-1">BuildRootz</p>
+          <h1 class="h4 mb-1">Lot Operations (Merged)</h1>
+          <p class="text-muted mb-0">Merged workflow: Listings actions + Readiness queue bulk operations.</p>
+        </div>
+        <div class="text-end">
+          <div class="small text-muted">Visible rows</div>
+          <div class="h5 mb-0" id="brzLotOpsVisibleCount"><%= Number(safeSummary.total || 0).toLocaleString() %></div>
+        </div>
+      </header>
+
+      <section class="row g-3 mb-4" aria-label="Lot operations summary">
+        <div class="col-6 col-md-4 col-xl">
+          <article class="card shadow-sm h-100">
+            <div class="card-body">
+              <div class="text-muted small text-uppercase">Ready</div>
+              <div class="brz-lot-ops-stat brz-lot-ops-stat--ready" id="brzLotOpsSummaryReady"><%= Number(safeSummary.ready || 0).toLocaleString() %></div>
+            </div>
+          </article>
+        </div>
+        <div class="col-6 col-md-4 col-xl">
+          <article class="card shadow-sm h-100">
+            <div class="card-body">
+              <div class="text-muted small text-uppercase">Needs Info</div>
+              <div class="brz-lot-ops-stat brz-lot-ops-stat--warning" id="brzLotOpsSummaryWarning"><%= Number(safeSummary.warning || 0).toLocaleString() %></div>
+            </div>
+          </article>
+        </div>
+        <div class="col-6 col-md-4 col-xl">
+          <article class="card shadow-sm h-100">
+            <div class="card-body">
+              <div class="text-muted small text-uppercase">Incomplete</div>
+              <div class="brz-lot-ops-stat brz-lot-ops-stat--incomplete" id="brzLotOpsSummaryIncomplete"><%= Number(safeSummary.incomplete || 0).toLocaleString() %></div>
+            </div>
+          </article>
+        </div>
+        <div class="col-6 col-md-6 col-xl">
+          <article class="card shadow-sm h-100">
+            <div class="card-body">
+              <div class="text-muted small text-uppercase">Published</div>
+              <div class="brz-lot-ops-stat brz-lot-ops-stat--published" id="brzLotOpsSummaryPublished"><%= Number(safeSummary.published || 0).toLocaleString() %></div>
+            </div>
+          </article>
+        </div>
+        <div class="col-6 col-md-6 col-xl">
+          <article class="card shadow-sm h-100">
+            <div class="card-body">
+              <div class="text-muted small text-uppercase">Needs Sync</div>
+              <div class="brz-lot-ops-stat brz-lot-ops-stat--sync" id="brzLotOpsSummaryNeedsSync"><%= Number(safeSummary.needsSync || 0).toLocaleString() %></div>
+            </div>
+          </article>
+        </div>
+      </section>
+
+      <section class="card shadow-sm mb-4">
+        <div class="card-body">
+          <div class="d-flex flex-wrap align-items-center gap-3 brz-lot-ops-filters">
+            <div class="d-flex align-items-center gap-2 flex-wrap">
+              <label class="fw-semibold mb-0" for="brzLotOpsCommunity">Community</label>
+              <select id="brzLotOpsCommunity" class="form-select form-select-sm" style="min-width: 240px;">
+                <option value="">All communities</option>
+                <% safeCommunities.forEach((community) => { %>
+                  <option value="<%= community.id %>" <%= safeInitialFilters.communityId === community.id ? 'selected' : '' %>>
+                    <%= community.location ? `${community.name} (${community.location})` : community.name %>
+                  </option>
+                <% }) %>
+              </select>
+            </div>
+
+            <div class="d-flex align-items-center gap-2 flex-wrap">
+              <span class="fw-semibold small text-muted">Status</span>
+              <div class="btn-group btn-group-sm" role="group" aria-label="Status filters">
+                <button type="button" class="btn btn-outline-secondary brz-lot-ops-status-btn active" data-status="all">All</button>
+                <button type="button" class="btn btn-outline-secondary brz-lot-ops-status-btn" data-status="available">Available</button>
+                <button type="button" class="btn btn-outline-secondary brz-lot-ops-status-btn" data-status="spec">SPEC</button>
+                <button type="button" class="btn btn-outline-secondary brz-lot-ops-status-btn" data-status="hold">Hold</button>
+              </div>
+            </div>
+
+            <div class="d-flex align-items-center gap-2 flex-wrap">
+              <span class="fw-semibold small text-muted">Published</span>
+              <div class="btn-group btn-group-sm" role="group" aria-label="Published filters">
+                <button type="button" class="btn btn-outline-secondary brz-lot-ops-published-btn active" data-published="all">All</button>
+                <button type="button" class="btn btn-outline-secondary brz-lot-ops-published-btn" data-published="published">Published</button>
+                <button type="button" class="btn btn-outline-secondary brz-lot-ops-published-btn" data-published="unpublished">Not Published</button>
+              </div>
+            </div>
+
+            <div class="d-flex align-items-center gap-2 flex-wrap">
+              <span class="fw-semibold small text-muted">Readiness</span>
+              <div class="btn-group btn-group-sm" role="group" aria-label="Readiness filters">
+                <button type="button" class="btn btn-outline-secondary brz-lot-ops-readiness-btn active" data-readiness="all">All</button>
+                <button type="button" class="btn btn-outline-secondary brz-lot-ops-readiness-btn" data-readiness="ready">Ready</button>
+                <button type="button" class="btn btn-outline-secondary brz-lot-ops-readiness-btn" data-readiness="warning">Needs Info</button>
+                <button type="button" class="btn btn-outline-secondary brz-lot-ops-readiness-btn" data-readiness="incomplete">Incomplete</button>
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <section class="card shadow-sm brz-lot-ops-table-card">
+        <div class="card-body brz-lot-ops-table-card-body">
+          <div class="alert alert-info py-2 px-3 small mb-3">
+            Use flag-only actions for quick updates, or BRZ actions to update flags and publish inventory in one pass.
+          </div>
+
+          <div class="d-flex justify-content-between align-items-center flex-wrap gap-3 mb-3 brz-lot-ops-bulk-bar">
+            <div class="d-flex align-items-center gap-2 flex-wrap">
+              <button class="btn btn-primary btn-sm" type="button" id="brzLotOpsBulkPublishBtn" disabled>Mark Published</button>
+              <button class="btn btn-outline-danger btn-sm" type="button" id="brzLotOpsBulkUnpublishBtn" disabled>Unpublish</button>
+              <button class="btn btn-success btn-sm" type="button" id="brzLotOpsBulkPublishAndSyncBtn" disabled>Mark Published + Publish to BRZ</button>
+              <button class="btn btn-outline-success btn-sm" type="button" id="brzLotOpsBulkUnpublishAndSyncBtn" disabled>Unpublish + Publish to BRZ</button>
+              <span class="small text-muted" id="brzLotOpsSelectionCount">0 selected</span>
+            </div>
+            <div id="brzLotOpsActionStatus" class="small text-muted" role="status" aria-live="polite"></div>
+          </div>
+
+          <div class="table-responsive brz-lot-ops-table-wrap">
+            <table class="table table-sm align-middle brz-lot-ops-table mb-0">
+              <thead>
+                <tr>
+                  <th class="brz-lot-ops-col-select">
+                    <label class="d-inline-flex align-items-center small text-muted" for="brzLotOpsSelectAll">
+                      <input
+                        class="form-check-input mt-0"
+                        type="checkbox"
+                        id="brzLotOpsSelectAll"
+                        aria-label="Select all visible rows"
+                        <%= safeRows.length ? '' : 'disabled' %>
+                      />
+                    </label>
+                  </th>
+                  <th class="listings-actions-col">Actions</th>
+                  <th class="listings-view-col brz-col-view">View</th>
+                  <th>Community</th>
+                  <th>Listing Info</th>
+                  <th class="brz-col-status">Status</th>
+                  <th class="brz-col-published">Published</th>
+                  <th class="brz-col-readiness">Readiness</th>
+                  <th>Score</th>
+                  <th>Missing</th>
+                  <th>Sync / Dates</th>
+                </tr>
+              </thead>
+              <tbody id="brzLotOpsBody">
+                <tr>
+                  <td colspan="11" class="text-muted py-4 text-center">Loading lots...</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </section>
+    </main>
+
+    <script id="brzLotOpsData" type="application/json"><%- lotOpsPayload %></script>
+    <script src="/public/js/admin/brz-lot-operations.js" nonce="<%= cspNonce %>" defer></script>
+  </body>
+</html>

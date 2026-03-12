@@ -412,6 +412,71 @@ const ACTION_BUTTONS = [
   { action: 'comment', icon: '/assets/icons/comment.svg', label: 'Comment on contact' },
 ];
 
+const CONTACT_STATUS_OPTIONS = [
+  { value: '', label: 'No Status' },
+  { value: 'New', label: 'New' },
+  { value: 'Target', label: 'Target' },
+  { value: 'Possible', label: 'Possible' },
+  { value: 'Negotiating', label: 'Negotiating' },
+  { value: 'Be-Back', label: 'Be-Back' },
+  { value: 'Purchased', label: 'Purchased' },
+  { value: 'Cold', label: 'Cold' },
+  { value: 'Closed', label: 'Closed' },
+  { value: 'Not-Interested', label: 'Not Interested' },
+  { value: 'Deal-Lost', label: 'Deal Lost' },
+  { value: 'Bust', label: 'Bust' }
+];
+
+const CONTACT_STATUS_CLASS_MAP = {
+  '': 'no-status',
+  New: 'new',
+  Target: 'target',
+  Possible: 'possible',
+  Negotiating: 'negotiating',
+  'Be-Back': 'be-back',
+  Purchased: 'purchased',
+  Cold: 'cold',
+  Closed: 'closed',
+  'Not-Interested': 'not-interested',
+  'Deal-Lost': 'deal-lost',
+  Bust: 'bust'
+};
+
+const matchContactStatusOption = (raw) => {
+  if (raw === '') return CONTACT_STATUS_OPTIONS.find((opt) => opt.value === '') || null;
+  if (raw == null) return null;
+  const normalized = raw.toString().trim().toLowerCase().replace(/\s+/g, '-');
+  if (!normalized) return CONTACT_STATUS_OPTIONS.find((opt) => opt.value === '') || null;
+  return CONTACT_STATUS_OPTIONS.find(
+    (opt) => opt.value.toLowerCase().replace(/\s+/g, '-') === normalized
+  ) || null;
+};
+
+const contactStatusClassName = (statusValue) => {
+  const option = matchContactStatusOption(statusValue);
+  if (option && Object.prototype.hasOwnProperty.call(CONTACT_STATUS_CLASS_MAP, option.value)) {
+    return CONTACT_STATUS_CLASS_MAP[option.value];
+  }
+  const normalized = (statusValue ?? 'New')
+    .toString()
+    .trim()
+    .toLowerCase()
+    .replace(/\s+/g, '-');
+  if (!normalized) return CONTACT_STATUS_CLASS_MAP[''] || 'no-status';
+  return normalized;
+};
+
+const contactStatusDisplayLabel = (statusValue) => {
+  const option = matchContactStatusOption(statusValue);
+  if (option) return option.label;
+  if (statusValue === undefined || statusValue === null) return 'New';
+  const str = statusValue.toString().trim();
+  if (!str) return 'No Status';
+  return str
+    .replace(/[-_]/g, ' ')
+    .replace(/\b\w/g, (c) => c.toUpperCase());
+};
+
 const renderActionCell = (contactId, contactName, contactStatus) => {
   const safeId = contactId ? escapeHtml(String(contactId)) : '';
   const safeName = escapeHtml(contactName || 'Contact');
@@ -427,6 +492,41 @@ const renderActionCell = (contactId, contactName, contactStatus) => {
       <div class="table-action-buttons" data-contact="${safeId}" data-contact-name="${safeName}" data-contact-status="${safeStatus}">
         ${buttons}
       </div>
+    </td>
+  `;
+};
+
+const getCommunityText = (contact = {}) => (
+  Array.isArray(contact.communities)
+    ? contact.communities.join(', ')
+    : (contact.communities || 'N/A')
+);
+
+const getLinkedLotAddress = (contact = {}) => String(
+  contact.linkedLotAddress ||
+  contact?.linkedLot?.address ||
+  contact?.lotId?.address ||
+  contact?.lotId?.formattedAddress ||
+  contact?.lotId?.address1 ||
+  ''
+).trim();
+
+const shouldShowCommunityAddress = (contact = {}) => {
+  const status = String(contact?.status || '').trim().toLowerCase();
+  if (status !== 'purchased' && status !== 'closed') return false;
+  return Boolean(getLinkedLotAddress(contact));
+};
+
+const renderCommunityCell = (contact = {}) => {
+  const communities = getCommunityText(contact);
+  const linkedLotAddress = getLinkedLotAddress(contact);
+  if (!shouldShowCommunityAddress(contact)) {
+    return `<td>${escapeHtml(communities)}</td>`;
+  }
+  return `
+    <td class="community-column-cell">
+      <div class="community-primary-line">${escapeHtml(communities)}</div>
+      <div class="community-lot-address">${escapeHtml(linkedLotAddress)}</div>
     </td>
   `;
 };
@@ -448,9 +548,6 @@ export function renderTable(rows = []) {
       : '(Unnamed)';
     const phone = formatPhoneDisplay(contact.phone || '') || 'N/A';
     const email = contact.email || 'N/A';
-    const communities = Array.isArray(contact.communities)
-      ? contact.communities.join(', ')
-      : (contact.communities || 'N/A');
     const owner = contact.owner || 'N/A';
 
     const lenderEntries = contact.lenders || [];
@@ -461,7 +558,8 @@ export function renderTable(rows = []) {
     const approvedDate = formatDateValue(lenderInfo?.approvedDate);
     const rawStatus = contact?.status;
     const contactStatusValue = rawStatus == null ? '' : String(rawStatus).trim();
-    const generalStatus = contactStatusValue || 'No Status';
+    const generalStatusClass = contactStatusClassName(contactStatusValue);
+    const generalStatusLabel = contactStatusDisplayLabel(contactStatusValue);
 
     contact._lenderStatus = normalizeStatus(lenderInfo?.status || '');
 
@@ -471,10 +569,12 @@ export function renderTable(rows = []) {
       <td><a href="/contact-details.html?id=${escapeHtml(contact._id)}">${escapeHtml(name)}</a></td>
       <td>${escapeHtml(phone)}</td>
       <td>${escapeHtml(email)}</td>
-      <td>${escapeHtml(communities)}</td>
+      ${renderCommunityCell(contact)}
       <td>${escapeHtml(owner)}</td>
-      <td>${escapeHtml(generalStatus)}</td>
-      <td><span class="status-badge ${escapeHtml(contact._lenderStatus || '')}">${escapeHtml(status)}</span></td>
+      <td class="lender-contact-status-cell">
+        <span class="status-badge ${escapeHtml(generalStatusClass)}">${escapeHtml(generalStatusLabel)}</span>
+      </td>
+      <td class="lender-status-cell"><span class="status-badge ${escapeHtml(contact._lenderStatus || '')}">${escapeHtml(status)}</span></td>
       <td>${escapeHtml(inviteDate)}</td>
       <td>${escapeHtml(approvedDate)}</td>
     `;
@@ -499,9 +599,6 @@ export function renderPurchasedTable(rows = []) {
       : '(Unnamed)';
     const phone = formatPhoneDisplay(contact.phone || '') || 'N/A';
     const email = contact.email || 'N/A';
-    const communities = Array.isArray(contact.communities)
-      ? contact.communities.join(', ')
-      : (contact.communities || 'N/A');
     const lenderEntries = contact.lenders || [];
     const lenderInfo = lenderEntries.find(matchesActiveLender) || lenderEntries[0] || {};
 
@@ -515,8 +612,8 @@ export function renderPurchasedTable(rows = []) {
       <td><a href="/contact-details.html?id=${escapeHtml(contact._id)}">${escapeHtml(name)}</a></td>
       <td>${escapeHtml(phone)}</td>
       <td>${escapeHtml(email)}</td>
-      <td>${escapeHtml(communities)}</td>
-      <td><span class="status-badge ${escapeHtml(contact._lenderStatus || '')}">${escapeHtml(lenderStatus)}</span></td>
+      ${renderCommunityCell(contact)}
+      <td class="lender-status-cell"><span class="status-badge ${escapeHtml(contact._lenderStatus || '')}">${escapeHtml(lenderStatus)}</span></td>
     `;
 
     const closingStatusTd = document.createElement('td');

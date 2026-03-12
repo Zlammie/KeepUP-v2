@@ -24,6 +24,16 @@
   </div>
   <div class="top-right">
     <a href="/toolbar/help"><button class="top-btn"><img src="/assets/icons/help.svg" alt="Help"></button></a>
+    <a href="/add-lead" title="Add Lead">
+      <button class="top-btn" type="button">
+        <img src="/assets/icons/add-circle-icon.svg" alt="Add Lead">
+      </button>
+    </a>
+    <a href="/task" title="Add Task">
+      <button class="top-btn" type="button">
+        <img src="/assets/icons/add_task.svg" alt="Add Task">
+      </button>
+    </a>
     <% const canAccessAdmin = permissions && permissions.canAccessAdminSection; %>
     <% if (canAccessAdmin) { %>
       <button class="top-btn" type="button" title="Admin tools coming soon">
@@ -69,7 +79,7 @@
           </a>
         </li>
         <li>
-          <a href="/listings" class="nav-link">
+          <a href="/admin/buildrootz/dashboard" class="nav-link">
             <img src="/assets/icons/community-icon.svg" alt="BuildRootz">
             <span>BuildRootz</span>
           </a>

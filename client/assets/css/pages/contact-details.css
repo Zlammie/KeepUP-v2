@@ -59,6 +59,66 @@
   color: black;
   transition: background-color 0.2s ease-in-out;
 }
+
+/* Visit Date: scoped modern input + overflow guards */
+.main-cont .visit-date-field {
+  width: 100%;
+  max-width: 100%;
+  min-width: 0;
+  box-sizing: border-box;
+}
+
+.main-cont .visit-date-field label[for="visit-date"] {
+  color: #475467;
+  font-weight: 600;
+  letter-spacing: 0.01em;
+}
+
+.main-cont .visit-date-field #visit-date {
+  display: block;
+  width: 100%;
+  max-width: 100%;
+  min-width: 0;
+  box-sizing: border-box;
+  height: 42px;
+  padding: 0 14px;
+  border: 1px solid #d6dbe1;
+  border-radius: 10px;
+  background: #ffffff;
+  font-family: inherit;
+  font-size: 14px;
+  font-weight: 500;
+  color: #1f2937;
+  line-height: 1.25;
+  transition: border-color 0.15s ease, box-shadow 0.15s ease;
+}
+
+.main-cont .visit-date-field #visit-date:focus {
+  border-color: #0e79b2;
+  box-shadow: 0 0 0 3px rgba(14, 121, 178, 0.12);
+  outline: none;
+}
+
+.main-cont .visit-date-field #visit-date::-webkit-datetime-edit,
+.main-cont .visit-date-field #visit-date::-webkit-datetime-edit-fields-wrapper,
+.main-cont .visit-date-field #visit-date::-webkit-datetime-edit-month-field,
+.main-cont .visit-date-field #visit-date::-webkit-datetime-edit-day-field,
+.main-cont .visit-date-field #visit-date::-webkit-datetime-edit-year-field {
+  font-family: inherit;
+  font-size: 14px;
+  font-weight: 500;
+}
+
+.main-cont .visit-date-field #visit-date::-webkit-calendar-picker-indicator {
+  opacity: 0;
+  width: 0;
+  margin: 0;
+  pointer-events: none;
+}
+
+.main-cont .visit-date-field #visit-date:hover::-webkit-calendar-picker-indicator {
+  opacity: 0;
+}
  
 .com-left-cont{
   display: flex;
@@ -485,6 +545,75 @@
   border: 0;
 }
 
+/* Lender link section: keep search editable, make populated fields clearly read-only */
+#lender-link-section .form-group .ku-search {
+  width: 100%;
+  max-width: 100%;
+  min-width: 0;
+}
+
+#lender-link-section #lender-info-fields {
+  margin-top: 0.25rem;
+}
+
+#lender-link-section #lender-info-fields .form-pair {
+  min-width: 0;
+}
+
+#lender-link-section #lender-info-fields .form-pair .ku-readonly-field[readonly] {
+  width: 100%;
+  max-width: 100%;
+  min-width: 0;
+  box-sizing: border-box;
+  min-height: 38px;
+  padding: 8px 12px;
+  border: 1px solid #dce2e8;
+  border-radius: 8px;
+  background: #f7f9fb;
+  color: #334155;
+  font-size: 14px;
+  box-shadow: none;
+  cursor: default;
+}
+
+#lender-link-section #lender-info-fields .form-pair .ku-readonly-field[readonly]:focus {
+  outline: none;
+  border-color: #dce2e8;
+  box-shadow: none;
+}
+
+#lender-link-section #lender-info-fields .form-actions {
+  margin-top: 10px;
+}
+
+#lender-link-section #lender-info-fields .form-actions .btn-soft-primary {
+  height: 36px;
+  padding: 0 14px;
+  border-radius: 8px;
+  font-size: 13px;
+  font-weight: 500;
+  border: 1px solid #d6dbe1;
+  background: #f7f9fb;
+  color: #3a4a5a;
+  transition: all 0.15s ease;
+}
+
+#lender-link-section #lender-info-fields .form-actions .btn-soft-primary:hover {
+  background: #eef3f8;
+  border-color: #c9d3df;
+}
+
+#lender-link-section #lender-info-fields .form-actions .btn-soft-primary:active {
+  background: #e4edf6;
+}
+
+#lender-link-section #lender-info-fields .form-actions .btn-soft-primary:disabled {
+  background: #f5f7f9;
+  color: #9aa5b1;
+  border-color: #e3e7eb;
+  cursor: not-allowed;
+}
+
 
 
 /* Specific containers for contact details page - THESE ARE DONE DO NOT TOUCH*/
@@ -885,10 +1014,10 @@ body.task-modal-open {
   margin-top: 0.35rem;
 }
 .task-type-button {
-  border: 1px solid #cbd5e1;
+  border: 1px solid rgba(13, 110, 253, 0.35);
   border-radius: 999px;
-  background: #fff;
-  color: #344054;
+  background: rgba(13, 110, 253, 0.12);
+  color: #0d6efd;
   font-size: 0.85rem;
   font-weight: 600;
   padding: 0.45rem 0.9rem;
@@ -897,6 +1026,7 @@ body.task-modal-open {
 }
 .task-type-button:hover,
 .task-type-button:focus-visible {
+  background: rgba(13, 110, 253, 0.18);
   border-color: #0d6efd;
   color: #0d6efd;
   box-shadow: 0 0 0 3px rgba(13, 110, 253, 0.15);
@@ -930,10 +1060,10 @@ body.task-modal-open {
   gap: 0.4rem;
 }
 .task-type-subbutton {
-  border: 1px solid #d0d5dd;
+  border: 1px solid rgba(13, 110, 253, 0.35);
   border-radius: 999px;
-  background: #fff;
-  color: #475467;
+  background: rgba(13, 110, 253, 0.12);
+  color: #0d6efd;
   font-size: 0.8rem;
   font-weight: 600;
   padding: 0.35rem 0.75rem;
@@ -942,6 +1072,7 @@ body.task-modal-open {
 }
 .task-type-subbutton:hover,
 .task-type-subbutton:focus-visible {
+  background: rgba(13, 110, 253, 0.18);
   border-color: #0d6efd;
   color: #0d6efd;
   box-shadow: 0 0 0 3px rgba(13, 110, 253, 0.15);
@@ -1261,38 +1392,77 @@ body.task-modal-open {
   display: block;                 /* ensure it shows when purchased */
 }
 
-#lot-search {
+#lot-search-results .lot-search-table {
   width: 100%;
-  box-sizing: border-box;
+  border-collapse: collapse;
+  font-size: 14px;
 }
 
-#lot-search-results {
-  margin-top: .5rem;
-  max-height: 260px;              /* scroll if lots of results */
-  overflow-y: auto;
-  background: #fff;
-  border: 1px solid #e9ecef;
-  border-radius: .5rem;
-  padding: .5rem;
+#lot-search-results .lot-search-table th,
+#lot-search-results .lot-search-table td {
+  padding: 8px 12px;
+  text-align: left;
+  border-bottom: 1px solid #eef2f6;
 }
 
-/* Optional: individual result rows (tweak to your app’s markup) */
-#lot-search-results .result-item {
-  padding: .4rem .5rem;
-  border-radius: .35rem;
+#lot-search-results .lot-search-table thead th {
+  font-weight: 600;
+  color: #556274;
+  background: #f8fafc;
+  position: sticky;
+  top: 0;
+}
+
+#lot-search-results .lot-search-table tbody tr {
   cursor: pointer;
 }
-#lot-search-results .result-item + .result-item {
-  margin-top: .25rem;
+
+#lot-search-results .lot-search-table tbody tr:hover {
+  background: #f3f7fb;
 }
-#lot-search-results .result-item:hover {
-  background: #f8f9fa;
+
+#lot-search-results .lot-search-table tbody tr.selected {
+  background: #e8f2f9;
 }
-#lot-search-results .results-note {
-  margin-top: .5rem;
-  font-size: 0.8rem;
-  color: #666;
-  font-style: italic;
+
+#lot-search-results .lot-search-table tbody tr.is-sold {
+  opacity: 0.72;
+  cursor: not-allowed;
+}
+
+/* Soft secondary action button used in lot-link area */
+.contact-content .btn-soft-primary {
+  height: 36px;
+  padding: 0 14px;
+  border-radius: 6px;
+  font-size: 13px;
+  font-weight: 500;
+  border: 1px solid #d6dbe1;
+  background: #f7f9fb;
+  color: #3a4a5a;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.contact-content .btn-soft-primary:hover {
+  background: #eef3f8;
+  border-color: #c9d3df;
+}
+
+.contact-content .btn-soft-primary:active {
+  background: #e4edf6;
+}
+
+.contact-content .btn-soft-primary:disabled {
+  background: #f5f7f9;
+  color: #9aa5b1;
+  border-color: #e3e7eb;
+  cursor: not-allowed;
+  opacity: 0.9;
+}
+
+#lot-link-container #purchased-community-selector .btn-soft-primary {
+  margin-top: 10px;
 }
 
 /* Linked Lot Card shell */
@@ -1459,6 +1629,17 @@ body.task-modal-open {
   align-items: center;
   column-gap: .4rem;
   margin-bottom: .4rem;
+  width: 100%;
+  max-width: 100%;
+  min-width: 0;
+  box-sizing: border-box;
+}
+
+.linked-lot-card .left-col {
+  width: 100%;
+  max-width: 100%;
+  min-width: 0;
+  box-sizing: border-box;
 }
 
 .linked-lot-card .left-col .form-pair label {
@@ -1469,62 +1650,82 @@ body.task-modal-open {
   white-space: normal;
 }
 
-.linked-lot-card .left-col .form-pair input[type="date"] {
-  max-width: 120px;
+/* Give the price/date rows more room to prevent date text clipping */
+.linked-lot-card .prices-box.left-col .form-pair {
+  grid-template-columns: 86px minmax(0, 1fr);
 }
-.linked-lot-card .left-col .form-pair input[type="text"],
-.linked-lot-card .left-col .form-pair input[type="number"] {
+
+.linked-lot-card .prices-box.left-col .form-pair label {
+  white-space: nowrap;
+}
+
+.linked-lot-card .left-col .form-pair > * {
+  min-width: 0;
+}
+
+.linked-lot-card .left-col .form-pair .linked-lot-input {
   width: 100%;
   max-width: 100%;
+  min-width: 0;
   box-sizing: border-box;
+  height: 2.15rem;
   padding: .4rem .65rem;
   border: 1px solid #d8dde3;
   border-radius: .45rem;
   font-size: .92rem;
   font-weight: 600;
+  font-family: inherit;
   color: #1f2933;
   background: #fff;
   box-shadow: inset 0 1px 2px rgba(15,23,42,0.06);
   transition: border-color .15s ease, box-shadow .15s ease;
   text-align: right;
 }
-.linked-lot-card .left-col .form-pair input[type="date"] {
-  width: 100%;
-  max-width: 150px;
-  box-sizing: border-box;
-  padding: .4rem .65rem;
-  border: 1px solid #d8dde3;
-  border-radius: .45rem;
-  font-size: .9rem;
-  font-weight: 600;
-  font-family: "Inter", "Segoe UI", system-ui, sans-serif;
-  color: #1f2933;
-  background: #fff;
-  box-shadow: inset 0 1px 2px rgba(15,23,42,0.05);
-  transition: border-color .15s ease, box-shadow .15s ease;
-  appearance: none;
-  -webkit-appearance: none;
-  text-align: center;
+
+.linked-lot-card .left-col .form-pair input[type="date"].linked-lot-input {
+  text-align: left;
+  font-size: .88rem;
+  font-weight: 500;
+  letter-spacing: .01em;
+  padding-left: .55rem;
+  padding-right: .65rem;
+  appearance: auto;
+  -webkit-appearance: auto;
 }
-.linked-lot-card .left-col .form-pair input[type="text"]::placeholder,
-.linked-lot-card .left-col .form-pair input[type="number"]::placeholder {
+
+.linked-lot-card .left-col .form-pair input[type="date"].linked-lot-input::-webkit-datetime-edit,
+.linked-lot-card .left-col .form-pair input[type="date"].linked-lot-input::-webkit-datetime-edit-fields-wrapper {
+  padding: 0 .6rem 0 0;
+}
+.linked-lot-card .left-col .form-pair input[type="text"].linked-lot-input::placeholder,
+.linked-lot-card .left-col .form-pair input[type="number"].linked-lot-input::placeholder {
   color: #9aa4b2;
   font-weight: 500;
 }
-.linked-lot-card .left-col .form-pair input[type="date"]::placeholder {
+.linked-lot-card .left-col .form-pair input[type="date"].linked-lot-input::placeholder {
   color: #9aa4b2;
   font-weight: 500;
 }
-.linked-lot-card .left-col .form-pair input[type="date"]::-webkit-calendar-picker-indicator {
-  opacity: 0;
-  display: none;
+.linked-lot-card .left-col .form-pair input[type="date"].linked-lot-input::-webkit-calendar-picker-indicator {
+  opacity: .72;
+  display: block;
+  cursor: pointer;
+  margin: 0;
 }
-.linked-lot-card .left-col .form-pair input[type="date"]:hover::-webkit-calendar-picker-indicator {
-  opacity: 0;
+.linked-lot-card .left-col .form-pair input[type="date"].linked-lot-input:hover::-webkit-calendar-picker-indicator {
+  opacity: 1;
 }
-.linked-lot-card .left-col .form-pair input[type="text"]:focus,
-.linked-lot-card .left-col .form-pair input[type="number"]:focus,
-.linked-lot-card .left-col .form-pair input[type="date"]:focus {
+
+/* Hide native calendar icon only on linked-lot Sales Date field */
+.linked-lot-card .left-col .form-pair #linked-sale-date.linked-lot-input::-webkit-calendar-picker-indicator {
+  opacity: 0;
+  width: 0;
+  margin: 0;
+  pointer-events: none;
+}
+.linked-lot-card .left-col .form-pair input[type="text"].linked-lot-input:focus,
+.linked-lot-card .left-col .form-pair input[type="number"].linked-lot-input:focus,
+.linked-lot-card .left-col .form-pair input[type="date"].linked-lot-input:focus {
   border-color: #5b8def;
   box-shadow: 0 0 0 3px rgba(91,141,239,0.18);
   outline: none;
@@ -1599,6 +1800,18 @@ body.task-modal-open {
   margin-top: 0.75rem;
 }
 
+.email-activity-section + .email-activity-section {
+  margin-top: 1.1rem;
+  padding-top: 1rem;
+}
+
+.email-activity-section-title {
+  margin: 0 0 0.55rem 0;
+  font-size: 0.9rem;
+  font-weight: 600;
+  color: #334155;
+}
+
 .email-activity-item {
   display: flex;
   flex-wrap: wrap;
@@ -1616,6 +1829,35 @@ body.task-modal-open {
 .email-activity-meta {
   font-size: 0.85rem;
   color: #64748b;
+}
+
+.email-status-badge {
+  display: inline-flex;
+  align-items: center;
+  padding: 3px 8px;
+  border-radius: 12px;
+  font-size: 12px;
+  font-weight: 500;
+  background: #eef2f7;
+  color: #44566c;
+}
+
+.sent-badge {
+  background: #e6f6ec;
+  color: #2e7d32;
+  padding: 3px 8px;
+  border-radius: 12px;
+  font-size: 12px;
+  font-weight: 500;
+}
+
+.canceled-badge {
+  background: #fdecea;
+  color: #c62828;
+  padding: 3px 8px;
+  border-radius: 12px;
+  font-size: 12px;
+  font-weight: 500;
 }
 
 .email-paused-badge {
@@ -1654,23 +1896,52 @@ body.task-modal-open {
   display: flex;
   gap: .4rem;
   margin-bottom: .5rem;
+  flex-wrap: wrap;
 }
-.comment-type-nav button {
+.comment-type-nav .comment-action-btn {
   display: inline-flex;
   align-items: center;
-  gap: .35rem;
-  border: 1px solid #d7dbe2;
-  background: #f7f8fa;
-  color: #333;
-  padding: .35rem .6rem;
-  border-radius: 999px;               /* pill */
+  justify-content: center;
+  gap: 6px;
+  padding: 7px 14px;
+  border-radius: 20px;
+  border: 1px solid #dce2e8;
+  background: #f3f6f9;
+  color: #2f3f50;
+  font-size: 13px;
+  font-weight: 500;
+  line-height: 1;
+  white-space: nowrap;
+  width: auto;
+  height: auto;
+  min-height: 36px;
   cursor: pointer;
-  font-size: .85rem;
+  transition: background 0.15s ease, border-color 0.15s ease;
 }
-.comment-type-nav button.active {
-  background: #0d6efd;
-  color: #fff;
-  border-color: #0d6efd;
+
+.comment-type-nav .comment-action-btn img {
+  width: 15px;
+  height: 15px;
+  flex: 0 0 15px;
+  display: block;
+  /* Darker default icon tone for better contrast */
+  filter: brightness(0) saturate(100%) invert(23%) sepia(12%) saturate(861%) hue-rotate(173deg) brightness(96%) contrast(90%);
+  pointer-events: none;
+}
+
+.comment-type-nav .comment-action-btn.active img {
+  /* Company blue icon for active chip */
+  filter: brightness(0) saturate(100%) invert(33%) sepia(81%) saturate(1715%) hue-rotate(173deg) brightness(94%) contrast(93%);
+}
+
+.comment-type-nav .comment-action-btn:hover {
+  background: #e9eff5;
+}
+
+.comment-type-nav .comment-action-btn.active {
+  background: #e3f2fd;
+  border-color: #90caf9;
+  color: #0e79b2;
 }
 
 /* Textarea: smaller, cleaner */
@@ -1723,23 +1994,63 @@ body.task-modal-open {
 /* Comment history list */
 #comment-history {
   display: grid;
-  gap: .6rem;
+  gap: 0;
 }
 
-/* Each comment card */
+/* Saved comment activity cards */
 .comment-entry {
-  background: #fff;
-  border: 1px solid #e9ecef;
-  border-radius: 8px;
-  padding: .6rem .75rem;
-  line-height: 1.35;
+  background: #ffffff;
+  border: 1px solid #e3e7eb;
+  border-radius: 12px;
+  padding: 14px 16px;
+  margin-top: 12px;
+  box-shadow: 0 1px 2px rgba(16, 24, 40, 0.04);
+  display: flex;
+  gap: 12px;
+  align-items: flex-start;
 }
 
-/* Meta line: type + timestamp */
-.comment-entry .meta {
-  font-size: .8rem;
-  color: #6b7280; /* slate-500-ish */
-  margin-bottom: .25rem;
+#comment-history .comment-entry:first-child {
+  margin-top: 0;
+}
+
+.comment-entry-icon-badge {
+  width: 32px;
+  height: 32px;
+  border-radius: 10px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  background: #f3f7fb;
+  color: #0e79b2;
+  flex: 0 0 32px;
+}
+
+.comment-entry-icon {
+  width: 16px;
+  height: 16px;
+  display: block;
+  filter: brightness(0) saturate(100%) invert(33%) sepia(81%) saturate(1715%) hue-rotate(173deg) brightness(94%)
+    contrast(93%);
+}
+
+.comment-entry-content {
+  min-width: 0;
+}
+
+.comment-entry-meta {
+  font-size: 12px;
+  font-weight: 500;
+  color: #6b7280;
+  margin-bottom: 4px;
+}
+
+.comment-entry-body {
+  font-size: 15px;
+  color: #1f2937;
+  line-height: 1.5;
+  white-space: pre-wrap;
+  word-break: break-word;
 }
 
 /* Auto task highlight for missing linked-lot sales price */
@@ -1851,6 +2162,24 @@ body.task-modal-open {
   gap: 0.75rem;
 }
 
+.lender-card-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  min-width: 0;
+}
+
+.lender-card-title {
+  font-size: 16px;
+  font-weight: 600;
+  color: #1f2937;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
 .lender-card__identity {
   display: flex;
   flex-direction: column;
@@ -1916,8 +2245,50 @@ body.task-modal-open {
   align-items: center;
 }
 
-.lender-card__controls .primary-label {
+.lender-card__controls .primary-lender-radio {
   margin: 0;
+}
+
+.primary-lender-radio {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-top: 10px;
+}
+
+.primary-lender-radio input[type="radio"] {
+  accent-color: #0e79b2;
+  width: 16px;
+  height: 16px;
+  margin: 0;
+  flex: 0 0 16px;
+}
+
+.primary-lender-radio label {
+  font-size: 14px;
+  font-weight: 500;
+  color: #334155;
+  cursor: pointer;
+  margin: 0;
+  padding: 0;
+  border: 0;
+  background: transparent;
+}
+
+.primary-lender-radio input[type="radio"][disabled] + label {
+  cursor: default;
+  opacity: 0.75;
+}
+
+.primary-lender-radio-missing-primary {
+  border: 1px solid #c0392b;
+  border-radius: 8px;
+  background: rgba(192, 57, 43, 0.08);
+  padding: 0.2rem 0.45rem;
+}
+
+.primary-lender-radio-missing-primary label {
+  color: #c0392b;
 }
 
 .lender-card__status {
@@ -2030,6 +2401,26 @@ body.task-modal-open {
   stroke: currentColor;
   stroke-width: 1.8;
   fill: none;
+}
+
+.lender-card-header .lender-delete-btn {
+  position: static;
+  top: auto;
+  right: auto;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 4px;
+  border-radius: 6px;
+  cursor: pointer;
+  color: #64748b;
+  flex: 0 0 auto;
+  transition: background 0.15s ease, color 0.15s ease;
+}
+
+.lender-card-header .lender-delete-btn:hover {
+  background: #f3f4f6;
+  color: #dc2626;
 }
 
 .lender-card__footer {

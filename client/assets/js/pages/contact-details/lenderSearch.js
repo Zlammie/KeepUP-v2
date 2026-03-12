@@ -100,6 +100,7 @@ function createLenderCard(entry) {
   const container = document.createElement('div');
   const lender = entry?.lender || {};
   const isCash = entry?._id === 'cash' || entry?.status === 'cash' || entry?.isCash;
+  const primaryInputId = `primary-lender-${String(entry?._id || 'unknown').replace(/[^a-zA-Z0-9_-]/g, '')}`;
   const classes = ['lender-card'];
   if (entry?.isPrimary) classes.push('primary');
   container.className = classes.join(' ');
@@ -137,12 +138,12 @@ function createLenderCard(entry) {
     : placeholder;
 
   container.innerHTML = `
-    <div class="lender-card__header">
+    <div class="lender-card__header lender-card-header">
       <div class="lender-card__identity">
-        <div class="lender-card__name"${nameInfo.titleAttr}>${nameInfo.text}</div>
+        <div class="lender-card__name lender-card-title"${nameInfo.titleAttr}>${nameInfo.text}</div>
         <div class="lender-card__brokerage"${brokerageInfo.titleAttr}>${brokerageInfo.text}</div>
       </div>
-      <button type="button" class="remove-lender-btn" data-entry-id="${entry._id}" aria-label="Remove lender" ${isCash ? 'disabled' : ''}>
+      <button type="button" class="remove-lender-btn lender-delete-btn" data-entry-id="${entry._id}" aria-label="Remove lender" ${isCash ? 'disabled' : ''}>
         <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24">
           <polyline points="3 6 5 6 21 6"></polyline>
           <path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"></path>
@@ -165,10 +166,10 @@ function createLenderCard(entry) {
     </div>
 
     <div class="lender-card__controls">
-      <label class="primary-label">
-        <input type="radio" name="primaryLender" value="${entry._id}" ${entry.isPrimary ? 'checked' : ''} class="no-auto" ${isCash ? 'checked disabled' : ''}/>
-        <span>${isCash ? 'Cash Buyer' : 'Primary Lender'}</span>
-      </label>
+      <div class="primary-lender-radio">
+        <input id="${primaryInputId}" type="radio" name="primaryLender" value="${entry._id}" ${entry.isPrimary ? 'checked' : ''} class="no-auto" ${isCash ? 'checked disabled' : ''}/>
+        <label for="${primaryInputId}">Primary Lender</label>
+      </div>
       ${isCash ? '' : `
       <label class="lender-card__status">
         <span class="lender-card__status-label">Status</span>
@@ -379,7 +380,7 @@ function renderSearchResults(list) {
   results.innerHTML = '';
   list.forEach(l => {
     const row = document.createElement('div');
-    row.className = 'result-item';
+    row.className = 'result-item ku-search-result';
     const name = `${esc(l.firstName || '')} ${esc(l.lastName || '')}`.trim() || '—';
     const broker = esc(l.brokerage || l.lenderBrokerage || '—');
     const email  = esc(l.email || '—');
@@ -390,7 +391,11 @@ function renderSearchResults(list) {
       <div class="name"><strong>${name}</strong></div>
       <div class="sub">${email} • ${phone} • ${broker}</div>
     `;
-    row.addEventListener('click', () => selectLender(l));
+    row.addEventListener('click', () => {
+      results.querySelectorAll('.ku-search-result').forEach((el) => el.classList.remove('is-active'));
+      row.classList.add('is-active');
+      selectLender(l);
+    });
     results.appendChild(row);
   });
 }

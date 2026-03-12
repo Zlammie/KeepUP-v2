@@ -225,15 +225,15 @@ function linkedLotCardHTML(lot) {
       <section class="lot-box prices-box left-col">
         <div class="form-pair">
           <label for="linked-list-price"><strong>List Price:</strong></label>
-          <input type="text" id="linked-list-price" placeholder="$435,000" inputmode="decimal" autocomplete="off" />
+          <input type="text" id="linked-list-price" class="linked-lot-input" placeholder="$435,000" inputmode="decimal" autocomplete="off" />
         </div>
         <div class="form-pair">
           <label for="linked-sales-price"><strong>Sales Price:</strong></label>
-          <input type="text" id="linked-sales-price" placeholder="$425,000" inputmode="decimal" autocomplete="off" />
+          <input type="text" id="linked-sales-price" class="linked-lot-input" placeholder="$425,000" inputmode="decimal" autocomplete="off" />
         </div>
         <div class="form-pair">
           <label for="linked-sale-date"><strong>Sales Date:</strong></label>
-          <input type="date" id="linked-sale-date" />
+          <input type="date" id="linked-sale-date" class="linked-lot-input" />
         </div>
       </section>
 

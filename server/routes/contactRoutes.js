@@ -1094,8 +1094,9 @@ router.get('/by-realtor/:realtorId',
       if (!isObjectId(realtorId)) return res.status(400).json({ error: 'Invalid realtorId' });
 
       const contacts = await Contact.find(contactQuery(req, { realtorId: new mongoose.Types.ObjectId(realtorId) }))
-        .select('firstName lastName email phone status communityIds ownerId lenderStatus lenders lenderId company requiresAttention')
+        .select('firstName lastName email phone status communityIds ownerId lenderStatus lenders lenderId linkedLot lotId company requiresAttention')
         .populate('communityIds', 'name')
+        .populate('lotId', 'address formattedAddress address1 city state postalCode jobNumber lot block')
         .populate('ownerId', 'firstName lastName email')
         .lean();
 
@@ -1103,6 +1104,62 @@ router.get('/by-realtor/:realtorId',
         linkedModel: 'Contact',
         fallbackCompanyId: req.user?.company || null
       });
+
+      // Resolve lot addresses by purchaser link on communities (authoritative source).
+      // Some contacts won't have linkedLot/lotId persisted directly on Contact.
+      const linkedAddressByContactId = new Map();
+      const contactIds = contacts
+        .map((contact) => toObjectId(contact?._id))
+        .filter(Boolean);
+      const scopedCommunityIds = contacts
+        .flatMap((contact) => Array.isArray(contact?.communityIds) ? contact.communityIds : [])
+        .map((community) => toObjectId(community?._id || community))
+        .filter(Boolean);
+
+      if (contactIds.length) {
+        const communityFilter = {
+          ...companyFilter(req),
+          'lots.purchaser': { $in: contactIds }
+        };
+        if (scopedCommunityIds.length) {
+          communityFilter._id = { $in: scopedCommunityIds };
+        }
+
+        const communityDocs = await Community.find(communityFilter)
+          .select('_id lots.address lots.formattedAddress lots.address1 lots.city lots.state lots.postalCode lots.lot lots.block lots.purchaser')
+          .lean();
+
+        const visibleCommunities = isSuper(req)
+          ? communityDocs
+          : filterCommunitiesForUser(req.user, communityDocs);
+
+        visibleCommunities.forEach((community) => {
+          (community?.lots || []).forEach((lot) => {
+            const purchaserId = lot?.purchaser ? String(lot.purchaser) : '';
+            const composed = [
+              (lot?.address1 || '').toString().trim(),
+              (lot?.city || '').toString().trim(),
+              (lot?.state || '').toString().trim(),
+              (lot?.postalCode || '').toString().trim()
+            ].filter(Boolean).join(', ');
+            const fallbackLotBlock =
+              (lot?.lot || lot?.block)
+                ? [lot?.lot ? `Lot ${lot.lot}` : '', lot?.block ? `Block ${lot.block}` : ''].filter(Boolean).join(' ')
+                : '';
+            const address = (
+              lot?.address ||
+              lot?.formattedAddress ||
+              composed ||
+              fallbackLotBlock ||
+              ''
+            ).toString().trim();
+            if (!purchaserId || !address) return;
+            if (!linkedAddressByContactId.has(purchaserId)) {
+              linkedAddressByContactId.set(purchaserId, address);
+            }
+          });
+        });
+      }
 
       const mapped = contacts.map((contact) => {
         const communities = (contact.communityIds || [])
@@ -1128,6 +1185,13 @@ router.get('/by-realtor/:realtorId',
           communities,
           owner: ownerName,
           lenderStatus,
+          linkedLotAddress:
+            linkedAddressByContactId.get(String(contact?._id || '')) ||
+            contact?.linkedLot?.address ||
+            contact?.lotId?.address ||
+            contact?.lotId?.formattedAddress ||
+            contact?.lotId?.address1 ||
+            '',
           requiresAttention: Boolean(contact.requiresAttention)
         };
       });
@@ -1161,6 +1225,7 @@ router.get('/by-lender/:lenderId',
       const contacts = await Contact.find(filter)
         .select('firstName lastName email phone communityIds lenderId lenders ownerId lenderStatus lenderInviteDate lenderApprovedDate linkedLot lotId status company requiresAttention financeType fundsVerified fundsVerifiedDate')
         .populate('communityIds', 'name')
+        .populate('lotId', 'address formattedAddress address1 city state postalCode lot block')
         .populate('lenderId', 'firstName lastName lenderBrokerage email phone')
         .populate('lenders.lender', 'firstName lastName lenderBrokerage email phone')
         .populate('ownerId', 'firstName lastName email')
@@ -1170,6 +1235,62 @@ router.get('/by-lender/:lenderId',
         linkedModel: 'Contact',
         fallbackCompanyId: req.user?.company || null
       });
+
+      // Resolve lot addresses by purchaser linkage on communities so lender table
+      // can show addresses even when contact.linkedLot isn't present.
+      const linkedAddressByContactId = new Map();
+      const contactIds = contacts
+        .map((contact) => toObjectId(contact?._id))
+        .filter(Boolean);
+      const scopedCommunityIds = contacts
+        .flatMap((contact) => Array.isArray(contact?.communityIds) ? contact.communityIds : [])
+        .map((community) => toObjectId(community?._id || community))
+        .filter(Boolean);
+
+      if (contactIds.length) {
+        const communityFilter = {
+          ...companyFilter(req),
+          'lots.purchaser': { $in: contactIds }
+        };
+        if (scopedCommunityIds.length) {
+          communityFilter._id = { $in: scopedCommunityIds };
+        }
+
+        const communityDocs = await Community.find(communityFilter)
+          .select('_id lots.address lots.formattedAddress lots.address1 lots.city lots.state lots.postalCode lots.lot lots.block lots.purchaser')
+          .lean();
+
+        const visibleCommunities = isSuper(req)
+          ? communityDocs
+          : filterCommunitiesForUser(req.user, communityDocs);
+
+        visibleCommunities.forEach((community) => {
+          (community?.lots || []).forEach((lot) => {
+            const purchaserId = lot?.purchaser ? String(lot.purchaser) : '';
+            const composed = [
+              (lot?.address1 || '').toString().trim(),
+              (lot?.city || '').toString().trim(),
+              (lot?.state || '').toString().trim(),
+              (lot?.postalCode || '').toString().trim()
+            ].filter(Boolean).join(', ');
+            const fallbackLotBlock =
+              (lot?.lot || lot?.block)
+                ? [lot?.lot ? `Lot ${lot.lot}` : '', lot?.block ? `Block ${lot.block}` : ''].filter(Boolean).join(' ')
+                : '';
+            const address = (
+              lot?.address ||
+              lot?.formattedAddress ||
+              composed ||
+              fallbackLotBlock ||
+              ''
+            ).toString().trim();
+            if (!purchaserId || !address) return;
+            if (!linkedAddressByContactId.has(purchaserId)) {
+              linkedAddressByContactId.set(purchaserId, address);
+            }
+          });
+        });
+      }
 
       const mapped = contacts.map((contact) => {
         const communities = (contact.communityIds || [])
@@ -1229,6 +1350,13 @@ router.get('/by-lender/:lenderId',
         const statusNormalized = String(contact.status || '').trim().toLowerCase();
         const purchaserStatus = statusNormalized === 'purchased';
         const isPurchaserWithLot = hasLinkedLot && purchaserStatus;
+        const linkedLotAddress =
+          linkedAddressByContactId.get(String(contact?._id || '')) ||
+          linkedLotData?.address ||
+          contact?.lotId?.address ||
+          contact?.lotId?.formattedAddress ||
+          contact?.lotId?.address1 ||
+          '';
 
         return {
           _id: contact._id,
@@ -1242,6 +1370,7 @@ router.get('/by-lender/:lenderId',
           lenders: lenderEntries,
           lotId: contact.lotId || null,
           linkedLot: linkedLotData,
+          linkedLotAddress,
           hasLinkedLot,
           isPurchaserWithLot,
           requiresAttention: Boolean(contact.requiresAttention),

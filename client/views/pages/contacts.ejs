@@ -86,6 +86,9 @@
 <body class="contacts-page contacts-shared mt-5" data-current-user-id="<%= currentUser ? currentUser.id : '' %>">
   <%- include('../partials/nav') %>
   <%- include('../partials/top-nav-contacts') %>
+  <h2 class="contacts-section-header">
+    Contacts <span id="contactsHeaderCount" class="contacts-section-header__count">(0)</span>
+  </h2>
     <!-- TOP BAR -->
   <div id="contactsTopBar" class="contact-topbar">
     <div class="topbar-left">
@@ -178,6 +181,12 @@
       <div class="col-sm-6 col-lg">
         <label for="inlineVisitDate" class="form-label">Visit Date</label>
         <input type="date" id="inlineVisitDate" name="visitDate" class="form-control form-control-sm" />
+      </div>
+      <div class="col-sm-6 col-lg">
+        <label for="inlineCommunityId" class="form-label">Community</label>
+        <select id="inlineCommunityId" name="communityId" class="form-select form-select-sm">
+          <option value="">Select a community (optional)</option>
+        </select>
       </div>
       <div class="col-sm-6 col-lg">
         <label for="inlineStatus" class="form-label">Status</label>

@@ -62,6 +62,24 @@ export function initEmailActivity({ contactId } = {}) {
     return date.toLocaleString();
   };
 
+  const normalizeStatus = (value) => String(value || '').trim().toLowerCase();
+
+  const formatStatusLabel = (value) => {
+    const normalized = normalizeStatus(value);
+    if (!normalized) return 'Unknown';
+    return normalized.charAt(0).toUpperCase() + normalized.slice(1);
+  };
+
+  const getStatusBadgeClass = (value) => {
+    const normalized = normalizeStatus(value);
+    if (normalized === 'sent') return 'sent-badge';
+    if (normalized === 'canceled' || normalized === 'cancelled') return 'canceled-badge';
+    return 'email-status-badge';
+  };
+
+  const renderStatusBadge = (value) =>
+    `<span class="${getStatusBadgeClass(value)}">${formatStatusLabel(value)}</span>`;
+
   const renderUpcoming = (items) => {
     if (!upcomingNode) return;
     if (!items.length) {
@@ -78,7 +96,7 @@ export function initEmailActivity({ contactId } = {}) {
               <div class="email-activity-meta">${formatDateTime(item.scheduledFor)} • ${item.reasonLabel}</div>
             </div>
             <div class="d-flex align-items-center gap-2">
-              <span class="badge bg-light text-dark border text-capitalize">${item.status}</span>
+              ${renderStatusBadge(item.status)}
               ${
                 canCancel
                   ? `<button class="btn btn-sm btn-outline-danger" data-email-cancel="${item._id}">Cancel</button>`
@@ -107,7 +125,7 @@ export function initEmailActivity({ contactId } = {}) {
             </div>
           </div>
           <div class="text-end">
-            <span class="badge bg-light text-dark border text-capitalize">${item.status}</span>
+            ${renderStatusBadge(item.status)}
             ${item.lastError ? `<div class="email-activity-meta">${getEmailErrorLabel(item.lastError)}</div>` : ''}
           </div>
         </div>

@@ -8,6 +8,8 @@ export const dom = {
   hdrBrokerage: $('#hdrBrokerage'),
   hdrPhone: $('#hdrPhone'),
   hdrEmail: $('#hdrEmail'),
+  emailStatusBadge: $('#realtorEmailStatusBadge'),
+  emailPauseBtn: $('#realtorEmailPauseBtn'),
   toggleEditBtn: $('#toggleEdit'),
 
   // Editor card
@@ -25,8 +27,7 @@ export const dom = {
     bAddr:     $('#realtorBrokerageAddress'),
     bCity:     $('#realtorBrokerageCity'),
     bState:    $('#realtorBrokerageState'),
-    bZip:      $('#realtorBrokerageZip'),
-    emailPaused: $('#realtorEmailPaused')
+    bZip:      $('#realtorBrokerageZip')
   },
 
   // Filters / table

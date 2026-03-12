@@ -228,6 +228,8 @@ function serializeInlineLeadForm(form) {
 
   const visitDate = formData.get('visitDate');
   if (visitDate) payload.visitDate = visitDate;
+  const communityId = trimValue('communityId');
+  if (communityId) payload.communityId = communityId;
 
   Object.keys(payload).forEach((key) => {
     if (payload[key] === '' && key !== 'status') {
@@ -236,6 +238,30 @@ function serializeInlineLeadForm(form) {
   });
 
   return payload;
+}
+
+function populateInlineLeadCommunitySelect(preferredId = '') {
+  const select = document.getElementById('inlineCommunityId');
+  if (!select) return;
+
+  select.innerHTML = '';
+  const placeholder = document.createElement('option');
+  placeholder.value = '';
+  placeholder.textContent = 'Select a community (optional)';
+  select.appendChild(placeholder);
+
+  state.communities.forEach((community) => {
+    const option = document.createElement('option');
+    option.value = community.id;
+    option.textContent = community.name || 'Community';
+    select.appendChild(option);
+  });
+
+  if (preferredId && state.communities.some((community) => community.id === preferredId)) {
+    select.value = preferredId;
+  } else {
+    select.value = '';
+  }
 }
 
 function upsertContact(contact) {
@@ -267,6 +293,11 @@ function showInlineLeadForm() {
   addBtn.disabled = true;
   addBtn.setAttribute('aria-expanded', 'true');
   searchWrapper?.classList.add('d-none');
+  const preferredCommunity =
+    state.currentCommunity !== COMMUNITY_ALL && state.currentCommunity !== COMMUNITY_UNASSIGNED
+      ? state.currentCommunity
+      : '';
+  populateInlineLeadCommunitySelect(preferredCommunity);
 
   const firstInput = form.querySelector('input[name="firstName"]');
   if (firstInput) firstInput.focus();
@@ -431,8 +462,12 @@ function initStatusButtons() {
 }
 
 function updateCounts(counts) {
+  const total = counts.all ?? 0;
   const totalEl = document.getElementById('countTotal');
-  if (totalEl) totalEl.textContent = counts.all ?? 0;
+  if (totalEl) totalEl.textContent = total;
+
+  const headerCountEl = document.getElementById('contactsHeaderCount');
+  if (headerCountEl) headerCountEl.textContent = `(${total})`;
 
   document.querySelectorAll('#statusFilters .status-pill .value').forEach((el) => {
     const key = el.dataset.count;
@@ -537,6 +572,7 @@ export async function initTopBar(contacts) {
   }
 
   populateCommunities();
+  populateInlineLeadCommunitySelect();
   bindSearchInput();
   initInlineLeadForm();
   buildStatusPills();
