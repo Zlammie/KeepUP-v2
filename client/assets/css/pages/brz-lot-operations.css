@@ -1,8 +1,8 @@
 .brz-lot-ops-page {
-  margin-left: 170px;
-  margin-right: 1rem;
+  margin-left: 55px;
+  margin-right: 45px;
   padding-right: 0.5rem;
-  max-width: calc(100vw - 170px - 1rem);
+  max-width: calc(100vw - 170px - 45px);
 }
 
 .brz-lot-ops-stat {
@@ -29,6 +29,66 @@
 
 .brz-lot-ops-stat--sync {
   color: #7c2d12;
+}
+
+.brz-readiness-pill,
+.brz-published-badge,
+.brz-missing-chip {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 999px;
+  font-size: 0.75rem;
+  font-weight: 700;
+  line-height: 1;
+  padding: 0.35rem 0.6rem;
+  border: 1px solid transparent;
+}
+
+.brz-readiness-pill {
+  min-width: 6.5rem;
+}
+
+.brz-readiness-pill--ready {
+  background: #ecfdf3;
+  border-color: #86efac;
+  color: #166534;
+}
+
+.brz-readiness-pill--warning {
+  background: #fff7ed;
+  border-color: #fdba74;
+  color: #9a3412;
+}
+
+.brz-readiness-pill--incomplete {
+  background: #fef2f2;
+  border-color: #fca5a5;
+  color: #b91c1c;
+}
+
+.brz-published-badge--yes {
+  background: #eff6ff;
+  border-color: #93c5fd;
+  color: #1d4ed8;
+}
+
+.brz-published-badge--no {
+  background: #f3f4f6;
+  border-color: #d1d5db;
+  color: #374151;
+}
+
+.brz-missing-chip {
+  background: #f8fafc;
+  border-color: #cbd5e1;
+  color: #334155;
+}
+
+.brz-missing-chip--more {
+  background: #eef2ff;
+  border-color: #c7d2fe;
+  color: #4338ca;
 }
 
 .brz-lot-ops-filters {
@@ -251,17 +311,25 @@
 .brz-missing-grid {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 2px 3px;
-  max-width: 114px;
+  gap: 3px 5px;
+  width: 100%;
+  max-width: none;
 }
 
 .brz-lot-ops-table .brz-missing-chip {
-  padding: 0.22rem 0.45rem;
-  font-size: 0.69rem;
+  width: 100%;
+  min-width: 0;
+  padding: 0.25rem 0.58rem;
+  font-size: 0.71rem;
+  justify-content: flex-start;
   max-width: 100%;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
+}
+
+.brz-lot-ops-table .brz-missing-chip--more {
+  justify-content: center;
 }
 
 .brz-lot-ops-table .brz-readiness-pill {

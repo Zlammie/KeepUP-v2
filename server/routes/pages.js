@@ -37,13 +37,6 @@ const {
 } = require('../services/brzPublishFlagService');
 const { computeBrzReadiness } = require('../lib/brzReadiness');
 const {
-  DEFAULT_PAGE_SIZE,
-  buildReadinessRows,
-  groupReadinessRows,
-  normalizeQueueParams,
-  paginateRows
-} = require('../lib/brzReadinessQueue');
-const {
   buildLotOperationsRows,
   buildLotOperationsSummary
 } = require('../lib/brzLotOperations');
@@ -872,81 +865,9 @@ router.get(
   '/listings',
   ensureAuth,
   requireRole('READONLY', 'USER', 'MANAGER', 'COMPANY_ADMIN', 'SUPER_ADMIN'),
-  async (req, res, next) => {
-    try {
-      const filter = { ...base(req) };
-      const allowed = getAllowedCommunityIds(req.user || {});
-
-      if (allowed.length) {
-        const allowedObjectIds = allowed
-          .filter(isId)
-          .map((id) => new mongoose.Types.ObjectId(id));
-        filter._id = { $in: allowedObjectIds };
-      }
-
-      const communities = await Community.find(filter)
-        .select('name city state lots')
-        .lean();
-
-      const scopedCommunities = filterCommunitiesForUser(req.user, communities);
-      const communityOptions = scopedCommunities
-        .map((community) => ({
-          id: String(community._id),
-          name: community.name || 'Community',
-          location: [community.city, community.state].filter(Boolean).join(', ')
-        }))
-        .sort((a, b) => a.name.localeCompare(b.name));
-
-      const lots = [];
-      scopedCommunities.forEach((community) => {
-        const communityName = community.name || 'Community';
-        const location = [community.city, community.state].filter(Boolean).join(', ');
-        (community.lots || []).forEach((lot) => {
-            const lotCity = (lot?.city || community.city || '').toString().trim();
-            const lotState = (lot?.state || community.state || '').toString().trim();
-            const lotZip = (lot?.postalCode || lot?.zip || '').toString().trim();
-            lots.push({
-              id: lot?._id ? String(lot._id) : '',
-              communityId: community._id ? String(community._id) : '',
-              communityName,
-              location,
-              city: lotCity,
-              state: lotState,
-              zip: lotZip,
-              jobNumber: lot.jobNumber || '',
-              lot: lot.lot || '',
-              block: lot.block || '',
-              address: lot.address || '',
-              status: lot.generalStatus || lot.status || 'Available',
-              releaseDate: lot.releaseDate || null,
-              completionDate: lot.expectedCompletionDate || null,
-              listPrice: lot.listPrice,
-              salesPrice: lot.salesPrice,
-              publishedAt: lot.publishedAt || lot.listDate || null,
-              syncDate: lot.contentSyncedAt || lot.buildrootzSyncedAt || lot.syncedAt || null,
-              listed: Boolean(
-                lot.isPublished ?? lot.isListed ?? lot.listed ?? lot.listingActive ?? false
-              )
-            });
-          });
-      });
-
-      const sortedLots = lots.sort((a, b) => {
-        const communityCompare = a.communityName.localeCompare(b.communityName);
-        if (communityCompare !== 0) return communityCompare;
-        const lotA = a.lot || a.jobNumber || '';
-        const lotB = b.lot || b.jobNumber || '';
-        return lotA.localeCompare(lotB);
-      });
-
-      res.render('pages/listings', {
-        active: 'listings',
-        communities: communityOptions,
-        lots: sortedLots
-      });
-    } catch (err) {
-      next(err);
-    }
+  (req, res) => {
+    const queryString = req.url.includes('?') ? req.url.slice(req.url.indexOf('?')) : '';
+    res.redirect(`/admin/brz/lot-operations${queryString}`);
   }
 );
 
@@ -1129,15 +1050,15 @@ router.get(
       const isManager = roles.includes('MANAGER');
       const canAccessMapping = isManager || isCompanyAdmin(req) || isSuper(req);
       const canAccessPublishing = isCompanyAdmin(req) || isSuper(req);
-      const canAccessReadiness = isCompanyAdmin(req) || isSuper(req);
       const canAccessLotOperations = isCompanyAdmin(req) || isSuper(req);
 
       const quickLinks = [
         {
-          title: 'Listings',
-          description: 'Browse and filter lots scoped to your communities.',
-          href: '/listings',
-          enabled: true
+          title: 'Lot Operations (Merged)',
+          description: 'Merged Listings + Readiness workflow for BuildRootz lot operations.',
+          href: '/admin/brz/lot-operations',
+          enabled: canAccessLotOperations,
+          requires: 'Company Admin+'
         },
         {
           title: 'Listing Map',
@@ -1153,19 +1074,12 @@ router.get(
           requires: 'Company Admin+'
         },
         {
-          title: 'Readiness Queue',
-          description: 'Review readiness and reconcile publish flags in bulk.',
-          href: '/admin/brz/readiness',
-          enabled: canAccessReadiness,
-          requires: 'Company Admin+'
+          title: 'BRZ Mapping',
+          description: 'Map KeepUp communities to canonical BuildRootz communities.',
+          href: '/admin/buildrootz/communities',
+          enabled: canAccessMapping,
+          requires: 'Manager+'
         },
-        {
-          title: 'Lot Operations (Merged)',
-          description: 'Merged Listings + Readiness workflow for BuildRootz lot operations.',
-          href: '/admin/brz/lot-operations',
-          enabled: canAccessLotOperations,
-          requires: 'Company Admin+'
-        }
       ];
 
       res.render('pages/admin/buildrootz-dashboard', {
@@ -1368,176 +1282,9 @@ router.get(
   '/admin/brz/readiness',
   ensureAuth,
   requireRole('COMPANY_ADMIN', 'SUPER_ADMIN'),
-  async (req, res, next) => {
-    try {
-      const requestedFilters = normalizeQueueParams(req.query);
-      const allowedCommunityIds = getAllowedCommunityIds(req.user).filter(isId);
-      const companyId = isId(req.user?.company) ? String(req.user.company) : null;
-      if (!companyId) {
-        return res.status(400).send('Invalid company context');
-      }
-
-      const communityQuery = { company: companyId };
-
-      if (!isSuper(req) && allowedCommunityIds.length) {
-        communityQuery._id = { $in: allowedCommunityIds };
-      }
-
-      const communities = await Community.find(communityQuery)
-        .select([
-          'name',
-          'city',
-          'state',
-          'description',
-          'buildrootzDescription',
-          'updatedAt',
-          'lots._id',
-          'lots.jobNumber',
-          'lots.lot',
-          'lots.block',
-          'lots.phase',
-          'lots.address',
-          'lots.floorPlan',
-          'lots.heroImage',
-          'lots.listingPhotos',
-          'lots.liveElevationPhoto',
-          'lots.latitude',
-          'lots.longitude',
-          'lots.listPrice',
-          'lots.salesPrice',
-          'lots.listingDescription',
-          'lots.description',
-          'lots.beds',
-          'lots.bedrooms',
-          'lots.baths',
-          'lots.bathrooms',
-          'lots.sqft',
-          'lots.squareFeet',
-          'lots.sqFeet',
-          'lots.isPublished',
-          'lots.isListed',
-          'lots.listed',
-          'lots.listingActive',
-          'lots.buildrootz',
-          'lots.updatedAt'
-        ].join(' '))
-        .sort({ name: 1, _id: 1 })
-        .lean();
-
-      const communityOptions = communities.map((community) => ({
-        id: String(community._id),
-        name: community.name || 'Community',
-        location: [community.city, community.state].filter(Boolean).join(', ')
-      }));
-
-      const filters = {
-        ...requestedFilters,
-        communityId: communityOptions.some((community) => community.id === requestedFilters.communityId)
-          ? requestedFilters.communityId
-          : ''
-      };
-
-      const floorPlanIds = new Set();
-      communities.forEach((community) => {
-        if (filters.communityId && String(community._id) !== filters.communityId) return;
-        const lots = Array.isArray(community?.lots) ? community.lots : [];
-        lots.forEach((lot) => {
-          if (filters.published !== 'all' && !(
-            (filters.published === 'published' && isLotPublishedForBuildrootz(lot))
-            || (filters.published === 'unpublished' && !isLotPublishedForBuildrootz(lot))
-          )) {
-            return;
-          }
-
-          const rawFloorPlan = lot?.floorPlan;
-          const floorPlanId = (() => {
-            if (!rawFloorPlan) return '';
-            if (typeof rawFloorPlan === 'string') return rawFloorPlan.trim();
-            if (typeof rawFloorPlan === 'object' && rawFloorPlan._id) return String(rawFloorPlan._id);
-            if (typeof rawFloorPlan === 'object' && typeof rawFloorPlan.toString === 'function') {
-              const text = rawFloorPlan.toString();
-              return text && text !== '[object Object]' ? text : '';
-            }
-            return '';
-          })();
-
-          if (floorPlanId && isId(floorPlanId)) {
-            floorPlanIds.add(floorPlanId);
-          }
-        });
-      });
-
-      const floorPlanDocs = floorPlanIds.size
-        ? await FloorPlan.find({
-          _id: { $in: Array.from(floorPlanIds) },
-          company: companyId
-        })
-            .select('name planNumber specs')
-            .lean()
-        : [];
-
-      const floorPlanById = floorPlanDocs.reduce((acc, floorPlan) => {
-        acc[String(floorPlan._id)] = floorPlan;
-        return acc;
-      }, {});
-
-      const queue = buildReadinessRows({
-        communities,
-        floorPlanById,
-        status: filters.status,
-        published: filters.published,
-        communityId: filters.communityId,
-        sort: filters.sort
-      });
-
-      const pagination = paginateRows(queue.rows, {
-        page: filters.page,
-        perPage: filters.perPage
-      });
-
-      const buildPageUrl = (page) => {
-        const params = new URLSearchParams();
-        if (filters.status !== 'all') params.set('status', filters.status);
-        if (filters.published !== 'all') params.set('published', filters.published);
-        if (filters.communityId) params.set('communityId', filters.communityId);
-        if (filters.sort !== 'readiness') params.set('sort', filters.sort);
-        if (page > 1) params.set('page', String(page));
-        if (filters.perPage !== DEFAULT_PAGE_SIZE) params.set('perPage', String(filters.perPage));
-        const queryString = params.toString();
-        return queryString ? `/admin/brz/readiness?${queryString}` : '/admin/brz/readiness';
-      };
-
-      const pageWindowStart = Math.max(1, Math.min(
-        pagination.page - 2,
-        Math.max(1, pagination.totalPages - 4)
-      ));
-      const pageWindowEnd = Math.min(pagination.totalPages, pageWindowStart + 4);
-      const pages = [];
-      for (let page = pageWindowStart; page <= pageWindowEnd; page += 1) {
-        pages.push({
-          number: page,
-          href: buildPageUrl(page),
-          current: page === pagination.page
-        });
-      }
-
-      res.render('pages/admin/brz-readiness', {
-        active: 'community',
-        filters,
-        summary: queue.summary,
-        rows: pagination.items,
-        groups: groupReadinessRows(pagination.items),
-        communityOptions,
-        pagination: {
-          ...pagination,
-          prevUrl: pagination.hasPrev ? buildPageUrl(pagination.page - 1) : '',
-          nextUrl: pagination.hasNext ? buildPageUrl(pagination.page + 1) : '',
-          pages
-        }
-      });
-    } catch (err) {
-      next(err);
-    }
+  (req, res) => {
+    const queryString = req.url.includes('?') ? req.url.slice(req.url.indexOf('?')) : '';
+    res.redirect(`/admin/brz/lot-operations${queryString}`);
   }
 );
 
@@ -2697,7 +2444,16 @@ router.get('/toolbar/help', ensureAuth, requireRole('READONLY','USER','MANAGER',
 router.get('/admin-section',
   ensureAuth,
   requireRole('MANAGER','COMPANY_ADMIN','SUPER_ADMIN','KEEPUP_ADMIN'),
-  (req, res) => res.render('pages/admin-section', { active: 'admin-section' })
+  (req, res) => {
+    const requestedTab = String(req.query?.tab || '').trim().toLowerCase();
+    if (requestedTab === 'buildrootz') {
+      const params = new URLSearchParams(req.query || {});
+      params.delete('tab');
+      const query = params.toString();
+      return res.redirect(query ? `/admin/buildrootz/publishing?${query}` : '/admin/buildrootz/publishing');
+    }
+    return res.render('pages/admin-section', { active: 'admin-section' });
+  }
 );
 
 router.get('/admin',

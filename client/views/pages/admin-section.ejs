@@ -60,11 +60,6 @@
                 Settings
               </button>
             </li>
-            <li class="nav-item" role="presentation">
-              <button class="nav-link" id="admin-tab-buildrootz" data-admin-target="buildrootz" type="button" role="tab" aria-controls="admin-panel-buildrootz" aria-selected="false">
-                BuildRootz
-              </button>
-            </li>
           </ul>
         </nav>
 
@@ -1297,61 +1292,6 @@
           </div>
         </section>
 
-        <section id="admin-panel-buildrootz" class="admin-panel d-none" role="tabpanel" aria-labelledby="admin-tab-buildrootz">
-          <div class="d-flex flex-wrap justify-content-between align-items-center mb-3">
-            <div>
-              <h2 class="h4 mb-1">BuildRootz Profile</h2>
-              <p class="text-muted mb-0">
-                Control what BuildRootz sees for your builder profile: name, logo, and description.
-              </p>
-            </div>
-          </div>
-
-          <form id="buildrootz-form" class="row g-4">
-            <div class="col-12 col-lg-6">
-              <label for="buildrootzName" class="form-label">Builder Name</label>
-              <input type="text" id="buildrootzName" class="form-control" readonly />
-              <div class="form-text">Pulled from your Company name.</div>
-            </div>
-            <div class="col-12 col-lg-6">
-              <label for="buildrootzLogo" class="form-label">Logo URL</label>
-              <input type="text" id="buildrootzLogo" class="form-control" placeholder="https://example.com/logo.png or /uploads/your-logo.png" />
-              <div class="d-flex flex-wrap align-items-center gap-2 mt-2">
-                <button type="button" class="btn btn-sm btn-outline-secondary" id="buildrootz-use-company-logo">
-                  Use company logo
-                </button>
-                <span class="small text-muted" id="buildrootz-logo-source"></span>
-              </div>
-              <div class="form-text">We'll send this logo and company description to your BuildRootz builder profile.</div>
-              <div class="mt-2" id="buildrootzLogoPreviewWrapper">
-                <img id="buildrootzLogoPreview" src="" alt="Logo preview" style="max-height:60px; display:none;" />
-              </div>
-            </div>
-            <div class="col-12">
-              <label for="buildrootzWebsiteUrl" class="form-label">Builder Website</label>
-              <input
-                type="url"
-                id="buildrootzWebsiteUrl"
-                class="form-control"
-                placeholder="https://www.examplebuilder.com"
-              />
-              <div class="form-text">Displayed on your BuildRootz builder profile.</div>
-            </div>
-            <div class="col-12">
-              <label for="buildrootzDescription" class="form-label">Company Description</label>
-              <textarea id="buildrootzDescription" class="form-control" rows="4" placeholder="Add a short bio for your builder profile on BuildRootz."></textarea>
-            </div>
-
-            <div class="col-12 d-flex justify-content-end align-items-center gap-2 flex-wrap">
-              <div id="buildrootz-status" class="small text-muted me-auto"></div>
-              <div class="d-flex gap-2">
-                <button type="button" class="btn btn-outline-secondary" id="buildrootz-discard">Discard</button>
-                <button type="submit" class="btn btn-secondary" id="buildrootz-save">Save</button>
-                <button type="button" class="btn btn-primary" id="buildrootz-publish">Publish to BuildRootz</button>
-              </div>
-            </div>
-          </form>
-        </section>
       </div>
     </div>
   </main>
@@ -1412,11 +1352,6 @@
         },
         emailQueue: {
           loading: false,
-          data: null
-        },
-        buildrootz: {
-          loading: false,
-          saving: false,
           data: null
         },
         billing: {
@@ -1601,22 +1536,6 @@
       const billingViewOnlyMessage =
         'Billing access is view-only for Manager accounts. Contact a Company Admin to request activation.';
 
-      const buildrootzEls = {
-        form: document.getElementById('buildrootz-form'),
-        name: document.getElementById('buildrootzName'),
-        logo: document.getElementById('buildrootzLogo'),
-        websiteUrl: document.getElementById('buildrootzWebsiteUrl'),
-        description: document.getElementById('buildrootzDescription'),
-        status: document.getElementById('buildrootz-status'),
-        save: document.getElementById('buildrootz-save'),
-        publish: document.getElementById('buildrootz-publish'),
-        discard: document.getElementById('buildrootz-discard'),
-        useCompanyLogo: document.getElementById('buildrootz-use-company-logo'),
-        logoSource: document.getElementById('buildrootz-logo-source'),
-        logoPreview: document.getElementById('buildrootzLogoPreview'),
-        logoPreviewWrapper: document.getElementById('buildrootzLogoPreviewWrapper')
-      };
-
       const billingEls = {
         stripeNotice: document.getElementById('billingStripeNotice'),
         stripeNoticeText: document.getElementById('billingStripeNoticeText'),
@@ -1731,20 +1650,6 @@
         if (emailDomainEls.statusMessage) {
           emailDomainEls.statusMessage.textContent = companyViewOnlyMessage;
           emailDomainEls.statusMessage.classList.add('text-muted');
-        }
-      }
-
-      if (buildrootzEls.form && !canEditCompany) {
-        buildrootzEls.form.querySelectorAll('input, textarea, button').forEach((el) => {
-          if (el.id === 'buildrootz-publish' || el.type === 'submit' || el.type === 'button') {
-            el.setAttribute('disabled', 'disabled');
-          } else {
-            el.setAttribute('disabled', 'disabled');
-          }
-        });
-        if (buildrootzEls.status) {
-          buildrootzEls.status.textContent = companyViewOnlyMessage;
-          buildrootzEls.status.classList.add('text-muted');
         }
       }
 
@@ -1872,16 +1777,6 @@
 
       const clearEmailDomainStatus = () => setEmailDomainStatus('', 'muted');
 
-      const setBuildrootzStatus = (message, tone = 'muted') => {
-        if (!buildrootzEls.status) return;
-        buildrootzEls.status.textContent = message || '';
-        buildrootzEls.status.classList.remove('text-muted', 'text-success', 'text-danger');
-        const toneClass = tone === 'success' ? 'text-success' : tone === 'danger' ? 'text-danger' : 'text-muted';
-        buildrootzEls.status.classList.add(toneClass);
-      };
-
-      const clearBuildrootzStatus = () => setBuildrootzStatus('', 'muted');
-
       const getInputValue = (input) => {
         if (!input || typeof input.value !== 'string') return '';
         return input.value.trim();
@@ -1948,99 +1843,7 @@
         if (companyInputs.logoFile) companyInputs.logoFile.value = '';
         revokeCompanyLogoObjectUrl();
         updateCompanyLogoPreview(logoUrl);
-        syncBuildrootzLogoFromCompany();
         return logoUrl;
-      };
-
-      const updateBuildrootzLogoPreview = (url) => {
-        if (!buildrootzEls.logoPreview || !buildrootzEls.logoPreviewWrapper) return;
-        const trimmed = (url || '').trim();
-        if (trimmed) {
-          buildrootzEls.logoPreview.src = trimmed;
-          buildrootzEls.logoPreview.style.display = 'block';
-          buildrootzEls.logoPreviewWrapper.classList.remove('d-none');
-        } else {
-          buildrootzEls.logoPreview.src = '';
-          buildrootzEls.logoPreview.style.display = 'none';
-          buildrootzEls.logoPreviewWrapper.classList.add('d-none');
-        }
-      };
-
-      const getCompanyLogoForBuildrootz = () => {
-        return (
-          getInputValue(companyInputs.logoUrl) ||
-          state.buildrootz.data?.companyLogoUrl ||
-          state.buildrootz.data?.fallbackLogoUrl ||
-          ''
-        );
-      };
-
-      const updateBuildrootzLogoMeta = ({ profileLogoUrl = '', companyLogoUrl = '' } = {}) => {
-        if (buildrootzEls.logoSource) {
-          if (profileLogoUrl) {
-            buildrootzEls.logoSource.textContent = 'Using BuildRootz-specific logo.';
-          } else if (companyLogoUrl) {
-            buildrootzEls.logoSource.textContent = 'Using company logo from Company settings.';
-          } else {
-            buildrootzEls.logoSource.textContent = 'No logo set.';
-          }
-        }
-        if (buildrootzEls.useCompanyLogo) {
-          buildrootzEls.useCompanyLogo.disabled = !canEditCompany || !companyLogoUrl;
-        }
-      };
-
-      const syncBuildrootzLogoFromCompany = ({ force = false } = {}) => {
-        if (!buildrootzEls.logo) return;
-        const companyLogoUrl = getCompanyLogoForBuildrootz();
-        const currentLogo = getInputValue(buildrootzEls.logo);
-        const previousCompanyLogo = state.buildrootz.data?.companyLogoUrl || '';
-        const hasCustomLogo = Boolean(state.buildrootz.data?.profileLogoUrl);
-        const shouldOverwrite =
-          force || !currentLogo || (!hasCustomLogo && currentLogo === previousCompanyLogo);
-
-        if (shouldOverwrite) {
-          buildrootzEls.logo.value = companyLogoUrl || '';
-          updateBuildrootzLogoPreview(companyLogoUrl || '');
-        }
-
-        if (state.buildrootz.data) {
-          state.buildrootz.data.companyLogoUrl = companyLogoUrl || '';
-          state.buildrootz.data.fallbackLogoUrl = companyLogoUrl || '';
-          if (!state.buildrootz.data.profileLogoUrl) {
-            state.buildrootz.data.logoUrl = companyLogoUrl || '';
-          }
-        }
-
-        updateBuildrootzLogoMeta({
-          profileLogoUrl: state.buildrootz.data?.profileLogoUrl || '',
-          companyLogoUrl
-        });
-      };
-
-      const getBuildrootzLogoForSave = () => {
-        const explicitLogo = getInputValue(buildrootzEls.logo);
-        if (explicitLogo) return explicitLogo;
-        return getCompanyLogoForBuildrootz();
-      };
-
-      const populateBuildrootzForm = (data) => {
-        if (!data) return;
-        const companyLogoUrl = data.companyLogoUrl || data.fallbackLogoUrl || '';
-        const profileLogoUrl = data.profileLogoUrl || '';
-        const resolvedLogoUrl = profileLogoUrl || data.logoUrl || companyLogoUrl || '';
-        if (buildrootzEls.name) buildrootzEls.name.value = data.builderName || '';
-        if (buildrootzEls.logo) buildrootzEls.logo.value = resolvedLogoUrl;
-        if (buildrootzEls.websiteUrl) buildrootzEls.websiteUrl.value = data.websiteUrl || '';
-        if (buildrootzEls.description) buildrootzEls.description.value = data.description || '';
-        updateBuildrootzLogoPreview(resolvedLogoUrl);
-        state.buildrootz.data = {
-          ...data,
-          companyLogoUrl,
-          profileLogoUrl,
-          logoUrl: resolvedLogoUrl
-        };
-        updateBuildrootzLogoMeta({ profileLogoUrl, companyLogoUrl });
       };
 
       const showUsersLoading = (message = 'Loading users...') => {
@@ -2108,19 +1911,6 @@
       const fetchEmailDomain = async (companyId) => {
         if (!companyId) throw new Error('Missing company id.');
         const response = await fetch(`/api/admin/company/${encodeURIComponent(companyId)}/email-domain`, {
-          headers: { Accept: 'application/json' },
-          credentials: 'same-origin'
-        });
-        const data = await readJsonResponse(response);
-        if (!response.ok) {
-          const message = data?.error || `Request failed (${response.status})`;
-          throw new Error(message);
-        }
-        return data;
-      };
-
-      const fetchBuildrootzProfile = async () => {
-        const response = await fetch('/api/admin/buildrootz/profile', {
           headers: { Accept: 'application/json' },
           credentials: 'same-origin'
         });
@@ -4187,7 +3977,6 @@ const trialEligible =
         if (companyInputs.logoFile) companyInputs.logoFile.value = '';
         revokeCompanyLogoObjectUrl();
         updateCompanyLogoPreview(branding.logoUrl || '');
-        syncBuildrootzLogoFromCompany();
         if (companyInputs.primaryColor) {
           companyInputs.primaryColor.value = branding.primaryColor || defaultPrimaryColor;
         }
@@ -5218,33 +5007,6 @@ const trialEligible =
         }
       };
 
-      const loadBuildrootzPanel = async ({ force = false } = {}) => {
-        if (!buildrootzEls.form) return;
-        if (state.buildrootz.loading) return;
-        if (!force && state.loadedPanels.has('buildrootz') && state.buildrootz.data) {
-          populateBuildrootzForm(state.buildrootz.data);
-          return;
-        }
-        state.buildrootz.loading = true;
-        setBuildrootzStatus('Loading BuildRootz profile...', 'muted');
-        try {
-          const payload = await fetchBuildrootzProfile();
-          state.buildrootz.data = payload;
-          state.loadedPanels.add('buildrootz');
-          populateBuildrootzForm(payload);
-          if (payload.publishedAt) {
-            setBuildrootzStatus('Last published to BuildRootz', 'muted');
-          } else {
-            clearBuildrootzStatus();
-          }
-        } catch (err) {
-          console.error('Failed to load BuildRootz profile', err);
-          setBuildrootzStatus(err.message || 'Unable to load BuildRootz profile.', 'danger');
-        } finally {
-          state.buildrootz.loading = false;
-        }
-      };
-
       const handleCompanySubmit = async (event) => {
         event.preventDefault();
         if (!companyForm || state.company.saving || state.company.loading) return;
@@ -5332,114 +5094,6 @@ const trialEligible =
         } finally {
           state.company.saving = false;
           if (companySaveButton) companySaveButton.disabled = false;
-        }
-      };
-
-      const handleBuildrootzSubmit = async (event) => {
-        event.preventDefault();
-        if (!buildrootzEls.form || state.buildrootz.saving || state.buildrootz.loading) return;
-        if (!canEditCompany) return;
-
-        const payload = {
-          companyId: state.company.data?.companyId,
-          description: getInputValue(buildrootzEls.description),
-          companyDescription: getInputValue(buildrootzEls.description),
-          logoUrl: getBuildrootzLogoForSave(),
-          websiteUrl: getInputValue(buildrootzEls.websiteUrl)
-        };
-
-        state.buildrootz.saving = true;
-        setBuildrootzStatus('Saving...', 'muted');
-        if (buildrootzEls.save) buildrootzEls.save.disabled = true;
-        if (buildrootzEls.publish) buildrootzEls.publish.disabled = true;
-
-        try {
-          const response = await fetch('/api/admin/buildrootz/profile', {
-            method: 'PUT',
-            headers: {
-              'Content-Type': 'application/json',
-              Accept: 'application/json'
-            },
-            credentials: 'same-origin',
-            body: JSON.stringify(payload)
-          });
-          const data = await readJsonResponse(response);
-          if (!response.ok) {
-            const message = data?.error || `Save failed (${response.status})`;
-            throw new Error(message);
-          }
-          state.buildrootz.data = data;
-          populateBuildrootzForm(data);
-          setBuildrootzStatus('Saved.', 'success');
-        } catch (err) {
-          console.error('BuildRootz save failed', err);
-          setBuildrootzStatus(err.message || 'Save failed.', 'danger');
-        } finally {
-          state.buildrootz.saving = false;
-          if (buildrootzEls.save) buildrootzEls.save.disabled = false;
-          if (buildrootzEls.publish) buildrootzEls.publish.disabled = false;
-        }
-      };
-
-      const handleBuildrootzPublish = async (event) => {
-        event.preventDefault();
-        if (!buildrootzEls.form || state.buildrootz.saving || state.buildrootz.loading) return;
-        if (!canEditCompany) return;
-
-        const payload = {
-          companyId: state.company.data?.companyId,
-          description: getInputValue(buildrootzEls.description),
-          companyDescription: getInputValue(buildrootzEls.description),
-          logoUrl: getBuildrootzLogoForSave(),
-          websiteUrl: getInputValue(buildrootzEls.websiteUrl)
-        };
-
-        state.buildrootz.saving = true;
-        setBuildrootzStatus('Publishing to BuildRootz...', 'muted');
-        if (buildrootzEls.publish) buildrootzEls.publish.disabled = true;
-        if (buildrootzEls.save) buildrootzEls.save.disabled = true;
-
-        try {
-          const response = await fetch('/api/admin/buildrootz/profile/publish', {
-            method: 'POST',
-            headers: {
-              'Content-Type': 'application/json',
-              Accept: 'application/json'
-            },
-            credentials: 'same-origin',
-            body: JSON.stringify(payload)
-          });
-          const data = await readJsonResponse(response);
-          if (!response.ok) {
-            const message = data?.error || `Publish failed (${response.status})`;
-            throw new Error(message);
-          }
-          state.buildrootz.data = data;
-          populateBuildrootzForm(data);
-          setBuildrootzStatus('Published to BuildRootz.', 'success');
-        } catch (err) {
-          console.error('BuildRootz publish failed', err);
-          setBuildrootzStatus(err.message || 'Publish failed.', 'danger');
-        } finally {
-          state.buildrootz.saving = false;
-          if (buildrootzEls.publish) buildrootzEls.publish.disabled = false;
-          if (buildrootzEls.save) buildrootzEls.save.disabled = false;
-        }
-      };
-
-      const handleBuildrootzDiscard = (event) => {
-        if (event) event.preventDefault();
-        if (state.buildrootz.data) {
-          populateBuildrootzForm(state.buildrootz.data);
-          clearBuildrootzStatus();
-        } else {
-          const companyLogoUrl = getCompanyLogoForBuildrootz();
-          if (buildrootzEls.logo) buildrootzEls.logo.value = companyLogoUrl || '';
-          if (buildrootzEls.websiteUrl) buildrootzEls.websiteUrl.value = '';
-          if (buildrootzEls.description) buildrootzEls.description.value = '';
-          updateBuildrootzLogoPreview(companyLogoUrl || '');
-          updateBuildrootzLogoMeta({ profileLogoUrl: '', companyLogoUrl });
-          clearBuildrootzStatus();
         }
       };
 
@@ -6030,8 +5684,7 @@ const trialEligible =
         company: loadCompanyPanel,
         users: loadUsersPanel,
         billing: loadBillingPanel,
-        'platform-billing': loadPlatformBillingPanel,
-        buildrootz: loadBuildrootzPanel
+        'platform-billing': loadPlatformBillingPanel
       };
       if (permissions && permissions.canUseImpersonation) {
         panelLoaders.impersonation = loadImpersonationPanel;
@@ -6324,7 +5977,6 @@ const trialEligible =
         companyInputs.logoUrl.addEventListener('input', () => {
           if (companyInputs.logoFile?.files?.length) return;
           updateCompanyLogoPreview(getInputValue(companyInputs.logoUrl));
-          syncBuildrootzLogoFromCompany();
         });
       }
       if (companyInputs.logoFile) {
@@ -6437,44 +6089,6 @@ const trialEligible =
             setEmailDomainStatus('Failed to copy.', 'danger');
           }
         });
-      }
-
-      if (buildrootzEls.form) {
-        buildrootzEls.form.addEventListener('submit', handleBuildrootzSubmit);
-        if (buildrootzEls.publish) {
-          buildrootzEls.publish.addEventListener('click', handleBuildrootzPublish);
-        }
-        if (buildrootzEls.discard) {
-          buildrootzEls.discard.addEventListener('click', handleBuildrootzDiscard);
-        }
-        if (buildrootzEls.logo) {
-          buildrootzEls.logo.addEventListener('input', () => {
-            const value = getInputValue(buildrootzEls.logo);
-            updateBuildrootzLogoPreview(value);
-            if (state.buildrootz.data) {
-              state.buildrootz.data.profileLogoUrl = value || '';
-            }
-            updateBuildrootzLogoMeta({
-              profileLogoUrl: value || '',
-              companyLogoUrl: getCompanyLogoForBuildrootz()
-            });
-          });
-        }
-        if (buildrootzEls.useCompanyLogo) {
-          buildrootzEls.useCompanyLogo.addEventListener('click', (event) => {
-            event.preventDefault();
-            const companyLogoUrl = getCompanyLogoForBuildrootz();
-            if (!companyLogoUrl || !buildrootzEls.logo) return;
-            buildrootzEls.logo.value = companyLogoUrl;
-            updateBuildrootzLogoPreview(companyLogoUrl);
-            if (state.buildrootz.data) {
-              state.buildrootz.data.profileLogoUrl = '';
-              state.buildrootz.data.logoUrl = companyLogoUrl;
-            }
-            updateBuildrootzLogoMeta({ profileLogoUrl: '', companyLogoUrl });
-            clearBuildrootzStatus();
-          });
-        }
       }
 
       if (billingEls.buildrootzRequestButton) {

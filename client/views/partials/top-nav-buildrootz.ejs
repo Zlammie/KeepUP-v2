@@ -11,12 +11,6 @@
           </a>
         </li>
         <li>
-          <a href="/listings" class="top-nav-link">
-            <img src="/assets/icons/listings.svg" alt="Listings">
-            <span>Listings</span>
-          </a>
-        </li>
-        <li>
           <a href="/listing-map" class="top-nav-link">
             <img src="/assets/icons/graph.svg" alt="Listing map">
             <span>Listing Map</span>
@@ -37,12 +31,6 @@
           </li>
         <% } %>
         <% if (permissions && (permissions.isCompanyAdmin || permissions.isSuperAdmin)) { %>
-          <li>
-            <a href="/admin/brz/readiness" class="top-nav-link">
-              <img src="/assets/icons/listings.svg" alt="BuildRootz readiness">
-              <span>Readiness Queue</span>
-            </a>
-          </li>
           <li>
             <a href="/admin/brz/lot-operations" class="top-nav-link">
               <img src="/assets/icons/listings.svg" alt="BuildRootz lot operations">

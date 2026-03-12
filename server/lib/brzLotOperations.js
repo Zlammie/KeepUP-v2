@@ -1,5 +1,4 @@
 const { computeBrzReadiness } = require('./brzReadiness');
-const { isLotPublishedForBuildrootz } = require('./brzReadinessQueue');
 
 const READINESS_ORDER = Object.freeze({
   incomplete: 0,
@@ -88,6 +87,14 @@ const resolveSyncDate = (lot) => (
   || lot?.syncedAt
   || null
 );
+
+const isLotPublishedForBuildrootz = (lot) => {
+  if (!lot || typeof lot !== 'object') return false;
+  if (lot.buildrootz && Object.prototype.hasOwnProperty.call(lot.buildrootz, 'isPublished')) {
+    return Boolean(lot.buildrootz.isPublished);
+  }
+  return Boolean(lot.isPublished ?? lot.isListed ?? lot.listed ?? lot.listingActive);
+};
 
 const inferNeedsSync = ({
   published = false,
