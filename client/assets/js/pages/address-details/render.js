@@ -49,16 +49,21 @@ function buildEarnestRow(entry = {}, idx = 0) {
   row.dataset.earnestIndex = idx;
   row.innerHTML = `
     <div class="earnest-cell amount">
-      <input class="value earnest-amount" inputmode="numeric" placeholder="$0" value="${safeAmount}">
+      <input class="value earnest-amount input--money" inputmode="numeric" placeholder="$0" value="${safeAmount}">
     </div>
     <div class="earnest-cell date">
-      <input type="date" class="value earnest-due ${missingDue ? 'earnest-missing-due' : ''}" value="${due}">
+      <input type="date" class="value earnest-due input--normalized input--date ${missingDue ? 'earnest-missing-due' : ''}" value="${due}">
     </div>
     <div class="earnest-cell date">
-      <input type="date" class="value earnest-collected" value="${collected}">
+      <input type="date" class="value earnest-collected input--normalized input--date" value="${collected}">
     </div>
     <div class="earnest-cell actions">
-      <button type="button" class="earnest-delete" aria-label="Delete earnest entry">Delete</button>
+      <button type="button" class="earnest-delete" aria-label="Delete earnest entry" title="Delete earnest entry">
+        <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+          <path d="M9 3.75h6a1 1 0 0 1 1 1V6h3a.75.75 0 0 1 0 1.5h-1.02l-.82 10.53A2.25 2.25 0 0 1 14.92 20H9.08a2.25 2.25 0 0 1-2.24-1.97L6.02 7.5H5a.75.75 0 0 1 0-1.5h3V4.75a1 1 0 0 1 1-1Zm5.5 2.25V5.25h-5V6h5ZM8.34 7.5l.79 10.4a.75.75 0 0 0 .75.6h4.24a.75.75 0 0 0 .75-.6l.79-10.4H8.34Zm2.41 2.1a.75.75 0 0 1 .75.75v5.3a.75.75 0 0 1-1.5 0v-5.3a.75.75 0 0 1 .75-.75Zm2.5 0a.75.75 0 0 1 .75.75v5.3a.75.75 0 0 1-1.5 0v-5.3a.75.75 0 0 1 .75-.75Z"></path>
+        </svg>
+        <span class="visually-hidden">Delete</span>
+      </button>
     </div>
   `;
   return row;
@@ -235,13 +240,6 @@ export const setInitialFormValues = (lot, primaryEntry) => {
   // ----- helpers (local, no imports needed)
   const $ = (el) => el || null;
   const getEl = (k) => els[k] || document.getElementById(k);
-  const asLocalDate = (v) => {
-    if (!v) return '';
-    try {
-      const d = (v instanceof Date) ? v : new Date(v);
-      return isNaN(d.getTime()) ? '' : d.toLocaleDateString();
-    } catch { return ''; }
-  };
   const toDateInputValue = (v) => {
     if (!v) return '';
     try {
@@ -272,7 +270,7 @@ export const setInitialFormValues = (lot, primaryEntry) => {
     els.listPriceInput.value = formattedListPrice || (lot.listPrice ?? '');
   }
 
-  // ===== NEW: Sales Price & Sales Date (read-only display nodes) =====
+  // Sales Price & Sales Date
   // Try primaryEntry first, then lot, with common field-name fallbacks.
   const salesPriceRaw =
       primaryEntry?.salesPrice ?? primaryEntry?.contractPrice ?? primaryEntry?.purchasePrice ??
@@ -282,14 +280,14 @@ export const setInitialFormValues = (lot, primaryEntry) => {
       primaryEntry?.salesDate ?? primaryEntry?.contractDate ?? primaryEntry?.salesDateTime ??
       lot.salesDate ?? lot.salesDateTime ?? '';
 
-  const spEl = getEl('salesPriceValue');
-  const sdEl = getEl('salesDateValue');
+  const spEl = getEl('salesPriceInput');
+  const sdEl = getEl('salesDateInput');
 
   if ($(spEl)) {
     const formattedSalesPrice = formatCurrency(salesPriceRaw);
-    spEl.textContent = formattedSalesPrice || (salesPriceRaw ? String(salesPriceRaw) : '');
+    spEl.value = formattedSalesPrice || (salesPriceRaw ? String(salesPriceRaw) : '');
   }
-  if ($(sdEl)) sdEl.textContent = asLocalDate(salesDateRaw);
+  if ($(sdEl)) sdEl.value = toDateInputValue(salesDateRaw);
 
   // ----- Selects (existing)
   if (els.buildingStatusSelect) els.buildingStatusSelect.value = lot.status || 'Not-Started';

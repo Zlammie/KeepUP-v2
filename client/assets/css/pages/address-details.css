@@ -53,7 +53,7 @@
   grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
   gap: 12px;
   padding: 0;
-  align-items: stretch;
+  align-items: start;
 }
 .addr-header > .card{
   background: var(--card-bg);
@@ -64,7 +64,9 @@
   display: flex;
   flex-direction: column;
   gap: 12px;
-  min-height: 100%;
+  height: auto;
+  min-height: 0;
+  align-self: start;
   min-width: 0;
 }
 
@@ -168,7 +170,9 @@
   align-items: start;
 }
 .walk-earnest-grid > .card{
-  height: 100%;
+  height: auto;
+  min-width: 0;
+  max-width: 100%;
 }
 .walk-earnest-grid > .card:first-child{
   padding: 16px;
@@ -202,12 +206,18 @@
   flex-direction:column;
   gap:6px;
   margin-top:8px;
+  width:100%;
+  max-width:100%;
+  min-width:0;
 }
 .earnest-row{
   display:grid;
   grid-template-columns: 1fr 1fr 1fr auto;
   align-items:center;
   gap:10px;
+  width:100%;
+  max-width:100%;
+  min-width:0;
 }
 .earnest-row--head{
   font-weight:700;
@@ -228,6 +238,9 @@
 }
 .earnest-cell.actions{
   text-align:right;
+  width:100%;
+  max-width:100%;
+  min-width:0;
 }
 .earnest-delete{
   border:1px solid #e5e7eb;
@@ -1697,6 +1710,576 @@
 }
 .todo-panel.collapsed .todo-add-btn{
   display:none;
+}
+
+/* =========================================
+   Address Details refresh
+   Scoped modernization for pricing, dates, walks, earnest
+   ========================================= */
+
+.address-details-page{
+  --address-soft-blue: rgba(104, 155, 223, 0.52);
+  --address-soft-blue-fade: rgba(104, 155, 223, 0);
+  --address-input-border: #cfd8e3;
+  --address-input-focus: rgba(122, 165, 255, 0.24);
+  --address-input-shadow: 0 1px 0 rgba(16, 24, 40, 0.03) inset;
+}
+
+body.address-details-page{
+  padding-top: calc(var(--nav-top-height) + var(--nav-subnav-height) - 6px);
+}
+
+.address-details-page .address-layout{
+  padding: 0 20px 14px;
+}
+
+.address-details-page .address-layout__main{
+  gap: 10px;
+}
+
+.address-details-page .address-shell{
+  padding: 8px;
+  gap: 6px;
+}
+
+.address-details-page .section-card__header{
+  position: relative;
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: 14px;
+  margin-bottom: 12px;
+  padding-bottom: 10px;
+}
+
+.address-details-page .section-card__header::after{
+  content: "";
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  height: 1px;
+  background: linear-gradient(90deg, var(--address-soft-blue), rgba(104, 155, 223, 0.22) 65%, var(--address-soft-blue-fade));
+}
+
+.address-details-page .section-card__header h2{
+  margin: 0;
+}
+
+.address-details-page .section-card__header--split{
+  align-items: center;
+}
+
+.address-details-page .input--normalized,
+.address-details-page .earnest-table input.value,
+.address-details-page .price-card input.value{
+  appearance: none;
+  -webkit-appearance: none;
+  width: 100%;
+  min-height: 40px;
+  padding: 10px 12px;
+  border: 1px solid var(--address-input-border);
+  border-radius: 10px;
+  background: #fff;
+  color: #111827;
+  line-height: 1.2;
+  box-shadow: var(--address-input-shadow);
+}
+
+.address-details-page .input--normalized,
+.address-details-page .input--date,
+.address-details-page .input--time,
+.address-details-page .earnest-table input.value,
+.address-details-page .price-card input.value{
+  font-size: 0.95rem;
+}
+
+.address-details-page .input--date,
+.address-details-page .input--time,
+.address-details-page .price-card #salesDateInput,
+.address-details-page .earnest-table input[type="date"]{
+  font-variant-numeric: tabular-nums;
+  font-weight: 600;
+}
+
+.address-details-page .input--normalized:focus,
+.address-details-page .earnest-table input.value:focus,
+.address-details-page .price-card input.value:focus,
+.address-details-page .walk-status-card select.value:focus{
+  outline: none;
+  border-color: #7aa5ff;
+  box-shadow: 0 0 0 3px var(--address-input-focus);
+}
+
+.address-details-page .input--date::-webkit-calendar-picker-indicator,
+.address-details-page .input--time::-webkit-calendar-picker-indicator{
+  opacity: 0;
+  width: 0;
+  margin: 0;
+  padding: 0;
+  pointer-events: none;
+}
+
+.address-details-page .input--time::-webkit-inner-spin-button,
+.address-details-page .input--time::-webkit-clear-button{
+  display: none;
+}
+
+.address-details-page .input--time::-webkit-datetime-edit-second-field,
+.address-details-page .input--time::-webkit-datetime-edit-millisecond-field{
+  display: none;
+}
+
+.address-details-page .price-card{
+  display: flex !important;
+  flex-direction: column;
+  justify-content: flex-start;
+  padding: 12px 14px;
+  gap: 0;
+  align-self: stretch;
+  height: 100%;
+  min-height: 100%;
+}
+
+.address-details-page .addr-header{
+  align-items: stretch;
+}
+
+.address-details-page .addr-header > .card{
+  gap: 8px;
+  height: 100%;
+  min-height: 100%;
+  align-self: stretch;
+  justify-content: flex-start;
+}
+
+.address-details-page .price-card__header,
+.address-details-page .closing-card__header{
+  margin-bottom: 10px;
+}
+
+.address-details-page .price-card__header h2,
+.address-details-page .closing-card__header h2{
+  font-size: 1rem;
+  color: #111827;
+}
+
+.address-details-page .price-card__group{
+  display: block;
+  gap: 12px;
+  width: 100%;
+  margin: 0;
+  padding: 0;
+}
+
+.address-details-page .price-card .field.wide{
+  display: block !important;
+  text-align: left !important;
+  width: 100%;
+  margin: 0 0 12px !important;
+  padding: 0 !important;
+}
+
+.address-details-page .price-card .field label{
+  font-size: 0.78rem;
+  font-weight: 600;
+  color: #5b6678;
+  margin-bottom: 5px !important;
+}
+
+.address-details-page .price-card .price-row{
+  display: grid !important;
+  grid-template-columns: minmax(0, 1.1fr) minmax(170px, 0.9fr) !important;
+  align-items: end !important;
+  justify-content: initial !important;
+  justify-items: stretch !important;
+  gap: 10px !important;
+  max-width: none !important;
+  margin: 0 !important;
+  padding: 0 !important;
+}
+
+.address-details-page .price-card .price-row .field{
+  display: flex !important;
+  flex-direction: column !important;
+  align-items: stretch !important;
+  justify-content: flex-start !important;
+  gap: 0 !important;
+  min-width: 0 !important;
+}
+
+.address-details-page .price-card .price-row .field label{
+  display: block !important;
+  white-space: normal !important;
+}
+
+.address-details-page .price-card #listPriceInput{
+  width: 100% !important;
+  margin: 0 !important;
+  padding: 10px 12px !important;
+  text-align: left !important;
+  font-size: 1.14rem !important;
+  font-weight: 700 !important;
+}
+
+.address-details-page .price-card #salesPriceInput,
+.address-details-page .price-card #salesDateInput{
+  margin: 0 !important;
+}
+
+.address-details-page .price-card #salesPriceInput{
+  font-weight: 700;
+}
+
+.address-details-page .details-main{
+  width: 100%;
+  min-width: 0;
+}
+
+.address-details-page .details-stack{
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  width: 100%;
+  min-width: 0;
+}
+
+.address-details-page .lower-card-grid{
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+  gap: 12px;
+  align-items: start;
+  width: 100%;
+  min-width: 0;
+}
+
+.address-details-page .lower-card-grid > .card{
+  min-width: 0;
+  max-width: 100%;
+}
+
+.address-details-page .design-center-card{
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.address-details-page .design-center-card .notes{
+  flex: 1 1 auto;
+  min-height: 360px;
+}
+
+.address-details-page .grid{
+  align-items: stretch;
+}
+
+.address-details-page .pane.pane--left,
+.address-details-page .pane.pane--right{
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  min-width: 0;
+}
+
+.address-details-page .pane.pane--right{
+  align-self: stretch;
+}
+
+.address-details-page .pane.pane--right .card.fill{
+  display: flex;
+  flex: 1 1 auto;
+  min-height: 100%;
+}
+
+.address-details-page .walk-earnest-grid{
+  align-items: stretch;
+  gap: 10px;
+}
+
+.address-details-page .walk-earnest-grid > .card{
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+}
+
+.address-details-page .walk-status-card,
+.address-details-page .earnest-card{
+  height: 100%;
+}
+
+.address-details-page .earnest-card{
+  justify-content: flex-start;
+}
+
+.address-details-page .earnest-table{
+  flex: 1 1 auto;
+}
+
+.address-details-page .walk-status-card .walk-status-card__overall{
+  grid-template-columns: minmax(0, 1fr);
+  margin-bottom: 12px;
+}
+
+.address-details-page .walk-status-card .walk-status-card__overall .field{
+  min-width: 0;
+}
+
+.address-details-page .walk-status-card select.value{
+  width: 100%;
+  min-width: 0;
+  min-height: 40px;
+  padding: 10px 12px;
+  border: 1px solid var(--address-input-border);
+  border-radius: 10px;
+  background: #fff;
+  box-shadow: var(--address-input-shadow);
+}
+
+.address-details-page .walk-status-card .walks-grid{
+  gap: 12px;
+  padding-right: 0;
+}
+
+.address-details-page .walk-status-card .walks-grid .field{
+  min-width: 0;
+}
+
+.address-details-page .walk-status-card .walks-grid .row.inline{
+  display: grid;
+  grid-template-columns: minmax(0, 1.35fr) minmax(98px, 0.78fr) auto;
+  align-items: center;
+  gap: 8px;
+}
+
+.address-details-page .walk-status-card .walks-grid .input--date,
+.address-details-page .walk-status-card .walks-grid .input--time{
+  width: 100%;
+  min-width: 0 !important;
+}
+
+.address-details-page .walk-status-card .walks-grid .input--time{
+  text-align: center;
+}
+
+.address-details-page .walk-status-card .icon-btn{
+  min-width: 40px;
+  height: 40px;
+  padding: 0 10px;
+  border: 1px solid var(--address-input-border);
+  border-radius: 10px;
+  background: #f7fbff;
+  color: #41546b;
+  font-weight: 700;
+}
+
+.address-details-page .walk-status-card .section-card__header,
+.address-details-page .earnest-card .section-card__header{
+  min-height: 42px;
+  align-items: flex-end;
+}
+
+.address-details-page .earnest-card__head{
+  align-items: flex-end;
+  margin-bottom: 12px;
+}
+
+.address-details-page .earnest-total{
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  padding: 7px 10px;
+  border: 1px solid #d7e7fb;
+  border-radius: 10px;
+  background: #f5faff;
+}
+
+.address-details-page .earnest-total-label{
+  font-size: 0.72rem;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: #60718a;
+}
+
+.address-details-page .earnest-total-value{
+  min-width: 88px;
+  font-size: 1.05rem;
+  font-weight: 700;
+}
+
+.address-details-page .earnest-table{
+  flex: 0 0 auto;
+  gap: 8px;
+  margin-top: 0;
+  margin-bottom: 8px;
+  width: 100%;
+  max-width: 100%;
+  min-width: 0;
+  overflow: hidden;
+}
+
+.address-details-page #earnestTableBody{
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  width: 100%;
+  max-width: 100%;
+  min-width: 0;
+}
+
+.address-details-page .earnest-row{
+  box-sizing: border-box;
+  grid-template-columns: minmax(0, 1.25fr) minmax(0, 0.92fr) minmax(0, 0.92fr) 36px;
+  gap: 8px;
+  width: 100%;
+  max-width: 100%;
+  min-width: 0;
+}
+
+.address-details-page .earnest-row--head{
+  padding: 0 2px;
+  font-size: 0.75rem;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: #667085;
+}
+
+.address-details-page .earnest-cell.amount .earnest-amount{
+  font-weight: 700;
+}
+
+.address-details-page .earnest-cell{
+  box-sizing: border-box;
+  width: 100%;
+  max-width: 100%;
+  min-width: 0;
+}
+
+.address-details-page .earnest-cell.actions{
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+}
+
+.address-details-page .earnest-table input.value,
+.address-details-page .earnest-cell input{
+  box-sizing: border-box;
+  width: 100%;
+  max-width: 100%;
+  min-width: 0;
+}
+
+.address-details-page .earnest-delete{
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 34px;
+  height: 34px;
+  min-width: 34px;
+  padding: 0;
+  border-radius: 8px;
+  border: 1px solid #e3e7eb;
+  background: #ffffff;
+  color: #64748b;
+  box-shadow: none;
+  transition: background-color 0.18s ease, border-color 0.18s ease, color 0.18s ease;
+}
+
+.address-details-page .earnest-delete svg{
+  width: 16px;
+  height: 16px;
+  fill: currentColor;
+}
+
+.address-details-page .earnest-delete:hover,
+.address-details-page .earnest-delete:focus-visible{
+  background: #fdecea;
+  border-color: #f5c2c7;
+  color: #c62828;
+  outline: none;
+}
+
+.address-details-page .earnest-add-btn{
+  align-self: flex-start;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  height: 35px;
+  margin-top: 0;
+  padding: 0 12px;
+  border: 1px solid #d6dee7;
+  border-radius: 8px;
+  background: #f8fafc;
+  color: #46586d;
+  font-size: 0.86rem;
+  font-weight: 600;
+  line-height: 1;
+  box-shadow: none;
+}
+
+.address-details-page .earnest-add-btn::before{
+  content: "+";
+  font-size: 1rem;
+  line-height: 1;
+}
+
+.address-details-page .earnest-add-btn:hover,
+.address-details-page .earnest-add-btn:focus-visible{
+  background: #eef4fb;
+  border-color: #c7d6e7;
+  color: #274664;
+  outline: none;
+}
+
+@media (max-width: 760px){
+  .address-details-page .price-card .price-row{
+    grid-template-columns: 1fr !important;
+  }
+
+  .address-details-page .walk-status-card .walks-grid .row.inline{
+    grid-template-columns: 1fr 110px auto;
+  }
+
+  .address-details-page .section-card__header--split{
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .address-details-page .earnest-total{
+    justify-content: space-between;
+  }
+
+  .address-details-page .earnest-row{
+    grid-template-columns: minmax(0, 1fr) minmax(0, 1fr) 36px;
+  }
+
+  .address-details-page .earnest-row .earnest-cell.amount{
+    grid-column: 1 / -1;
+  }
+
+  .address-details-page .earnest-row--head .earnest-cell.amount{
+    grid-column: auto;
+  }
+}
+
+@media (max-width: 680px){
+  .address-details-page .lower-card-grid{
+    grid-template-columns: 1fr;
+  }
+
+  .address-details-page .earnest-row{
+    grid-template-columns: minmax(0, 1fr);
+    gap: 10px;
+  }
+
+  .address-details-page .earnest-row--head{
+    display: none;
+  }
+
+  .address-details-page .earnest-cell.actions{
+    justify-content: flex-start;
+  }
 }
 
 body.task-modal-open{

@@ -26,9 +26,9 @@
 
 <div class="horizontal-cont">
   <div class="side-bar card card--grey main-cont">
-     <div class="card card--white card--margin-bottom">
+     <div class="card card--white card--margin-bottom sidebar-actions-card">
 
-      <button id="backToDetailsBtn" class="btn btn-outline-secondary btn-sm">
+      <button id="backToDetailsBtn" class="btn btn-outline-secondary btn-sm sidebar-utility-btn">
         ← Back to Details
       </button>
 
@@ -37,7 +37,7 @@
                 <button 
         id="openPlanModal"
         type="button"
-        class="btn btn-secondary mb-3"
+        class="btn btn-secondary mb-3 sidebar-utility-btn sidebar-utility-btn--neutral"
         data-bs-toggle="modal"
         data-bs-target="#floorPlanModal"
       >
@@ -323,11 +323,26 @@
               </div>
             </div>
             <div class="section d-none" data-section-content="inventory">
+              <div class="inventory-search-panel card card--light mt-4 mb-3">
+                <label for="inventorySearchInput" class="form-label mb-1">Search Inventory History</label>
+                <div class="inventory-search-panel__controls">
+                  <input
+                    type="search"
+                    id="inventorySearchInput"
+                    class="form-control"
+                    placeholder="Search by address, plan, or status"
+                    autocomplete="off"
+                  >
+                  <button type="button" id="inventorySearchClear" class="btn btn-outline-secondary btn-sm" hidden>Clear</button>
+                </div>
+                <div id="inventorySearchResults" class="inventory-search-results" hidden></div>
+              </div>
               <h3 class="mt-5">Quick Move-In Homes</h3>
               <div id="quickHomesContainer" class="container mt-2">
                 <table id="quickHomesTable" class="table table-bordered">
                   <thead>
                     <tr>
+                      <th class="qmi-helper-col"></th>
                       <th>Address</th>
                       <th>Start Date</th>
                       <th>Floor Plan</th>

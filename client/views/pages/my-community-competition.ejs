@@ -364,11 +364,63 @@
                   <h4>QMI vs Sold Tables</h4>
                   <small class="text-muted">Last 12 recorded months</small>
                 </div>
+                <div class="qmi-toolbar">
+                  <div class="qmi-filter-pills" role="group" aria-label="Filter QMI vs Sold tables">
+                    <button type="button" class="qmi-filter-pill is-active" data-filter="finished" aria-pressed="true">
+                      <span>Finished Home</span>
+                      <span class="qmi-filter-pill__count" id="qmiFilterFinishedCount">0</span>
+                    </button>
+                    <button type="button" class="qmi-filter-pill is-active" data-filter="qmi" aria-pressed="true">
+                      <span>Quick Move In</span>
+                      <span class="qmi-filter-pill__count" id="qmiFilterQmiCount">0</span>
+                    </button>
+                    <button type="button" class="qmi-filter-pill is-active" data-filter="sold" aria-pressed="true">
+                      <span>Solds</span>
+                      <span class="qmi-filter-pill__count" id="qmiFilterSoldCount">0</span>
+                    </button>
+                  </div>
+                  <div class="qmi-summary-grid">
+                    <div class="qmi-summary-card">
+                      <span class="qmi-summary-card__label">Avg Sold Price</span>
+                      <strong id="qmiAvgSoldPriceValue">--</strong>
+                    </div>
+                    <div class="qmi-summary-card">
+                      <span class="qmi-summary-card__label">Sold Homes</span>
+                      <strong id="qmiSoldHomesValue">0</strong>
+                    </div>
+                    <div class="qmi-summary-card">
+                      <span class="qmi-summary-card__label">Plans with Sales</span>
+                      <strong id="qmiPlanSalesCountValue">0</strong>
+                    </div>
+                  </div>
+                </div>
+                <section class="card card--white p-3 qmi-plan-averages-card">
+                  <div class="d-flex align-items-center justify-content-between mb-2 qmi-plan-averages-card__header">
+                    <h5 class="mb-0">Average Sold Price by Plan</h5>
+                    <small class="text-muted">Recent sold homes only</small>
+                  </div>
+                  <div class="table-responsive">
+                    <table class="table table-sm qmi-plan-avg-table mb-0">
+                      <thead>
+                        <tr>
+                          <th scope="col">Floor Plan</th>
+                          <th scope="col">Solds</th>
+                          <th scope="col">Avg Sold Price</th>
+                        </tr>
+                      </thead>
+                      <tbody id="qmiPlanAveragesBody">
+                        <tr>
+                          <td colspan="3" class="text-muted">Select a community to load data.</td>
+                        </tr>
+                      </tbody>
+                    </table>
+                  </div>
+                </section>
                 <div class="row g-3">
                   <div class="col-md-6" id="qmiTableCardWrap">
                     <div class="card card--white p-3 expandable-table-card h-100" id="qmiTableCard">
                       <div class="expandable-table-card-header mb-2">
-                        <h5 class="mb-0">Quick Move-In Homes</h5>
+                        <h5 class="mb-0">Finished / Quick Move-In Homes</h5>
                         <button type="button"
                                 id="qmiTableToggle"
                                 class="btn btn-sm btn-outline-secondary expandable-table-toggle"

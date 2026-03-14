@@ -23,8 +23,8 @@
       <div class="side-bar card card--grey main-cont">
 
         <!-- Sales -->
-        <section class="card card--white card--margin-bottom">
-            <a href="/update-competition/<%= competition._id %>" class="btn btn-primary btn-sm mb-2">
+        <section class="card card--white card--margin-bottom sidebar-actions-card">
+            <a href="/update-competition/<%= competition._id %>" class="btn btn-primary btn-sm mb-2 sidebar-utility-btn">
               Update Monthly Info
             </a>
           <h2>Sales Person Info</h2>
@@ -330,11 +330,63 @@
                   <h4>QMI vs Sold Tables</h4>
                   <small class="text-muted">Recent recorded homes</small>
                 </div>
+                <div class="qmi-toolbar">
+                  <div class="qmi-filter-pills" role="group" aria-label="Filter QMI vs Sold tables">
+                    <button type="button" class="qmi-filter-pill is-active" data-filter="finished" aria-pressed="true">
+                      <span>Finished Home</span>
+                      <span class="qmi-filter-pill__count" id="qmiFilterFinishedCount">0</span>
+                    </button>
+                    <button type="button" class="qmi-filter-pill is-active" data-filter="qmi" aria-pressed="true">
+                      <span>Quick Move In</span>
+                      <span class="qmi-filter-pill__count" id="qmiFilterQmiCount">0</span>
+                    </button>
+                    <button type="button" class="qmi-filter-pill is-active" data-filter="sold" aria-pressed="true">
+                      <span>Solds</span>
+                      <span class="qmi-filter-pill__count" id="qmiFilterSoldCount">0</span>
+                    </button>
+                  </div>
+                  <div class="qmi-summary-grid">
+                    <div class="qmi-summary-card">
+                      <span class="qmi-summary-card__label">Avg Sold Price</span>
+                      <strong id="qmiAvgSoldPriceValue">--</strong>
+                    </div>
+                    <div class="qmi-summary-card">
+                      <span class="qmi-summary-card__label">Sold Homes</span>
+                      <strong id="qmiSoldHomesValue">0</strong>
+                    </div>
+                    <div class="qmi-summary-card">
+                      <span class="qmi-summary-card__label">Plans with Sales</span>
+                      <strong id="qmiPlanSalesCountValue">0</strong>
+                    </div>
+                  </div>
+                </div>
+                <section class="card card--white p-3 qmi-plan-averages-card">
+                  <div class="d-flex align-items-center justify-content-between mb-2 qmi-plan-averages-card__header">
+                    <h5 class="mb-0">Average Sold Price by Plan</h5>
+                    <small class="text-muted">Recent sold homes only</small>
+                  </div>
+                  <div class="table-responsive">
+                    <table class="table table-sm qmi-plan-avg-table mb-0">
+                      <thead>
+                        <tr>
+                          <th scope="col">Floor Plan</th>
+                          <th scope="col">Solds</th>
+                          <th scope="col">Avg Sold Price</th>
+                        </tr>
+                      </thead>
+                      <tbody id="qmiPlanAveragesBody">
+                        <tr>
+                          <td colspan="3" class="text-muted">Loading sold averages…</td>
+                        </tr>
+                      </tbody>
+                    </table>
+                  </div>
+                </section>
                 <div class="row g-3">
                   <div class="col-md-6">
                     <div class="card card--white p-3 h-100">
                       <div class="d-flex align-items-center justify-content-between mb-2">
-                        <h5 class="mb-0">Quick Move-In Homes</h5>
+                        <h5 class="mb-0">Finished / Quick Move-In Homes</h5>
                       </div>
                       <div class="table-responsive">
                         <table class="table table-sm table-striped" id="qmiTable">
@@ -345,11 +397,12 @@
                               <th scope="col">Plan</th>
                               <th scope="col">Sqft</th>
                               <th scope="col">List Price</th>
+                              <th scope="col">Status</th>
                             </tr>
                           </thead>
                           <tbody id="qmiTableBody">
                             <tr>
-                              <td colspan="5" class="text-muted">Loading quick move-in homes…</td>
+                              <td colspan="6" class="text-muted">Loading quick move-in homes…</td>
                             </tr>
                           </tbody>
                         </table>
@@ -390,21 +443,27 @@
                 <div class="section-box__header">
                   <h4>Linked Competitors</h4>
                 </div>
-                <% const linked = competition.linkedCompetitions || []; %>
-                <% if (linked.length) { %>
+                <div class="mb-3">
+                  <h5 class="mb-1">Used By My Communities</h5>
+                  <p class="text-muted mb-0">Communities in this company that currently link to this competition as a competitor.</p>
+                </div>
+                <% const linkedCommunities = linkedByCommunities || []; %>
+                <% if (linkedCommunities.length) { %>
                   <ul class="list-group">
-                    <% linked.forEach((c) => { %>
+                    <% linkedCommunities.forEach((community) => { %>
                       <li class="list-group-item d-flex justify-content-between align-items-start">
                         <div>
-                          <div class="fw-semibold"><%= c.builderName || 'Unknown builder' %></div>
-                          <div class="text-muted"><%= c.communityName || 'Unnamed community' %></div>
+                          <div class="fw-semibold"><%= community.communityName || 'Unnamed community' %></div>
+                          <div class="text-muted">
+                            <%= [community.city, community.state].filter(Boolean).join(', ') || 'Location not set' %>
+                          </div>
                         </div>
-                        <span class="badge bg-secondary"><%= c.city || '' %></span>
+                        <span class="badge bg-secondary">Linked</span>
                       </li>
                     <% }) %>
                   </ul>
                 <% } else { %>
-                  <p class="text-muted mb-0">No competitors linked.</p>
+                  <p class="text-muted mb-0">This competition is not linked to any of your communities yet.</p>
                 <% } %>
               </section>
             </section>
@@ -510,7 +569,7 @@
   promotion: competition.promotion || '',
   builderName: competition.builderName || '',
   communityName: competition.communityName || '',
-  linkedCompetitions: competition.linkedCompetitions || []
+  linkedByCommunities: linkedByCommunities || []
 }).replace(/</g, '\\u003c') %>
 </script>
 

@@ -53,15 +53,15 @@ const zip  = (profile && profile.zip)     || (community && community.zip)     ||
     <div class="side-bar card card--grey main-cont">
 
       <!-- Community Info -->
-      <div class="card card--white mb-3">
-          <button id="backToCommunitiesBtn" class="btn btn-primary btn-sm mb-2">
+      <div class="card card--white mb-3 sidebar-actions-card">
+          <button id="backToCommunitiesBtn" class="btn btn-primary btn-sm mb-2 sidebar-utility-btn">
             Back to Communities
           </button>
-            <a class="btn btn-primary btn-sm mb-2"
+            <a class="btn btn-primary btn-sm mb-2 sidebar-utility-btn sidebar-utility-btn--neutral"
             href="/view-lots?communityId=<%= communityId %>">
               View Lots</a>
           <a
-          class="btn btn-primary btn-sm mb-2"
+          class="btn btn-primary btn-sm mb-2 sidebar-utility-btn sidebar-utility-btn--neutral"
           href="/add-floorplan"
         >
           Add / Update Floor Plans
@@ -217,7 +217,7 @@ const zip  = (profile && profile.zip)     || (community && community.zip)     ||
                     </div>
                     <div class="col-md-3 mb-3">
                       <label class="form-label">Quick Move-In Lots</label>
-                      <input type="number" name="quickMoveInLots" id="quickMoveInLots" class="form-control">
+                      <input type="number" name="quickMoveInLots" id="quickMoveInLots" class="form-control" readonly>
                     </div>
                   </div>
                 </form>

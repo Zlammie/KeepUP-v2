@@ -179,6 +179,42 @@ export const attachAllControls = ({ communityId, lotId, lot, purchaserContact, p
     inputEl.value = formatCurrency(inputEl.value) || inputEl.value;
   }
 
+  if (els.salesPriceInput) {
+    const inputEl = els.salesPriceInput;
+    const persistSalesPrice = async (raw) => {
+      const numeric = parseCurrency(raw);
+      const payload = numeric == null ? { salesPrice: null } : { salesPrice: numeric };
+      await saveLotField(communityId, lotId, payload);
+    };
+
+    inputEl.addEventListener('focus', () => {
+      const numeric = parseCurrency(inputEl.value);
+      inputEl.value = numeric == null ? '' : numeric.toString();
+      if (typeof inputEl.select === 'function') {
+        inputEl.select();
+      }
+    });
+
+    inputEl.addEventListener('blur', async (e) => {
+      await persistSalesPrice(e.target.value);
+      const numeric = parseCurrency(e.target.value);
+      inputEl.value = numeric == null ? '' : formatCurrency(numeric);
+    });
+
+    inputEl.value = formatCurrency(inputEl.value) || inputEl.value;
+  }
+
+  if (els.salesDateInput) {
+    const inputEl = els.salesDateInput;
+    const persistSalesDate = async () => {
+      const value = inputEl.value?.trim() || null;
+      await saveLotField(communityId, lotId, { salesDate: value });
+    };
+
+    inputEl.addEventListener('change', persistSalesDate);
+    inputEl.addEventListener('blur', persistSalesDate);
+  }
+
   // 4) Walk fields - support BOTH patterns:
   //    A) Split date+time pair (thirdPartyDate/thirdPartyTime, etc.)
   //    B) Single datetime-local (thirdPartyInput, etc.)

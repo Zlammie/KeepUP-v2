@@ -66,7 +66,9 @@ function deriveLotStats(community) {
   const total = (typeof community.totalLots === 'number') ? community.totalLots : lots.length;
   const sold = lots.filter(looksSold).length;
   const remaining = Math.max(0, total - sold);
-  const quickMoveInLots = 0; // tune if you track it
+  const quickMoveInLots = lots.filter((lot) =>
+    (lot?.listDate || lot?.releaseDate || lot?.availableDate) && !looksSold(lot)
+  ).length;
   return { total, sold, remaining, quickMoveInLots };
 }
 

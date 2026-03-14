@@ -1,0 +1,62 @@
+<section class="card shadow-sm mb-4 brz-workflow-section" data-workflow-section="builder-profile">
+  <div class="card-body">
+    <div class="d-flex align-items-start justify-content-between gap-3 flex-wrap mb-3">
+      <div>
+        <h2 class="h5 mb-1"><%= sectionMeta.title || 'Builder Profile' %></h2>
+        <p class="small text-muted mb-0"><%= sectionMeta.subtitle || 'Confirm builder-wide profile content before publishing.' %></p>
+      </div>
+      <small class="text-muted" id="brzProfileStatus"></small>
+    </div>
+
+    <form id="brzProfileForm" class="row g-3">
+      <div class="col-md-6">
+        <label class="form-label" for="brzBuilderName">Builder Name</label>
+        <input id="brzBuilderName" class="form-control" type="text" readonly />
+      </div>
+      <div class="col-md-6">
+        <label class="form-label" for="brzBuilderSlug">Builder Slug</label>
+        <input id="brzBuilderSlug" class="form-control" type="text" placeholder="builder-slug" />
+      </div>
+      <div class="col-md-6">
+        <label class="form-label" for="brzDisplayNameOverride">Display Name Override</label>
+        <input id="brzDisplayNameOverride" class="form-control" type="text" placeholder="Optional display name override" />
+      </div>
+      <div class="col-md-6">
+        <label class="form-label" for="brzCtaWebsite">CTA Website Link</label>
+        <input id="brzCtaWebsite" class="form-control" type="url" placeholder="Falls back to Admin > BuildRootz website URL" />
+      </div>
+      <div class="col-md-6">
+        <label class="form-label" for="brzCtaSchedule">CTA Schedule Link</label>
+        <input id="brzCtaSchedule" class="form-control" type="url" placeholder="https://example.com/schedule" />
+      </div>
+      <div class="col-md-6">
+        <label class="form-label" for="brzCtaContact">CTA Contact Link</label>
+        <input id="brzCtaContact" class="form-control" type="url" placeholder="https://example.com/contact" />
+      </div>
+      <div class="col-md-6">
+        <label class="form-label" for="brzShortDescription">Short Description</label>
+        <textarea id="brzShortDescription" class="form-control" rows="3" placeholder="Short summary for builder profile"></textarea>
+        <small class="text-muted">If empty, this uses the Admin BuildRootz short description.</small>
+      </div>
+      <div class="col-md-6">
+        <label class="form-label" for="brzLongDescription">Long Description</label>
+        <textarea id="brzLongDescription" class="form-control" rows="3" placeholder="Long-form builder profile content"></textarea>
+      </div>
+      <div class="col-12">
+        <label class="form-label" for="brzPricingDisclaimer">Pricing Disclaimer (optional)</label>
+        <textarea id="brzPricingDisclaimer" class="form-control" rows="2" placeholder="Prices, plans, and features subject to change without notice. Buyer to verify all information."></textarea>
+      </div>
+      <div class="col-12">
+        <label class="form-label">Hero Image</label>
+        <div class="d-flex flex-wrap align-items-center gap-3">
+          <img id="brzHeroPreview" class="brz-image-preview d-none" alt="Builder hero image" />
+          <input id="brzHeroUpload" type="file" class="form-control form-control-sm brz-upload-input" accept="image/*" />
+          <button type="button" class="btn btn-outline-secondary btn-sm" id="brzHeroUploadBtn">Upload Hero</button>
+        </div>
+      </div>
+      <div class="col-12 d-flex justify-content-end">
+        <button type="submit" class="btn btn-primary" id="brzProfileSaveBtn">Save Builder Profile</button>
+      </div>
+    </form>
+  </div>
+</section>

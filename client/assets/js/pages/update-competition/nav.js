@@ -157,6 +157,28 @@ export function bindMonthNav(container, onSelect) {
   });
 }
 
+export function goToMonth(container, monthKey, onSelect) {
+  if (!container || !monthKey) return false;
+
+  const effectiveKey = monthKey > MAX_ALLOWED_KEY ? MAX_ALLOWED_KEY : monthKey;
+  monthAnchorKey = effectiveKey;
+  renderMonthNav(container);
+
+  const target = container.querySelector(
+    `.month-list a.nav-link[data-month="${effectiveKey}"]`
+  );
+  if (!target) return false;
+
+  container.querySelectorAll('.month-list a.nav-link').forEach((pill) => {
+    const isActive = pill === target;
+    pill.classList.toggle('active', isActive);
+    pill.setAttribute('aria-selected', isActive ? 'true' : 'false');
+    pill.setAttribute('tabindex', isActive ? '0' : '-1');
+  });
+
+  onSelect?.(effectiveKey);
+  return true;
+}
 
 /** Wire your section tabs (.nav-tabs → .section panels). (unchanged) */
 export function bindSectionNav(container) {

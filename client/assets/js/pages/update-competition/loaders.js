@@ -1,7 +1,42 @@
 // public/assets/js/update-competition/loaders.js
-const isNum = v => v !== '' && v != null && !Number.isNaN(Number(v));
-const numOrNull = v => (isNum(v) ? Number(v) : null);
+const parseNumericValue = v => {
+  if (v === '' || v == null) return null;
+  if (typeof v === 'number') return Number.isFinite(v) ? v : null;
+  const cleaned = String(v).replace(/[^0-9.-]/g, '');
+  if (cleaned === '' || cleaned === '-' || cleaned === '.' || cleaned === '-.') return null;
+  const num = Number(cleaned);
+  return Number.isFinite(num) ? num : null;
+};
+const isNum = v => parseNumericValue(v) != null;
+const numOrNull = v => parseNumericValue(v);
+const formatWholeMoneyValue = v => {
+  const num = parseNumericValue(v);
+  return num == null
+    ? ''
+    : `$${Math.round(num).toLocaleString(undefined, { maximumFractionDigits: 0 })}`;
+};
 const findPlan  = id => allFloorPlans.find(fp => fp._id === id);
+const normalizeText = (value) => String(value || '').trim().toLowerCase();
+const getRecordMonthKey = (rec) => {
+  if (!rec) return '';
+  if (rec.status === 'SOLD') {
+    return (rec.soldDate || '').slice(0, 7) || rec.month || (rec.listDate || '').slice(0, 7) || '';
+  }
+  return TARGET_MONTH_KEY || (rec.listDate || '').slice(0, 7) || rec.month || '';
+};
+const buildInventorySearchText = (rec) => {
+  const planName = findPlan(rec.floorPlan)?.name || '';
+  return [
+    rec.address,
+    rec.status,
+    planName,
+    rec.listDate,
+    rec.soldDate
+  ]
+    .map(normalizeText)
+    .filter(Boolean)
+    .join(' ');
+};
 const formatMonth = ym => {
   if (!ym) return '';
   const [y, m] = ym.split('-').map(Number);
@@ -64,6 +99,43 @@ let allQuickHomes = [];
 let allFloorPlans = [];
 const targetMonthDate = new Date(new Date().getFullYear(), new Date().getMonth() - 1, 1);
 const TARGET_MONTH_KEY = `${targetMonthDate.getFullYear()}-${String(targetMonthDate.getMonth() + 1).padStart(2, '0')}`;
+const QMI_HELPER_STORAGE_KEY = `competition-qmi-helper:${competitionId}`;
+let pendingInventoryFocusId = null;
+let inventoryFocusTimeoutId = null;
+
+const readQmiHelperState = () => {
+  try {
+    const raw = window.localStorage.getItem(QMI_HELPER_STORAGE_KEY);
+    const parsed = raw ? JSON.parse(raw) : {};
+    return parsed && typeof parsed === 'object' ? parsed : {};
+  } catch {
+    return {};
+  }
+};
+
+const writeQmiHelperState = (state) => {
+  try {
+    window.localStorage.setItem(QMI_HELPER_STORAGE_KEY, JSON.stringify(state));
+  } catch {
+    // Ignore storage failures; this helper is intentionally best-effort only.
+  }
+};
+
+const wireMoneyInputs = (root, selector) => {
+  root.querySelectorAll(selector).forEach((input) => {
+    if (input.dataset.moneyWired === 'true') return;
+    input.dataset.moneyWired = 'true';
+
+    input.addEventListener('focus', () => {
+      const raw = parseNumericValue(input.value);
+      input.value = raw == null ? '' : String(Math.round(raw));
+    });
+
+    input.addEventListener('blur', () => {
+      input.value = formatWholeMoneyValue(input.value);
+    });
+  });
+};
 
 /**
  * 0) Initialize data: fetch all Quick-Move-Ins and Floor Plans
@@ -73,6 +145,46 @@ export async function initQuickHomes() {
     fetch(`/api/competitions/${competitionId}/quick-moveins`).then(r => r.json()),
     fetch(`/api/competitions/${competitionId}/floorplans`).then(r => r.json())
   ]);
+}
+
+export function searchInventoryHomes(query) {
+  const term = normalizeText(query);
+  if (!term) return [];
+
+  return allQuickHomes
+    .map((rec) => {
+      const planName = findPlan(rec.floorPlan)?.name || '';
+      const jumpMonth = getRecordMonthKey(rec);
+      const isSold = rec.status === 'SOLD';
+      const targetMonthLabel = jumpMonth ? formatMonth(jumpMonth) : '';
+
+      return {
+        id: rec._id,
+        address: rec.address || 'Unnamed home',
+        planName,
+        status: rec.status || (isSold ? 'SOLD' : 'Ready Now'),
+        isSold,
+        jumpMonth,
+        targetMonthLabel,
+        jumpActionLabel: isSold
+          ? (targetMonthLabel ? `Go to sold month: ${targetMonthLabel}` : 'Go to sold record')
+          : 'Go to inventory row',
+        searchText: buildInventorySearchText(rec)
+      };
+    })
+    .filter((item) => item.id && item.searchText.includes(term))
+    .sort((a, b) => {
+      const aStarts = a.address.toLowerCase().startsWith(term) ? 0 : 1;
+      const bStarts = b.address.toLowerCase().startsWith(term) ? 0 : 1;
+      if (aStarts !== bStarts) return aStarts - bStarts;
+      if (a.isSold !== b.isSold) return a.isSold ? -1 : 1;
+      return a.address.localeCompare(b.address);
+    })
+    .slice(0, 12);
+}
+
+export function focusInventoryRecord(recordId) {
+  pendingInventoryFocusId = recordId ? String(recordId) : null;
 }
 
 /**
@@ -173,6 +285,7 @@ export async function loadMonth(monthKey) {
  */
 export function loadQuickHomes(monthKey) {
   const monthIdx = new Date(`${monthKey}-01`).getMonth();
+  const qmiHelperState = readQmiHelperState();
   // Filter unsold and sold for the given month
   const unsold = allQuickHomes.filter(r =>
   r.status !== 'SOLD' && (r.listDate || '').slice(0,7) <= monthKey
@@ -190,7 +303,20 @@ export function loadQuickHomes(monthKey) {
   unsold.forEach(rec => {
     const tr = document.createElement('tr');
     tr.dataset.id = rec._id;
+    const helperChecked = Boolean(rec._id && qmiHelperState[String(rec._id)]);
     tr.innerHTML = `
+      <td class="qmi-helper-cell">
+        <button
+          type="button"
+          class="qmi-helper-toggle${helperChecked ? ' is-checked' : ''}"
+          data-helper-id="${rec._id || ''}"
+          aria-pressed="${helperChecked ? 'true' : 'false'}"
+          aria-label="${helperChecked ? 'Mark quick move-in as unchecked' : 'Mark quick move-in as checked'}"
+          title="${helperChecked ? 'Checked' : 'Mark as checked'}"
+        >
+          <span aria-hidden="true">✓</span>
+        </button>
+      </td>
       <td><input class="form-control qmi-input" data-field="address" value="${rec.address}" /></td>
       <td><input type="date" class="form-control qmi-input"  data-field="listDate" value="${(rec.listDate || '').slice(0,10)}" /></td>
       <td>
@@ -198,7 +324,7 @@ export function loadQuickHomes(monthKey) {
           ${renderFloorPlanOptions(rec.floorPlan)}
         </select>
       </td>
-      <td><input type="number" class="form-control qmi-input" data-field="listPrice" step="0.01" value="${rec.listPrice}" /></td>
+      <td><input type="text" inputmode="numeric" class="form-control qmi-input qmi-money-input" data-field="listPrice" value="${formatWholeMoneyValue(rec.listPrice)}" /></td>
        <td><input type="number" class="form-control qmi-input" data-field="sqft"
                    value="${rec.sqft ?? (findPlan(rec.floorPlan)?.sqft ?? '')}" /></td>
       <td>
@@ -212,6 +338,7 @@ export function loadQuickHomes(monthKey) {
 const addTr = document.createElement('tr');
 // no addTr.dataset.id so POST on save
 addTr.innerHTML = `
+  <td class="qmi-helper-cell qmi-helper-cell--placeholder"></td>
   <td><input class="form-control qmi-input" data-field="address" value="" /></td>
   <td><input type="date" class="form-control qmi-input"  data-field="listDate" value="" /></td>
   <td>
@@ -219,7 +346,7 @@ addTr.innerHTML = `
       ${renderFloorPlanOptions(null)}
     </select>
   </td>
-  <td><input type="number" class="form-control qmi-input" data-field="listPrice" step="0.01" value="" /></td>
+  <td><input type="text" inputmode="numeric" class="form-control qmi-input qmi-money-input" data-field="listPrice" value="" /></td>
   <td><input type="number" class="form-control qmi-input" data-field="sqft" value="" /></td>
   <td>
     <select class="form-select qmi-input" data-field="status">
@@ -236,6 +363,8 @@ if (newPlanSel && newSqftInp && !newSqftInp.value) {
   if (plan?.sqft != null) newSqftInp.value = plan.sqft;
 }
 
+wireMoneyInputs(DOM.quickBody, '.qmi-money-input');
+
   // Render Sold table
   DOM.soldBody.innerHTML = '';
   sold.forEach(rec => {
@@ -249,13 +378,13 @@ if (newPlanSel && newSqftInp && !newSqftInp.value) {
           ${renderFloorPlanOptions(rec.floorPlan)}
         </select>
       </td>
-      <td><input type="number" class="form-control sold-input" data-field="listPrice" step="0.01" value="${rec.listPrice}" /></td>
+      <td><input type="text" inputmode="numeric" class="form-control sold-input sold-money-input" data-field="listPrice" value="${formatWholeMoneyValue(rec.listPrice)}" /></td>
        <td><input class="form-control sold-input" type="number" data-field="sqft"
                    value="${rec.sqft ?? (findPlan(rec.floorPlan)?.sqft ?? '')}" /></td>
       <td><input type="date" class="form-control sold-input" data-field="soldDate" value="${(rec.soldDate || '').slice(0,10)}" /></td>
       <td>
-        <input class="form-control sold-input" type="number" step="0.01"
-              data-field="soldPrice" value="${rec.soldPrice ?? ''}" />
+        <input class="form-control sold-input sold-money-input" type="text" inputmode="numeric"
+              data-field="soldPrice" value="${formatWholeMoneyValue(rec.soldPrice)}" />
       </td>  
       <td>
         <button type="button" class="btn btn-sm btn-outline-secondary sold-move-btn">Move to QMI</button>
@@ -264,8 +393,11 @@ if (newPlanSel && newSqftInp && !newSqftInp.value) {
     DOM.soldBody.appendChild(tr);
   });
 
+  wireMoneyInputs(DOM.soldBody, '.sold-money-input');
+  applyPendingInventoryFocus();
+
   // Auto-save Quick-Move-Ins
-  DOM.quickBody.querySelectorAll('.qmi-input').forEach(el => {
+DOM.quickBody.querySelectorAll('.qmi-input').forEach(el => {
   el.addEventListener('change', async e => {
     const row = e.target.closest('tr');
     const id  = row.dataset.id;
@@ -331,6 +463,27 @@ if (newPlanSel && newSqftInp && !newSqftInp.value) {
   });
 });
 
+  DOM.quickBody.querySelectorAll('.qmi-helper-toggle').forEach((btn) => {
+    btn.addEventListener('click', () => {
+      const helperId = btn.dataset.helperId;
+      if (!helperId) return;
+
+      const nextChecked = !btn.classList.contains('is-checked');
+      btn.classList.toggle('is-checked', nextChecked);
+      btn.setAttribute('aria-pressed', String(nextChecked));
+      btn.setAttribute('aria-label', nextChecked ? 'Mark quick move-in as unchecked' : 'Mark quick move-in as checked');
+      btn.setAttribute('title', nextChecked ? 'Checked' : 'Mark as checked');
+
+      const nextState = readQmiHelperState();
+      if (nextChecked) {
+        nextState[helperId] = true;
+      } else {
+        delete nextState[helperId];
+      }
+      writeQmiHelperState(nextState);
+    });
+  });
+
 
 
   // Auto-save Sold (date uses BLUR; others use CHANGE)
@@ -362,9 +515,11 @@ DOM.soldBody.querySelectorAll('.sold-input').forEach(el => {
 
       if (f === 'soldDate' && !isFullDate(v)) return; // skip incomplete/blank
 
-      payload[f] = (inp.type === 'number')
-        ? (v === '' || v == null ? null : Number(v))
-        : v;
+      payload[f] = inp.classList.contains('sold-money-input')
+        ? numOrNull(v)
+        : (inp.type === 'number'
+          ? (v === '' || v == null ? null : Number(v))
+          : v);
     });
 
     const resp = await fetch(`/api/competitions/${competitionId}/quick-moveins/${id}`, {
@@ -499,4 +654,34 @@ function applySalesHighlight(row, active) {
       const shouldHighlight = active && !isNum(input.value);
       input.classList.toggle('sales-summary-input--warning', shouldHighlight);
     });
+}
+
+function applyPendingInventoryFocus() {
+  if (!pendingInventoryFocusId) return;
+
+  const targetRow = DOM.quickBody.querySelector(`tr[data-id="${pendingInventoryFocusId}"]`)
+    || DOM.soldBody.querySelector(`tr[data-id="${pendingInventoryFocusId}"]`);
+
+  if (!targetRow) return;
+
+  if (inventoryFocusTimeoutId) {
+    window.clearTimeout(inventoryFocusTimeoutId);
+    inventoryFocusTimeoutId = null;
+  }
+
+  DOM.quickBody.querySelectorAll('.inventory-row--target').forEach((row) => {
+    row.classList.remove('inventory-row--target');
+  });
+  DOM.soldBody.querySelectorAll('.inventory-row--target').forEach((row) => {
+    row.classList.remove('inventory-row--target');
+  });
+
+  targetRow.classList.add('inventory-row--target');
+  targetRow.scrollIntoView({ behavior: 'smooth', block: 'center' });
+  pendingInventoryFocusId = null;
+
+  inventoryFocusTimeoutId = window.setTimeout(() => {
+    targetRow.classList.remove('inventory-row--target');
+    inventoryFocusTimeoutId = null;
+  }, 2200);
 }

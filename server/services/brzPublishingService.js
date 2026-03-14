@@ -462,6 +462,9 @@ const serializeCommunityInventoryLots = (community, floorPlanNameById) => {
         floorPlanId,
         floorPlanName,
         isPublished: isLotMarkedForBuildrootzPublish(lot),
+        syncDate: lot?.contentSyncedAt || lot?.buildrootzSyncedAt || lot?.syncedAt || null,
+        updatedAt: lot?.updatedAt || community?.updatedAt || null,
+        lastPublishStatus: trimString(lot?.buildrootzLastPublishStatus),
         promo,
         promoMode: normalizePromoMode(lot?.promoMode, 'add')
       };
@@ -858,6 +861,8 @@ async function getPublishingContext(companyId) {
       + 'lots.beds lots.baths lots.bedrooms lots.bathrooms lots.sqft lots.squareFeet lots.sqFeet '
       + 'lots.garage lots.garageSpaces lots.stories '
       + 'lots.heroImage lots.listingPhotos lots.liveElevationPhoto lots.publishedAt '
+      + 'lots.contentSyncedAt lots.buildrootzSyncedAt lots.syncedAt lots.updatedAt '
+      + 'lots.buildrootzLastPublishStatus '
       + 'lots.promo '
       + 'lots.promoText lots.promoMode'
     )
@@ -1128,7 +1133,7 @@ async function bootstrapPublishingData({ companyId }) {
     0
   );
 
-  return {
+  const payload = {
     company: serializeCompany(context.company),
     profileDraft: serializeProfileDraft(context.profileDraft, context.company),
     communities: serializedCommunities,
@@ -1176,6 +1181,34 @@ async function bootstrapPublishingData({ companyId }) {
           : []
       }
       : null
+  };
+
+  const sections = {
+    builderProfile: {
+      company: payload.company,
+      profileDraft: payload.profileDraft
+    },
+    communityPublishing: {
+      communities: payload.communities,
+      outOfDateCommunitiesCount: payload.outOfDateCommunitiesCount
+    },
+    floorPlanCatalog: {
+      floorPlans: payload.floorPlans
+    },
+    publishSummary: {
+      latestSnapshot: payload.latestSnapshot,
+      latestPackageSnapshot: payload.latestPackageSnapshot,
+      latestInventorySnapshot: payload.latestInventorySnapshot
+    }
+  };
+
+  return {
+    ...payload,
+    sections,
+    builderProfile: sections.builderProfile,
+    communityPublishing: sections.communityPublishing,
+    floorPlanCatalog: sections.floorPlanCatalog,
+    publishSummary: sections.publishSummary
   };
 }
 

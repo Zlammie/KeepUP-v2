@@ -115,6 +115,42 @@
           <% }) %>
         </div>
       </section>
+
+      <% if (permissions && (permissions.isCompanyAdmin || permissions.isSuperAdmin)) { %>
+        <section class="mt-4" aria-label="Inventory publish audit">
+          <div class="card shadow-sm border-0">
+            <div class="card-body">
+              <div class="d-flex justify-content-between align-items-center flex-wrap gap-2 mb-3">
+                <h2 class="h5 mb-0">Inventory Publish Audit</h2>
+                <small class="text-muted" id="brzDashboardPublishAuditStatus"></small>
+              </div>
+              <div class="table-responsive">
+                <table class="table table-sm align-middle mb-0">
+                  <thead>
+                    <tr>
+                      <th>Time</th>
+                      <th>Mode</th>
+                      <th>Scope</th>
+                      <th>Published</th>
+                      <th>Deactivated</th>
+                      <th>Warnings</th>
+                      <th></th>
+                    </tr>
+                  </thead>
+                  <tbody id="brzDashboardPublishAuditBody">
+                    <tr>
+                      <td colspan="7" class="text-muted">Loading publish audit...</td>
+                    </tr>
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          </div>
+        </section>
+      <% } %>
     </main>
+    <% if (permissions && (permissions.isCompanyAdmin || permissions.isSuperAdmin)) { %>
+      <script src="/public/js/admin/buildrootz-dashboard.js" nonce="<%= cspNonce %>" defer></script>
+    <% } %>
   </body>
 </html>

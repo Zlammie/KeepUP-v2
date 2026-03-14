@@ -20,6 +20,10 @@
     bulkSyncStatus: document.getElementById('brzBulkSyncStatus'),
     communityFilters: document.querySelectorAll('.brz-community-filter'),
     floorPlansBody: document.getElementById('brzFloorPlansBody'),
+    floorPlanSearch: document.getElementById('brzFloorPlanSearch'),
+    floorPlanCommunityFilter: document.getElementById('brzFloorPlanCommunityFilter'),
+    floorPlanIncludeFilter: document.getElementById('brzFloorPlanIncludeFilter'),
+    floorPlanFilterSummary: document.getElementById('brzFloorPlanFilterSummary'),
     packagePublishVersion: document.getElementById('brzPackagePublishVersion'),
     packagePublishAt: document.getElementById('brzPackagePublishAt'),
     packagePublishStatus: document.getElementById('brzPackagePublishStatus'),
@@ -27,13 +31,21 @@
     inventoryPublishAt: document.getElementById('brzInventoryPublishAt'),
     inventoryPublishStatus: document.getElementById('brzInventoryPublishStatus'),
     inventoryWarnings: document.getElementById('brzInventoryWarnings'),
-    publishAuditBody: document.getElementById('brzPublishAuditBody'),
-    publishAuditStatus: document.getElementById('brzPublishAuditStatus'),
+    summaryBuilderStatus: document.getElementById('brzSummaryBuilderStatus'),
+    summaryBuilderDetails: document.getElementById('brzSummaryBuilderDetails'),
+    summaryCommunityStatus: document.getElementById('brzSummaryCommunityStatus'),
+    summaryCommunityDetails: document.getElementById('brzSummaryCommunityDetails'),
+    summaryFloorPlanStatus: document.getElementById('brzSummaryFloorPlanStatus'),
+    summaryFloorPlanDetails: document.getElementById('brzSummaryFloorPlanDetails'),
+    summaryMissingSummary: document.getElementById('brzSummaryMissingSummary'),
+    summaryPublishHint: document.getElementById('brzSummaryPublishHint'),
     previewLink: document.getElementById('brzPreviewLink'),
     publishPackageBtn: document.getElementById('brzPublishPackageBtn'),
     publishInventoryBtn: document.getElementById('brzPublishInventoryBtn'),
     publishStatus: document.getElementById('brzPublishStatus'),
-    profileSaveBtn: document.getElementById('brzProfileSaveBtn')
+    profileSaveBtn: document.getElementById('brzProfileSaveBtn'),
+    workflowTabs: Array.from(document.querySelectorAll('[data-brz-workflow-tab]')),
+    workflowPanels: Array.from(document.querySelectorAll('[data-brz-workflow-panel]'))
   };
 
   const state = {
@@ -44,11 +56,62 @@
     latestSnapshot: null,
     latestPackageSnapshot: null,
     latestInventorySnapshot: null,
-    publishAudits: [],
     outOfDateCommunitiesCount: 0,
-    communityFilter: 'all'
+    communityFilter: 'all',
+    floorPlanSearch: '',
+    floorPlanCommunityFilter: 'all',
+    floorPlanIncludeFilter: 'all'
   };
   const pendingSaves = new Set();
+  const WORKFLOW_QUERY_KEY = 'workflow';
+  const WORKFLOW_PANELS = new Set(['builder-plans', 'communities', 'publish']);
+  let activeWorkflowPanel = 'builder-plans';
+
+  const setActiveWorkflowPanel = (panelKey, { syncUrl = false } = {}) => {
+    const normalizedKey = toText(panelKey).toLowerCase();
+    const target = WORKFLOW_PANELS.has(normalizedKey) ? normalizedKey : 'builder-plans';
+    activeWorkflowPanel = target;
+
+    if (Array.isArray(els.workflowTabs)) {
+      els.workflowTabs.forEach((button) => {
+        const key = toText(button.dataset.brzWorkflowTab).toLowerCase();
+        const isActive = key === target;
+        button.classList.toggle('active', isActive);
+        button.setAttribute('aria-selected', isActive ? 'true' : 'false');
+      });
+    }
+
+    if (Array.isArray(els.workflowPanels)) {
+      els.workflowPanels.forEach((panel) => {
+        const key = toText(panel.dataset.brzWorkflowPanel).toLowerCase();
+        panel.hidden = key !== target;
+      });
+    }
+
+    if (syncUrl && typeof window !== 'undefined' && window.history?.replaceState) {
+      const url = new URL(window.location.href);
+      if (target === 'builder-plans') {
+        url.searchParams.delete(WORKFLOW_QUERY_KEY);
+      } else {
+        url.searchParams.set(WORKFLOW_QUERY_KEY, target);
+      }
+      window.history.replaceState({}, '', `${url.pathname}${url.search}${url.hash}`);
+    }
+  };
+
+  const setupWorkflowTabs = () => {
+    if (!Array.isArray(els.workflowTabs) || !els.workflowTabs.length) return;
+    const params = new URLSearchParams(window.location.search || '');
+    const requested = toText(params.get(WORKFLOW_QUERY_KEY)).toLowerCase();
+    setActiveWorkflowPanel(requested || 'builder-plans');
+
+    els.workflowTabs.forEach((button) => {
+      button.addEventListener('click', () => {
+        const key = toText(button.dataset.brzWorkflowTab).toLowerCase();
+        setActiveWorkflowPanel(key, { syncUrl: true });
+      });
+    });
+  };
 
   const escapeHtml = (value) =>
     String(value == null ? '' : value)
@@ -354,101 +417,101 @@
     els.inventoryWarnings.classList.remove('d-none');
   };
 
-  const formatAuditCount = (value) => {
-    const parsed = toNumberOrNull(value);
-    return parsed == null ? '-' : String(parsed);
+  const summarizePublishReadiness = () => {
+    const profile = state.profileDraft || {};
+    const builderMissing = [];
+    if (!toText(profile.builderSlug)) builderMissing.push('builder slug');
+    if (!toText(profile.shortDescription)) builderMissing.push('short description');
+    if (!toText(profile.longDescription)) builderMissing.push('long description');
+    if (!toText(profile.heroImage?.url || profile.heroImage)) builderMissing.push('hero image');
+
+    const includedCommunities = (Array.isArray(state.communities) ? state.communities : [])
+      .filter((entry) => entry?.draft?.isIncluded !== false);
+    const communityIssueCount = includedCommunities.reduce((total, entry) => {
+      const flags = getCommunityFlags(entry);
+      const requiredGaps = [
+        flags.missingContactName,
+        flags.missingPhone,
+        flags.missingHeroImage,
+        flags.missingModelListing
+      ].filter(Boolean).length;
+      const pricingGap = hasMissingCommunityPrice(entry) ? 1 : 0;
+      return total + requiredGaps + pricingGap;
+    }, 0);
+
+    const includedFloorPlans = (Array.isArray(state.floorPlans) ? state.floorPlans : [])
+      .filter((entry) => entry?.draft?.isIncluded !== false);
+    const floorPlanIssueCount = includedFloorPlans.reduce((total, entry) => {
+      const draft = entry?.draft || {};
+      let issues = 0;
+      if (toNumberOrNull(draft.basePriceFrom) == null) issues += 1;
+      if (!toText(draft.primaryImage?.url || draft.primaryImage)) issues += 1;
+      return total + issues;
+    }, 0);
+
+    return {
+      builderMissing,
+      communityIssueCount,
+      floorPlanIssueCount,
+      includedCommunityCount: includedCommunities.length,
+      includedFloorPlanCount: includedFloorPlans.length
+    };
   };
 
-  const renderPublishAudit = () => {
-    if (!els.publishAuditBody) return;
-    if (!Array.isArray(state.publishAudits) || !state.publishAudits.length) {
-      els.publishAuditBody.innerHTML = '<tr><td colspan="7" class="text-muted">No inventory publish audit records yet.</td></tr>';
-      return;
-    }
+  const setSummaryStatus = (statusEl, detailsEl, { isReady, readyLabel, blockedLabel, details }) => {
+    if (!statusEl) return;
+    statusEl.textContent = isReady ? readyLabel : blockedLabel;
+    statusEl.classList.remove('text-success', 'text-danger', 'text-muted');
+    statusEl.classList.add(isReady ? 'text-success' : 'text-danger');
+    if (detailsEl) detailsEl.textContent = details;
+  };
 
-    els.publishAuditBody.innerHTML = state.publishAudits
-      .map((audit) => {
-        const id = toText(audit?.id);
-        const mode = toText(audit?.mode || 'PATCH').toUpperCase();
-        const modeClass = mode === 'RECONCILE' ? 'brz-audit-mode--reconcile' : 'brz-audit-mode--patch';
-        const scope = audit?.scope || {};
-        const result = audit?.result || {};
-        const warnings = Array.isArray(audit?.warningsSample) ? audit.warningsSample : [];
-        const detailsList = warnings.length
-          ? `<ul class="ps-3 mt-2">${warnings.map((item) => `<li>${escapeHtml(item)}</li>`).join('')}</ul>`
-          : '<div class="text-muted">No sampled warnings.</div>';
-        const route = toText(audit?.initiator?.route);
-        const source = toText(audit?.initiator?.source || 'unknown');
-        const scopeSamples = [
-          Array.isArray(scope.communityIdsSample) && scope.communityIdsSample.length
-            ? `Community IDs: ${escapeHtml(scope.communityIdsSample.join(', '))}`
-            : '',
-          Array.isArray(scope.lotIdsSample) && scope.lotIdsSample.length
-            ? `Lot IDs: ${escapeHtml(scope.lotIdsSample.join(', '))}`
-            : ''
-        ].filter(Boolean).join('<br>');
+  const renderPublishSummaryChecklist = () => {
+    const summary = summarizePublishReadiness();
+    const builderReady = summary.builderMissing.length === 0;
+    const communityReady = summary.includedCommunityCount > 0 && summary.communityIssueCount === 0;
+    const floorPlanReady = summary.includedFloorPlanCount > 0 && summary.floorPlanIssueCount === 0;
+    const totalIssues = summary.builderMissing.length + summary.communityIssueCount + summary.floorPlanIssueCount;
 
-        return `
-          <tr data-audit-id="${escapeHtml(id)}">
-            <td>${escapeHtml(formatDate(audit?.createdAt))}</td>
-            <td><span class="brz-audit-mode ${modeClass}">${escapeHtml(mode)}</span></td>
-            <td>${escapeHtml(`communities: ${toNumberOr(scope.communityIdsCount, 0)}, lots: ${toNumberOr(scope.lotIdsCount, 0)}`)}</td>
-            <td>${escapeHtml(formatAuditCount(result?.publishedCount))}</td>
-            <td>${escapeHtml(formatAuditCount(result?.deactivatedCount))}</td>
-            <td><span class="badge text-bg-secondary brz-audit-warning-badge">${escapeHtml(String(toNumberOr(audit?.warningsCount, 0)))}</span></td>
-            <td>
-              <button type="button" class="btn btn-sm btn-outline-secondary brz-audit-toggle" data-audit-id="${escapeHtml(id)}">Details</button>
-            </td>
-          </tr>
-          <tr class="brz-audit-details-row d-none" data-audit-details="${escapeHtml(id)}">
-            <td colspan="7">
-              <div class="brz-audit-details">
-                <div><strong>Message:</strong> ${escapeHtml(toText(audit?.message) || '-')}</div>
-                <div class="mt-2"><strong>Initiator:</strong> ${escapeHtml(source)}</div>
-                ${route ? `<div class="mt-1"><strong>Route:</strong> ${escapeHtml(route)}</div>` : ''}
-                <div class="mt-2"><strong>Skipped:</strong> ${escapeHtml(formatAuditCount(result?.skippedCount))}</div>
-                ${scopeSamples ? `<div class="mt-2"><strong>Scope samples:</strong><br>${scopeSamples}</div>` : ''}
-                <div class="mt-2"><strong>Warnings:</strong>${detailsList}</div>
-              </div>
-            </td>
-          </tr>
-        `;
-      })
-      .join('');
-
-    els.publishAuditBody.querySelectorAll('.brz-audit-toggle').forEach((button) => {
-      button.addEventListener('click', () => {
-        const auditId = toText(button.getAttribute('data-audit-id'));
-        if (!auditId) return;
-        const detailsRow = els.publishAuditBody.querySelector(`[data-audit-details="${auditId}"]`);
-        if (!detailsRow) return;
-        const isHidden = detailsRow.classList.contains('d-none');
-        detailsRow.classList.toggle('d-none', !isHidden);
-        button.textContent = isHidden ? 'Hide' : 'Details';
-      });
+    setSummaryStatus(els.summaryBuilderStatus, els.summaryBuilderDetails, {
+      isReady: builderReady,
+      readyLabel: 'Ready',
+      blockedLabel: 'Needs Info',
+      details: builderReady
+        ? 'Slug, descriptions, and hero image are set.'
+        : `Missing: ${summary.builderMissing.join(', ')}.`
     });
-  };
 
-  const loadPublishAudit = async () => {
-    if (els.publishAuditBody) {
-      els.publishAuditBody.innerHTML = '<tr><td colspan="7" class="text-muted">Loading publish audit...</td></tr>';
-    }
-    setStatus(els.publishAuditStatus, 'Loading...', 'muted');
-    try {
-      const data = await fetchJson('/admin/brz/publish-audit');
-      state.publishAudits = Array.isArray(data?.audits) ? data.audits : [];
-      renderPublishAudit();
-      setStatus(
-        els.publishAuditStatus,
-        state.publishAudits.length ? `Showing latest ${state.publishAudits.length}` : 'No records yet',
-        'muted'
-      );
-    } catch (err) {
-      state.publishAudits = [];
-      if (els.publishAuditBody) {
-        els.publishAuditBody.innerHTML = '<tr><td colspan="7" class="text-danger">Failed to load publish audit.</td></tr>';
+    setSummaryStatus(els.summaryCommunityStatus, els.summaryCommunityDetails, {
+      isReady: communityReady,
+      readyLabel: 'Ready',
+      blockedLabel: 'Needs Review',
+      details: summary.includedCommunityCount
+        ? `${summary.includedCommunityCount} included, ${summary.communityIssueCount} open requirement${summary.communityIssueCount === 1 ? '' : 's'}.`
+        : 'No communities are currently included.'
+    });
+
+    setSummaryStatus(els.summaryFloorPlanStatus, els.summaryFloorPlanDetails, {
+      isReady: floorPlanReady,
+      readyLabel: 'Ready',
+      blockedLabel: 'Needs Review',
+      details: summary.includedFloorPlanCount
+        ? `${summary.includedFloorPlanCount} included, ${summary.floorPlanIssueCount} open requirement${summary.floorPlanIssueCount === 1 ? '' : 's'}.`
+        : 'No floor plans are currently included.'
+    });
+
+    if (els.summaryMissingSummary) {
+      if (totalIssues === 0 && builderReady && communityReady && floorPlanReady) {
+        els.summaryMissingSummary.textContent = 'Ready to publish. No missing requirements detected in the configured scope.';
+      } else {
+        els.summaryMissingSummary.textContent = `${totalIssues} outstanding requirement${totalIssues === 1 ? '' : 's'} across builder profile, communities, and floor plans.`;
       }
-      setStatus(els.publishAuditStatus, err.message || 'Failed to load', 'error');
+    }
+
+    if (els.summaryPublishHint) {
+      const allReady = builderReady && communityReady && floorPlanReady;
+      els.summaryPublishHint.textContent = allReady ? 'Ready to publish' : 'Review required';
+      els.summaryPublishHint.className = `badge ${allReady ? 'text-bg-success' : 'text-bg-warning'}`;
     }
   };
 
@@ -465,6 +528,7 @@
     if (els.ctaContact) els.ctaContact.value = profile.ctaLinks?.contact || '';
     updateImagePreview(els.heroPreview, profile.heroImage);
     refreshPublishCard();
+    renderPublishSummaryChecklist();
   };
 
   const getCommunityFlags = (entry) => entry?.completeness?.flags || {};
@@ -492,15 +556,150 @@
     return true;
   };
 
-  const renderCommunityFlagBadges = (flags) => {
-    const badges = [];
-    if (flags.missingContactName) badges.push('<span class="badge text-bg-warning me-1">Missing Contact Name</span>');
-    if (flags.missingPhone) badges.push('<span class="badge text-bg-warning me-1">Missing Phone</span>');
-    if (flags.missingHeroImage) badges.push('<span class="badge text-bg-warning me-1">Missing Hero</span>');
-    if (flags.missingSchools) badges.push('<span class="badge text-bg-secondary me-1">Missing Schools</span>');
-    if (flags.missingHOA) badges.push('<span class="badge text-bg-secondary me-1">Missing HOA</span>');
-    if (flags.missingModelListing) badges.push('<span class="badge text-bg-secondary me-1">Missing Model</span>');
-    return badges.join('') || '<span class="text-muted small">No gaps</span>';
+  const toCommunityFilterKey = (community) => {
+    const id = toText(community?.id);
+    if (id) return `id:${id}`;
+    const name = toText(community?.name).toLowerCase();
+    if (name) return `name:${name}`;
+    return '';
+  };
+
+  const getFloorPlanCommunityItems = (entry) => {
+    const floorPlan = entry?.floorPlan || {};
+    const linkedCommunities = Array.isArray(floorPlan.linkedCommunities) ? floorPlan.linkedCommunities : [];
+    if (linkedCommunities.length) {
+      return linkedCommunities
+        .map((community) => {
+          const id = toText(community?.id);
+          const name = toText(community?.name || id);
+          const key = toCommunityFilterKey({ id, name });
+          if (!name || !key) return null;
+          return { id, name, key };
+        })
+        .filter(Boolean);
+    }
+
+    const fallbackId = toText(floorPlan.communityId || floorPlan.keepupCommunityId);
+    const fallbackName = toText(
+      floorPlan.communityName
+      || floorPlan.community?.name
+      || fallbackId
+    );
+    const key = toCommunityFilterKey({ id: fallbackId, name: fallbackName });
+    if (!fallbackName || !key) return [];
+    return [{ id: fallbackId, name: fallbackName, key }];
+  };
+
+  const refreshFloorPlanCommunityFilterOptions = () => {
+    if (!els.floorPlanCommunityFilter) return;
+    const optionsByKey = new Map();
+    (Array.isArray(state.floorPlans) ? state.floorPlans : []).forEach((entry) => {
+      getFloorPlanCommunityItems(entry).forEach((community) => {
+        if (!community?.key || !community?.name) return;
+        if (!optionsByKey.has(community.key)) {
+          optionsByKey.set(community.key, community.name);
+        }
+      });
+    });
+
+    const sortedOptions = Array.from(optionsByKey.entries())
+      .sort((a, b) => a[1].localeCompare(b[1], undefined, { sensitivity: 'base' }));
+    const allowed = new Set(sortedOptions.map(([key]) => key));
+    const selected = allowed.has(state.floorPlanCommunityFilter)
+      ? state.floorPlanCommunityFilter
+      : 'all';
+    state.floorPlanCommunityFilter = selected;
+
+    els.floorPlanCommunityFilter.innerHTML = [
+      '<option value="all">All communities</option>',
+      ...sortedOptions.map(([key, label]) => `<option value="${escapeHtml(key)}">${escapeHtml(label)}</option>`)
+    ].join('');
+    els.floorPlanCommunityFilter.value = selected;
+  };
+
+  const getFloorPlanSpecsText = (floorPlan) => (
+    [floorPlan?.beds, floorPlan?.baths, floorPlan?.sqft].every((value) => value != null)
+      ? `${floorPlan.beds} bd ${floorPlan.baths} ba ${floorPlan.sqft} sqft`
+      : ''
+  );
+
+  const shouldShowFloorPlan = (entry) => {
+    const floorPlan = entry?.floorPlan || {};
+    const draft = entry?.draft || {};
+    const includeFilter = state.floorPlanIncludeFilter;
+    if (includeFilter === 'included' && !draft.isIncluded) return false;
+    if (includeFilter === 'excluded' && draft.isIncluded) return false;
+
+    if (state.floorPlanCommunityFilter !== 'all') {
+      const communityKeys = new Set(getFloorPlanCommunityItems(entry).map((community) => community.key));
+      if (!communityKeys.has(state.floorPlanCommunityFilter)) {
+        return false;
+      }
+    }
+
+    const query = toText(state.floorPlanSearch).toLowerCase();
+    if (query) {
+      const searchableText = [
+        toText(floorPlan.name),
+        toText(floorPlan.planNumber),
+        toText(floorPlan.communityName),
+        getFloorPlanSpecsText(floorPlan),
+        ...getFloorPlanCommunityItems(entry).map((community) => toText(community.name))
+      ]
+        .filter(Boolean)
+        .join(' ')
+        .toLowerCase();
+      if (!searchableText.includes(query)) {
+        return false;
+      }
+    }
+
+    return true;
+  };
+
+  const getCommunityMissingLabels = (flags) => {
+    const labels = [];
+    if (flags.missingHeroImage) labels.push('Hero');
+    if (flags.missingContactName) labels.push('Contact');
+    if (flags.missingPhone) labels.push('Phone');
+    if (flags.missingHOA) labels.push('HOA');
+    if (flags.missingSchools) labels.push('Schools');
+    if (flags.missingModelListing) labels.push('Model');
+    return labels;
+  };
+
+  const renderCommunityMissingSummary = (flags) => {
+    const labels = getCommunityMissingLabels(flags);
+    if (!labels.length) {
+      return '<span class="brz-community-soft-chip is-ok">No missing items</span>';
+    }
+    const visible = labels.slice(0, 3);
+    const remaining = labels.length - visible.length;
+    const chips = visible
+      .map((label) => `<span class="brz-community-soft-chip is-warn">${escapeHtml(label)}</span>`)
+      .join('');
+    const more = remaining > 0
+      ? `<span class="brz-community-soft-chip is-neutral">+${remaining} more</span>`
+      : '';
+    return `<span class="text-muted">Missing:</span>${chips}${more}`;
+  };
+
+  const renderLinkedPlansSummary = (linkedPlans) => {
+    const normalized = Array.isArray(linkedPlans)
+      ? linkedPlans.map((name) => toText(name)).filter(Boolean)
+      : [];
+    if (!normalized.length) {
+      return '<span class="text-muted">Plans: none linked</span>';
+    }
+    const visible = normalized.slice(0, 3);
+    const remaining = normalized.length - visible.length;
+    const chips = visible
+      .map((name) => `<span class="brz-community-soft-chip is-neutral">${escapeHtml(name)}</span>`)
+      .join('');
+    const more = remaining > 0
+      ? `<span class="brz-community-soft-chip is-neutral">+${remaining} more</span>`
+      : '';
+    return `<span class="text-muted">Plans:</span>${chips}${more}`;
   };
 
   const renderSyncBadge = ({ outOfDate, draftSyncedAt }) => {
@@ -511,8 +710,18 @@
 
   const renderCommunityPlanOfferingsTable = (entry) => {
     const offerings = getCommunityPlanOfferings(entry);
+    const includedCount = offerings.filter((offering) => offering?.communityPlanDraft?.isIncluded !== false).length;
+    const pricedCount = offerings.filter((offering) => toNumberOrNull(offering?.communityPlanDraft?.basePriceFrom) != null).length;
+    const hiddenCount = offerings.filter((offering) => toText(offering?.communityPlanDraft?.basePriceVisibility || 'public').toLowerCase() === 'hidden').length;
     if (!offerings.length) {
-      return '<div class="small text-muted mt-3">No offered floor plans found for this community.</div>';
+      return `
+        <section class="brz-editor-section brz-editor-section--plan-pricing mt-3">
+          <div class="brz-editor-section-heading-wrap">
+            <h3 class="h6 mb-0">Plans &amp; Pricing</h3>
+          </div>
+          <div class="small text-muted">No offered floor plans found for this community.</div>
+        </section>
+      `;
     }
 
     const rows = offerings
@@ -538,9 +747,11 @@
         return `
           <tr data-community-floorplan-id="${escapeHtml(floorPlanId)}">
             <td>
-              <div class="fw-semibold">${escapeHtml(floorPlan.name || 'Floor Plan')}</div>
-              <div class="small text-muted">${escapeHtml(floorPlan.planNumber || '')}</div>
-              <div class="small text-muted">${escapeHtml(specs)}</div>
+              <div class="fw-semibold brz-community-plan-name">${escapeHtml(floorPlan.name || 'Floor Plan')}</div>
+              <div class="small text-muted brz-community-plan-meta-row">
+                ${floorPlan.planNumber ? `<span class="brz-community-plan-meta-chip">Plan ${escapeHtml(floorPlan.planNumber)}</span>` : ''}
+                ${specs ? `<span class="brz-community-plan-meta-chip">${escapeHtml(specs)}</span>` : ''}
+              </div>
             </td>
             <td>
               <input class="form-check-input brz-community-plan-include" type="checkbox" ${communityPlanDraft.isIncluded !== false ? 'checked' : ''} />
@@ -549,7 +760,7 @@
               <input class="form-control form-control-sm brz-community-plan-baseprice" type="number" min="0" step="1" placeholder="e.g., 399900" value="${communityPlanDraft.basePriceFrom == null ? '' : escapeHtml(communityPlanDraft.basePriceFrom)}" />
               <div class="small text-muted brz-community-plan-preview">${escapeHtml(communityPricePreview || '')}</div>
               <div class="small text-muted brz-community-plan-fallback">${fallbackPricePreview ? `Fallback: ${escapeHtml(fallbackPricePreview)} (default)` : 'Fallback: none'}</div>
-              <div class="small text-muted">Publishing: ${escapeHtml(resolvedPricePreview || '—')}</div>
+              <div class="small text-muted brz-community-plan-publishing">Publishing: ${escapeHtml(resolvedPricePreview || '-')}</div>
               <div class="small text-muted brz-community-plan-asof">${escapeHtml(asOf)}</div>
             </td>
             <td>
@@ -559,7 +770,7 @@
               </select>
             </td>
             <td>
-              <textarea class="form-control form-control-sm brz-community-plan-description" rows="2">${escapeHtml(communityPlanDraft.descriptionOverride || '')}</textarea>
+              <textarea class="form-control form-control-sm brz-community-plan-description" rows="1">${escapeHtml(communityPlanDraft.descriptionOverride || '')}</textarea>
             </td>
             <td>
               <div class="d-flex flex-column gap-1">
@@ -574,97 +785,89 @@
       .join('');
 
     return `
-      <div class="mt-3">
-        <h3 class="h6 mb-2">Plans & Pricing</h3>
+      <section class="brz-editor-section brz-editor-section--plan-pricing mt-3">
+        <div class="brz-editor-section-heading-wrap">
+          <h3 class="h6 mb-0">Plans &amp; Pricing</h3>
+          <p class="small text-muted mb-0">${includedCount}/${offerings.length} included | ${pricedCount} priced | ${hiddenCount} hidden</p>
+        </div>
         <div class="table-responsive">
-          <table class="table table-sm align-middle brz-community-plan-table">
+          <table class="table table-sm align-middle brz-community-plan-table brz-community-plan-table--compact">
             <thead>
               <tr>
                 <th>Plan</th>
-                <th>Included</th>
-                <th>Base Price (Community)</th>
+                <th>Include</th>
+                <th>Community Price</th>
                 <th>Visibility</th>
-                <th>Description Override</th>
+                <th>Description</th>
                 <th>Actions</th>
               </tr>
             </thead>
             <tbody>${rows}</tbody>
           </table>
         </div>
-      </div>
+      </section>
     `;
   };
 
-  const renderCommunityInventoryTable = (entry) => {
+  const renderCommunityLotOpsInlineMetrics = (entry) => {
     const lots = Array.isArray(entry?.inventoryLots) ? entry.inventoryLots : [];
-    const communityWebData = entry?.webData || entry?.competitionProfileWebData || entry?.draft?.competitionWebData || {};
-    const communityFeeSummary = renderCommunityFeeSummary(communityWebData);
-    if (!lots.length) {
-      return '<div class="small text-muted mt-3">No lots found for this community.</div>';
-    }
+    const communityId = toText(entry?.community?.id);
+    const toDateMs = (value) => {
+      if (!value) return 0;
+      const parsed = new Date(value).getTime();
+      return Number.isFinite(parsed) ? parsed : 0;
+    };
+    const inferNeedsSync = (lot) => {
+      const isPublished = Boolean(lot?.isPublished);
+      if (!isPublished) return false;
+      const status = toText(lot?.lastPublishStatus).toLowerCase();
+      if (status === 'error') return true;
+      const syncMs = toDateMs(lot?.syncDate);
+      if (!syncMs) return true;
+      const updatedMs = toDateMs(lot?.updatedAt);
+      return Boolean(updatedMs && updatedMs > syncMs);
+    };
+    const isQmiOrSpec = (lot) => {
+      const status = toText(lot?.status).toLowerCase();
+      return status.includes('spec') || status.includes('qmi');
+    };
+    const needsUpdate = (lot) => {
+      const hasPrice = toNumberOrNull(lot?.salesPrice ?? lot?.listPrice) != null;
+      const hasLocation = !Boolean(lot?.missingLocation);
+      const hasFloorPlan = Boolean(toText(lot?.floorPlanId || lot?.floorPlanName));
+      return !hasPrice || !hasLocation || !hasFloorPlan;
+    };
 
-    const rows = lots
-      .map((lot) => {
-        const lotId = toText(lot.id);
-        if (!lotId) return '';
-        const locationBits = [
-          toText(lot.address),
-          toText(lot.lot) ? `Lot ${toText(lot.lot)}` : '',
-          toText(lot.block) ? `Block ${toText(lot.block)}` : ''
-        ].filter(Boolean);
-        const location = locationBits.join(' | ') || lotId;
-        const priceLabel = formatCurrency(lot.salesPrice ?? lot.listPrice);
-        const locationSummary = toText(lot.locationSummary || [toText(lot.city), [toText(lot.state), toText(lot.postalCode)].filter(Boolean).join(' ')].filter(Boolean).join(', '));
-        const missingLocation = Boolean(lot.missingLocation) || !locationSummary;
-        return `
-          <tr data-community-lot-id="${escapeHtml(lotId)}">
-            <td>
-              <div class="fw-semibold">${escapeHtml(location)}</div>
-              <div class="small text-muted">${escapeHtml(toText(lot.floorPlanName))}</div>
-              <div class="small mt-1">
-                <span class="text-muted">City/State/ZIP:</span>
-                <span>${escapeHtml(locationSummary || 'Missing location')}</span>
-                ${missingLocation ? '<span class="badge text-bg-danger ms-1">Missing location</span>' : ''}
-              </div>
-              <div class="small mt-1">
-                <span class="text-muted">Listing Promo:</span>
-                ${renderPromoSummary(lot.promo)}
-              </div>
-              <div class="small mt-1">
-                <span class="text-muted">Mode:</span>
-                ${renderPromoModeBadge(lot.promoMode)}
-              </div>
-              <div class="small mt-1">${communityFeeSummary}</div>
-            </td>
-            <td>${escapeHtml(toText(lot.status) || '-')}</td>
-            <td>${escapeHtml(priceLabel || '-')}</td>
-            <td>
-              <input class="form-check-input brz-community-lot-publish" type="checkbox" ${lot.isPublished ? 'checked' : ''} />
-            </td>
-            <td><small class="brz-row-status brz-status-muted brz-community-lot-status"></small></td>
-          </tr>
-        `;
-      })
-      .filter(Boolean)
-      .join('');
+    const publishedCount = lots.filter((lot) => Boolean(lot?.isPublished)).length;
+    const qmiSpecCount = lots.filter(isQmiOrSpec).length;
+    const notPublishedCount = Math.max(lots.length - publishedCount, 0);
+    const needsSyncCount = lots.filter(inferNeedsSync).length;
+    const needsUpdatesCount = lots.filter(needsUpdate).length;
+    const lotOpsHref = communityId
+      ? `/admin/brz/lot-operations?communityId=${encodeURIComponent(communityId)}`
+      : '/admin/brz/lot-operations';
+
+    const renderMetric = (label, value, tone = 'is-muted') => `
+      <span class="brz-community-metric-pill ${tone}">
+        <span class="brz-community-metric-label">${escapeHtml(label)}</span>
+        <span class="brz-community-metric-value">${escapeHtml(String(value))}</span>
+      </span>
+    `;
+    const metricTokens = [
+      renderMetric('Lots', lots.length, 'is-muted'),
+      renderMetric('QMI', qmiSpecCount, 'is-muted'),
+      renderMetric('Published', publishedCount, 'is-muted'),
+      renderMetric('Needs Updates', needsUpdatesCount, needsUpdatesCount > 0 ? 'is-warn' : 'is-ok'),
+      renderMetric('Needs Sync', needsSyncCount, needsSyncCount > 0 ? 'is-alert' : 'is-ok'),
+      notPublishedCount > 0 ? renderMetric('Not Published', notPublishedCount, 'is-quiet') : ''
+    ].filter(Boolean).join('');
 
     return `
-      <div class="mt-3">
-        <h3 class="h6 mb-2">Inventory</h3>
-        <div class="table-responsive">
-          <table class="table table-sm align-middle">
-            <thead>
-              <tr>
-                <th>Lot</th>
-                <th>Status</th>
-                <th>Price</th>
-                <th>Publish</th>
-                <th></th>
-              </tr>
-            </thead>
-            <tbody>${rows}</tbody>
-          </table>
+      <div class="brz-community-lotops-zone">
+        <div class="brz-community-lotops-metrics" role="group" aria-label="Lot operations metrics">
+          ${metricTokens}
         </div>
+        <a class="brz-community-lotops-link" href="${escapeHtml(lotOpsHref)}">Open Lot Operations</a>
       </div>
     `;
   };
@@ -673,13 +876,13 @@
     refreshOutOfDateCommunitiesCount();
     if (!els.communitiesBody) return;
     if (!Array.isArray(state.communities) || !state.communities.length) {
-      els.communitiesBody.innerHTML = '<tr><td colspan="6" class="text-muted">No linked communities found.</td></tr>';
+      els.communitiesBody.innerHTML = '<div class="brz-community-empty text-muted">No linked communities found.</div>';
       return;
     }
 
     const filtered = state.communities.filter(shouldShowCommunity);
     if (!filtered.length) {
-      els.communitiesBody.innerHTML = '<tr><td colspan="6" class="text-muted">No communities match this filter.</td></tr>';
+      els.communitiesBody.innerHTML = '<div class="brz-community-empty text-muted">No communities match this filter.</div>';
       return;
     }
 
@@ -690,71 +893,102 @@
         const webData = entry.webData || entry.competitionProfileWebData || draft.competitionWebData || {};
         const modelListings = Array.isArray(entry.modelListings) ? entry.modelListings : [];
         const flags = getCommunityFlags(entry);
-        const completenessScore = entry?.completeness?.score ?? 0;
+        const completenessScore = Math.max(0, Math.min(100, Number(entry?.completeness?.score ?? 0)));
         const linkedPlans = getCommunityPlanOfferings(entry)
           .map((offering) => toText(offering?.floorPlan?.name || offering?.floorPlan?.planNumber))
           .filter(Boolean);
-        const linkedPlansHtml = linkedPlans.length
-          ? linkedPlans.map((name) => `<span class="badge text-bg-light border me-1 mb-1">${escapeHtml(name)}</span>`).join('')
-          : '<span class="text-muted small">No linked floor plans</span>';
+        const linkedPlansSummary = renderLinkedPlansSummary(linkedPlans);
+        const missingSummary = renderCommunityMissingSummary(flags);
         const resolvedCity = toText(webData.city) || toText(community.city);
         const resolvedState = toText(webData.state) || toText(community.state);
         const resolvedPostalCode = toText(webData.postalCode);
         const resolvedStatePostal = [resolvedState, resolvedPostalCode].filter(Boolean).join(' ');
-        const resolvedLocation = [resolvedCity, resolvedStatePostal].filter(Boolean).join(', ') || '—';
+        const resolvedLocation = [resolvedCity, resolvedStatePostal].filter(Boolean).join(', ') || '-';
         const feeSummaryHtml = renderCommunityFeeSummary(webData);
         const plansAndPricingHtml = renderCommunityPlanOfferingsTable(entry);
-        const inventoryHtml = renderCommunityInventoryTable(entry);
+        const lotOpsMetricsHtml = renderCommunityLotOpsInlineMetrics(entry);
         const draftSyncedAt = entry?.draftSyncedAt || draft?.draftSyncedAt || null;
         const webDataUpdatedAt = entry?.webDataUpdatedAt || null;
         const outOfDate = Boolean(entry?.outOfDate);
         const hasCompetitionProfile = entry?.hasCompetitionProfile !== false;
         const syncBadge = renderSyncBadge({ outOfDate, draftSyncedAt });
-        const syncMeta = [
-          `Competition updated: ${escapeHtml(formatDate(webDataUpdatedAt))}`,
-          `Draft synced: ${escapeHtml(formatDate(draftSyncedAt))}`
-        ].join('<br>');
         const syncDisabled = hasCompetitionProfile ? '' : 'disabled';
         const syncTitle = hasCompetitionProfile ? 'Sync canonical competition web data into BRZ draft' : 'No competition profile found';
         const competitionLink = `/my-community-competition?communityId=${encodeURIComponent(entry.keepupCommunityId || community.id || '')}`;
+        const readinessToneClass = completenessScore >= 90
+          ? 'is-ready'
+          : (completenessScore >= 70 ? 'is-warning' : 'is-risk');
 
         return `
-          <tr data-community-id="${escapeHtml(community.id)}">
-            <td>
-              <div class="fw-semibold">${escapeHtml(community.name || 'Community')}</div>
-              <div class="small text-muted">${escapeHtml(resolvedLocation)}</div>
-            </td>
-            <td>
-              <input class="form-check-input brz-community-include" type="checkbox" ${draft.isIncluded ? 'checked' : ''} />
-            </td>
-            <td>
-              <textarea class="form-control form-control-sm brz-community-description" rows="2">${escapeHtml(draft.descriptionOverride || '')}</textarea>
-            </td>
-            <td>
-              <div class="fw-semibold">${escapeHtml(`${completenessScore}%`)}</div>
-              <div class="brz-badge-wrap">${renderCommunityFlagBadges(flags)}</div>
-            </td>
-            <td>
-              <div class="d-flex flex-wrap">${linkedPlansHtml}</div>
-            </td>
-            <td>
-              <div class="d-flex flex-column gap-1">
-                <button type="button" class="btn btn-sm btn-outline-primary brz-community-save-draft">Save Draft</button>
-                <button type="button" class="btn btn-sm btn-outline-secondary brz-community-toggle-details">Edit Community Web Info</button>
-                <button type="button" class="btn btn-sm btn-outline-warning brz-community-sync-from-competition" ${syncDisabled} title="${escapeHtml(syncTitle)}">Sync from competition</button>
-                <button type="button" class="btn btn-sm btn-outline-dark brz-community-apply-location">Apply location to missing listings</button>
-                <div>${syncBadge}</div>
-                <small class="text-muted">${syncMeta}</small>
-                <small class="brz-row-status brz-status-muted brz-draft-status"></small>
-                <small class="brz-row-status brz-status-muted brz-community-sync-status"></small>
-                <small class="brz-row-status brz-status-muted brz-community-location-status"></small>
+          <article class="brz-community-item" data-community-id="${escapeHtml(community.id)}">
+            <div class="brz-community-item-summary">
+              <div class="brz-community-header-bar">
+                <div class="brz-community-zone brz-community-zone--identity">
+                  <div class="brz-community-main">
+                    <label class="brz-community-include-wrap" title="Include community in publishing">
+                      <input class="form-check-input brz-community-include" type="checkbox" ${draft.isIncluded ? 'checked' : ''} />
+                    </label>
+                    <div class="brz-community-title-wrap">
+                      <div class="fw-semibold brz-community-name">${escapeHtml(community.name || 'Community')}</div>
+                      <div class="small text-muted">${escapeHtml(resolvedLocation)}</div>
+                    </div>
+                  </div>
+                </div>
+                <div class="brz-community-zone brz-community-zone--lotops">
+                  ${lotOpsMetricsHtml}
+                </div>
+                <div class="brz-community-zone brz-community-zone--controls">
+                  <div class="brz-community-readiness" title="Community readiness">
+                    <span class="brz-community-readiness-pill ${readinessToneClass}">${escapeHtml(`${completenessScore}% ready`)}</span>
+                    <div class="progress brz-community-readiness-progress" role="progressbar" aria-valuemin="0" aria-valuemax="100" aria-valuenow="${escapeHtml(String(completenessScore))}">
+                      <div class="progress-bar ${readinessToneClass}" style="width: ${escapeHtml(String(completenessScore))}%"></div>
+                    </div>
+                  </div>
+                  <div class="brz-community-actions">
+                    <button type="button" class="btn btn-sm btn-primary brz-community-toggle-details" aria-expanded="false">
+                      Edit Community <span class="brz-community-toggle-chevron" aria-hidden="true">v</span>
+                    </button>
+                    <button type="button" class="btn btn-sm btn-outline-primary brz-community-save-draft">Save Draft</button>
+                    <button type="button" class="btn btn-sm btn-outline-warning brz-community-sync-from-competition" ${syncDisabled} title="${escapeHtml(syncTitle)}">Sync</button>
+                    <details class="brz-community-overflow">
+                      <summary class="btn btn-sm btn-outline-secondary brz-community-overflow-toggle">More</summary>
+                      <div class="brz-community-overflow-menu">
+                        <button type="button" class="btn btn-sm btn-outline-dark brz-community-apply-location">Apply Location to Missing Listings</button>
+                      </div>
+                    </details>
+                  </div>
+                </div>
               </div>
-            </td>
-          </tr>
-          <tr class="brz-community-details-row d-none" data-community-details-id="${escapeHtml(community.id)}">
-            <td colspan="6">
+              <div class="brz-community-header-secondary">
+                <div class="brz-community-secondary-context">
+                  <div class="small text-muted brz-community-sync-line">
+                    ${syncBadge}
+                    <span>Competition updated ${escapeHtml(formatDate(webDataUpdatedAt))}</span>
+                    <span class="brz-community-meta-separator">|</span>
+                    <span>Draft synced ${escapeHtml(formatDate(draftSyncedAt))}</span>
+                  </div>
+                  <div class="small brz-community-support-line">
+                    <div class="brz-community-missing">${missingSummary}</div>
+                    <div class="brz-community-linked">${linkedPlansSummary}</div>
+                  </div>
+                </div>
+                <div class="small text-muted brz-community-status-line">
+                  <small class="brz-row-status brz-status-muted brz-draft-status"></small>
+                  <small class="brz-row-status brz-status-muted brz-community-sync-status"></small>
+                  <small class="brz-row-status brz-status-muted brz-community-location-status"></small>
+                </div>
+              </div>
+            </div>
+            <section class="brz-community-details-row d-none" data-community-details-id="${escapeHtml(community.id)}">
               <div class="brz-community-web-card">
+                <div class="mb-3">
+                  <label class="form-label mb-1">Description Override</label>
+                  <textarea class="form-control form-control-sm brz-community-description" rows="2">${escapeHtml(draft.descriptionOverride || '')}</textarea>
+                </div>
                 <div class="row g-2">
+                  <div class="col-12 brz-editor-subsection">
+                    <h4 class="h6 mb-0">Public Contact</h4>
+                  </div>
                   <div class="col-md-4">
                     <label class="form-label mb-1">Primary Contact Name</label>
                     <input type="text" class="form-control form-control-sm brz-web-contact-name" value="${escapeHtml(webData.primaryContact?.name || '')}" />
@@ -780,21 +1014,31 @@
                         : '<span class="text-muted small">No model-status listings found in this community.</span>'}
                     </div>
                   </div>
+                  <div class="col-12 brz-editor-subsection">
+                    <h4 class="h6 mb-0">Location &amp; Community Basics</h4>
+                  </div>
                   <div class="col-md-4">
                     <label class="form-label mb-1">City</label>
-                    <div class="form-control form-control-sm bg-light">${escapeHtml(resolvedCity || '—')}</div>
+                    <div class="form-control form-control-sm bg-light">${escapeHtml(resolvedCity || '-')}</div>
                   </div>
                   <div class="col-md-4">
                     <label class="form-label mb-1">State</label>
-                    <div class="form-control form-control-sm bg-light">${escapeHtml(resolvedState || '—')}</div>
+                    <div class="form-control form-control-sm bg-light">${escapeHtml(resolvedState || '-')}</div>
                   </div>
                   <div class="col-md-4">
                     <label class="form-label mb-1">ZIP</label>
-                    <div class="form-control form-control-sm bg-light">${escapeHtml(resolvedPostalCode || '—')}</div>
+                    <div class="form-control form-control-sm bg-light">${escapeHtml(resolvedPostalCode || '-')}</div>
                   </div>
                   <div class="col-md-3">
                     <label class="form-label mb-1">Total Lots</label>
                     <input type="number" class="form-control form-control-sm brz-web-total-lots" value="${webData.totalLots == null ? '' : escapeHtml(webData.totalLots)}" />
+                  </div>
+                  <div class="col-md-9">
+                    <label class="form-label mb-1">Product / Lot Width</label>
+                    <div class="d-flex flex-wrap">${renderLabelChips(webData.productTypes)}</div>
+                  </div>
+                  <div class="col-12 brz-editor-subsection">
+                    <h4 class="h6 mb-0">Schools</h4>
                   </div>
                   <div class="col-md-3">
                     <label class="form-label mb-1">School: Elementary</label>
@@ -807,6 +1051,9 @@
                   <div class="col-md-3">
                     <label class="form-label mb-1">School: High</label>
                     <input type="text" class="form-control form-control-sm brz-web-school-high" value="${escapeHtml(webData.schools?.high || '')}" />
+                  </div>
+                  <div class="col-12 brz-editor-subsection">
+                    <h4 class="h6 mb-0">Fees &amp; Financial Details</h4>
                   </div>
                   <div class="col-md-3">
                     <label class="form-label mb-1">HOA Amount</label>
@@ -864,9 +1111,8 @@
                       <option value="gated" ${(webData.realtorCommission?.visibility || 'hidden') === 'gated' ? 'selected' : ''}>Gated</option>
                     </select>
                   </div>
-                  <div class="col-12">
-                    <label class="form-label mb-1">Product / Lot Width</label>
-                    <div class="d-flex flex-wrap">${renderLabelChips(webData.productTypes)}</div>
+                  <div class="col-12 brz-editor-subsection">
+                    <h4 class="h6 mb-0">Marketing Content</h4>
                   </div>
                   <div class="col-12">
                     <label class="form-label mb-1">Community Promo</label>
@@ -891,18 +1137,17 @@
                   </div>
                 </div>
                 ${plansAndPricingHtml}
-                ${inventoryHtml}
               </div>
-            </td>
-          </tr>
+            </section>
+          </article>
         `;
       })
       .join('');
 
-    els.communitiesBody.querySelectorAll('tr[data-community-id]').forEach((row) => {
+    els.communitiesBody.querySelectorAll('[data-community-id]').forEach((row) => {
       const communityId = row.getAttribute('data-community-id');
-      const selector = `tr[data-community-details-id="${communityId}"]`;
-      const detailsRow = els.communitiesBody.querySelector(selector);
+      const selector = `[data-community-details-id="${communityId}"]`;
+      const detailsRow = row.querySelector(selector);
       const draftStatusEl = row.querySelector('.brz-draft-status');
       const syncStatusEl = row.querySelector('.brz-community-sync-status');
       const locationStatusEl = row.querySelector('.brz-community-location-status');
@@ -911,12 +1156,19 @@
       const applyLocationBtn = row.querySelector('.brz-community-apply-location');
       const toggleDetailsBtn = row.querySelector('.brz-community-toggle-details');
       const includeEl = row.querySelector('.brz-community-include');
-      const descriptionEl = row.querySelector('.brz-community-description');
+      const descriptionEl = detailsRow?.querySelector('.brz-community-description');
 
       if (toggleDetailsBtn && detailsRow) {
+        const updateToggleButtonState = (expanded) => {
+          toggleDetailsBtn.setAttribute('aria-expanded', expanded ? 'true' : 'false');
+          toggleDetailsBtn.innerHTML = expanded
+            ? 'Close Editor <span class="brz-community-toggle-chevron" aria-hidden="true">^</span>'
+            : 'Edit Community <span class="brz-community-toggle-chevron" aria-hidden="true">v</span>';
+        };
+        updateToggleButtonState(false);
         toggleDetailsBtn.addEventListener('click', () => {
-          const hidden = detailsRow.classList.toggle('d-none');
-          toggleDetailsBtn.textContent = hidden ? 'Edit Community Web Info' : 'Hide Community Web Info';
+          const isExpanded = detailsRow.classList.toggle('d-none') === false;
+          updateToggleButtonState(isExpanded);
         });
       }
 
@@ -928,7 +1180,9 @@
           try {
             const payload = {
               isIncluded: Boolean(includeEl?.checked),
-              descriptionOverride: toText(descriptionEl?.value)
+              descriptionOverride: descriptionEl
+                ? toText(descriptionEl.value)
+                : toText(draft.descriptionOverride)
             };
             const data = await fetchJson(`/api/brz/publishing/community/${encodeURIComponent(communityId)}`, {
               method: 'PUT',
@@ -1229,69 +1483,35 @@
         }
       });
 
-      detailsRow.querySelectorAll('tr[data-community-lot-id]').forEach((lotRow) => {
-        const lotId = lotRow.getAttribute('data-community-lot-id');
-        const lotPublishEl = lotRow.querySelector('.brz-community-lot-publish');
-        const lotStatusEl = lotRow.querySelector('.brz-community-lot-status');
-        if (!lotId || !lotPublishEl) return;
-
-        const persistLotPublish = async () => {
-          lotPublishEl.disabled = true;
-          setStatus(lotStatusEl, 'Saving...', 'muted');
-          try {
-            const payload = {
-              isPublished: Boolean(lotPublishEl.checked)
-            };
-            const data = await fetchJson(
-              `/api/brz/publishing/community/${encodeURIComponent(communityId)}/lots/${encodeURIComponent(lotId)}/publish`,
-              {
-                method: 'PUT',
-                body: JSON.stringify(payload)
-              }
-            );
-            const communityIdx = state.communities.findIndex((item) => item.community?.id === communityId);
-            if (communityIdx >= 0) {
-              const lots = Array.isArray(state.communities[communityIdx].inventoryLots)
-                ? state.communities[communityIdx].inventoryLots.slice()
-                : [];
-              const lotIdx = lots.findIndex((item) => item.id === lotId);
-              if (lotIdx >= 0) {
-                lots[lotIdx] = {
-                  ...lots[lotIdx],
-                  isPublished: Boolean(data?.isPublished)
-                };
-              }
-              state.communities[communityIdx] = {
-                ...state.communities[communityIdx],
-                inventoryLots: lots
-              };
-            }
-            setStatus(lotStatusEl, 'Saved', 'success');
-            setStatus(els.publishStatus, 'Inventory publish flag saved', 'success');
-            return data;
-          } catch (err) {
-            setStatus(lotStatusEl, err.message || 'Save failed', 'error');
-            throw err;
-          } finally {
-            lotPublishEl.disabled = false;
-          }
-        };
-
-        lotPublishEl.addEventListener('change', () => {
-          trackPendingSave(persistLotPublish()).catch(() => {});
-        });
-      });
     });
+
+    renderPublishSummaryChecklist();
   };
 
   const renderFloorPlans = () => {
     if (!els.floorPlansBody) return;
-    if (!Array.isArray(state.floorPlans) || !state.floorPlans.length) {
+    const allFloorPlans = Array.isArray(state.floorPlans) ? state.floorPlans : [];
+    refreshFloorPlanCommunityFilterOptions();
+
+    if (!allFloorPlans.length) {
+      if (els.floorPlanFilterSummary) {
+        els.floorPlanFilterSummary.textContent = 'No linked floor plans available.';
+      }
       els.floorPlansBody.innerHTML = '<tr><td colspan="7" class="text-muted">No linked floor plans found.</td></tr>';
       return;
     }
 
-    els.floorPlansBody.innerHTML = state.floorPlans
+    const filteredFloorPlans = allFloorPlans.filter(shouldShowFloorPlan);
+    if (els.floorPlanFilterSummary) {
+      els.floorPlanFilterSummary.textContent = `Showing ${filteredFloorPlans.length} of ${allFloorPlans.length} floor plans.`;
+    }
+
+    if (!filteredFloorPlans.length) {
+      els.floorPlansBody.innerHTML = '<tr><td colspan="7" class="text-muted">No floor plans match the current filters.</td></tr>';
+      return;
+    }
+
+    els.floorPlansBody.innerHTML = filteredFloorPlans
       .map((entry) => {
         const floorPlan = entry.floorPlan || {};
         const draft = entry.draft || {};
@@ -1302,10 +1522,10 @@
         const specs = [floorPlan.beds, floorPlan.baths, floorPlan.sqft].every((value) => value != null)
           ? `${floorPlan.beds} bd | ${floorPlan.baths} ba | ${floorPlan.sqft} sqft`
           : '';
-        const linkedCommunities = Array.isArray(floorPlan.linkedCommunities) ? floorPlan.linkedCommunities : [];
-        const communityLabel = linkedCommunities.length
-          ? linkedCommunities.map((item) => item?.name).filter(Boolean).join(', ')
-          : (floorPlan.communityName || '-');
+        const communityItems = getFloorPlanCommunityItems(entry);
+        const communityLabel = communityItems.length
+          ? communityItems.map((community) => community.name).join(', ')
+          : '-';
         return `
           <tr data-floorplan-id="${escapeHtml(floorPlan.id)}">
             <td>
@@ -1468,6 +1688,8 @@
         });
       }
     });
+
+    renderPublishSummaryChecklist();
   };
 
   const saveProfile = async () => {
@@ -1579,7 +1801,6 @@
       if (isInventory) {
         state.latestInventorySnapshot = snapshot;
         renderInventoryWarnings(snapshot.warnings);
-        await loadPublishAudit();
       } else {
         state.latestPackageSnapshot = snapshot;
         state.latestSnapshot = snapshot;
@@ -1666,14 +1887,35 @@
   };
 
   const hydrateFromBootstrap = (payload) => {
-    state.company = payload?.company || null;
-    state.profileDraft = payload?.profileDraft || {};
-    state.communities = Array.isArray(payload?.communities) ? payload.communities : [];
-    state.floorPlans = Array.isArray(payload?.floorPlans) ? payload.floorPlans : [];
-    state.latestSnapshot = payload?.latestSnapshot || payload?.latestPackageSnapshot || null;
-    state.latestPackageSnapshot = payload?.latestPackageSnapshot || payload?.latestSnapshot || null;
-    state.latestInventorySnapshot = payload?.latestInventorySnapshot || null;
-    state.outOfDateCommunitiesCount = toNumberOr(payload?.outOfDateCommunitiesCount, 0);
+    const sectioned = payload?.sections || {};
+    const builderProfile = payload?.builderProfile || sectioned.builderProfile || {};
+    const communityPublishing = payload?.communityPublishing || sectioned.communityPublishing || {};
+    const floorPlanCatalog = payload?.floorPlanCatalog || sectioned.floorPlanCatalog || {};
+    const publishSummary = payload?.publishSummary || sectioned.publishSummary || {};
+
+    state.company = builderProfile?.company || payload?.company || null;
+    state.profileDraft = builderProfile?.profileDraft || payload?.profileDraft || {};
+    state.communities = Array.isArray(communityPublishing?.communities)
+      ? communityPublishing.communities
+      : (Array.isArray(payload?.communities) ? payload.communities : []);
+    state.floorPlans = Array.isArray(floorPlanCatalog?.floorPlans)
+      ? floorPlanCatalog.floorPlans
+      : (Array.isArray(payload?.floorPlans) ? payload.floorPlans : []);
+    state.latestSnapshot = publishSummary?.latestSnapshot
+      || payload?.latestSnapshot
+      || payload?.latestPackageSnapshot
+      || null;
+    state.latestPackageSnapshot = publishSummary?.latestPackageSnapshot
+      || payload?.latestPackageSnapshot
+      || payload?.latestSnapshot
+      || null;
+    state.latestInventorySnapshot = publishSummary?.latestInventorySnapshot
+      || payload?.latestInventorySnapshot
+      || null;
+    state.outOfDateCommunitiesCount = toNumberOr(
+      communityPublishing?.outOfDateCommunitiesCount ?? payload?.outOfDateCommunitiesCount,
+      0
+    );
 
     applyProfileToForm();
     renderCommunities();
@@ -1706,19 +1948,39 @@
     }
   };
 
+  const readInitialBootstrapPayload = () => {
+    const payloadEl = document.getElementById('brzPublishingBootstrap');
+    if (!payloadEl) return null;
+    try {
+      const parsed = JSON.parse(payloadEl.textContent || 'null');
+      if (!parsed || typeof parsed !== 'object') return null;
+      return parsed;
+    } catch (_) {
+      return null;
+    }
+  };
+
   const loadBootstrap = async () => {
+    const initialPayload = readInitialBootstrapPayload();
+    if (initialPayload) {
+      hydrateFromBootstrap(initialPayload);
+      if (!state.latestPackageSnapshot?.message && !state.latestInventorySnapshot?.message) {
+        setStatus(els.publishStatus, '', 'muted');
+      }
+      return;
+    }
+
     setStatus(els.publishStatus, 'Loading publishing data...', 'muted');
     try {
       const payload = await fetchJson('/api/brz/publishing/bootstrap');
       hydrateFromBootstrap(payload);
-      await loadPublishAudit();
       if (!state.latestPackageSnapshot?.message && !state.latestInventorySnapshot?.message) {
         setStatus(els.publishStatus, '', 'muted');
       }
     } catch (err) {
       setStatus(els.publishStatus, err.message || 'Failed to load publishing data', 'error');
       if (els.communitiesBody) {
-        els.communitiesBody.innerHTML = '<tr><td colspan="6" class="text-danger">Failed to load communities.</td></tr>';
+        els.communitiesBody.innerHTML = '<div class="brz-community-empty text-danger">Failed to load communities.</div>';
       }
       if (els.floorPlansBody) {
         els.floorPlansBody.innerHTML = '<tr><td colspan="7" class="text-danger">Failed to load floor plans.</td></tr>';
@@ -1769,6 +2031,29 @@
     });
   }
 
+  if (els.floorPlanSearch) {
+    els.floorPlanSearch.addEventListener('input', () => {
+      state.floorPlanSearch = toText(els.floorPlanSearch.value);
+      renderFloorPlans();
+    });
+  }
+
+  if (els.floorPlanCommunityFilter) {
+    els.floorPlanCommunityFilter.addEventListener('change', () => {
+      state.floorPlanCommunityFilter = toText(els.floorPlanCommunityFilter.value || 'all') || 'all';
+      renderFloorPlans();
+    });
+  }
+
+  if (els.floorPlanIncludeFilter) {
+    els.floorPlanIncludeFilter.addEventListener('change', () => {
+      state.floorPlanIncludeFilter = toText(els.floorPlanIncludeFilter.value || 'all').toLowerCase() || 'all';
+      renderFloorPlans();
+    });
+  }
+
+  setupWorkflowTabs();
   refreshOutOfDateCommunitiesCount();
   loadBootstrap();
 })();
+

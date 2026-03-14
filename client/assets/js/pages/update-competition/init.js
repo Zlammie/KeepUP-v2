@@ -15,9 +15,17 @@ import * as DOM from './dom.js';
 import {
   renderMonthNav,
   bindMonthNav,
-  bindSectionNav
+  bindSectionNav,
+  goToMonth
 } from './nav.js';
-import { initQuickHomes, loadMonth, loadQuickHomes, loadSales } from './loaders.js';
+import {
+  initQuickHomes,
+  loadMonth,
+  loadQuickHomes,
+  loadSales,
+  searchInventoryHomes,
+  focusInventoryRecord
+} from './loaders.js';
 import { initMetrics, saveMetrics } from './metrics.js';
 import { updateRemainingLots } from './monthlyMetrics.js';
 import { renderBadges, bindProsCons } from './prosCons.js';
@@ -131,25 +139,27 @@ document.addEventListener('DOMContentLoaded', async () => {
   await initQuickHomes();
 
   // 1) Month nav
+  const loadSelectedMonth = (month) => {
+    loadMonth(month);
+    loadQuickHomes(month);
+    loadSales(month);
+  };
+
   renderMonthNav(DOM.monthNav);
   console.log(
     'Nav months',
     [...DOM.monthNav.querySelectorAll('a.nav-link')].map(a => a.dataset.month)
   );
-  bindMonthNav(DOM.monthNav, month => {
-    loadMonth(month);
-    loadQuickHomes(month);
-    loadSales(month);
-  });
+  bindMonthNav(DOM.monthNav, loadSelectedMonth);
 
   // initial load for first month pill
   const firstMonthLink = DOM.monthNav.querySelector('a.nav-link');
   if (firstMonthLink) {
     const month = firstMonthLink.dataset.month;
-    loadMonth(month);
-    loadQuickHomes(month);
-    loadSales(month);
+    loadSelectedMonth(month);
   }
+
+  initInventorySearch(loadSelectedMonth);
 
   // 2) Section tabs
   bindSectionNav(DOM.sectionNav);
@@ -236,6 +246,96 @@ function formatMonthLabel(monthKey) {
   if (!Number.isFinite(y) || !Number.isFinite(m)) return monthKey;
   const dt = new Date(y, m - 1, 1);
   return dt.toLocaleString(undefined, { month: 'long', year: 'numeric' });
+}
+
+function initInventorySearch(loadSelectedMonth) {
+  const input = DOM.inventorySearchInput;
+  const clearBtn = DOM.inventorySearchClear;
+  const results = DOM.inventorySearchResults;
+  if (!input || !clearBtn || !results) return;
+
+  const renderResults = (matches, query) => {
+    results.innerHTML = '';
+
+    if (!query) {
+      results.hidden = true;
+      clearBtn.hidden = true;
+      return;
+    }
+
+    clearBtn.hidden = false;
+    results.hidden = false;
+
+    if (!matches.length) {
+      const empty = document.createElement('div');
+      empty.className = 'inventory-search-empty';
+      empty.textContent = 'No inventory matches found.';
+      results.appendChild(empty);
+      return;
+    }
+
+    matches.forEach((match) => {
+      const button = document.createElement('button');
+      button.type = 'button';
+      button.className = 'inventory-search-result';
+
+      const title = document.createElement('span');
+      title.className = 'inventory-search-result__title';
+      title.textContent = match.address;
+
+      const meta = document.createElement('span');
+      meta.className = 'inventory-search-result__meta';
+      meta.textContent = [
+        match.isSold ? 'Sold Home' : 'Quick Move-In',
+        match.planName || 'No plan',
+        match.status || ''
+      ].filter(Boolean).join(' • ');
+
+      const action = document.createElement('span');
+      action.className = 'inventory-search-result__action';
+      action.textContent = match.jumpActionLabel || (match.targetMonthLabel
+        ? `Go to ${match.targetMonthLabel}`
+        : 'Open row');
+
+      button.append(title, meta, action);
+      button.addEventListener('click', () => {
+        focusInventoryRecord(match.id);
+        input.value = match.address;
+        renderResults([], '');
+        goToMonth(DOM.monthNav, match.jumpMonth, loadSelectedMonth);
+      });
+      results.appendChild(button);
+    });
+  };
+
+  input.addEventListener('input', () => {
+    const query = input.value.trim();
+    renderResults(searchInventoryHomes(query), query);
+  });
+
+  clearBtn.addEventListener('click', () => {
+    input.value = '';
+    input.focus();
+    renderResults([], '');
+  });
+
+  document.addEventListener('click', (event) => {
+    const target = event.target;
+    if (target instanceof Node && (input.contains(target) || results.contains(target))) {
+      return;
+    }
+    if (!input.value.trim()) {
+      renderResults([], '');
+      return;
+    }
+    results.hidden = true;
+  });
+
+  input.addEventListener('focus', () => {
+    const query = input.value.trim();
+    if (!query) return;
+    renderResults(searchInventoryHomes(query), query);
+  });
 }
 
 async function ensureRecurringTasksForCompetition(id) {

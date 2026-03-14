@@ -1,0 +1,75 @@
+<section class="card shadow-sm mb-4 brz-workflow-section" data-workflow-section="publish-summary">
+  <div class="card-body">
+    <div class="mb-3">
+      <h2 class="h5 mb-1"><%= sectionMeta.title || 'Publish Summary' %></h2>
+      <p class="small text-muted mb-0"><%= sectionMeta.subtitle || 'Final readiness checkpoint before publishing.' %></p>
+    </div>
+
+    <div class="row g-3 mb-3">
+      <div class="col-12 col-md-4">
+        <div class="border rounded p-3 h-100 brz-summary-check-card">
+          <div class="small text-muted text-uppercase">Builder Profile</div>
+          <div class="fw-semibold brz-summary-check-state" id="brzSummaryBuilderStatus">Checking...</div>
+          <div class="small text-muted mt-1" id="brzSummaryBuilderDetails"></div>
+        </div>
+      </div>
+      <div class="col-12 col-md-4">
+        <div class="border rounded p-3 h-100 brz-summary-check-card">
+          <div class="small text-muted text-uppercase">Community Setup</div>
+          <div class="fw-semibold brz-summary-check-state" id="brzSummaryCommunityStatus">Checking...</div>
+          <div class="small text-muted mt-1" id="brzSummaryCommunityDetails"></div>
+        </div>
+      </div>
+      <div class="col-12 col-md-4">
+        <div class="border rounded p-3 h-100 brz-summary-check-card">
+          <div class="small text-muted text-uppercase">Floor Plan Catalog</div>
+          <div class="fw-semibold brz-summary-check-state" id="brzSummaryFloorPlanStatus">Checking...</div>
+          <div class="small text-muted mt-1" id="brzSummaryFloorPlanDetails"></div>
+        </div>
+      </div>
+    </div>
+
+    <div class="alert alert-light border d-flex justify-content-between align-items-center flex-wrap gap-2 mb-3">
+      <div>
+        <div class="fw-semibold mb-1">Readiness checkpoint</div>
+        <div class="small text-muted" id="brzSummaryMissingSummary">Calculating current publishing readiness...</div>
+      </div>
+      <span class="badge text-bg-secondary" id="brzSummaryPublishHint">Review in progress</span>
+    </div>
+
+    <div class="row g-3 mb-3">
+      <div class="col-md-6">
+        <div class="border rounded p-3 h-100">
+          <div class="d-flex justify-content-between align-items-center mb-2">
+            <div class="fw-semibold">Package</div>
+            <button class="btn btn-primary btn-sm" id="brzPublishPackageBtn" type="button">Publish Package</button>
+          </div>
+          <div class="small text-muted">Last Status</div>
+          <div class="fw-semibold" id="brzPackagePublishVersion">-</div>
+          <div class="small text-muted mt-2">Published At</div>
+          <div class="fw-semibold" id="brzPackagePublishAt">-</div>
+          <div class="small mt-2" id="brzPackagePublishStatus"></div>
+        </div>
+      </div>
+      <div class="col-md-6">
+        <div class="border rounded p-3 h-100">
+          <div class="d-flex justify-content-between align-items-center mb-2">
+            <div class="fw-semibold">Inventory</div>
+            <button class="btn btn-outline-primary btn-sm" id="brzPublishInventoryBtn" type="button">Publish Inventory</button>
+          </div>
+          <div class="small text-muted">Last Status</div>
+          <div class="fw-semibold" id="brzInventoryPublishVersion">-</div>
+          <div class="small text-muted mt-2">Published At</div>
+          <div class="fw-semibold" id="brzInventoryPublishAt">-</div>
+          <div class="small mt-2" id="brzInventoryPublishStatus"></div>
+          <div class="small mt-2 brz-warning-list d-none" id="brzInventoryWarnings"></div>
+        </div>
+      </div>
+    </div>
+
+    <div class="d-flex justify-content-between align-items-center flex-wrap gap-2">
+      <a class="btn btn-outline-secondary btn-sm" id="brzPreviewLink" href="#" target="_blank" rel="noopener noreferrer">Open Public Preview</a>
+      <div class="small text-muted text-end" id="brzPublishStatus"></div>
+    </div>
+  </div>
+</section>

@@ -22,6 +22,9 @@ export const priceBody   = document.querySelector('#monthTable tbody');
 export const quickBody   = document.querySelector('#quickHomesTable tbody');
 export const soldBody    = document.querySelector('#soldHomesTable tbody');
 export const salesBody   = document.querySelector('#salesTable tbody');
+export const inventorySearchInput   = document.getElementById('inventorySearchInput');
+export const inventorySearchClear   = document.getElementById('inventorySearchClear');
+export const inventorySearchResults = document.getElementById('inventorySearchResults');
 
 export const openPlanModal = document.getElementById('openPlanModal');
 export const modalEl        = document.getElementById('floorPlanModal');

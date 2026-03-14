@@ -1,5 +1,5 @@
 // client/assets/js/mcc/soldTable.js
-import { PROFILE_API } from './context.js';
+import { PROFILE_API, communityId } from './context.js';
 
 export function soldTable() {
   const table = document.getElementById('soldHomesTable');
@@ -16,32 +16,47 @@ export function soldTable() {
           minimumFractionDigits: 0,
           maximumFractionDigits: 0
         }).format(num)
-      : '�?"';
+      : '--';
   };
+
   const fmtDate = (d) => {
-    if (!d) return '�?"';
+    if (!d) return '--';
     if (/^\d{4}-(0[1-9]|1[0-2])$/.test(d)) return d;
     const dt = new Date(d);
     return Number.isNaN(dt.getTime())
       ? String(d)
       : dt.toLocaleDateString(undefined, { year: 'numeric', month: 'short', day: 'numeric' });
   };
-  const safe = (s) => (s == null || s === '' ? '�?"' : s);
+
+  const safe = (s) => (s == null || s === '' ? '--' : s);
+  const esc = (s) => String(s)
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#39;');
+
+  const addressCell = (home) => {
+    const label = safe(home.address);
+    if (!home?.lotId || !communityId) return esc(label);
+    const href = `/address-details?communityId=${encodeURIComponent(communityId)}&lotId=${encodeURIComponent(home.lotId)}`;
+    return `<a href="${href}" class="inventory-address-link">${esc(label)}</a>`;
+  };
 
   function buildRow(h) {
     const tr = document.createElement('tr');
     tr.innerHTML = `
-      <td>${safe(h.address)}</td>
+      <td>${addressCell(h)}</td>
       <td>${fmtDate(h.listDate)}</td>
       <td>${
         h.floorPlan
           ? `${safe(h.floorPlan.name)}${
               h.floorPlan.planNumber ? ` (${h.floorPlan.planNumber})` : ''
             }`
-          : h.plan || '�?"'
+          : h.plan || '--'
       }</td>
       <td>${fmtMoney(h.listPrice)}</td>
-      <td>${h.sqft ? Number(h.sqft).toLocaleString() : '�?"'}</td>
+      <td>${h.sqft ? Number(h.sqft).toLocaleString() : '--'}</td>
       <td>${fmtDate(h.soldDate)}</td>
       <td>${fmtMoney(h.soldPrice)}</td>
     `;

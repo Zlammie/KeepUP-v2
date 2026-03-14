@@ -59,26 +59,33 @@
         </section>
 
           <section class="card price-card">
-            <div class="field wide">
-              <label for="listPriceInput">List Price</label>
-              <input id="listPriceInput" class="value" inputmode="numeric" placeholder="$450,000" />
+            <div class="price-card__header section-card__header">
+              <h2>Pricing</h2>
             </div>
-            <div class="price-row">
-              <div class="field">
-                <label>Sales Price</label>
-                <div id="salesPriceValue" class="value readonly price-figure"></div>
+            <div class="price-card__group">
+              <div class="field wide">
+                <label for="listPriceInput">List Price</label>
+                <input id="listPriceInput" class="value" inputmode="numeric" placeholder="$450,000" />
               </div>
-              <div class="field">
-                <label>Sales Date</label>
-                <div id="salesDateValue" class="value readonly"></div>
+              <div class="price-row">
+                <div class="field">
+                  <label for="salesPriceInput">Sales Price</label>
+                  <input id="salesPriceInput" class="value price-figure" inputmode="numeric" placeholder="$425,000" />
+                </div>
+                <div class="field">
+                  <label for="salesDateInput">Sales Date</label>
+                  <input id="salesDateInput" type="date" class="value input--normalized input--date" />
+                </div>
               </div>
             </div>
           </section>
 
         <section class="card closing-card">
+          <div class="closing-card__header section-card__header">
+            <h2>Closing</h2>
+          </div>
           <div class="closing-card__head">
             <div class="closing-status-wrap" aria-label="Closing status">
-              <span class="closing-status-label">Closing</span>
               <div class="closing-status-controls">
                 <label class="visually-hidden" for="closingStatusSelect">Closing Status</label>
                 <select id="closingStatusSelect" class="status-select in-header">
@@ -182,10 +189,11 @@
         </section>
 
       <main class="grid">
-          <!-- LEFT COLUMN: Building Info (stacked cards) -->
           <section class="pane pane--left">
-           <div class="card card--margin-bottom">
-              <h2>Building Info</h2>
+           <div class="card card--margin-bottom section-card">
+              <div class="section-card__header">
+                <h2>Building Info</h2>
+              </div>
               <div class="form-grid">
 
                  <div class="field wide">
@@ -211,11 +219,11 @@
                 <!-- Row 2: Release Date | Expected Completion -->
                 <div class="field">
                   <label for="releaseDateInput">Release Date</label>
-                  <input id="releaseDateInput" type="date" class="value" />
+                  <input id="releaseDateInput" type="date" class="value input--normalized input--date" />
                 </div>
                 <div class="field">
                   <label for="expectedCompletionInput">Expected Completion Date</label>
-                  <input id="expectedCompletionInput" type="date" class="value" />
+                  <input id="expectedCompletionInput" type="date" class="value input--normalized input--date" />
                 </div>
 
                 <!-- Row 3: Building Status (full width so it doesn't break the pairs) -->
@@ -226,9 +234,11 @@
 
 
             <div class="card-row walk-earnest-grid">
-            <div class="card">
-              <h2>Walk Status</h2>
-              <div class="row two">
+            <div class="card section-card walk-status-card">
+              <div class="section-card__header">
+                <h2>Walk Status</h2>
+              </div>
+              <div class="row two walk-status-card__overall">
                 <div class="field">
                   <label for="walkStatusSelect">Overall</label>
                   <select id="walkStatusSelect" class="value">
@@ -245,31 +255,31 @@
                 <div class="field">
                   <label for="thirdPartyDate">3rd Party</label>
                   <div class="row inline">
-                    <input id="thirdPartyDate" type="date" class="value" />
-                    <input id="thirdPartyTime"    type="time" class="value" step="60" min="00:00" max="23:59" autocomplete="off" />
+                    <input id="thirdPartyDate" type="date" class="value input--normalized input--date" />
+                    <input id="thirdPartyTime"    type="time" class="value input--normalized input--time" step="60" min="00:00" max="23:59" autocomplete="off" />
                     <button id="thirdPartyTimeClear" type="button" class="icon-btn" title="Clear time">A-</button>
                   </div>
                 </div>
                 <div class="field">
                   <label for="firstWalkDate">1st Walk</label>
                   <div class="row inline">
-                    <input id="firstWalkDate" type="date" class="value" />
-                    <input id="firstWalkTime"     type="time" class="value" step="60" min="00:00" max="23:59" autocomplete="off" />
+                    <input id="firstWalkDate" type="date" class="value input--normalized input--date" />
+                    <input id="firstWalkTime"     type="time" class="value input--normalized input--time" step="60" min="00:00" max="23:59" autocomplete="off" />
                     <button id="firstWalkTimeClear" type="button" class="icon-btn" title="Clear time">A-</button>
                   </div>
                 </div>
                 <div class="field">
                   <label for="finalSignOffDate">Final Sign Off</label>
                   <div class="row inline">
-                    <input id="finalSignOffDate" type="date" class="value" />
-                    <input id="finalSignOffTime"  type="time" class="value" step="60" min="00:00" max="23:59" autocomplete="off" />
+                    <input id="finalSignOffDate" type="date" class="value input--normalized input--date" />
+                    <input id="finalSignOffTime"  type="time" class="value input--normalized input--time" step="60" min="00:00" max="23:59" autocomplete="off" />
                     <button id="finalSignOffTimeClear" type="button" class="icon-btn" title="Clear time">A-</button>
                   </div>
                 </div>
               </div>
             </div>
-            <div class="card earnest-card">
-              <div class="earnest-card__head">
+            <div class="card earnest-card section-card">
+              <div class="earnest-card__head section-card__header section-card__header--split">
                 <h2>Earnest Money</h2>
                 <div class="earnest-total">
                   <span class="earnest-total-label">Total Earnest</span>
@@ -291,17 +301,17 @@
             </div>
           </section>
 
-          <!-- RIGHT COLUMN: Design Center / Selections -->
           <aside class="pane pane--right">
-            <div class="card fill">
-              <h2>Design Center / Selections</h2>
+            <div class="card fill section-card design-center-card">
+              <div class="section-card__header">
+                <h2>Design Center / Selections</h2>
+              </div>
               <div id="designNotes" class="notes" contenteditable> Coming soon</div>
               <div class="chip chip--dc">
-              <span class="chip__label">Design Status</span>
-              <div id="designCenterStatusValue" class="chip__value readonly"></div>
+                <span class="chip__label">Design Status</span>
+                <div id="designCenterStatusValue" class="chip__value readonly"></div>
+              </div>
             </div>
-            </div>
-
           </aside>
         </main>
         </div>

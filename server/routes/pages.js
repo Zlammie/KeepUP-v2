@@ -25,7 +25,10 @@ const Task = require('../models/Task');
 const User = require('../models/User');
 const AutoFollowUpSchedule = require('../models/AutoFollowUpSchedule');
 const AutoFollowUpAssignment = require('../models/AutoFollowUpAssignment');
-const { publishCompanyInventory } = require('../services/brzPublishingService');
+const {
+  publishCompanyInventory,
+  bootstrapPublishingData
+} = require('../services/brzPublishingService');
 const { buildrootzFetch } = require('../services/buildrootzClient');
 const {
   competitionProfileToWebData,
@@ -157,6 +160,52 @@ const publishListingInventory = async ({
     ctx
   });
 };
+
+const buildPublishingSectionMeta = () => ({
+  builderProfile: {
+    key: 'builderProfile',
+    step: 'Section 1',
+    title: 'Builder Profile',
+    subtitle: 'Confirm builder-wide profile content before reviewing community and plan details.'
+  },
+  communityPublishing: {
+    key: 'communityPublishing',
+    step: 'Section 2',
+    title: 'Community Publishing Setup',
+    subtitle: 'Review inclusion, completeness, and community-level overrides.'
+  },
+  floorPlanCatalog: {
+    key: 'floorPlanCatalog',
+    step: 'Section 3',
+    title: 'Floor Plan Pricing & Media',
+    subtitle: 'Validate default plan pricing, visibility, and media.'
+  },
+  publishSummary: {
+    key: 'publishSummary',
+    step: 'Section 4',
+    title: 'Publish Summary',
+    subtitle: 'Final readiness checkpoint before pushing package or inventory updates.'
+  }
+});
+
+const groupPublishingPayloadBySection = (payload = {}) => ({
+  builderProfile: {
+    company: payload?.company || null,
+    profileDraft: payload?.profileDraft || {}
+  },
+  communityPublishing: {
+    communities: Array.isArray(payload?.communities) ? payload.communities : [],
+    outOfDateCommunitiesCount: Number(payload?.outOfDateCommunitiesCount || 0)
+  },
+  floorPlanCatalog: {
+    floorPlans: Array.isArray(payload?.floorPlans) ? payload.floorPlans : []
+  },
+  publishSummary: {
+    latestSnapshot: payload?.latestSnapshot || null,
+    latestPackageSnapshot: payload?.latestPackageSnapshot || payload?.latestSnapshot || null,
+    latestInventorySnapshot: payload?.latestInventorySnapshot || null
+  }
+});
 
 const formatRoleName = (role) => {
   if (!role || typeof role !== 'string') return 'Team Member';
@@ -1119,8 +1168,37 @@ router.get(
   '/admin/buildrootz/publishing',
   ensureAuth,
   requireCompanyAdmin,
-  (req, res) => {
-    res.render('pages/admin/buildrootz-publishing', { active: 'community' });
+  async (req, res, next) => {
+    try {
+      const companyId = isId(req.user?.company) ? String(req.user.company) : null;
+      let bootstrapPayload = null;
+
+      if (companyId) {
+        try {
+          bootstrapPayload = await bootstrapPublishingData({ companyId });
+        } catch (bootstrapErr) {
+          console.error('Failed to preload BuildRootz publishing bootstrap payload', {
+            companyId,
+            error: bootstrapErr?.message || String(bootstrapErr || '')
+          });
+        }
+      }
+
+      const publishingSectionMeta = buildPublishingSectionMeta();
+      const publishingSectionData = groupPublishingPayloadBySection(bootstrapPayload || {});
+      const publishingBootstrap = bootstrapPayload
+        ? { ...bootstrapPayload, sections: publishingSectionData }
+        : { sections: publishingSectionData };
+
+      res.render('pages/admin/buildrootz-publishing', {
+        active: 'community',
+        publishingSectionMeta,
+        publishingSectionData,
+        publishingBootstrap
+      });
+    } catch (err) {
+      next(err);
+    }
   }
 );
 
@@ -2285,10 +2363,32 @@ router.get('/competition-details/:id', ensureAuth, requireRole('READONLY','USER'
       .select('name')
       .lean();
 
+    const linkedProfiles = await CommunityCompetitionProfile.find({
+      linkedCompetitions: comp._id,
+      ...base(req)
+    })
+      .populate('community', 'name communityName city state')
+      .lean();
+
+    const linkedByCommunities = linkedProfiles
+      .map((profile) => {
+        const community = profile?.community;
+        if (!community) return null;
+        return {
+          id: community._id,
+          communityName: community.name || community.communityName || 'Unnamed community',
+          city: community.city || '',
+          state: community.state || ''
+        };
+      })
+      .filter(Boolean)
+      .sort((a, b) => a.communityName.localeCompare(b.communityName));
+
     res.render('pages/competition-details', {
       active: 'competition',
       competition: comp,
-      floorPlans: floorPlans.map(fp => fp.name)
+      floorPlans: floorPlans.map(fp => fp.name),
+      linkedByCommunities
     });
   }
 );

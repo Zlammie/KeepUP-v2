@@ -1,0 +1,29 @@
+<section class="card shadow-sm mb-4 brz-workflow-section" data-workflow-section="community-publishing">
+  <div class="card-body">
+    <div class="d-flex justify-content-between align-items-center flex-wrap gap-2 mb-3">
+      <div>
+        <h2 class="h5 mb-1"><%= sectionMeta.title || 'Community Publishing Setup' %></h2>
+        <p class="small text-muted mb-0"><%= sectionMeta.subtitle || 'Review inclusion, completeness, and community-level overrides.' %></p>
+      </div>
+      <button type="button" class="btn btn-sm btn-outline-warning" id="brzBulkSyncBtn">
+        Sync all out-of-date (<span id="brzBulkSyncCount"><%= Number(sectionData?.outOfDateCommunitiesCount || 0).toLocaleString() %></span>)
+      </button>
+    </div>
+
+    <div class="d-flex justify-content-between align-items-center flex-wrap gap-2 mb-3">
+      <div class="small text-muted mb-0" id="brzBulkSyncStatus"></div>
+      <div class="btn-group btn-group-sm" role="group" aria-label="Community filters">
+        <button type="button" class="btn btn-outline-secondary brz-community-filter active" data-filter="all">All</button>
+        <button type="button" class="btn btn-outline-secondary brz-community-filter" data-filter="included">Included</button>
+        <button type="button" class="btn btn-outline-secondary brz-community-filter" data-filter="missing-required">Missing required</button>
+        <button type="button" class="btn btn-outline-secondary brz-community-filter" data-filter="missing-hero">Missing hero</button>
+        <button type="button" class="btn btn-outline-secondary brz-community-filter" data-filter="missing-model">Missing model</button>
+        <button type="button" class="btn btn-outline-secondary brz-community-filter" data-filter="missing-community-price">Missing community price</button>
+      </div>
+    </div>
+
+    <div id="brzCommunitiesBody" class="brz-community-list">
+      <div class="brz-community-empty text-muted">Loading communities...</div>
+    </div>
+  </div>
+</section>

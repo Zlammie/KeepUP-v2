@@ -215,7 +215,8 @@ const mapPlanForResponse = (plan) => {
   return out;
 };
 
-async function computeCommunityScatterData(req, communityId, allowedMonthsSet) {
+async function computeCommunityScatterData(req, communityId, allowedMonthsSet, options = {}) {
+  const includeAllActiveQmi = Boolean(options?.includeAllActiveQmi);
   const community = await assertCommunityInTenant(
     req,
     communityId,
@@ -239,17 +240,16 @@ async function computeCommunityScatterData(req, communityId, allowedMonthsSet) {
       status.includes('purchased');
 
     if (!hasPurchaser && !statusSold) {
-      const ucOrFinished =
-        (status.includes('under') && status.includes('construction')) ||
-        status.includes('finished') ||
-        status.includes('available') ||
-        status.includes('spec') ||
-        status.includes('inventory');
-      if (!ucOrFinished) continue;
+      const releaseMonth = toYM(
+        lot.releaseDate ||
+        lot.listDate ||
+        lot.availableDate ||
+        lot.listedDate
+      );
+      if (!releaseMonth) continue;
 
-      const releaseMonth = toYM(lot.releaseDate || lot.listDate || lot.availableDate || lot.listedDate);
       qmiCandidates.push({ lot, month: releaseMonth });
-      if (releaseMonth) monthSet.add(releaseMonth);
+      monthSet.add(releaseMonth);
       if (lot.floorPlan) planIds.add(String(lot.floorPlan));
       continue;
     }
@@ -366,7 +366,9 @@ async function computeCommunityScatterData(req, communityId, allowedMonthsSet) {
   });
 
   const { monthsAsc, allowedSet } = buildMonthWindow(monthSet, allowedMonthsSet);
-  const filteredQmi = filterRowsByMonths(qmiRows, allowedSet, Boolean(allowedMonthsSet));
+  const filteredQmi = includeAllActiveQmi
+    ? qmiRows
+    : filterRowsByMonths(qmiRows, allowedSet, Boolean(allowedMonthsSet));
   const filteredSold = filterRowsByMonths(soldRows, allowedSet, Boolean(allowedMonthsSet));
 
   const label = buildLabel(
@@ -384,7 +386,8 @@ async function computeCommunityScatterData(req, communityId, allowedMonthsSet) {
   };
 }
 
-async function computeCompetitionScatterData(req, competitionId, allowedMonthsSet) {
+async function computeCompetitionScatterData(req, competitionId, allowedMonthsSet, options = {}) {
+  const includeAllActiveQmi = Boolean(options?.includeAllActiveQmi);
   const competition = await assertCompetitionInTenant(
     req,
     competitionId,
@@ -398,7 +401,12 @@ async function computeCompetitionScatterData(req, competitionId, allowedMonthsSe
 
   if (!qmiDocs.length && competition?.isInternal && competition?.communityRef) {
     try {
-      const linkedData = await computeCommunityScatterData(req, competition.communityRef, allowedMonthsSet);
+      const linkedData = await computeCommunityScatterData(
+        req,
+        competition.communityRef,
+        allowedMonthsSet,
+        options
+      );
       if (linkedData) {
         const markDerived = (rows) => (Array.isArray(rows) ? rows.map((row) => ({
           ...row,
@@ -517,7 +525,9 @@ async function computeCompetitionScatterData(req, competitionId, allowedMonthsSe
   }
 
   const { monthsAsc, allowedSet } = buildMonthWindow(monthSet, allowedMonthsSet);
-  const filteredQmi = filterRowsByMonths(qmiRows, allowedSet, Boolean(allowedMonthsSet));
+  const filteredQmi = includeAllActiveQmi
+    ? qmiRows
+    : filterRowsByMonths(qmiRows, allowedSet, Boolean(allowedMonthsSet));
   const filteredSold = filterRowsByMonths(soldRows, allowedSet, Boolean(allowedMonthsSet));
 
   return {
@@ -1411,7 +1421,12 @@ router.get('/communities/multi/qmi-solds-scatter',
       for (const id of ordered) {
         let handled = false;
         try {
-          const communityData = await computeCommunityScatterData(req, id, windowMonthsSet);
+          const communityData = await computeCommunityScatterData(
+            req,
+            id,
+            windowMonthsSet,
+            { includeAllActiveQmi: true }
+          );
           if (communityData) {
             result.push(communityData);
             handled = true;
@@ -1423,7 +1438,12 @@ router.get('/communities/multi/qmi-solds-scatter',
         if (handled) continue;
 
         try {
-          const competitionData = await computeCompetitionScatterData(req, id, windowMonthsSet);
+          const competitionData = await computeCompetitionScatterData(
+            req,
+            id,
+            windowMonthsSet,
+            { includeAllActiveQmi: true }
+          );
           if (competitionData) {
             result.push(competitionData);
             handled = true;

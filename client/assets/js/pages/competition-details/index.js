@@ -10,7 +10,6 @@ import {
   fetchSalesSeries,
   fetchBasePricesByPlan,
   fetchQuickMoveIns,
-  fetchSoldsAll,
   fetchPlans,
   fetchPriceScatter
 } from './api.js';
@@ -43,10 +42,6 @@ async function loadQMIAll() {
   return fetchQuickMoveIns(competitionId);
 }
 
-async function loadSoldsAll() {
-  return fetchSoldsAll(competitionId);
-}
-
 async function loadPlans() {
   return fetchPlans(competitionId);
 }
@@ -62,6 +57,15 @@ let cachedSolds = null;
 let cachedPlans = null;
 const qmiTableBody = document.getElementById('qmiTableBody');
 const soldTableBody = document.getElementById('soldTableBody');
+const planAveragesBody = document.getElementById('qmiPlanAveragesBody');
+const qmiFilterButtons = Array.from(document.querySelectorAll('.qmi-filter-pill'));
+const qmiFilterFinishedCount = document.getElementById('qmiFilterFinishedCount');
+const qmiFilterQmiCount = document.getElementById('qmiFilterQmiCount');
+const qmiFilterSoldCount = document.getElementById('qmiFilterSoldCount');
+const qmiAvgSoldPriceValue = document.getElementById('qmiAvgSoldPriceValue');
+const qmiSoldHomesValue = document.getElementById('qmiSoldHomesValue');
+const qmiPlanSalesCountValue = document.getElementById('qmiPlanSalesCountValue');
+const qmiActiveFilters = new Set(['finished', 'qmi', 'sold']);
 
 // 1) Autosave & Fees
 const triggerSave = initAutosave(competitionId);
@@ -151,22 +155,172 @@ function fmtSqft(val) {
   return Number.isFinite(n) ? n.toLocaleString() : '--';
 }
 
+function getPlanId(item) {
+  const raw = item?.floorPlan ?? item?.plan?._id ?? item?.planId ?? null;
+  return raw == null ? null : String(raw);
+}
+
+function findCachedPlan(item) {
+  const planId = getPlanId(item);
+  if (!planId || !Array.isArray(cachedPlans)) return null;
+  return cachedPlans.find((plan) => String(plan?._id) === planId) || null;
+}
+
+function parseNumber(val) {
+  if (typeof val === 'number') return Number.isFinite(val) ? val : null;
+  if (typeof val === 'string') {
+    const cleaned = val.replace(/[^0-9.-]/g, '');
+    const num = Number(cleaned);
+    return Number.isFinite(num) ? num : null;
+  }
+  const num = Number(val);
+  return Number.isFinite(num) ? num : null;
+}
+
+function getPlanLabel(item) {
+  const directName = item?.planName || item?.floorPlanName;
+  if (directName) return directName;
+
+  const plan = item?.plan;
+  const cachedPlan = findCachedPlan(item);
+  const source = plan && typeof plan === 'object' ? plan : cachedPlan;
+  const name = source?.name ? String(source.name).trim() : '';
+  const number = source?.planNumber ? String(source.planNumber).trim() : '';
+  if (name && number) return `${name} (#${number})`;
+  if (name) return name;
+  if (number) return `Plan #${number}`;
+  return '--';
+}
+
+function normalizeStatus(status) {
+  return String(status || '').toLowerCase().trim();
+}
+
+function isFinishedHome(item) {
+  const status = normalizeStatus(item?.status);
+  return (
+    status.includes('finished') ||
+    status.includes('complete') ||
+    status.includes('completed') ||
+    status.includes('move in ready')
+  );
+}
+
+function isSoldHome(item) {
+  const status = normalizeStatus(item?.status);
+  return (
+    status.includes('sold') ||
+    status.includes('closed') ||
+    status.includes('purchased') ||
+    Boolean(item?.soldDate) ||
+    parseNumber(item?.soldPrice) != null
+  );
+}
+
+function getRecordSqft(item) {
+  return item?.sqft ?? item?.squareFeet ?? findCachedPlan(item)?.sqft ?? findCachedPlan(item)?.specs?.squareFeet;
+}
+
+function qmiCategory(item) {
+  return isFinishedHome(item) ? 'finished' : 'qmi';
+}
+
+function setSummaryValue(node, value) {
+  if (node) node.textContent = value;
+}
+
+function setTableMessage(tbody, colspan, message) {
+  if (!tbody) return;
+  tbody.innerHTML = `<tr><td colspan="${colspan}" class="text-muted">${message}</td></tr>`;
+}
+
+function updateQmiFilterCounts(qmi, sold) {
+  const counts = qmi.reduce((acc, item) => {
+    acc[qmiCategory(item)] += 1;
+    return acc;
+  }, { finished: 0, qmi: 0 });
+
+  if (qmiFilterFinishedCount) qmiFilterFinishedCount.textContent = String(counts.finished);
+  if (qmiFilterQmiCount) qmiFilterQmiCount.textContent = String(counts.qmi);
+  if (qmiFilterSoldCount) qmiFilterSoldCount.textContent = String(sold.length);
+}
+
+function renderQmiSummary(sold) {
+  const pricedSolds = sold.filter((item) => parseNumber(item?.soldPrice) != null);
+  const totalSoldPrice = pricedSolds.reduce((sum, item) => sum + parseNumber(item.soldPrice), 0);
+  const avgSoldPrice = pricedSolds.length ? totalSoldPrice / pricedSolds.length : null;
+  const plansWithSales = new Set(
+    pricedSolds
+      .map((item) => getPlanLabel(item))
+      .filter((label) => label && label !== '--')
+  );
+
+  setSummaryValue(qmiAvgSoldPriceValue, fmtMoney(avgSoldPrice));
+  setSummaryValue(qmiSoldHomesValue, String(sold.length));
+  setSummaryValue(qmiPlanSalesCountValue, String(plansWithSales.size));
+}
+
+function renderPlanAverages(sold) {
+  if (!planAveragesBody) return;
+
+  const pricedSolds = sold.filter((item) => parseNumber(item?.soldPrice) != null);
+  if (!pricedSolds.length) {
+    setTableMessage(planAveragesBody, 3, 'No sold-price data available for the current filters.');
+    return;
+  }
+
+  const grouped = new Map();
+  pricedSolds.forEach((item) => {
+    const key = getPlanLabel(item);
+    const entry = grouped.get(key) || { label: key, solds: 0, totalSoldPrice: 0 };
+    entry.solds += 1;
+    entry.totalSoldPrice += parseNumber(item.soldPrice);
+    grouped.set(key, entry);
+  });
+
+  const rows = Array.from(grouped.values()).sort((a, b) => {
+    if (b.solds !== a.solds) return b.solds - a.solds;
+    return a.label.localeCompare(b.label);
+  });
+
+  planAveragesBody.innerHTML = '';
+  rows.forEach((item) => {
+    const row = document.createElement('tr');
+    row.innerHTML = `
+      <td>${item.label}</td>
+      <td>${item.solds}</td>
+      <td>${fmtMoney(item.totalSoldPrice / item.solds)}</td>
+    `;
+    planAveragesBody.appendChild(row);
+  });
+}
+
 function renderQmiSoldTables({ qmi = [], sold = [] } = {}) {
+  const filteredQmi = qmi.filter((item) => qmiActiveFilters.has(qmiCategory(item)));
+  const filteredSold = qmiActiveFilters.has('sold') ? sold : [];
+
+  updateQmiFilterCounts(qmi, sold);
+  renderQmiSummary(filteredSold);
+  renderPlanAverages(filteredSold);
+
   if (qmiTableBody) {
     qmiTableBody.innerHTML = '';
     if (!qmi.length) {
-      qmiTableBody.innerHTML = '<tr><td colspan=\"5\" class=\"text-muted\">No quick move-in homes recorded.</td></tr>';
+      setTableMessage(qmiTableBody, 6, 'No quick move-in homes recorded.');
+    } else if (!filteredQmi.length) {
+      setTableMessage(qmiTableBody, 6, 'No finished or quick move-in homes match the current filters.');
     } else {
-      qmi
+      filteredQmi
         .sort((a, b) => (new Date(b.listDate || b.createdAt || 0)) - (new Date(a.listDate || a.createdAt || 0)))
         .forEach((item) => {
           const row = document.createElement('tr');
           row.innerHTML = `
             <td>${monthLabelShort(item.listDate || item.createdAt)}</td>
             <td>${item.address || '--'}</td>
-            <td>${item.planName || item.floorPlanName || (item.plan && item.plan.name) || '--'}</td>
-            <td>${fmtSqft(item.sqft ?? item.squareFeet)}</td>
+            <td>${getPlanLabel(item)}</td>
+            <td>${fmtSqft(getRecordSqft(item))}</td>
             <td>${fmtMoney(item.listPrice)}</td>
+            <td>${item.status || '--'}</td>
           `;
           qmiTableBody.appendChild(row);
         });
@@ -176,17 +330,19 @@ function renderQmiSoldTables({ qmi = [], sold = [] } = {}) {
   if (soldTableBody) {
     soldTableBody.innerHTML = '';
     if (!sold.length) {
-      soldTableBody.innerHTML = '<tr><td colspan=\"5\" class=\"text-muted\">No sold homes recorded.</td></tr>';
+      setTableMessage(soldTableBody, 5, 'No sold homes recorded.');
+    } else if (!filteredSold.length) {
+      setTableMessage(soldTableBody, 5, 'Sold homes are hidden by the current filters.');
     } else {
-      sold
+      filteredSold
         .sort((a, b) => (new Date(b.soldDate || b.closingDate || b.createdAt || 0)) - (new Date(a.soldDate || a.closingDate || a.createdAt || 0)))
         .forEach((item) => {
           const row = document.createElement('tr');
           row.innerHTML = `
             <td>${monthLabelShort(item.soldDate || item.closingDate || item.listDate)}</td>
             <td>${item.address || '--'}</td>
-            <td>${item.planName || item.floorPlanName || (item.plan && item.plan.name) || '--'}</td>
-            <td>${fmtSqft(item.sqft ?? item.squareFeet)}</td>
+            <td>${getPlanLabel(item)}</td>
+            <td>${fmtSqft(getRecordSqft(item))}</td>
             <td>${fmtMoney(item.soldPrice)}</td>
           `;
           soldTableBody.appendChild(row);
@@ -199,16 +355,41 @@ async function loadQmiSoldTables() {
   if (!qmiTableBody || !soldTableBody) return;
   renderQmiSoldTables({ qmi: [], sold: [] });
   try {
-    const [qmi, sold] = await Promise.all([
+    const [inventory, plans] = await Promise.all([
       fetchQuickMoveIns(competitionId).catch(() => []),
-      fetchSoldsAll(competitionId).catch(() => [])
+      loadPlans().catch(() => [])
     ]);
-    renderQmiSoldTables({ qmi: Array.isArray(qmi) ? qmi : [], sold: Array.isArray(sold) ? sold : [] });
+    const records = Array.isArray(inventory) ? inventory : [];
+    cachedPlans = Array.isArray(plans) ? plans : [];
+    cachedQmi = records.filter((item) => !isSoldHome(item));
+    cachedSolds = records.filter((item) => isSoldHome(item));
+    renderQmiSoldTables({ qmi: cachedQmi, sold: cachedSolds });
   } catch (err) {
     console.error('Failed to load QMI/Sold tables', err);
     renderQmiSoldTables({ qmi: [], sold: [] });
   }
 }
+
+qmiFilterButtons.forEach((button) => {
+  const filter = button.dataset.filter;
+  if (!filter) return;
+
+  button.addEventListener('click', () => {
+    if (qmiActiveFilters.has(filter)) {
+      qmiActiveFilters.delete(filter);
+    } else {
+      qmiActiveFilters.add(filter);
+    }
+
+    const isActive = qmiActiveFilters.has(filter);
+    button.classList.toggle('is-active', isActive);
+    button.setAttribute('aria-pressed', String(isActive));
+    renderQmiSoldTables({
+      qmi: Array.isArray(cachedQmi) ? cachedQmi : [],
+      sold: Array.isArray(cachedSolds) ? cachedSolds : []
+    });
+  });
+});
 
 // Graphs 
 

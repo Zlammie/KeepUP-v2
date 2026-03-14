@@ -18,6 +18,16 @@ const formatDate = (val) => {
   if (Number.isNaN(dt.getTime())) return String(val);
   return dt.toLocaleDateString(undefined, { year: 'numeric', month: 'short', day: 'numeric' });
 };
+const parseNumber = (val) => {
+  if (typeof val === 'number') return Number.isFinite(val) ? val : null;
+  if (typeof val === 'string') {
+    const cleaned = val.replace(/[^0-9.-]/g, '');
+    const num = Number(cleaned);
+    return Number.isFinite(num) ? num : null;
+  }
+  const num = Number(val);
+  return Number.isFinite(num) ? num : null;
+};
 const planLabel = (plan) => {
   if (!plan) return '--';
   const name = plan.name ? String(plan.name).trim() : '';
@@ -34,6 +44,17 @@ const monthValue = (month) => {
   const num = Number(cleaned);
   return Number.isFinite(num) ? num : -Infinity;
 };
+const normalizeStatus = (status) => String(status || '').toLowerCase().trim();
+const isFinishedHome = (item) => {
+  const status = normalizeStatus(item?.status);
+  return (
+    status.includes('finished') ||
+    status.includes('complete') ||
+    status.includes('completed') ||
+    status.includes('move in ready')
+  );
+};
+const qmiCategory = (item) => (isFinishedHome(item) ? 'finished' : 'qmi');
 
 export function qmiSoldTable({ onData } = {}) {
   const section = document.getElementById('qmiSoldSection');
@@ -43,8 +64,21 @@ export function qmiSoldTable({ onData } = {}) {
 
   const qmiBody = section.querySelector('#qmiTableBody');
   const soldBody = section.querySelector('#soldTableBody');
+  const planAveragesBody = section.querySelector('#qmiPlanAveragesBody');
+  const filterButtons = Array.from(section.querySelectorAll('.qmi-filter-pill'));
+  const finishedCount = section.querySelector('#qmiFilterFinishedCount');
+  const qmiCount = section.querySelector('#qmiFilterQmiCount');
+  const soldCount = section.querySelector('#qmiFilterSoldCount');
+  const avgSoldPriceValue = section.querySelector('#qmiAvgSoldPriceValue');
+  const soldHomesValue = section.querySelector('#qmiSoldHomesValue');
+  const planSalesCountValue = section.querySelector('#qmiPlanSalesCountValue');
 
-  const state = { communityId: null, months: [], data: null };
+  const state = {
+    communityId: null,
+    months: [],
+    data: null,
+    activeFilters: new Set(['finished', 'qmi', 'sold'])
+  };
 
   const clearTable = (tbody, colspan, message) => {
     tbody.innerHTML = '';
@@ -78,17 +112,93 @@ export function qmiSoldTable({ onData } = {}) {
     });
   };
 
+  const setSummaryValue = (node, value) => {
+    if (node) node.textContent = value;
+  };
+
+  const clearPlanAverages = (message) => {
+    if (!planAveragesBody) return;
+    clearTable(planAveragesBody, 3, message);
+  };
+
+  const updateFilterCounts = (qmiItems, soldItems) => {
+    const counts = qmiItems.reduce((acc, item) => {
+      acc[qmiCategory(item)] += 1;
+      return acc;
+    }, { finished: 0, qmi: 0 });
+
+    if (finishedCount) finishedCount.textContent = String(counts.finished);
+    if (qmiCount) qmiCount.textContent = String(counts.qmi);
+    if (soldCount) soldCount.textContent = String(soldItems.length);
+  };
+
+  const renderSummary = (soldItems) => {
+    const pricedSolds = soldItems.filter((item) => parseNumber(item.soldPrice) != null);
+    const totalSoldPrice = pricedSolds.reduce((sum, item) => sum + parseNumber(item.soldPrice), 0);
+    const overallAverage = pricedSolds.length ? totalSoldPrice / pricedSolds.length : null;
+    const plansWithSales = new Set(
+      pricedSolds
+        .map((item) => planLabel(item.plan))
+        .filter((label) => label && label !== '--')
+    );
+
+    setSummaryValue(avgSoldPriceValue, formatMoney(overallAverage));
+    setSummaryValue(soldHomesValue, String(soldItems.length));
+    setSummaryValue(planSalesCountValue, String(plansWithSales.size));
+  };
+
+  const renderPlanAverages = (soldItems) => {
+    if (!planAveragesBody) return;
+
+    const pricedSolds = soldItems.filter((item) => parseNumber(item.soldPrice) != null);
+    if (!pricedSolds.length) {
+      clearPlanAverages(state.communityId ? 'No sold-price data available for the current filters.' : 'Select a community to load data.');
+      return;
+    }
+
+    const grouped = new Map();
+    pricedSolds.forEach((item) => {
+      const key = planLabel(item.plan);
+      const entry = grouped.get(key) || { label: key, solds: 0, totalSoldPrice: 0 };
+      entry.solds += 1;
+      entry.totalSoldPrice += parseNumber(item.soldPrice);
+      grouped.set(key, entry);
+    });
+
+    const rows = Array.from(grouped.values()).sort((a, b) => {
+      if (b.solds !== a.solds) return b.solds - a.solds;
+      return a.label.localeCompare(b.label);
+    });
+
+    planAveragesBody.innerHTML = '';
+    rows.forEach((item) => {
+      planAveragesBody.appendChild(buildRow([
+        item.label,
+        String(item.solds),
+        formatMoney(item.totalSoldPrice / item.solds)
+      ]));
+    });
+  };
+
   const renderTables = () => {
     const qmiItems = Array.isArray(state.data?.qmi) ? state.data.qmi : [];
     const soldItems = Array.isArray(state.data?.sold) ? state.data.sold : [];
+    const filteredQmiItems = qmiItems.filter((item) => state.activeFilters.has(qmiCategory(item)));
+    const filteredSoldItems = state.activeFilters.has('sold') ? soldItems : [];
+
+    updateFilterCounts(qmiItems, soldItems);
+    renderSummary(filteredSoldItems);
+    renderPlanAverages(filteredSoldItems);
 
     qmiBody.innerHTML = '';
     soldBody.innerHTML = '';
 
     if (!qmiItems.length) {
       clearTable(qmiBody, 6, state.communityId ? 'No quick move-in homes recorded for the recent months.' : 'Select a community to load data.');
+    } else if (!filteredQmiItems.length) {
+      clearTable(qmiBody, 6, 'No finished or quick move-in homes match the current filters.');
     } else {
-      const sorted = sortByMonth(qmiItems, (item) => item.listDate);
+      const sorted = sortByMonth(filteredQmiItems, (item) => item.listDate);
       sorted.forEach(item => {
         qmiBody.appendChild(buildRow([
           formatMonth(item.month),
@@ -103,8 +213,10 @@ export function qmiSoldTable({ onData } = {}) {
 
     if (!soldItems.length) {
       clearTable(soldBody, 7, state.communityId ? 'No sold homes recorded for the recent months.' : 'Select a community to load data.');
+    } else if (!filteredSoldItems.length) {
+      clearTable(soldBody, 7, 'Sold homes are hidden by the current filters.');
     } else {
-      const sorted = sortByMonth(soldItems, (item) => item.soldDate || item.listDate);
+      const sorted = sortByMonth(filteredSoldItems, (item) => item.soldDate || item.listDate);
       sorted.forEach(item => {
         soldBody.appendChild(buildRow([
           formatMonth(item.month),
@@ -118,6 +230,24 @@ export function qmiSoldTable({ onData } = {}) {
       });
     }
   };
+
+  filterButtons.forEach((button) => {
+    const filter = button.dataset.filter;
+    if (!filter) return;
+
+    button.addEventListener('click', () => {
+      if (state.activeFilters.has(filter)) {
+        state.activeFilters.delete(filter);
+      } else {
+        state.activeFilters.add(filter);
+      }
+
+      const isActive = state.activeFilters.has(filter);
+      button.classList.toggle('is-active', isActive);
+      button.setAttribute('aria-pressed', String(isActive));
+      renderTables();
+    });
+  });
 
   async function load(communityId) {
     state.communityId = communityId || null;
@@ -159,6 +289,6 @@ export function qmiSoldTable({ onData } = {}) {
 
   return {
     load,
-    getState: () => ({ ...state })
+    getState: () => ({ ...state, activeFilters: Array.from(state.activeFilters) })
   };
 }
