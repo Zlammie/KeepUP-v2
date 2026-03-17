@@ -1,0 +1,93 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Marketing / Automation</title>
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet" />
+  <link rel="stylesheet" href="/assets/css/main.css" />
+  <style>
+    .marketing-dashboard-page .hero-card,
+    .marketing-dashboard-page .placeholder-card {
+      border: 1px solid rgba(15, 26, 58, 0.1);
+      border-radius: 1rem;
+      background: #fff;
+      box-shadow: 0 18px 40px rgba(15, 23, 42, 0.06);
+    }
+
+    .marketing-dashboard-page .hero-card {
+      padding: 1.5rem;
+      background:
+        linear-gradient(135deg, rgba(14, 121, 178, 0.1), rgba(255, 255, 255, 0.95)),
+        #fff;
+    }
+
+    .marketing-dashboard-page .placeholder-card {
+      padding: 1.25rem;
+      height: 100%;
+    }
+
+    .marketing-dashboard-page .eyebrow {
+      font-size: 0.75rem;
+      font-weight: 700;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+      color: #0e79b2;
+    }
+
+    .marketing-dashboard-page .placeholder-list {
+      margin: 0;
+      padding-left: 1rem;
+      color: #5b6677;
+    }
+  </style>
+</head>
+<body>
+  <%- include('../partials/nav') %>
+  <%- include('../partials/top-nav-marketing', { activeTab: marketingView || 'dashboard' }) %>
+
+  <main class="container py-4 marketing-dashboard-page">
+    <section class="hero-card mb-4">
+      <p class="eyebrow mb-2">Marketing / Automation</p>
+      <div class="d-flex flex-wrap align-items-start justify-content-between gap-3">
+        <div>
+          <h1 class="h3 mb-2">Dashboard Placeholder</h1>
+          <p class="text-muted mb-0">
+            This will be the home for campaign health, automation activity, blast performance,
+            queue visibility, and future marketing reporting.
+          </p>
+        </div>
+        <a href="/marketing-automation?view=settings" class="btn btn-primary btn-sm">Open Settings</a>
+      </div>
+    </section>
+
+    <section class="row g-3">
+      <div class="col-lg-4">
+        <article class="placeholder-card">
+          <p class="eyebrow mb-2">Coming Soon</p>
+          <h2 class="h5 mb-2">Campaign Health</h2>
+          <p class="text-muted mb-0">Placeholder for blast status, deliverability, and audience flow.</p>
+        </article>
+      </div>
+      <div class="col-lg-4">
+        <article class="placeholder-card">
+          <p class="eyebrow mb-2">Coming Soon</p>
+          <h2 class="h5 mb-2">Automation Snapshot</h2>
+          <p class="text-muted mb-0">Placeholder for active schedules, assignments, and automation coverage.</p>
+        </article>
+      </div>
+      <div class="col-lg-4">
+        <article class="placeholder-card">
+          <p class="eyebrow mb-2">Planned Modules</p>
+          <ul class="placeholder-list">
+            <li>Email queue summary</li>
+            <li>Audience / suppression rollup</li>
+            <li>Template usage overview</li>
+            <li>Rule trigger activity</li>
+          </ul>
+        </article>
+      </div>
+    </section>
+  </main>
+</body>
+</html>

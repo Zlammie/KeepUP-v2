@@ -17,7 +17,7 @@
 </head>
 <body>
   <%- include('../partials/nav') %>
-  <%- include('../partials/top-nav-task', { activeTab: 'settings' }) %>
+  <%- include('../partials/top-nav-marketing', { activeTab: 'settings' }) %>
 
   <main class="container py-4 blast-details-page">
     <div class="d-flex flex-wrap justify-content-between align-items-start gap-3 mb-4">
@@ -74,7 +74,7 @@
     blastId,
     endpoints: {
       blast: '/api/email/blasts',
-      queue: '/task?view=settings&tab=queue'
+      queue: '/marketing-automation?view=settings&tab=queue'
     }
   }; %>
   <script id="blast-details-data" type="application/json">

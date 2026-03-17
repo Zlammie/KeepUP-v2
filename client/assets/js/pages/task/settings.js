@@ -1865,7 +1865,7 @@
         await loadBlasts();
         if (response?.blastId) {
           if (blastViewQueue) {
-            blastViewQueue.href = `/task?view=settings&tab=queue&blastId=${encodeURIComponent(response.blastId)}`;
+            blastViewQueue.href = `/marketing-automation?view=settings&tab=queue&blastId=${encodeURIComponent(response.blastId)}`;
           }
           if (blastViewDetails) {
             blastViewDetails.href = `/email/blasts/${encodeURIComponent(response.blastId)}`;
@@ -2497,7 +2497,7 @@
         return;
       }
       ruleTestViewContact.href = `/contact-details?id=${encodeURIComponent(contactId)}`;
-      ruleTestOpenQueue.href = `/task?view=settings&tab=queue&contactId=${encodeURIComponent(contactId)}`;
+      ruleTestOpenQueue.href = `/marketing-automation?view=settings&tab=queue&contactId=${encodeURIComponent(contactId)}`;
       ruleTestActions.classList.remove('d-none');
     }
 

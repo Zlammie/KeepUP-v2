@@ -89,7 +89,7 @@
     const initialData = parseInitialData();
     const blastId = initialData.blastId;
     const blastEndpoint = initialData.endpoints?.blast || '/api/email/blasts';
-    const queueBase = initialData.endpoints?.queue || '/task?view=settings&tab=queue';
+    const queueBase = initialData.endpoints?.queue || '/marketing-automation?view=settings&tab=queue';
 
     const blastName = document.querySelector('[data-blast-name]');
     const blastStatus = document.querySelector('[data-blast-status]');

@@ -671,6 +671,283 @@ function buildCommunityCsv(community, lots) {
   return [headers.map(escapeCsvValue).join(','), ...rows].join('\r\n');
 }
 
+const COMMUNITY_IMPORT_TOKEN_TTL_MS = 30 * 60 * 1000;
+const pendingCommunityImports = new Map();
+
+function normalizeImportText(value) {
+  return trimValue(value).toLowerCase().replace(/\s+/g, ' ');
+}
+
+function normalizeImportAddress(value) {
+  return normalizeImportText(value).replace(/[^a-z0-9]/g, '');
+}
+
+function normalizeImportJobNumber(value) {
+  const raw = trimValue(value);
+  if (!raw) return '';
+  const digitsOnly = raw.replace(/\D/g, '');
+  if (digitsOnly) return digitsOnly.replace(/^0+/, '') || '0';
+  return raw.toLowerCase();
+}
+
+function normalizeImportLotTuple(lot, block, phase) {
+  const lotKey = normalizeImportText(lot);
+  const blockKey = normalizeImportText(block);
+  const phaseKey = normalizeImportText(phase);
+  if (!lotKey && !blockKey && !phaseKey) return '';
+  return [lotKey, blockKey, phaseKey].join('|');
+}
+
+function getRowValue(row, keys) {
+  for (const key of keys) {
+    if (row[key] != null && String(row[key]).trim() !== '') return row[key];
+  }
+  return '';
+}
+
+function buildImportLotDuplicateKeys(lot) {
+  const keys = [];
+  const jobKey = normalizeImportJobNumber(lot?.jobNumber);
+  const addressKey = normalizeImportAddress(lot?.address);
+  const tupleKey = normalizeImportLotTuple(lot?.lot, lot?.block, lot?.phase);
+
+  if (jobKey) keys.push(`job:${jobKey}`);
+  if (addressKey) keys.push(`address:${addressKey}`);
+  if (tupleKey) keys.push(`tuple:${tupleKey}`);
+
+  return keys;
+}
+
+function indexExistingLotDuplicateKeys(lots = []) {
+  const keySet = new Set();
+  lots.forEach((lot) => {
+    buildImportLotDuplicateKeys(lot).forEach((key) => keySet.add(key));
+  });
+  return keySet;
+}
+
+function cleanupPendingCommunityImports() {
+  const now = Date.now();
+  for (const [token, entry] of pendingCommunityImports.entries()) {
+    if (!entry?.createdAt || now - entry.createdAt > COMMUNITY_IMPORT_TOKEN_TTL_MS) {
+      pendingCommunityImports.delete(token);
+    }
+  }
+}
+
+function storePendingCommunityImport(req, payload) {
+  cleanupPendingCommunityImports();
+  const token = crypto.randomBytes(18).toString('hex');
+  pendingCommunityImports.set(token, {
+    ...payload,
+    createdAt: Date.now(),
+    companyId: trimValue(req.user?.company),
+    userId: trimValue(req.user?._id)
+  });
+  return token;
+}
+
+function consumePendingCommunityImport(req, token) {
+  cleanupPendingCommunityImports();
+  const entry = pendingCommunityImports.get(token);
+  if (!entry) return null;
+  const sameCompany = trimValue(entry.companyId) === trimValue(req.user?.company);
+  const sameUser = trimValue(entry.userId) === trimValue(req.user?._id);
+  if (!sameCompany || !sameUser) return null;
+  pendingCommunityImports.delete(token);
+  return entry;
+}
+
+function createImportedLotFromRow(row, planKeyMap) {
+  const fpRaw = getRowValue(row, ['Floor Plan', 'Plan', 'Plan Number', 'plan']);
+  const fpId = normalizePlanKeys(fpRaw)
+    .map((key) => planKeyMap.get(key))
+    .find(Boolean) || null;
+
+  return {
+    jobNumber: String(getRowValue(row, ['Job Number', 'Job #']) || '').padStart(4, '0'),
+    lot: trimValue(getRowValue(row, ['Lot', 'Lot Number'])),
+    block: trimValue(getRowValue(row, ['Block'])),
+    phase: trimValue(getRowValue(row, ['Phase'])),
+    address: trimValue(getRowValue(row, ['Address', 'Street Address'])),
+    floorPlan: isObjectId(fpId) ? fpId : null,
+    elevation: trimValue(getRowValue(row, ['Elevation']))
+  };
+}
+
+function parseCommunityImportRows(rows, planKeyMap) {
+  const grouped = new Map();
+
+  for (const row of rows) {
+    const name = trimValue(getRowValue(row, ['Community Name', 'Community']));
+    const projectNumber = trimValue(getRowValue(row, ['Project Number', 'Project #', 'Project']));
+    const city = trimValue(getRowValue(row, ['City', 'Community City']));
+    const state = trimValue(getRowValue(row, ['State', 'Community State']));
+    const market = trimValue(getRowValue(row, ['Market']));
+
+    if (!name) continue;
+
+    const groupKey = [
+      normalizeImportText(name),
+      normalizeImportText(projectNumber),
+      normalizeImportText(city),
+      normalizeImportText(state)
+    ].join('|');
+
+    if (!grouped.has(groupKey)) {
+      grouped.set(groupKey, {
+        name,
+        projectNumber,
+        city,
+        state,
+        market,
+        lots: []
+      });
+    }
+
+    grouped.get(groupKey).lots.push(createImportedLotFromRow(row, planKeyMap));
+  }
+
+  return [...grouped.values()].filter((group) => group.lots.length);
+}
+
+async function findLikelyCommunityMatch(req, group) {
+  const companyScoped = { ...companyFilter(req) };
+  const candidates = await Community.find({
+    ...companyScoped,
+    name: { $regex: `^${String(group.name).replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}$`, $options: 'i' }
+  })
+    .select('name projectNumber city state lots')
+    .lean();
+
+  if (!candidates.length) return null;
+
+  const normalizedProject = normalizeImportText(group.projectNumber);
+  const normalizedCity = normalizeImportText(group.city);
+  const normalizedState = normalizeImportText(group.state);
+
+  const exactProject = normalizedProject
+    ? candidates.find((candidate) => normalizeImportText(candidate?.projectNumber) === normalizedProject)
+    : null;
+  if (exactProject) return exactProject;
+
+  const exactLocation = candidates.find((candidate) =>
+    normalizeImportText(candidate?.city) === normalizedCity &&
+    normalizeImportText(candidate?.state) === normalizedState &&
+    (normalizedCity || normalizedState)
+  );
+  if (exactLocation) return exactLocation;
+
+  return candidates[0];
+}
+
+function summarizeImportPreview(group, match) {
+  return {
+    importedCommunityName: group.name,
+    projectNumber: group.projectNumber || '',
+    city: group.city || '',
+    state: group.state || '',
+    importedLotCount: group.lots.length,
+    matchedCommunity: match
+      ? {
+          id: String(match._id),
+          name: match.name || '',
+          projectNumber: trimValue(match.projectNumber),
+          lotCount: Array.isArray(match.lots) ? match.lots.length : 0
+        }
+      : null
+  };
+}
+
+async function appendLotsToExistingCommunity(req, matchId, group) {
+  const community = await Community.findOne({ _id: matchId, ...companyFilter(req) });
+  if (!community) throw new Error('Matched community no longer exists');
+
+  const existingKeys = indexExistingLotDuplicateKeys(community.lots || []);
+  const incomingKeys = new Set();
+  const newLots = [];
+  let duplicatesSkipped = 0;
+
+  for (const lot of group.lots) {
+    const duplicateKeys = buildImportLotDuplicateKeys(lot);
+    const isDuplicate = duplicateKeys.some((key) => existingKeys.has(key) || incomingKeys.has(key));
+    if (isDuplicate) {
+      duplicatesSkipped += 1;
+      continue;
+    }
+
+    duplicateKeys.forEach((key) => {
+      existingKeys.add(key);
+      incomingKeys.add(key);
+    });
+    newLots.push(lot);
+  }
+
+  if (newLots.length) {
+    community.lots.push(...newLots);
+    await community.save();
+  }
+
+  return {
+    mode: 'append',
+    communityId: String(community._id),
+    communityName: community.name || '',
+    projectNumber: trimValue(community.projectNumber),
+    importedLots: newLots.length,
+    duplicatesSkipped
+  };
+}
+
+async function createCommunityFromImport(req, group) {
+  const doc = await Community.create({
+    company: isSuper(req) ? (req.body?.company || req.user.company) : req.user.company,
+    name: group.name,
+    projectNumber: group.projectNumber || '',
+    city: group.city || '',
+    state: group.state || '',
+    market: group.market || '',
+    lots: group.lots
+  });
+
+  return {
+    mode: 'create',
+    communityId: String(doc._id),
+    communityName: doc.name || '',
+    projectNumber: trimValue(doc.projectNumber),
+    importedLots: group.lots.length,
+    duplicatesSkipped: 0
+  };
+}
+
+async function commitCommunityImport(req, groups, action, matchMap = new Map()) {
+  const results = [];
+  for (const group of groups) {
+    const groupKey = [
+      normalizeImportText(group.name),
+      normalizeImportText(group.projectNumber),
+      normalizeImportText(group.city),
+      normalizeImportText(group.state)
+    ].join('|');
+    const matchedCommunity = matchMap.get(groupKey) || null;
+
+    if (action === 'append' && matchedCommunity?._id) {
+      results.push(await appendLotsToExistingCommunity(req, matchedCommunity._id, group));
+      continue;
+    }
+
+    results.push(await createCommunityFromImport(req, group));
+  }
+
+  return {
+    success: true,
+    communitiesCreated: results.filter((result) => result.mode === 'create').length,
+    communitiesUpdated: results.filter((result) => result.mode === 'append').length,
+    importedLots: results.reduce((sum, result) => sum + (result.importedLots || 0), 0),
+    duplicatesSkipped: results.reduce((sum, result) => sum + (result.duplicatesSkipped || 0), 0),
+    results
+  };
+}
+
 async function loadScopedCommunity(req, res) {
   const { id } = req.params;
   if (!isObjectId(id)) {
@@ -699,64 +976,117 @@ router.post('/import',
   requireRole(...ADMIN_ROLES),
   upload.single('file'),
   async (req, res) => {
+    const uploadedPath = req.file?.path || '';
     try {
+      if (!req.file?.path) {
+        return res.status(400).json({ error: 'Import file is required' });
+      }
+
       const workbook = xlsx.readFile(req.file.path);
       const sheet = workbook.Sheets[workbook.SheetNames[0]];
-      const rows = xlsx.utils.sheet_to_json(sheet);
+      const rows = xlsx.utils.sheet_to_json(sheet, { defval: '' });
 
       // Preload plans for lookup by name/number (supports "Plan 220" or "220")
       const plans = await FloorPlan.find({}, 'name planNumber').lean();
       const planKeyMap = buildPlanKeyMap(plans);
+      const groups = parseCommunityImportRows(rows, planKeyMap);
 
-      const grouped = new Map(); // key: name|projectNumber
-      for (const row of rows) {
-        const name = row['Community Name'];
-        const projectNumber = row['Project Number'];
-
-        if (!name || !projectNumber) continue;
-
-        const fpRaw = row['Floor Plan'] || row['Plan'] || row['Plan Number'] || row.plan || '';
-        const fpId = normalizePlanKeys(fpRaw)
-          .map((k) => planKeyMap.get(k))
-          .find(Boolean) || null;
-
-        const lot = {
-          jobNumber: String(row['Job Number'] || '').padStart(4, '0'),
-          lot: row['Lot'] || '',
-          block: row['Block'] || '',
-          phase: row['Phase'] || '',
-          address: row['Address'] || '',
-          floorPlan: isObjectId(fpId) ? fpId : null,
-          elevation: row['Elevation'] || ''
-        };
-
-        const key = `${name}|${projectNumber}`;
-        if (!grouped.has(key)) grouped.set(key, { name, projectNumber, lots: [] });
-        grouped.get(key).lots.push(lot);
+      if (!groups.length) {
+        return res.status(400).json({ error: 'No importable communities or lots were found in the file' });
       }
 
-      const inserted = [];
-      for (const { name, projectNumber, lots } of grouped.values()) {
-        // uniqueness within tenant
-        const filter = { name, projectNumber, ...companyFilter(req) };
+      const previews = [];
+      const matchMap = new Map();
 
-        let doc = await Community.findOne(filter);
-        if (!doc) {
-          doc = new Community({
-            company: isSuper(req) ? (req.body.company || req.user.company) : req.user.company,
-            name, projectNumber, lots
-          });
-        } else {
-          doc.lots.push(...lots);
-        }
-        await doc.save();
-        inserted.push(doc);
+      for (const group of groups) {
+        const match = await findLikelyCommunityMatch(req, group);
+        const groupKey = [
+          normalizeImportText(group.name),
+          normalizeImportText(group.projectNumber),
+          normalizeImportText(group.city),
+          normalizeImportText(group.state)
+        ].join('|');
+        if (match) matchMap.set(groupKey, match);
+        previews.push(summarizeImportPreview(group, match));
       }
 
-      res.json({ success: true, inserted });
+      const matchedPreviews = previews.filter((preview) => preview.matchedCommunity);
+      if (!matchedPreviews.length) {
+        const summary = await commitCommunityImport(req, groups, 'create');
+        return res.json({
+          success: true,
+          requiresDecision: false,
+          summary
+        });
+      }
+
+      const token = storePendingCommunityImport(req, {
+        groups,
+        matchMap: Object.fromEntries(
+          [...matchMap.entries()].map(([key, value]) => [key, {
+            _id: String(value._id),
+            name: value.name || '',
+            projectNumber: trimValue(value.projectNumber),
+            city: trimValue(value.city),
+            state: trimValue(value.state),
+            lots: Array.isArray(value.lots) ? value.lots : []
+          }])
+        )
+      });
+
+      return res.json({
+        success: true,
+        requiresDecision: true,
+        token,
+        previews,
+        matchedCount: matchedPreviews.length
+      });
     } catch (err) {
       console.error('Import failed:', err);
       res.status(500).json({ error: 'Import failed' });
+    } finally {
+      if (uploadedPath) {
+        fs.promises.unlink(uploadedPath).catch(() => {});
+      }
+    }
+  }
+);
+
+router.post('/import/confirm',
+  requireRole(...ADMIN_ROLES),
+  async (req, res) => {
+    try {
+      const token = trimValue(req.body?.token);
+      const action = trimValue(req.body?.action).toLowerCase();
+
+      if (!token) return res.status(400).json({ error: 'Import token is required' });
+      if (!['append', 'create_new'].includes(action)) {
+        return res.status(400).json({ error: 'Invalid import action' });
+      }
+
+      const pendingImport = consumePendingCommunityImport(req, token);
+      if (!pendingImport) {
+        return res.status(410).json({ error: 'Import preview expired. Please upload the file again.' });
+      }
+
+      const matchMap = new Map(
+        Object.entries(pendingImport.matchMap || {}).map(([key, value]) => [key, value])
+      );
+      const summary = await commitCommunityImport(
+        req,
+        Array.isArray(pendingImport.groups) ? pendingImport.groups : [],
+        action === 'append' ? 'append' : 'create',
+        matchMap
+      );
+
+      return res.json({
+        success: true,
+        requiresDecision: false,
+        summary
+      });
+    } catch (err) {
+      console.error('Import confirm failed:', err);
+      res.status(500).json({ error: 'Import confirm failed' });
     }
   }
 );

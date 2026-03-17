@@ -3,11 +3,13 @@ const mongoose = require('mongoose');
 const { numOrNull, toNum } = require('../utils/number');
 const Competition = require('../models/Competition');
 const Community = require('../models/Community');
+const CommunityCompetitionProfile = require('../models/communityCompetitionProfile');
 const FloorPlan = require('../models/FloorPlan');
 const FloorPlanComp = require('../models/floorPlanComp');
 const PriceRecord = require('../models/PriceRecord');
 const QuickMoveIn = require('../models/quickMoveIn');
 const SalesRecord = require('../models/salesRecord');
+const { filterCommunitiesForUser } = require('../utils/communityScope');
 
 const isSuper = (req) => (req.user?.roles || []).includes('SUPER_ADMIN');
 const companyFilter = (req) => {
@@ -86,8 +88,125 @@ const ymStrToInt = (ym) => {
 // CRUD competitions
 // GET /api/competitions
 exports.list = async (req, res) => {
-  const comps = await Competition.find({ ...companyFilter(req) }).lean();
-  res.json(comps);
+  const limit = Math.min(Math.max(Number(req.query.limit) || 25, 1), 500);
+  const page = Math.max(Number(req.query.page) || 1, 1);
+  const skip = (page - 1) * limit;
+  const linkedCommunityId = String(req.query.linkedCommunityId || '').trim();
+  const includeLinkedSummary = ['1', 'true', 'yes', 'on']
+    .includes(String(req.query.includeLinkedSummary || '').trim().toLowerCase());
+
+  const q = String(req.query.q || '').trim();
+  const filter = q
+    ? {
+        ...companyFilter(req),
+        $or: [
+          { communityName: { $regex: q, $options: 'i' } },
+          { builderName: { $regex: q, $options: 'i' } },
+          { city: { $regex: q, $options: 'i' } },
+          { state: { $regex: q, $options: 'i' } }
+        ]
+      }
+    : { ...companyFilter(req) };
+
+  const fields = String(req.query.fields || '').trim();
+  const sortStr = String(req.query.sort || 'builderName,communityName').replace(/\s+/g, '');
+  const sort = Object.fromEntries(
+    sortStr
+      .split(',')
+      .filter(Boolean)
+      .map((s) => [s.replace(/^-/, ''), s.startsWith('-') ? -1 : 1])
+  );
+
+  let [items, total] = await Promise.all([
+    Competition.find(filter)
+      .select(fields ? fields.split(',').join(' ') : undefined)
+      .sort(sort)
+      .skip(skip)
+      .limit(limit)
+      .lean(),
+    Competition.countDocuments(filter)
+  ]);
+
+  let linkedCommunityOptions = [];
+
+  if (includeLinkedSummary) {
+    const communityDocs = filterCommunitiesForUser(
+      req.user,
+      await Community.find({ ...companyFilter(req) })
+        .select('name communityName')
+        .lean()
+    );
+    const communityMap = new Map(
+      communityDocs.map((community) => [
+        String(community?._id || ''),
+        {
+          id: String(community?._id || ''),
+          name: community?.name || community?.communityName || ''
+        }
+      ])
+    );
+    const accessibleCommunityIds = [...communityMap.keys()].filter(Boolean);
+
+    const profiles = await CommunityCompetitionProfile.find({
+      ...companyFilter(req),
+      community: { $in: accessibleCommunityIds },
+      linkedCompetitions: { $exists: true, $ne: [] }
+    })
+      .select('community linkedCompetitions')
+      .lean();
+
+    const optionMap = new Map();
+    profiles.forEach((profile) => {
+      const communityId = String(profile?.community || '');
+      const community = communityMap.get(communityId);
+      const communityName = community?.name || '';
+      if (!communityId || !communityName) return;
+      optionMap.set(communityId, { id: communityId, name: communityName });
+    });
+    linkedCommunityOptions = [...optionMap.values()].sort((a, b) => a.name.localeCompare(b.name));
+
+    const linkedByCompetition = new Map();
+    profiles.forEach((profile) => {
+      const communityId = String(profile?.community || '');
+      const community = communityMap.get(communityId);
+      const communityName = community?.name || '';
+      if (!communityId || !communityName) return;
+
+      (profile?.linkedCompetitions || []).forEach((linkedId) => {
+        const compId = String(linkedId || '');
+        if (!compId) return;
+        if (!linkedByCompetition.has(compId)) linkedByCompetition.set(compId, new Map());
+        linkedByCompetition.get(compId).set(communityId, {
+          id: communityId,
+          name: communityName
+        });
+      });
+    });
+
+    if (linkedCommunityId) {
+      items = items.filter((item) =>
+        linkedByCompetition.get(String(item?._id || ''))?.has(linkedCommunityId)
+      );
+      total = items.length;
+    }
+
+    items = items.map((item) => {
+      const compId = String(item?._id || '');
+      const linkedCommunities = compId && linkedByCompetition.has(compId)
+        ? [...linkedByCompetition.get(compId).values()].sort((a, b) => a.name.localeCompare(b.name))
+        : [];
+      return { ...item, linkedCommunities };
+    });
+  }
+
+  res.json({
+    items,
+    linkedCommunityOptions,
+    page,
+    limit,
+    total,
+    pages: Math.ceil(total / limit)
+  });
 };
 // POST /api/competitions
 exports.create = async (req, res) => {

@@ -71,6 +71,63 @@
       padding: 1rem 0.75rem;
     }
 
+    .floor-plans-table .actions-cell {
+      white-space: nowrap;
+    }
+
+    .floor-plans-table .plan-actions {
+      display: inline-flex;
+      align-items: center;
+      justify-content: flex-end;
+      gap: 0.45rem;
+    }
+
+    .floor-plans-table .plan-missing-indicator {
+      width: 24px;
+      height: 24px;
+      border-radius: 999px;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      border: 1px solid #f5c2c7;
+      background: #fdecea;
+      color: #b42318;
+      font-size: 0.9rem;
+      font-weight: 700;
+      line-height: 1;
+      cursor: help;
+      box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.35);
+    }
+
+    .admin-floorplans-layout .plan-field-missing,
+    #editPlanModal .plan-field-missing {
+      border-color: #dc2626 !important;
+      box-shadow: 0 0 0 1px rgba(220, 38, 38, 0.18);
+    }
+
+    .admin-floorplans-layout .plan-file-field,
+    #editPlanModal .plan-file-field {
+      border: 1px solid transparent;
+      border-radius: 10px;
+      padding: 0.65rem 0.75rem 0.75rem;
+      transition: border-color 0.15s ease, box-shadow 0.15s ease, background 0.15s ease;
+    }
+
+    .admin-floorplans-layout .plan-file-field.plan-field-missing,
+    #editPlanModal .plan-file-field.plan-field-missing {
+      border-color: #dc2626 !important;
+      box-shadow: 0 0 0 1px rgba(220, 38, 38, 0.12);
+      background: rgba(220, 38, 38, 0.03);
+    }
+
+    .admin-floorplans-layout .plan-field-missing:focus,
+    .admin-floorplans-layout .plan-field-missing:focus-visible,
+    #editPlanModal .plan-field-missing:focus,
+    #editPlanModal .plan-field-missing:focus-visible {
+      border-color: #dc2626 !important;
+      box-shadow: 0 0 0 0.25rem rgba(220, 38, 38, 0.15);
+    }
+
     @media (max-width: 767.98px) {
       .admin-floorplans-table .floor-plans-toolbar {
         gap: 0.6rem;
@@ -252,7 +309,7 @@
             </select>
           </div>
         </div>
-        <div class="mb-3 mt-3">
+        <div class="mb-3 mt-3 plan-file-field" id="editPlanFileField">
           <label for="editPlanFile" class="form-label">Floor Plan File (PDF or image)</label>
           <div class="d-flex gap-2 align-items-center">
             <input id="editPlanFile" class="form-control" name="editPlanFile" type="file" accept=".pdf,.png,.jpg,.jpeg" />
@@ -318,6 +375,7 @@
       const editGarage = document.getElementById('editGarage');
       const editStoriesSelect = document.getElementById('editStories');
       const editPlanFileInput = document.getElementById('editPlanFile');
+      const editPlanFileField = document.getElementById('editPlanFileField');
       const editPlanFileStatus = document.getElementById('editPlanFileStatus');
       const editPlanPreview = document.getElementById('editPlanPreview');
       const editPlanPreviewContainer = document.getElementById('editPlanPreviewContainer');
@@ -445,6 +503,30 @@
         }
 
         return badges;
+      };
+
+      const hasPlanAsset = (plan) => {
+        const asset = plan?.asset || {};
+        return Boolean(
+          String(asset.fileUrl || '').trim() ||
+          String(asset.previewUrl || '').trim() ||
+          String(asset.originalFilename || '').trim()
+        );
+      };
+
+      const getPlanMissingItems = (plan) => {
+        const specs = plan?.specs || {};
+        const missing = [];
+
+        if (!(Number(specs.squareFeet) > 0)) missing.push('square feet');
+        if (!(Number(specs.beds) > 0)) missing.push('beds');
+        if (!(Number(specs.baths) > 0)) missing.push('baths');
+        if (!(Number(specs.garage) >= 0) || specs.garage === '' || specs.garage == null) missing.push('garage');
+        if (parseStoriesValue(specs.stories) == null) missing.push('stories');
+        if (!hasPlanAsset(plan)) missing.push('floor plan upload');
+        if (!getCommunityIds(plan).length) missing.push('community selection');
+
+        return missing;
       };
 
       const renderElevations = () => {
@@ -610,6 +692,34 @@
         return plan.communities
           .map(normalizeCommunityId)
           .filter(Boolean);
+      };
+
+      const setMissingFieldState = (element, isMissing) => {
+        if (!element) return;
+        element.classList.toggle('plan-field-missing', Boolean(isMissing));
+        element.setAttribute('aria-invalid', isMissing ? 'true' : 'false');
+      };
+
+      const updateEditModalMissingState = () => {
+        const activeAsset = editRemoveAsset
+          ? null
+          : (editUploadedAsset || editCurrentAsset || null);
+        const selectedCommunities = Array.from(editCommunitiesSelect?.selectedOptions || [], (opt) => opt.value).filter(Boolean);
+
+        setMissingFieldState(editSquareFeet, !(Number(editSquareFeet?.value) > 0));
+        setMissingFieldState(editBeds, !(Number(editBeds?.value) > 0));
+        setMissingFieldState(editBaths, !(Number(editBaths?.value) > 0));
+        setMissingFieldState(
+          editGarage,
+          !(editGarage?.value !== '' && editGarage?.value != null && Number.isFinite(Number(editGarage.value)))
+        );
+        setMissingFieldState(editStoriesSelect, parseStoriesValue(editStoriesSelect?.value) == null);
+        const isPlanFileMissing = !hasPlanAsset({ asset: activeAsset });
+        setMissingFieldState(editPlanFileField, isPlanFileMissing);
+        if (editPlanFileInput) {
+          editPlanFileInput.setAttribute('aria-invalid', isPlanFileMissing ? 'true' : 'false');
+        }
+        setMissingFieldState(editCommunitiesSelect, !selectedCommunities.length);
       };
 
       const getCommunityLabels = (plan) => {
@@ -796,9 +906,20 @@
             specsSearchText,
             communitiesDisplay
           ].join(' '));
+          const missingItems = getPlanMissingItems(plan);
+          const missingTitle = missingItems.length
+            ? `Missing: ${missingItems.join(', ')}`
+            : '';
 
           const actionCell = planId
-            ? `<button type="button" class="btn btn-sm btn-outline-primary plan-edit-btn" data-action="edit-plan" data-plan-id="${escapeHtml(planId)}">Edit</button>`
+            ? `
+              <div class="plan-actions">
+                ${missingItems.length
+                  ? `<span class="plan-missing-indicator" title="${escapeHtml(missingTitle)}" aria-label="${escapeHtml(missingTitle)}">!</span>`
+                  : ''}
+                <button type="button" class="btn btn-sm btn-outline-primary plan-edit-btn" data-action="edit-plan" data-plan-id="${escapeHtml(planId)}">Edit</button>
+              </div>
+            `
             : '<span class="text-muted">N/A</span>';
 
           const createdDisplay =
@@ -890,6 +1011,7 @@
           if (editPlanPreviewContainer) editPlanPreviewContainer.style.display = 'none';
           editElevations = [];
           renderElevations();
+          updateEditModalMissingState();
         }
       }
 
@@ -968,6 +1090,7 @@
           opt.selected = selectedIds.has(opt.value);
         });
 
+        updateEditModalMissingState();
         setEditModalVisible(true);
         renderElevations();
       }
@@ -1034,6 +1157,7 @@
         if (editPlanPreviewContainer) editPlanPreviewContainer.style.display = 'none';
         if (editPlanFileLink) editPlanFileLink.style.display = 'none';
         if (editPlanFileStatus) editPlanFileStatus.textContent = 'File will be removed on save.';
+        updateEditModalMissingState();
       });
 
       addElevationBtn?.addEventListener('click', () => {
@@ -1047,6 +1171,7 @@
         if (!file) {
           editUploadedAsset = null;
           if (editPlanFileStatus) editPlanFileStatus.textContent = 'Upload a PDF to auto-generate a PNG preview.';
+          updateEditModalMissingState();
           return;
         }
         try {
@@ -1072,6 +1197,19 @@
             editPlanFileStatus.classList.add('text-danger');
           }
         }
+        updateEditModalMissingState();
+      });
+
+      [
+        editSquareFeet,
+        editBeds,
+        editBaths,
+        editGarage,
+        editStoriesSelect,
+        editCommunitiesSelect
+      ].forEach((field) => {
+        field?.addEventListener('input', updateEditModalMissingState);
+        field?.addEventListener('change', updateEditModalMissingState);
       });
 
       planFileInput?.addEventListener('change', async (event) => {

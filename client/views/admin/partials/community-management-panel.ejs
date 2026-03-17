@@ -34,7 +34,33 @@
           <div class="progress mt-2 d-none" id="uploadProgress" aria-hidden="true">
             <div class="progress-bar" role="progressbar" style="width: 0%"></div>
           </div>
+
+          <div id="importMessage" class="alert d-none mt-3" role="status"></div>
         </form>
+
+        <div id="importDecisionModal" class="cm-import-modal" hidden>
+          <div class="cm-import-modal__backdrop" data-import-modal-close></div>
+          <div class="cm-import-modal__dialog" role="dialog" aria-modal="true" aria-labelledby="importDecisionTitle">
+            <div class="cm-import-modal__header">
+              <div>
+                <p class="text-uppercase text-muted small fw-semibold mb-1">Import Decision</p>
+                <h3 class="h5 mb-0" id="importDecisionTitle">Existing community match detected</h3>
+              </div>
+              <button type="button" class="btn-close" aria-label="Close" data-import-modal-close></button>
+            </div>
+            <div class="cm-import-modal__body">
+              <p class="text-muted mb-3" id="importDecisionIntro">
+                Review the imported community details and choose how to continue.
+              </p>
+              <div id="importDecisionDetails"></div>
+            </div>
+            <div class="cm-import-modal__footer">
+              <button type="button" class="btn btn-outline-secondary" id="importCancelBtn" data-import-modal-close>Cancel</button>
+              <button type="button" class="btn btn-outline-primary" id="importCreateNewBtn">Create New Community Anyway</button>
+              <button type="button" class="btn btn-primary" id="importAppendBtn">Add Lots to Existing Community</button>
+            </div>
+          </div>
+        </div>
       </div>
 
       <hr class="cm-divider" />
@@ -105,12 +131,15 @@
       </div>
 
       <div class="cm-toolbar d-flex flex-wrap align-items-center gap-2 mb-3">
-        <label class="me-2 mb-0">
+        <label class="me-2 mb-0 cm-toolbar-field">
           <span class="me-1">Community</span>
           <select id="cm-community-filter" class="form-select form-select-sm"></select>
         </label>
 
-        <input id="cm-lot-search" class="form-control form-control-sm" placeholder="Search address..." />
+        <label class="mb-0 cm-toolbar-field cm-toolbar-field--search">
+          <span class="visually-hidden">Search address</span>
+          <input id="cm-lot-search" class="form-control form-control-sm" placeholder="Search address..." />
+        </label>
 
         <div class="vr mx-2 d-none d-md-block"></div>
 
@@ -141,13 +170,143 @@
   const importForm = document.getElementById('importForm');
   const progressWrap = document.getElementById('uploadProgress');
   const progressBar = progressWrap ? progressWrap.querySelector('.progress-bar') : null;
+  const importMessage = document.getElementById('importMessage');
+  const importModal = document.getElementById('importDecisionModal');
+  const importDecisionDetails = document.getElementById('importDecisionDetails');
+  const importDecisionIntro = document.getElementById('importDecisionIntro');
+  const importAppendBtn = document.getElementById('importAppendBtn');
+  const importCreateNewBtn = document.getElementById('importCreateNewBtn');
+  const modalCloseButtons = importModal ? importModal.querySelectorAll('[data-import-modal-close]') : [];
 
   window.cmImportFile = null;
+  let pendingImportToken = '';
+  let pendingImportPreviews = [];
 
   if (!dz || !fileInput || !browseBtn || !fileName || !uploadBtn || !importForm) return;
 
   // Helpers
   const prevent = e => { e.preventDefault(); e.stopPropagation(); };
+  const esc = value => String(value ?? '').replace(/[&<>"]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+  const showImportMessage = (message, variant = 'info') => {
+    if (!importMessage) return;
+    importMessage.className = `alert alert-${variant} mt-3`;
+    importMessage.textContent = message;
+    importMessage.classList.remove('d-none');
+  };
+  const hideImportMessage = () => {
+    if (!importMessage) return;
+    importMessage.className = 'alert d-none mt-3';
+    importMessage.textContent = '';
+  };
+  const closeImportModal = () => {
+    if (!importModal) return;
+    importModal.hidden = true;
+    pendingImportToken = '';
+    pendingImportPreviews = [];
+  };
+  const openImportModal = (payload) => {
+    if (!importModal || !importDecisionDetails) return;
+    pendingImportToken = payload?.token || '';
+    pendingImportPreviews = Array.isArray(payload?.previews) ? payload.previews : [];
+
+    const matchedPreviews = pendingImportPreviews.filter(preview => preview?.matchedCommunity);
+    const intro = matchedPreviews.length > 1
+      ? `This file contains ${matchedPreviews.length} imported community groups that appear to match existing communities.`
+      : 'A likely existing community match was found for this import.';
+    if (importDecisionIntro) importDecisionIntro.textContent = intro;
+
+    importDecisionDetails.innerHTML = pendingImportPreviews.map((preview) => {
+      const importedLabel = esc(preview.importedCommunityName || 'Imported Community');
+      const importedProject = preview.projectNumber ? `Project #: ${esc(preview.projectNumber)}` : 'Project #: --';
+      const importedLocation = [preview.city, preview.state].filter(Boolean).map(esc).join(', ') || '--';
+      const matched = preview.matchedCommunity;
+      const matchedMarkup = matched
+        ? `
+          <div class="cm-import-match-card is-match">
+            <div>
+              <p class="cm-import-match-card__label">Matched Existing Community</p>
+              <strong>${esc(matched.name || '--')}</strong>
+            </div>
+            <div class="cm-import-match-card__meta">
+              <span>${matched.projectNumber ? `Project #: ${esc(matched.projectNumber)}` : 'Project #: --'}</span>
+              <span>Existing lots: ${Number(matched.lotCount || 0)}</span>
+            </div>
+          </div>
+        `
+        : `
+          <div class="cm-import-match-card">
+            <div>
+              <p class="cm-import-match-card__label">Matched Existing Community</p>
+              <strong>No likely match found</strong>
+            </div>
+            <div class="cm-import-match-card__meta">
+              <span>This group will create a new community either way.</span>
+            </div>
+          </div>
+        `;
+
+      return `
+        <section class="cm-import-preview">
+          <div class="cm-import-match-card is-imported">
+            <div>
+              <p class="cm-import-match-card__label">Imported Community</p>
+              <strong>${importedLabel}</strong>
+            </div>
+            <div class="cm-import-match-card__meta">
+              <span>${importedProject}</span>
+              <span>Location: ${importedLocation}</span>
+              <span>Imported lots: ${Number(preview.importedLotCount || 0)}</span>
+            </div>
+          </div>
+          ${matchedMarkup}
+        </section>
+      `;
+    }).join('');
+
+    importModal.hidden = false;
+  };
+  const buildSummaryMessage = (summary) => {
+    if (!summary) return 'Import finished.';
+    const parts = [];
+    if (Number(summary.importedLots || 0)) parts.push(`${summary.importedLots} lots imported`);
+    if (Number(summary.duplicatesSkipped || 0)) parts.push(`${summary.duplicatesSkipped} duplicates skipped`);
+    if (Number(summary.communitiesCreated || 0)) {
+      parts.push(`${summary.communitiesCreated} ${summary.communitiesCreated === 1 ? 'community' : 'communities'} created`);
+    }
+    if (Number(summary.communitiesUpdated || 0)) {
+      parts.push(`${summary.communitiesUpdated} existing ${summary.communitiesUpdated === 1 ? 'community' : 'communities'} updated`);
+    }
+    return parts.length ? parts.join(' • ') : 'Import finished.';
+  };
+  const finalizeImportSuccess = (summary) => {
+    setFile(null);
+    closeImportModal();
+    showImportMessage(buildSummaryMessage(summary), summary?.duplicatesSkipped ? 'warning' : 'success');
+    document.dispatchEvent(new CustomEvent('cm:communitiesImported'));
+  };
+  const confirmImportAction = async (action) => {
+    if (!pendingImportToken) return;
+    importAppendBtn.disabled = true;
+    importCreateNewBtn.disabled = true;
+    try {
+      const res = await fetch('/api/communities/import/confirm', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ token: pendingImportToken, action })
+      });
+      const payload = await res.json().catch(() => null);
+      if (!res.ok) {
+        throw new Error(payload?.error || `Import confirm failed (${res.status})`);
+      }
+      finalizeImportSuccess(payload?.summary);
+    } catch (err) {
+      console.error('[community-import:confirm]', err);
+      showImportMessage(err.message || 'Import confirm failed.', 'danger');
+    } finally {
+      importAppendBtn.disabled = false;
+      importCreateNewBtn.disabled = false;
+    }
+  };
   const setFile = f => {
     if (!f) {
       window.cmImportFile = null;
@@ -199,8 +358,15 @@
   browseBtn.addEventListener('click', () => fileInput.click());
   fileInput.addEventListener('change', () => {
     const f = fileInput.files && fileInput.files[0];
+    hideImportMessage();
     setFile(f);
   });
+
+  modalCloseButtons.forEach((button) => {
+    button.addEventListener('click', () => closeImportModal());
+  });
+  importAppendBtn?.addEventListener('click', () => confirmImportAction('append'));
+  importCreateNewBtn?.addEventListener('click', () => confirmImportAction('create_new'));
 
   importForm.addEventListener('submit', async (event) => {
     event.preventDefault();
@@ -208,6 +374,7 @@
       alert('Select a CSV or XLSX file first.');
       return;
     }
+    hideImportMessage();
 
     const formData = new FormData();
     formData.append('file', window.cmImportFile);
@@ -227,17 +394,23 @@
         body: formData
       });
       if (!res.ok) {
-        const msg = await res.text();
-        throw new Error(msg || `Upload failed (${res.status})`);
+        const payload = await res.json().catch(() => null);
+        throw new Error(payload?.error || `Upload failed (${res.status})`);
       }
 
+      const payload = await res.json().catch(() => null);
+
       if (progressBar) progressBar.style.width = '100%';
-      setFile(null);
-      alert('Communities imported successfully.');
-      document.dispatchEvent(new CustomEvent('cm:communitiesImported'));
+
+      if (payload?.requiresDecision) {
+        openImportModal(payload);
+        return;
+      }
+
+      finalizeImportSuccess(payload?.summary);
     } catch (err) {
       console.error('[community-import]', err);
-      alert(err.message || 'Upload failed.');
+      showImportMessage(err.message || 'Upload failed.', 'danger');
     } finally {
       uploadBtn.disabled = false;
       uploadBtn.textContent = originalLabel;

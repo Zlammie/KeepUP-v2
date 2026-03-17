@@ -14,7 +14,7 @@ export function initEmailActivity({ contactId } = {}) {
   const pausedBadge = document.querySelector('[data-email-paused-badge]');
 
   if (queueLink) {
-    queueLink.href = `/task?view=settings&tab=queue&contactId=${encodeURIComponent(contactId)}`;
+    queueLink.href = `/marketing-automation?view=settings&tab=queue&contactId=${encodeURIComponent(contactId)}`;
   }
 
   const showToast = (message, variant = 'info') => {

@@ -1,7 +1,7 @@
 import { deleteCompetition } from './api.js';
 import { showFlash } from './utils.js';
 
-export function bindDeleteButtons(container, flash) {
+export function bindDeleteButtons(container, flash, onDeleted) {
   container.querySelectorAll('.delete-btn').forEach(btn => {
     btn.addEventListener('click', async (e) => {
       const id = btn.dataset.id;
@@ -10,10 +10,14 @@ export function bindDeleteButtons(container, flash) {
       btn.disabled = true; btn.textContent = '…';
       try {
         await deleteCompetition(id);
-        row?.remove();
+        if (typeof onDeleted === 'function') {
+          onDeleted(id);
+        } else {
+          row?.remove();
+        }
         showFlash(flash, 'Competition deleted.', 'success');
         const tbody = container.querySelector('tbody');
-        if (tbody && !tbody.children.length) {
+        if (!onDeleted && tbody && !tbody.children.length) {
           container.innerHTML = '<p>No competitions found.</p>';
         }
       } catch (err) {

@@ -49,6 +49,20 @@
   padding: 1.5rem;
 }
 
+.cm-toolbar {
+  align-items: flex-end !important;
+}
+
+.cm-toolbar-field {
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+}
+
+.cm-toolbar-field--search {
+  min-width: 280px;
+}
+
 .cm-toolbar input {
   max-width: 280px;
 }
@@ -110,3 +124,94 @@
 .dz-text { margin-top: .5rem; color: var(--dz-text); }
 
 .dz-meta { font-size: .9rem; }
+
+.cm-import-modal[hidden] {
+  display: none !important;
+}
+
+.cm-import-modal {
+  position: fixed;
+  inset: 0;
+  z-index: 1080;
+}
+
+.cm-import-modal__backdrop {
+  position: absolute;
+  inset: 0;
+  background: rgba(15, 23, 42, 0.42);
+}
+
+.cm-import-modal__dialog {
+  position: relative;
+  z-index: 1;
+  width: min(680px, calc(100% - 2rem));
+  margin: 8vh auto 0;
+  background: #fff;
+  border-radius: 16px;
+  border: 1px solid rgba(148, 163, 184, 0.35);
+  box-shadow: 0 24px 60px rgba(15, 23, 42, 0.22);
+  overflow: hidden;
+}
+
+.cm-import-modal__header,
+.cm-import-modal__footer {
+  padding: 1rem 1.25rem;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+}
+
+.cm-import-modal__header {
+  border-bottom: 1px solid #e5e7eb;
+}
+
+.cm-import-modal__body {
+  padding: 1rem 1.25rem 1.25rem;
+  max-height: 65vh;
+  overflow: auto;
+}
+
+.cm-import-modal__footer {
+  border-top: 1px solid #e5e7eb;
+  justify-content: flex-end;
+  flex-wrap: wrap;
+}
+
+.cm-import-preview + .cm-import-preview {
+  margin-top: 0.9rem;
+}
+
+.cm-import-match-card {
+  border: 1px solid #dbe2ea;
+  border-radius: 12px;
+  padding: 0.9rem 1rem;
+  background: #fff;
+}
+
+.cm-import-match-card.is-imported {
+  background: #f8fbff;
+  border-color: #cfe0f3;
+}
+
+.cm-import-match-card.is-match {
+  background: #f8fafc;
+}
+
+.cm-import-match-card__label {
+  margin: 0 0 0.2rem;
+  font-size: 0.75rem;
+  font-weight: 700;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  color: #64748b;
+}
+
+.cm-import-match-card__meta {
+  margin-top: 0.45rem;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.65rem 1rem;
+  font-size: 0.92rem;
+  color: #4b5563;
+}

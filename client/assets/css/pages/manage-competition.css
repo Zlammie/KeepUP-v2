@@ -1,0 +1,64 @@
+.manage-competition__filters {
+  padding: 0.9rem 1rem;
+  border: 1px solid #e3e9f0;
+  border-radius: 12px;
+  background: #ffffff;
+  box-shadow: 0 1px 3px rgba(15, 23, 42, 0.04);
+}
+
+.manage-competition__filter-group {
+  max-width: 320px;
+}
+
+.manage-competition__name {
+  font-weight: 600;
+  color: #0f172a;
+}
+
+.manage-competition__linked {
+  margin-top: 0.2rem;
+  font-size: 0.78rem;
+  color: #64748b;
+}
+
+.manage-competition-table th,
+.manage-competition-table td {
+  vertical-align: middle;
+}
+
+.manage-status {
+  display: inline-flex;
+  align-items: center;
+  min-height: 26px;
+  padding: 0 0.65rem;
+  border-radius: 999px;
+  font-size: 0.78rem;
+  font-weight: 600;
+  letter-spacing: 0.01em;
+}
+
+.manage-status--up-to-date {
+  background: #eaf7ef;
+  color: #1f7a3d;
+}
+
+.manage-status--due {
+  background: #fff5df;
+  color: #a16207;
+}
+
+.manage-status--overdue {
+  background: #fdecec;
+  color: #b42318;
+}
+
+.manage-status--none {
+  background: #eef2f6;
+  color: #64748b;
+}
+
+@media (max-width: 768px) {
+  .manage-competition__filter-group {
+    max-width: none;
+  }
+}

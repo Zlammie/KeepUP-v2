@@ -6,11 +6,13 @@ const requireRole = require('../middleware/requireRole');
 
 const Competition = require('../models/Competition');
 const Community = require('../models/Community');
+const CommunityCompetitionProfile = require('../models/communityCompetitionProfile');
 const SalesRecord = require('../models/salesRecord');
 const PriceRecord = require('../models/PriceRecord');
 const { sanitizeSyncFields } = require('../config/competitionSync');
 const { buildSyncUpdate } = require('../services/competitionSync');
 const { hasCommunityAccess } = require('../utils/communityScope');
+const { filterCommunitiesForUser } = require('../utils/communityScope');
 const { fetchMinimalCompetitions } = require('./helpers/minimalCompetitions');
 
 let FloorPlanComp;
@@ -55,6 +57,7 @@ router.get('/', requireRole(...READ_ROLES), asyncHandler(async (req, res) => {
   const limit = Math.min(Math.max(Number(req.query.limit) || 25, 1), 200);
   const page  = Math.max(Number(req.query.page) || 1, 1);
   const skip  = (page - 1) * limit;
+  const linkedCommunityId = String(req.query.linkedCommunityId || '').trim();
 
   // simple search: q matches builder/community/city/state
   const q = String(req.query.q || '').trim();
@@ -79,7 +82,7 @@ router.get('/', requireRole(...READ_ROLES), asyncHandler(async (req, res) => {
     sortStr.split(',').filter(Boolean).map(s => [s.replace(/^-/, ''), s.startsWith('-') ? -1 : 1])
   );
 
-  const [items, total] = await Promise.all([
+  let [items, total] = await Promise.all([
     Competition.find(filter)
       .select(fields ? fields.split(',').join(' ') : undefined)
       .sort(sort)
@@ -89,8 +92,97 @@ router.get('/', requireRole(...READ_ROLES), asyncHandler(async (req, res) => {
     Competition.countDocuments(filter)
   ]);
 
+  const includeLinkedSummary = ['1', 'true', 'yes', 'on']
+    .includes(String(req.query.includeLinkedSummary || '').trim().toLowerCase());
+
+  let linkedCommunityOptions = [];
+
+  if (includeLinkedSummary) {
+    const communityDocs = filterCommunitiesForUser(
+      req.user,
+      await Community.find({ ...tenantFilter(req) })
+        .select('name communityName')
+        .lean()
+    );
+    const communityMap = new Map(
+      communityDocs.map((community) => [
+        String(community?._id || ''),
+        {
+          id: String(community?._id || ''),
+          name: community?.name || community?.communityName || ''
+        }
+      ])
+    );
+    const accessibleCommunityIds = [...communityMap.keys()].filter(Boolean);
+
+    const optionProfiles = await CommunityCompetitionProfile.find({
+      ...tenantFilter(req),
+      community: { $in: accessibleCommunityIds },
+      linkedCompetitions: { $exists: true, $ne: [] }
+    })
+      .select('community linkedCompetitions')
+      .lean();
+
+    const optionMap = new Map();
+    optionProfiles.forEach((profile) => {
+      const communityId = String(profile?.community || '');
+      const community = communityMap.get(communityId);
+      const communityName = community?.name || '';
+      if (!communityId || !communityName) return;
+      optionMap.set(communityId, { id: communityId, name: communityName });
+    });
+    linkedCommunityOptions = [...optionMap.values()].sort((a, b) => a.name.localeCompare(b.name));
+
+    if (linkedCommunityId) {
+      const linkedCompetitionIds = new Set(
+        optionProfiles
+          .filter((profile) => String(profile?.community || '') === linkedCommunityId)
+          .flatMap((profile) => profile?.linkedCompetitions || [])
+          .map((linkedId) => String(linkedId || ''))
+          .filter(Boolean)
+      );
+
+      items = items.filter((item) => linkedCompetitionIds.has(String(item?._id || '')));
+      total = items.length;
+    }
+
+    if (items.length) {
+      const competitionIds = items.map((item) => item?._id).filter(Boolean);
+      const profiles = optionProfiles.filter((profile) =>
+        (profile?.linkedCompetitions || []).some((linkedId) => competitionIds.some((id) => String(id) === String(linkedId)))
+      );
+
+      const linkedByCompetition = new Map();
+      profiles.forEach((profile) => {
+        const communityId = String(profile?.community || '');
+        const community = communityMap.get(communityId);
+        const communityName = community?.name || '';
+        if (!communityId || !communityName) return;
+
+        (profile?.linkedCompetitions || []).forEach((linkedId) => {
+          const compId = String(linkedId || '');
+          if (!compId) return;
+          if (!linkedByCompetition.has(compId)) linkedByCompetition.set(compId, new Map());
+          linkedByCompetition.get(compId).set(communityId, {
+            id: communityId,
+            name: communityName
+          });
+        });
+      });
+
+      items = items.map((item) => {
+        const compId = String(item?._id || '');
+        const linkedCommunities = compId && linkedByCompetition.has(compId)
+          ? [...linkedByCompetition.get(compId).values()].sort((a, b) => a.name.localeCompare(b.name))
+          : [];
+        return { ...item, linkedCommunities };
+      });
+    }
+  }
+
   res.json({
     items,
+    linkedCommunityOptions,
     page,
     limit,
     total,

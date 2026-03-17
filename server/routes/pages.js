@@ -528,6 +528,127 @@ const transformScheduleDocForView = (schedule) => {
   };
 };
 
+async function buildMarketingAutomationSettingsViewData(req) {
+  const companyFilter = req.user?.company ? { company: req.user.company } : { ...base(req) };
+  const [scheduleDocs, teamMembers, assignments] = await Promise.all([
+    AutoFollowUpSchedule.find(companyFilter).sort({ updatedAt: -1 }).lean(),
+    User.find(companyFilter)
+      .select('firstName lastName email roles status lastLoginAt')
+      .sort({ firstName: 1, lastName: 1 })
+      .lean(),
+    AutoFollowUpAssignment.find(companyFilter)
+      .populate('schedule', 'name status')
+      .select('schedule user status')
+      .lean()
+  ]);
+
+  const followUpSchedules = scheduleDocs.length
+    ? scheduleDocs.map(transformScheduleDocForView).filter(Boolean)
+    : buildAutoFollowUpSchedules();
+
+  const assignmentByUserId = new Map();
+  assignments.forEach((assignment) => {
+    const key = assignment?.user ? String(assignment.user._id || assignment.user) : null;
+    if (key) assignmentByUserId.set(key, assignment);
+  });
+
+  const teamScheduleAssignments = teamMembers.map((member) => {
+    const nameParts = [member.firstName, member.lastName].filter(Boolean);
+    const displayName = nameParts.length ? nameParts.join(' ') : member.email || 'Team Member';
+    const roles = Array.isArray(member.roles) && member.roles.length ? member.roles : ['USER'];
+    const primaryRole = roles[0];
+    const normalizedStatus = typeof member.status === 'string' ? member.status.toUpperCase() : 'ACTIVE';
+
+    const assignment = assignmentByUserId.get(String(member._id));
+    const scheduleRef = assignment?.schedule || null;
+    const currentScheduleId = scheduleRef ? String(scheduleRef._id || scheduleRef) : null;
+
+    return {
+      id: String(member._id),
+      name: displayName,
+      email: member.email || '',
+      role: formatRoleName(primaryRole),
+      status: normalizedStatus,
+      lastLoginAt: member.lastLoginAt || null,
+      currentScheduleId: currentScheduleId || null,
+      assignmentStatus: assignment?.status || null
+    };
+  });
+
+  const totalSchedules = followUpSchedules.length;
+  const totalSteps = followUpSchedules.reduce(
+    (sum, schedule) => sum + (schedule.metrics?.touchpoints || 0),
+    0
+  );
+  const averageTouches = totalSchedules ? Math.round(totalSteps / totalSchedules) : 0;
+  const longestCadenceDays = followUpSchedules.reduce(
+    (max, schedule) => Math.max(max, schedule.metrics?.durationDays || 0),
+    0
+  );
+  const activeTeammates = teamScheduleAssignments.filter(
+    (member) => member.status && member.status.toUpperCase() === 'ACTIVE'
+  ).length;
+
+  const stageOptionSet = new Set(DEFAULT_STAGE_OPTIONS);
+  followUpSchedules.forEach((schedule) => {
+    if (schedule.targetStage) stageOptionSet.add(schedule.targetStage);
+  });
+
+  const ownerOptionSet = new Set(DEFAULT_OWNER_OPTIONS);
+  followUpSchedules.forEach((schedule) => {
+    if (schedule.defaultOwner) ownerOptionSet.add(schedule.defaultOwner);
+  });
+  teamMembers.forEach((member) => {
+    const primaryRole =
+      Array.isArray(member.roles) && member.roles.length ? member.roles[0] : 'USER';
+    ownerOptionSet.add(formatRoleName(primaryRole));
+  });
+
+  const scheduleBuilderPreset = buildScheduleBuilderPreset({
+    stageOptions: Array.from(stageOptionSet),
+    ownerOptions: Array.from(ownerOptionSet)
+  });
+
+  const autoFollowUpStats = {
+    librarySize: totalSchedules,
+    activeTeammates,
+    averageTouches,
+    longestCadenceDays
+  };
+
+  return {
+    followUpSchedules,
+    scheduleBuilderPreset,
+    autoFollowUpStats,
+    teamScheduleAssignments,
+    taskSettingsData: {
+      schedules: followUpSchedules,
+      builderPreset: scheduleBuilderPreset,
+      stats: autoFollowUpStats,
+      teamAssignments: teamScheduleAssignments,
+      canManageAutomations: isCompanyAdmin(req) || isSuper(req),
+      currentUserEmail: req.user?.email || '',
+      endpoints: {
+        schedules: '/api/task-schedules',
+        assignments: '/api/task-schedules/assignments'
+      },
+      emailEndpoints: {
+        templates: '/api/email/templates',
+        rules: '/api/email/rules',
+        queue: '/api/email/queue',
+        settings: '/api/email/settings',
+        audiencePreview: '/api/email/audience/preview',
+        schedulesApply: '/api/email/schedules/apply',
+        suppressions: '/api/email/suppressions',
+        contacts: '/api/contacts',
+        commonAutomations: '/api/email/common-automations',
+        health: '/api/email/health',
+        blasts: '/api/email/blasts'
+      }
+    }
+  };
+}
+
 // ????????????????????????? core pages ?????????????????????????
 router.get(['/', '/index'], ensureAuth, requireRole('READONLY','USER','MANAGER','COMPANY_ADMIN','SUPER_ADMIN'),
   (req, res) => res.render('pages/index', { active: 'home' })
@@ -543,136 +664,16 @@ router.get(
   requireRole('READONLY', 'USER', 'MANAGER', 'COMPANY_ADMIN', 'SUPER_ADMIN'),
   async (req, res, next) => {
     try {
-      const allowedTaskViews = ['task', 'calendar', 'settings'];
       const requestedTaskView =
         typeof req.query.view === 'string' ? req.query.view.trim().toLowerCase() : 'task';
-      const taskView = allowedTaskViews.includes(requestedTaskView) ? requestedTaskView : 'task';
-
-      if (taskView === 'settings') {
-        const companyFilter = req.user?.company ? { company: req.user.company } : { ...base(req) };
-        const [scheduleDocs, teamMembers, assignments] = await Promise.all([
-          AutoFollowUpSchedule.find(companyFilter).sort({ updatedAt: -1 }).lean(),
-          User.find(companyFilter)
-            .select('firstName lastName email roles status lastLoginAt')
-            .sort({ firstName: 1, lastName: 1 })
-            .lean(),
-          AutoFollowUpAssignment.find(companyFilter)
-            .populate('schedule', 'name status')
-            .select('schedule user status')
-            .lean()
-        ]);
-
-        const followUpSchedules = scheduleDocs.length
-          ? scheduleDocs.map(transformScheduleDocForView).filter(Boolean)
-          : buildAutoFollowUpSchedules();
-
-        const assignmentByUserId = new Map();
-        assignments.forEach((assignment) => {
-          const key = assignment?.user ? String(assignment.user._id || assignment.user) : null;
-          if (key) assignmentByUserId.set(key, assignment);
-        });
-
-        const teamScheduleAssignments = teamMembers.map((member) => {
-          const nameParts = [member.firstName, member.lastName].filter(Boolean);
-          const displayName = nameParts.length ? nameParts.join(' ') : member.email || 'Team Member';
-          const roles = Array.isArray(member.roles) && member.roles.length ? member.roles : ['USER'];
-          const primaryRole = roles[0];
-          const normalizedStatus = typeof member.status === 'string' ? member.status.toUpperCase() : 'ACTIVE';
-
-          const assignment = assignmentByUserId.get(String(member._id));
-          const scheduleRef = assignment?.schedule || null;
-          const currentScheduleId = scheduleRef ? String(scheduleRef._id || scheduleRef) : null;
-
-          return {
-            id: String(member._id),
-            name: displayName,
-            email: member.email || '',
-            role: formatRoleName(primaryRole),
-            status: normalizedStatus,
-            lastLoginAt: member.lastLoginAt || null,
-            currentScheduleId: currentScheduleId || null,
-            assignmentStatus: assignment?.status || null
-          };
-        });
-
-        const totalSchedules = followUpSchedules.length;
-        const totalSteps = followUpSchedules.reduce(
-          (sum, schedule) => sum + (schedule.metrics?.touchpoints || 0),
-          0
-        );
-        const averageTouches = totalSchedules ? Math.round(totalSteps / totalSchedules) : 0;
-        const longestCadenceDays = followUpSchedules.reduce(
-          (max, schedule) => Math.max(max, schedule.metrics?.durationDays || 0),
-          0
-        );
-        const activeTeammates = teamScheduleAssignments.filter(
-          (member) => member.status && member.status.toUpperCase() === 'ACTIVE'
-        ).length;
-
-        const stageOptionSet = new Set(DEFAULT_STAGE_OPTIONS);
-        followUpSchedules.forEach((schedule) => {
-          if (schedule.targetStage) stageOptionSet.add(schedule.targetStage);
-        });
-
-        const ownerOptionSet = new Set(DEFAULT_OWNER_OPTIONS);
-        followUpSchedules.forEach((schedule) => {
-          if (schedule.defaultOwner) ownerOptionSet.add(schedule.defaultOwner);
-        });
-        teamMembers.forEach((member) => {
-          const primaryRole =
-            Array.isArray(member.roles) && member.roles.length ? member.roles[0] : 'USER';
-          ownerOptionSet.add(formatRoleName(primaryRole));
-        });
-
-        const scheduleBuilderPreset = buildScheduleBuilderPreset({
-          stageOptions: Array.from(stageOptionSet),
-          ownerOptions: Array.from(ownerOptionSet)
-        });
-
-        const autoFollowUpStats = {
-          librarySize: totalSchedules,
-          activeTeammates,
-          averageTouches,
-          longestCadenceDays
-        };
-
-        const taskSettingsData = {
-          schedules: followUpSchedules,
-          builderPreset: scheduleBuilderPreset,
-          stats: autoFollowUpStats,
-          teamAssignments: teamScheduleAssignments,
-          canManageAutomations: isCompanyAdmin(req) || isSuper(req),
-          currentUserEmail: req.user?.email || '',
-          endpoints: {
-            schedules: '/api/task-schedules',
-            assignments: '/api/task-schedules/assignments'
-          },
-          emailEndpoints: {
-            templates: '/api/email/templates',
-            rules: '/api/email/rules',
-            queue: '/api/email/queue',
-            settings: '/api/email/settings',
-            audiencePreview: '/api/email/audience/preview',
-            schedulesApply: '/api/email/schedules/apply',
-            suppressions: '/api/email/suppressions',
-            contacts: '/api/contacts',
-            commonAutomations: '/api/email/common-automations',
-            health: '/api/email/health',
-            blasts: '/api/email/blasts'
-          }
-        };
-
-        return res.render('pages/task-settings', {
-          active: 'task',
-          taskView,
-          followUpSchedules,
-          scheduleBuilderPreset,
-          autoFollowUpStats,
-          teamScheduleAssignments,
-          taskSettingsData,
-          automationStatusOptions: CONTACT_STATUS_OPTIONS
-        });
+      if (requestedTaskView === 'settings') {
+        const redirectParams = new URLSearchParams(req.query);
+        redirectParams.set('view', 'settings');
+        return res.redirect(`/marketing-automation?${redirectParams.toString()}`);
       }
+
+      const allowedTaskViews = ['task', 'calendar'];
+      const taskView = allowedTaskViews.includes(requestedTaskView) ? requestedTaskView : 'task';
 
       const baseFilter = { ...base(req) };
       const allowedStatuses = Array.isArray(Task.STATUS)
@@ -904,6 +905,38 @@ router.get(
       }
 
       res.render('pages/task', commonViewData);
+    } catch (err) {
+      next(err);
+    }
+  }
+);
+
+router.get(
+  '/marketing-automation',
+  ensureAuth,
+  requireRole('READONLY', 'USER', 'MANAGER', 'COMPANY_ADMIN', 'SUPER_ADMIN'),
+  async (req, res, next) => {
+    try {
+      const allowedViews = ['dashboard', 'settings'];
+      const requestedView =
+        typeof req.query.view === 'string' ? req.query.view.trim().toLowerCase() : 'dashboard';
+      const marketingView = allowedViews.includes(requestedView) ? requestedView : 'dashboard';
+
+      if (marketingView === 'settings') {
+        const settingsViewData = await buildMarketingAutomationSettingsViewData(req);
+        return res.render('pages/task-settings', {
+          active: 'marketing-automation',
+          marketingView,
+          taskView: 'settings',
+          ...settingsViewData,
+          automationStatusOptions: CONTACT_STATUS_OPTIONS
+        });
+      }
+
+      return res.render('pages/marketing-automation-dashboard', {
+        active: 'marketing-automation',
+        marketingView
+      });
     } catch (err) {
       next(err);
     }

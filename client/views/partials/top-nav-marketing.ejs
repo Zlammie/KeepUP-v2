@@ -1,0 +1,30 @@
+<% const currentTab = (typeof activeTab === 'string' && activeTab.trim())
+  ? activeTab.trim().toLowerCase()
+  : 'dashboard';
+%>
+<div class="header-wrapper">
+  <header class="header">
+    <div class="header-items">
+      <ul>
+        <li>
+          <a
+            href="/marketing-automation"
+            class="top-nav-link <%= currentTab === 'dashboard' ? 'active' : '' %>"
+            data-view="dashboard"
+            <%= currentTab === 'dashboard' ? 'aria-current="page"' : '' %>>
+            Dashboard
+          </a>
+        </li>
+        <li>
+          <a
+            href="/marketing-automation?view=settings"
+            class="top-nav-link <%= currentTab === 'settings' ? 'active' : '' %>"
+            data-view="settings"
+            <%= currentTab === 'settings' ? 'aria-current="page"' : '' %>>
+            Settings
+          </a>
+        </li>
+      </ul>
+    </div>
+  </header>
+</div>

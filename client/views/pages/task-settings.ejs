@@ -381,7 +381,7 @@
 </head>
 <body>
   <%- include('../partials/nav') %>
-  <%- include('../partials/top-nav-task', { activeTab: (taskView || 'settings') }) %>
+  <%- include('../partials/top-nav-marketing', { activeTab: (marketingView || 'settings') }) %>
 
   <main class="container py-4 task-settings-page">
     <% const schedules = Array.isArray(followUpSchedules) ? followUpSchedules : []; %>
