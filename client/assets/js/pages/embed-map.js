@@ -111,6 +111,8 @@ import { resolveEmbedFeatures, resolveStyleMode } from '../shared/embedFeatures.
   const lotPlan = document.getElementById('lot-plan');
   const lotPlanLink = document.getElementById('lot-plan-link');
   const lotSqft = document.getElementById('lot-sqft');
+  const lotLotWidth = document.getElementById('lot-lot-width');
+  const lotLotWidthField = document.getElementById('lot-lot-width-field');
   const lotBeds = document.getElementById('lot-beds');
   const lotBaths = document.getElementById('lot-baths');
   const lotStories = document.getElementById('lot-stories');
@@ -903,6 +905,12 @@ import { resolveEmbedFeatures, resolveStyleMode } from '../shared/embedFeatures.
       : '-'
   );
 
+  const formatLotWidth = (value) => {
+    const numeric = Number(value);
+    if (!Number.isFinite(numeric) || numeric <= 0) return '';
+    return `${Number(numeric.toFixed(3)).toLocaleString('en-US', { maximumFractionDigits: 3 })}' Lot`;
+  };
+
   const setSheetState = (state, options = {}) => {
     if (!sheetEl) return;
     const nextState = ['collapsed', 'expanded', 'hidden'].includes(state)
@@ -958,6 +966,8 @@ import { resolveEmbedFeatures, resolveStyleMode } from '../shared/embedFeatures.
       lotPlanLink.classList.add('is-hidden');
     }
     if (lotSqft) lotSqft.textContent = '-';
+    if (lotLotWidth) lotLotWidth.textContent = '-';
+    if (lotLotWidthField) lotLotWidthField.classList.add('is-hidden');
     if (lotBeds) lotBeds.textContent = '-';
     if (lotBaths) lotBaths.textContent = '-';
     if (lotStories) lotStories.textContent = '-';
@@ -1107,6 +1117,11 @@ import { resolveEmbedFeatures, resolveStyleMode } from '../shared/embedFeatures.
       }
     }
     if (lotSqft) lotSqft.textContent = formatNumber(lot.squareFeet);
+    if (lotLotWidthField) {
+      const lotWidthLabel = formatLotWidth(lot.lotWidth);
+      if (lotLotWidth) lotLotWidth.textContent = lotWidthLabel || '-';
+      lotLotWidthField.classList.toggle('is-hidden', !lotWidthLabel);
+    }
     if (lotBeds) lotBeds.textContent = formatNumber(lot.beds);
     if (lotBaths) lotBaths.textContent = formatNumber(lot.baths);
     if (lotStories) lotStories.textContent = formatNumber(lot.stories);

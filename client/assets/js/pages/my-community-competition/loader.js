@@ -4,7 +4,7 @@ import {
   statTotalLots, statLotsSold, statLotsRemaining, statQmiAvailable,
   promoText, hoaDisplay, taxDisplay,
   salesPerson, salesPersonPhone, salesPersonEmail,
-  address, city, state, zip, modelPlan, lotSize, totalLots,
+  address, city, state, zip, modelPlan, productTypes, lotSizes, totalLots,
   garageTypeFront, garageTypeRear,
   schoolISD, elementarySchool, middleSchool, highSchool,
   hoaFee, hoaFrequency, tax, feeMud, feePid, feeNone,
@@ -24,6 +24,47 @@ const normalizeText = (value) => {
   if (value == null) return '';
   return String(value).trim();
 };
+
+const parseTextList = (value) => {
+  if (value == null) return [];
+  const list = Array.isArray(value) ? value : String(value).split(/[,\n]/);
+  const results = [];
+  const seen = new Set();
+
+  list.forEach((entry) => {
+    const text = normalizeText(entry);
+    if (!text) return;
+    const key = text.toLowerCase();
+    if (seen.has(key)) return;
+    seen.add(key);
+    results.push(text);
+  });
+
+  return results;
+};
+
+const parseNumberList = (value) => {
+  if (value == null) return [];
+  const list = Array.isArray(value) ? value : String(value).split(/[,\n]/);
+  const results = [];
+  const seen = new Set();
+
+  list.forEach((entry) => {
+    const text = normalizeText(entry).replace(/[^0-9.]+/g, '').trim();
+    if (!text) return;
+    const parsed = Number(text);
+    if (!Number.isFinite(parsed) || parsed < 0) return;
+    const normalized = Number(parsed.toFixed(3));
+    if (seen.has(normalized)) return;
+    seen.add(normalized);
+    results.push(normalized);
+  });
+
+  return results;
+};
+
+const formatTextList = (values) => parseTextList(values).join(', ');
+const formatNumberList = (values) => parseNumberList(values).join(', ');
 
 const formatPercentFromDecimal = (value) => {
   if (value == null || value === '') return '';
@@ -297,7 +338,28 @@ export async function onSelectCommunity(id) {
     city.value               = (profile?.city    ?? community?.city    ?? '');
     state.value              = (profile?.state   ?? profile?.webData?.state ?? community?.state ?? 'TX');
     zip.value                = (profile?.zip     ?? community?.zip     ?? '');
-    lotSize.value            = profile?.lotSize || '';
+    const webDataProductTypes = Array.isArray(profile?.webData?.productTypes)
+      ? profile.webData.productTypes.map((item) => normalizeText(item?.label)).filter(Boolean)
+      : [];
+    const webDataLotSizes = Array.isArray(profile?.webData?.lotSizes)
+      ? profile.webData.lotSizes
+      : [];
+    const effectiveProductTypes = Array.isArray(profile?.productTypes) && profile.productTypes.length
+      ? profile.productTypes
+      : (webDataProductTypes.length
+        ? webDataProductTypes
+      : (Array.isArray(community?.productTypesOffered) && community.productTypesOffered.length
+        ? community.productTypesOffered
+        : parseTextList(profile?.lotSize)));
+    const effectiveLotSizes = Array.isArray(profile?.lotSizes) && profile.lotSizes.length
+      ? profile.lotSizes
+      : (webDataLotSizes.length
+        ? webDataLotSizes
+      : (Array.isArray(community?.lotWidthsOffered) && community.lotWidthsOffered.length
+        ? community.lotWidthsOffered
+        : parseNumberList(profile?.lotSize)));
+    productTypes.value       = formatTextList(effectiveProductTypes);
+    lotSizes.value           = formatNumberList(effectiveLotSizes);
     totalLots.value          = profile?.lotCounts?.total ?? '';
     totalLots.setAttribute('readonly', 'readonly');
     (profile?.garageType === 'Front') ? (garageTypeFront.checked = true)

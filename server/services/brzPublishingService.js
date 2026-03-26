@@ -88,6 +88,43 @@ const toNullableNumber = (value) => {
   return Number.isFinite(parsed) ? parsed : null;
 };
 
+const normalizeStringArray = (value) => {
+  if (!Array.isArray(value)) return [];
+  const seen = new Set();
+  const result = [];
+  value.forEach((entry) => {
+    const normalized = trimString(entry);
+    if (!normalized) return;
+    const key = normalized.toLowerCase();
+    if (seen.has(key)) return;
+    seen.add(key);
+    result.push(normalized);
+  });
+  return result;
+};
+
+const normalizeNumberArray = (value) => {
+  if (!Array.isArray(value)) return [];
+  const seen = new Set();
+  const result = [];
+  value.forEach((entry) => {
+    const parsed = toNullableNumber(entry);
+    if (parsed == null || parsed < 0) return;
+    const normalized = Number(parsed.toFixed(3));
+    if (seen.has(normalized)) return;
+    seen.add(normalized);
+    result.push(normalized);
+  });
+  return result;
+};
+
+const extractLabelArray = (value) => {
+  if (!Array.isArray(value)) return [];
+  return normalizeStringArray(
+    value.map((entry) => (typeof entry === 'string' ? entry : entry?.label))
+  );
+};
+
 const toIntegerDollarOrNull = (value) => {
   const parsed = toNullableNumber(value);
   if (parsed == null) return null;
@@ -209,7 +246,9 @@ const serializeCommunity = (community) => ({
   name: community?.name || '',
   slug: community?.slug || '',
   city: community?.city || '',
-  state: community?.state || ''
+  state: community?.state || '',
+  productTypesOffered: normalizeStringArray(community?.productTypesOffered),
+  lotWidthsOffered: normalizeNumberArray(community?.lotWidthsOffered)
 });
 
 const serializeCommunityDraft = (draft, fallbackCompanyId, communityId) => ({
@@ -378,13 +417,28 @@ const resolveCommunityWebDataForPublish = ({ competitionProfile, community, draf
   const canonicalWebData = competitionProfile
     ? competitionProfileToWebData(competitionProfile, community)
     : null;
+  let resolved = {};
 
   if (draftWebData && canonicalWebData) {
-    return mergeCompetitionWebData(canonicalWebData, draftWebData);
+    resolved = mergeCompetitionWebData(canonicalWebData, draftWebData);
+  } else if (draftWebData) {
+    resolved = mergeCompetitionWebData({}, draftWebData);
+  } else if (canonicalWebData) {
+    resolved = canonicalWebData;
   }
-  if (draftWebData) return mergeCompetitionWebData({}, draftWebData);
-  if (canonicalWebData) return canonicalWebData;
-  return {};
+
+  const structuredProductTypes = normalizeStringArray(community?.productTypesOffered);
+  const structuredLotWidths = normalizeNumberArray(community?.lotWidthsOffered);
+  const next = mergeCompetitionWebData({}, resolved);
+
+  if (structuredProductTypes.length) {
+    next.productTypes = structuredProductTypes.map((label) => ({ label }));
+  }
+  if (structuredLotWidths.length) {
+    next.lotSizes = structuredLotWidths;
+  }
+
+  return next;
 };
 
 const isModelListingStatus = (lot) => {
@@ -848,13 +902,13 @@ async function getPublishingContext(companyId) {
 
   const communities = await Community.find({ company: company._id })
     .select(
-      'name slug city state totalLots buildrootz '
+      'name slug city state totalLots buildrootz productTypesOffered lotWidthsOffered '
       + 'lots._id lots.address lots.address1 lots.address2 lots.addressLine1 lots.addressLine2 lots.line1 lots.line2 '
       + 'lots.street lots.streetAddress lots.streetName lots.streetNumber lots.houseNumber '
       + 'lots.formattedAddress lots.fullAddress lots.addressFormatted '
       + 'lots.addressObject lots.addressComponents lots.addressData lots.location lots.geo lots.geocode lots.geocoding '
       + 'lots.city lots.state lots.zip lots.postal lots.postalCode '
-      + 'lots.lot lots.block lots.floorPlan '
+      + 'lots.lot lots.block lots.lotWidth lots.floorPlan '
       + 'lots.buildrootz '
       + 'lots.generalStatus lots.status lots.buildingStatus lots.isPublished lots.isListed '
       + 'lots.listPrice lots.salesPrice lots.latitude lots.longitude '
@@ -898,7 +952,7 @@ async function getPublishingContext(companyId) {
       company: company._id,
       community: { $in: communityIds }
     })
-      .select('community webData webDataUpdatedAt updatedAt promotion salesPerson salesPersonPhone salesPersonEmail city state zip elementarySchool middleSchool highSchool hoaFee hoaFrequency tax feeTypes mudFee pidFee pidFeeFrequency earnestAmount realtorCommission communityAmenities lotSize')
+      .select('community webData webDataUpdatedAt updatedAt promotion salesPerson salesPersonPhone salesPersonEmail city state zip elementarySchool middleSchool highSchool hoaFee hoaFrequency tax feeTypes mudFee pidFee pidFeeFrequency earnestAmount realtorCommission communityAmenities lotSize lotSizes productTypes')
       .lean()
     : [];
 
@@ -2878,6 +2932,8 @@ async function buildPackageBundle({ companyId, requestedAt = new Date().toISOStr
     normalizedWebData.lng = communityCoordinates.lng;
 
     const promotionValue = trimString(draft?.competitionPromotion);
+    const productTypesOffered = extractLabelArray(webData?.productTypes);
+    const lotWidthsOffered = normalizeNumberArray(webData?.lotSizes);
     const modelsSummary = serializeCommunityModelListings(community, floorPlanNameById).map((model) => ({
       keepupLotId: toStringId(model.listingId),
       sourceHomeId: toStringId(model.listingId),
@@ -2900,6 +2956,12 @@ async function buildPackageBundle({ companyId, requestedAt = new Date().toISOStr
       webData: normalizedWebData,
       modelsSummary
     };
+    if (productTypesOffered.length) {
+      payload.productTypesOffered = productTypesOffered;
+    }
+    if (lotWidthsOffered.length) {
+      payload.lotWidthsOffered = lotWidthsOffered;
+    }
     if (trimString(draft?.descriptionOverride)) {
       payload.descriptionOverride = trimString(draft.descriptionOverride);
     }
@@ -3275,6 +3337,10 @@ async function buildInventoryBundle({
 
         if (trimString(lot?.lot)) payload.address.lot = trimString(lot.lot);
         if (trimString(lot?.block)) payload.address.block = trimString(lot.block);
+        const lotWidth = toNullableNumber(lot?.lotWidth);
+        if (lotWidth != null && lotWidth >= 0) {
+          payload.lotWidth = Number(lotWidth.toFixed(3));
+        }
         if (keepupFloorPlanId) payload.keepupFloorPlanId = keepupFloorPlanId;
         if (price) payload.price = price;
         if (listPrice != null) payload.listPrice = listPrice;

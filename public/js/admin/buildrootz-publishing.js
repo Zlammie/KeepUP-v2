@@ -174,6 +174,32 @@
       .join('');
   };
   const renderLabelChips = (value) => renderAmenityChips(value);
+  const normalizeLotSizeLabels = (value) => {
+    if (!Array.isArray(value)) return [];
+    const labels = [];
+    const seen = new Set();
+    value.forEach((entry) => {
+      const parsed = Number(entry);
+      if (!Number.isFinite(parsed) || parsed < 0) return;
+      const normalized = Number(parsed.toFixed(3));
+      if (seen.has(normalized)) return;
+      seen.add(normalized);
+      labels.push(`${normalized}' Lot`);
+    });
+    return labels;
+  };
+  const renderClassificationChips = (productTypes, lotSizes) => {
+    const labels = [
+      ...normalizeAmenityLabels(productTypes),
+      ...normalizeLotSizeLabels(lotSizes)
+    ];
+    if (!labels.length) {
+      return '<span class="text-muted">â€”</span>';
+    }
+    return labels
+      .map((label) => `<span class="badge text-bg-light border me-1 mb-1">${escapeHtml(label)}</span>`)
+      .join('');
+  };
   const normalizePromo = (value) => {
     if (!value) return null;
     if (typeof value === 'string') {
@@ -1035,7 +1061,7 @@
                   </div>
                   <div class="col-md-9">
                     <label class="form-label mb-1">Product / Lot Width</label>
-                    <div class="d-flex flex-wrap">${renderLabelChips(webData.productTypes)}</div>
+                    <div class="d-flex flex-wrap">${renderClassificationChips(webData.productTypes, webData.lotSizes)}</div>
                   </div>
                   <div class="col-12 brz-editor-subsection">
                     <h4 class="h6 mb-0">Schools</h4>

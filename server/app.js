@@ -185,6 +185,15 @@ const helmetOptions = {
 
 if (enableCsp) {
   const connectSrc = new Set(["'self'", 'https://cdn.jsdelivr.net']);
+  const googleMapOrigins = [
+    'https://maps.googleapis.com',
+    'https://maps.gstatic.com',
+    'https://*.googleapis.com',
+    'https://*.gstatic.com',
+    'https://*.google.com',
+    'https://*.googleusercontent.com'
+  ];
+  googleMapOrigins.forEach((origin) => connectSrc.add(origin));
   allowedOrigins.forEach((origin) => connectSrc.add(origin));
   if (baseUrlOrigin) connectSrc.add(baseUrlOrigin);
 
@@ -193,12 +202,20 @@ if (enableCsp) {
     "script-src": [
       "'self'",
       (req, res) => `'nonce-${res.locals.cspNonce}'`,
-      'https://cdn.jsdelivr.net'
+      'https://cdn.jsdelivr.net',
+      'https://maps.googleapis.com',
+      'https://maps.gstatic.com',
+      'https://*.googleapis.com',
+      'https://*.gstatic.com'
     ],
     "script-src-elem": [
       "'self'",
       (req, res) => `'nonce-${res.locals.cspNonce}'`,
-      'https://cdn.jsdelivr.net'
+      'https://cdn.jsdelivr.net',
+      'https://maps.googleapis.com',
+      'https://maps.gstatic.com',
+      'https://*.googleapis.com',
+      'https://*.gstatic.com'
     ],
     "script-src-attr": ["'none'"],
     "style-src": [
@@ -207,7 +224,7 @@ if (enableCsp) {
       'https://cdn.jsdelivr.net',
       'https://fonts.googleapis.com'
     ],
-    "img-src": ["'self'", 'data:', 'blob:'],
+    "img-src": ["'self'", 'data:', 'blob:', ...googleMapOrigins],
     "font-src": ["'self'", 'data:', 'https://fonts.gstatic.com'],
     "connect-src": Array.from(connectSrc),
     "object-src": ["'none'"],

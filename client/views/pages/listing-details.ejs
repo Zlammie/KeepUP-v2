@@ -214,6 +214,10 @@
             <p class="fw-semibold mb-0"><%= lotData.lotSize || '—' %></p>
           </div>
           <div class="col-md-6">
+            <p class="text-muted small mb-1">Product type</p>
+            <p class="fw-semibold mb-0"><%= lotData.productType || '—' %></p>
+          </div>
+          <div class="col-md-6">
             <p class="text-muted small mb-1">Sales contact</p>
             <% if (lotData.salesContact && (lotData.salesContact.name || lotData.salesContact.phone || lotData.salesContact.email)) { %>
               <ul class="list-unstyled mb-0 text-muted small">
@@ -258,7 +262,7 @@
               <button type="button" id="copyCommunityLocationBtn" class="btn btn-outline-secondary btn-sm">Copy from community</button>
               <span class="text-muted small">
                 Community default:
-                <%= [lotData.communityLocation?.city, [lotData.communityLocation?.state, lotData.communityLocation?.postalCode].filter(Boolean).join(' ')].filter(Boolean).join(', ') || '�' %>
+                <%= [lotData.communityLocation?.city, [lotData.communityLocation?.state, lotData.communityLocation?.postalCode].filter(Boolean).join(' ')].filter(Boolean).join(', ') || '-' %>
               </span>
             </div>
           </div>
@@ -268,6 +272,7 @@
               <input type="text" class="form-control form-control-sm" id="latitudeInput" placeholder="Latitude" value="<%= lotData.latitude ?? '' %>" style="max-width: 160px;">
               <input type="text" class="form-control form-control-sm" id="longitudeInput" placeholder="Longitude" value="<%= lotData.longitude ?? '' %>" style="max-width: 160px;">
               <button type="button" id="geocodeBtn" class="btn btn-outline-secondary btn-sm">Auto-fill</button>
+              <button type="button" id="adjustPinBtn" class="btn btn-outline-secondary btn-sm">Adjust Pin</button>
             </div>
             <p class="text-muted small mt-1 mb-0">Optional: set exact map pin (used in BuildRootz).</p>
           </div>
@@ -499,6 +504,39 @@
       </div>
     </div>
 </main>
+  <div class="modal fade" id="adjustPinModal" tabindex="-1" aria-labelledby="adjustPinModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-lg modal-dialog-centered">
+      <div class="modal-content">
+        <div class="modal-header">
+          <div>
+            <h2 class="modal-title h5 mb-0" id="adjustPinModalLabel">Adjust Pin</h2>
+            <p class="text-muted small mb-0">Drag the marker or click the map to refine the listing pin.</p>
+          </div>
+          <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+        </div>
+        <div class="modal-body">
+          <p id="adjustPinStatus" class="listing-pin-modal__status text-muted small mb-2">Preparing map...</p>
+          <div id="adjustPinMap" class="listing-pin-map" aria-label="Listing pin adjustment map"></div>
+          <div class="row g-2 mt-3">
+            <div class="col-sm-6">
+              <label for="adjustPinLatitudeInput" class="form-label form-label-sm text-muted small mb-1">Latitude</label>
+              <input type="text" class="form-control form-control-sm" id="adjustPinLatitudeInput" placeholder="Latitude">
+            </div>
+            <div class="col-sm-6">
+              <label for="adjustPinLongitudeInput" class="form-label form-label-sm text-muted small mb-1">Longitude</label>
+              <input type="text" class="form-control form-control-sm" id="adjustPinLongitudeInput" placeholder="Longitude">
+            </div>
+          </div>
+          <p class="text-muted small mt-2 mb-0">Manual values stay synced when both numbers are valid.</p>
+        </div>
+        <div class="modal-footer">
+          <button type="button" class="btn btn-outline-secondary btn-sm" data-bs-dismiss="modal">Cancel</button>
+          <button type="button" id="adjustPinSaveBtn" class="btn btn-primary btn-sm">Save pin</button>
+        </div>
+      </div>
+    </div>
+  </div>
+  <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
   <script src="/assets/vendor/pdfjs/pdf.min.js" nonce="<%= cspNonce %>"></script>
   <script nonce="<%= cspNonce %>">
   (() => {
@@ -530,13 +568,267 @@
     const latitudeInput = document.getElementById('latitudeInput');
     const longitudeInput = document.getElementById('longitudeInput');
     const geocodeBtn = document.getElementById('geocodeBtn');
+    const adjustPinBtn = document.getElementById('adjustPinBtn');
     const listingCityInput = document.getElementById('listingCityInput');
     const listingStateInput = document.getElementById('listingStateInput');
     const listingPostalCodeInput = document.getElementById('listingPostalCodeInput');
     const copyCommunityLocationBtn = document.getElementById('copyCommunityLocationBtn');
     const communityLocationDefaults = <%- JSON.stringify(lotData.communityLocation || {}) %>;
+    const adjustPinModalEl = document.getElementById('adjustPinModal');
+    const adjustPinStatusEl = document.getElementById('adjustPinStatus');
+    const adjustPinMapEl = document.getElementById('adjustPinMap');
+    const adjustPinLatitudeInput = document.getElementById('adjustPinLatitudeInput');
+    const adjustPinLongitudeInput = document.getElementById('adjustPinLongitudeInput');
+    const adjustPinSaveBtn = document.getElementById('adjustPinSaveBtn');
+    const adjustPinModal = adjustPinModalEl && window.bootstrap?.Modal
+      ? new window.bootstrap.Modal(adjustPinModalEl)
+      : null;
+    const googleMapsApiKey = <%- JSON.stringify(googleMapsApiKey || '') %>;
+    const listingAddress = <%- JSON.stringify(lotData.address || '') %>;
+    const communityName = <%- JSON.stringify(lotData.communityName || '') %>;
+    const DEFAULT_MAP_CENTER = Object.freeze({ lat: 39.8283, lng: -98.5795 });
+    const DEFAULT_MAP_ZOOM = 5;
+    const RESOLVED_MAP_ZOOM = 18;
+    let googleMapsPromise = null;
+    let adjustPinMap = null;
+    let adjustPinMarker = null;
+    let adjustPinPosition = null;
+    let adjustPinInteractionToken = 0;
 
     if (!publishBtn) return;
+
+    const formatCoordinateValue = (value) => {
+      if (!Number.isFinite(value)) return '';
+      return value.toFixed(6).replace(/\.?0+$/, '');
+    };
+
+    const parseCoordinateValue = (value, min, max) => {
+      if (value == null) return null;
+      const normalized = String(value).trim();
+      if (!normalized) return null;
+      const numeric = Number(normalized);
+      if (!Number.isFinite(numeric) || numeric < min || numeric > max) return null;
+      return numeric;
+    };
+
+    const getCurrentCoordinates = () => {
+      const lat = parseCoordinateValue(latitudeInput?.value, -90, 90);
+      const lng = parseCoordinateValue(longitudeInput?.value, -180, 180);
+      if (!Number.isFinite(lat) || !Number.isFinite(lng)) return null;
+      return { lat, lng };
+    };
+
+    const setAdjustPinStatus = (message, tone = 'muted') => {
+      if (!adjustPinStatusEl) return;
+      adjustPinStatusEl.textContent = message || '';
+      adjustPinStatusEl.classList.remove('text-muted', 'text-success', 'text-danger');
+      if (tone === 'success') {
+        adjustPinStatusEl.classList.add('text-success');
+        return;
+      }
+      if (tone === 'error') {
+        adjustPinStatusEl.classList.add('text-danger');
+        return;
+      }
+      adjustPinStatusEl.classList.add('text-muted');
+    };
+
+    const updateAdjustPinInputs = (position) => {
+      const lat = Number.isFinite(position?.lat) ? position.lat : null;
+      const lng = Number.isFinite(position?.lng) ? position.lng : null;
+      if (adjustPinLatitudeInput) adjustPinLatitudeInput.value = formatCoordinateValue(lat);
+      if (adjustPinLongitudeInput) adjustPinLongitudeInput.value = formatCoordinateValue(lng);
+    };
+
+    const setAdjustPinPosition = (position, options = {}) => {
+      const lat = parseCoordinateValue(position?.lat, -90, 90);
+      const lng = parseCoordinateValue(position?.lng, -180, 180);
+      if (!Number.isFinite(lat) || !Number.isFinite(lng)) return false;
+
+      adjustPinPosition = { lat, lng };
+      updateAdjustPinInputs(adjustPinPosition);
+
+      if (adjustPinMarker) {
+        adjustPinMarker.setPosition(adjustPinPosition);
+      }
+      if (adjustPinMap && options.pan !== false) {
+        adjustPinMap.panTo(adjustPinPosition);
+        if (Number.isFinite(options.zoom)) {
+          adjustPinMap.setZoom(options.zoom);
+        }
+      }
+      return true;
+    };
+
+    const buildGeocodeCandidates = () => {
+      const candidates = [];
+      const seen = new Set();
+      const pushCandidate = (label, query) => {
+        const normalized = {
+          address: String(query?.address || '').trim(),
+          city: String(query?.city || '').trim(),
+          state: String(query?.state || '').trim(),
+          zip: String(query?.zip || '').trim()
+        };
+        if (!normalized.address && !normalized.city && !normalized.state && !normalized.zip) return;
+        const key = JSON.stringify(normalized);
+        if (seen.has(key)) return;
+        seen.add(key);
+        candidates.push({ label, query: normalized });
+      };
+
+      const listingLocation = {
+        city: listingCityInput?.value ?? '',
+        state: listingStateInput?.value ?? '',
+        zip: listingPostalCodeInput?.value ?? ''
+      };
+      const communityLocation = {
+        city: communityLocationDefaults?.city || '',
+        state: communityLocationDefaults?.state || '',
+        zip: communityLocationDefaults?.postalCode || ''
+      };
+
+      pushCandidate('listing address', {
+        address: listingAddress,
+        ...listingLocation
+      });
+      pushCandidate('listing address with community area', {
+        address: listingAddress,
+        ...communityLocation
+      });
+      pushCandidate('listing location', listingLocation);
+      pushCandidate('community area', communityLocation);
+      pushCandidate('community name', {
+        address: communityName,
+        ...communityLocation
+      });
+
+      return candidates;
+    };
+
+    const geocodeCandidate = async (query) => {
+      const resp = await fetch('/listing-details/geocode', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        credentials: 'same-origin',
+        body: JSON.stringify(query)
+      });
+      const data = await resp.json().catch(() => ({}));
+      if (!resp.ok || !data?.success) {
+        throw new Error(data?.message || 'Geocoding failed');
+      }
+      const lat = parseCoordinateValue(data?.latitude, -90, 90);
+      const lng = parseCoordinateValue(data?.longitude, -180, 180);
+      if (!Number.isFinite(lat) || !Number.isFinite(lng)) {
+        throw new Error('Geocoding returned invalid coordinates');
+      }
+      return {
+        position: { lat, lng },
+        formattedAddress: data?.formattedAddress || ''
+      };
+    };
+
+    const resolveAdjustPinStart = async () => {
+      const currentCoordinates = getCurrentCoordinates();
+      if (currentCoordinates) {
+        return {
+          position: currentCoordinates,
+          message: 'Centered on saved listing coordinates.'
+        };
+      }
+
+      const candidates = buildGeocodeCandidates();
+      for (const candidate of candidates) {
+        try {
+          const geocoded = await geocodeCandidate(candidate.query);
+          return {
+            position: geocoded.position,
+            message: geocoded.formattedAddress
+              ? `Centered from ${candidate.label}: ${geocoded.formattedAddress}`
+              : `Centered from ${candidate.label}.`
+          };
+        } catch (_) {
+          // Try the next fallback.
+        }
+      }
+
+      return {
+        position: DEFAULT_MAP_CENTER,
+        message: 'No coordinates were found. Starting from the default map view.'
+      };
+    };
+
+    const loadGoogleMaps = async () => {
+      if (window.google?.maps) return window.google.maps;
+      if (!googleMapsApiKey) {
+        throw new Error('Google Maps is unavailable because GOOGLE_MAPS_API_KEY is not configured.');
+      }
+      if (!googleMapsPromise) {
+        googleMapsPromise = new Promise((resolve, reject) => {
+          const existing = document.querySelector('script[data-google-maps-loader="listing-details"]');
+          if (existing) {
+            existing.addEventListener('load', () => resolve(window.google?.maps), { once: true });
+            existing.addEventListener('error', () => reject(new Error('Unable to load Google Maps.')), { once: true });
+            return;
+          }
+
+          const script = document.createElement('script');
+          script.src = `https://maps.googleapis.com/maps/api/js?key=${encodeURIComponent(googleMapsApiKey)}&v=weekly`;
+          script.async = true;
+          script.defer = true;
+          script.dataset.googleMapsLoader = 'listing-details';
+          script.addEventListener('load', () => {
+            if (window.google?.maps) {
+              resolve(window.google.maps);
+              return;
+            }
+            reject(new Error('Google Maps loaded without the maps runtime.'));
+          }, { once: true });
+          script.addEventListener('error', () => reject(new Error('Unable to load Google Maps.')), { once: true });
+          document.head.appendChild(script);
+        });
+      }
+      return googleMapsPromise;
+    };
+
+    const ensureAdjustPinMap = async () => {
+      await loadGoogleMaps();
+      if (adjustPinMap) return adjustPinMap;
+      if (!adjustPinMapEl || !window.google?.maps) {
+        throw new Error('Map canvas is unavailable.');
+      }
+
+      adjustPinMap = new window.google.maps.Map(adjustPinMapEl, {
+        center: DEFAULT_MAP_CENTER,
+        zoom: DEFAULT_MAP_ZOOM,
+        mapTypeControl: false,
+        streetViewControl: false,
+        fullscreenControl: false,
+        gestureHandling: 'greedy'
+      });
+
+      adjustPinMarker = new window.google.maps.Marker({
+        map: adjustPinMap,
+        position: DEFAULT_MAP_CENTER,
+        draggable: true
+      });
+
+      adjustPinMap.addListener('click', (event) => {
+        const next = event?.latLng?.toJSON?.();
+        if (!next) return;
+        setAdjustPinPosition(next, { pan: false });
+        setAdjustPinStatus('Pin moved. Save to update the listing coordinates.');
+      });
+
+      adjustPinMarker.addListener('dragend', (event) => {
+        const next = event?.latLng?.toJSON?.();
+        if (!next) return;
+        setAdjustPinPosition(next, { pan: false });
+        setAdjustPinStatus('Pin moved. Save to update the listing coordinates.');
+      });
+
+      return adjustPinMap;
+    };
 
     const setPublishStatus = (message, tone = 'muted') => {
       if (!publishStatusEl) return;
@@ -1041,9 +1333,11 @@
             syncBtn.disabled = syncBtn.dataset.published !== 'true';
           }
         }
+        return true;
       } catch (err) {
         console.error(err);
         alert(err.message || 'Failed to save listing content');
+        return false;
       } finally {
         if (setSavingUi && saveContentBtn) {
           saveContentBtn.disabled = false;
@@ -1099,6 +1393,120 @@
       } finally {
         geocodeBtn.disabled = false;
         geocodeBtn.textContent = prev;
+      }
+    });
+
+    const openAdjustPinModal = async () => {
+      if (!adjustPinModal) {
+        alert('Pin editor is unavailable on this page.');
+        return;
+      }
+      adjustPinModal.show();
+    };
+
+    adjustPinBtn?.addEventListener('click', openAdjustPinModal);
+
+    adjustPinModalEl?.addEventListener('shown.bs.modal', async () => {
+      const token = ++adjustPinInteractionToken;
+      const currentCoordinates = getCurrentCoordinates();
+      if (adjustPinMapEl && !adjustPinMap) {
+        adjustPinMapEl.classList.remove('listing-pin-map--empty');
+        adjustPinMapEl.innerHTML = '';
+      }
+      if (currentCoordinates) {
+        updateAdjustPinInputs(currentCoordinates);
+      } else {
+        updateAdjustPinInputs({ lat: null, lng: null });
+      }
+      setAdjustPinStatus('Preparing map...');
+      if (adjustPinSaveBtn) adjustPinSaveBtn.disabled = true;
+
+      try {
+        await ensureAdjustPinMap();
+        const resolved = await resolveAdjustPinStart();
+        if (token !== adjustPinInteractionToken) return;
+        setAdjustPinPosition(resolved.position, {
+          zoom: currentCoordinates ? RESOLVED_MAP_ZOOM : (resolved.position === DEFAULT_MAP_CENTER ? DEFAULT_MAP_ZOOM : RESOLVED_MAP_ZOOM)
+        });
+        window.google?.maps?.event?.trigger?.(adjustPinMap, 'resize');
+        adjustPinMap?.setCenter(adjustPinPosition || DEFAULT_MAP_CENTER);
+        setAdjustPinStatus(resolved.message);
+      } catch (err) {
+        console.error(err);
+        const fallback = currentCoordinates || null;
+        if (fallback) {
+          updateAdjustPinInputs(fallback);
+        } else {
+          updateAdjustPinInputs({ lat: null, lng: null });
+        }
+        adjustPinPosition = fallback;
+        if (adjustPinMapEl && !adjustPinMap) {
+          adjustPinMapEl.innerHTML = '<div class="listing-pin-map__empty">Map unavailable. You can still edit latitude and longitude manually.</div>';
+          adjustPinMapEl.classList.add('listing-pin-map--empty');
+        }
+        setAdjustPinStatus(err.message || 'Unable to load the map.', 'error');
+      } finally {
+        if (token === adjustPinInteractionToken && adjustPinSaveBtn) {
+          adjustPinSaveBtn.disabled = false;
+        }
+      }
+    });
+
+    adjustPinModalEl?.addEventListener('hidden.bs.modal', () => {
+      adjustPinInteractionToken += 1;
+      setAdjustPinStatus('Preparing map...');
+      if (adjustPinSaveBtn) {
+        adjustPinSaveBtn.disabled = false;
+        adjustPinSaveBtn.textContent = 'Save pin';
+      }
+      if (adjustPinMapEl && !adjustPinMap) {
+        adjustPinMapEl.classList.remove('listing-pin-map--empty');
+        adjustPinMapEl.innerHTML = '';
+      }
+    });
+
+    const syncManualAdjustPinInputs = () => {
+      const lat = parseCoordinateValue(adjustPinLatitudeInput?.value, -90, 90);
+      const lng = parseCoordinateValue(adjustPinLongitudeInput?.value, -180, 180);
+      if (!Number.isFinite(lat) || !Number.isFinite(lng)) return;
+      if (adjustPinMapEl?.classList.contains('listing-pin-map--empty')) {
+        adjustPinPosition = { lat, lng };
+        setAdjustPinStatus('Coordinates updated manually.');
+        return;
+      }
+      if (setAdjustPinPosition({ lat, lng }, { zoom: RESOLVED_MAP_ZOOM })) {
+        setAdjustPinStatus('Coordinates updated manually.');
+      }
+    };
+
+    adjustPinLatitudeInput?.addEventListener('input', syncManualAdjustPinInputs);
+    adjustPinLongitudeInput?.addEventListener('input', syncManualAdjustPinInputs);
+
+    adjustPinSaveBtn?.addEventListener('click', async () => {
+      const lat = parseCoordinateValue(adjustPinLatitudeInput?.value, -90, 90);
+      const lng = parseCoordinateValue(adjustPinLongitudeInput?.value, -180, 180);
+      if (!Number.isFinite(lat) || !Number.isFinite(lng)) {
+        setAdjustPinStatus('Enter a valid latitude and longitude before saving.', 'error');
+        adjustPinLatitudeInput?.focus();
+        return;
+      }
+
+      if (latitudeInput) latitudeInput.value = formatCoordinateValue(lat);
+      if (longitudeInput) longitudeInput.value = formatCoordinateValue(lng);
+
+      const prevText = adjustPinSaveBtn.textContent;
+      adjustPinSaveBtn.disabled = true;
+      adjustPinSaveBtn.textContent = 'Saving...';
+      setAdjustPinStatus('Saving coordinates...');
+
+      const saved = await saveListingContent({ setSavingUi: false });
+      if (saved) {
+        setAdjustPinStatus('Coordinates saved.', 'success');
+        adjustPinModal.hide();
+      } else {
+        setAdjustPinStatus('Save failed. Review the values and try again.', 'error');
+        adjustPinSaveBtn.disabled = false;
+        adjustPinSaveBtn.textContent = prevText;
       }
     });
 

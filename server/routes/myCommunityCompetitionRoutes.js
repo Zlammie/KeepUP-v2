@@ -17,6 +17,7 @@ const SalesRecord = require('../models/salesRecord');
 const PriceRecord = require('../models/PriceRecord');
 const {
   normalizeCommunityAmenities,
+  normalizeLotSizes,
   normalizeProductTypes,
   normalizePromo,
   normalizeState
@@ -89,6 +90,28 @@ const normalizeAmenities = (input) => {
   }
   return out;
 };
+const normalizeTextList = (input) => {
+  if (input == null) return [];
+  const list = Array.isArray(input) ? input : String(input).split(/[,\n]/);
+  const values = [];
+  const seen = new Set();
+
+  list.forEach((entry) => {
+    const value = strOrEmpty(entry);
+    if (!value) return;
+    const key = value.toLowerCase();
+    if (seen.has(key)) return;
+    seen.add(key);
+    values.push(value);
+  });
+
+  return values;
+};
+const buildLegacyLotSizeText = ({ productTypes = [], lotSizes = [] } = {}) => {
+  if (Array.isArray(productTypes) && productTypes.length) return productTypes.join(', ');
+  if (Array.isArray(lotSizes) && lotSizes.length) return lotSizes.join(', ');
+  return '';
+};
 
 // YM helpers for QMI/sales logic
 const ymStrToInt = (ym) => {
@@ -156,7 +179,7 @@ router.get('/my-community-competition/:communityId',
       const { communityId } = req.params;
       if (!isObjectId(communityId)) return res.status(400).json({ error: 'Invalid communityId' });
 
-      const community = await assertCommunity(req, communityId, 'company name communityName builder builderName city state address zip totalLots lots communityAmenities hoaFee hoaFrequency tax schoolISD elementarySchool middleSchool highSchool');
+      const community = await assertCommunity(req, communityId, 'company name communityName builder builderName city state address zip totalLots lots communityAmenities hoaFee hoaFrequency tax schoolISD elementarySchool middleSchool highSchool productTypesOffered lotWidthsOffered');
 
       let profile = await CommunityCompetitionProfile.findOne({ community: community._id, ...baseFilter(req) })
         .populate('linkedCompetitions', 'communityName builderName city state market communityRef isInternal')
@@ -256,6 +279,17 @@ router.put('/my-community-competition/:communityId',
         : null;
       const rawGarage = String(body.garageType ?? '').trim();
       const garageType = rawGarage === 'Front' || rawGarage === 'Rear' ? rawGarage : undefined;
+      const legacyLotSizeInput = Object.prototype.hasOwnProperty.call(body, 'lotSize') ? body.lotSize : null;
+      const normalizedProductTypes = Object.prototype.hasOwnProperty.call(body, 'productTypes')
+        ? normalizeTextList(body.productTypes)
+        : normalizeTextList(legacyLotSizeInput);
+      const normalizedLotSizes = Object.prototype.hasOwnProperty.call(body, 'lotSizes')
+        ? normalizeLotSizes(body.lotSizes)
+        : normalizeLotSizes(legacyLotSizeInput);
+      const legacyLotSize = buildLegacyLotSizeText({
+        productTypes: normalizedProductTypes,
+        lotSizes: normalizedLotSizes
+      });
 
       const update = {
         promotion: strOrEmpty(body.promotion),
@@ -270,8 +304,11 @@ router.put('/my-community-competition/:communityId',
         'webData.city': cityToPersist,
         'webData.postalCode': postalToPersist,
         modelPlan: strOrEmpty(body.modelPlan),
-        lotSize: strOrEmpty(body.lotSize),
-        'webData.productTypes': normalizeProductTypes(body.lotSize),
+        lotSize: legacyLotSize,
+        productTypes: normalizedProductTypes,
+        lotSizes: normalizedLotSizes,
+        'webData.productTypes': normalizeProductTypes(normalizedProductTypes),
+        'webData.lotSizes': normalizedLotSizes,
         garageType,
         // ⬇️ Schools (these were fine, they just weren't making it to the doc due to scoping)
         schoolISD: strOrEmpty(body.schoolISD),

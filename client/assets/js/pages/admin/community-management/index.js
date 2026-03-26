@@ -1,17 +1,35 @@
-// Admin Community Management panel logic
 document.addEventListener('DOMContentLoaded', () => {
   const form = document.getElementById('community-form');
   const nameEl = document.getElementById('communityName');
   const projEl = document.getElementById('projectNumber');
+  const productTypesEl = document.getElementById('productTypesOffered');
+  const lotWidthsEl = document.getElementById('lotWidthsOffered');
+  const managementModeEl = document.getElementById('managementMode');
+  const stepOne = document.getElementById('communityCreateStep1');
+  const stepTwo = document.getElementById('communityCreateStep2');
+  const nextBtn = document.getElementById('communityStepNextBtn');
+  const backBtn = document.getElementById('communityStepBackBtn');
 
   const communitySelect = document.getElementById('communitySelect');
   const lotForm = document.getElementById('lotForm');
-  const lotsContainer = document.getElementById('lotsContainer');
-  const importForm = document.getElementById('importForm');
-  const importFile = document.getElementById('importFile');
 
-  const htmlesc = (s) =>
-    String(s ?? '').replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
+  const parseStringList = (value) =>
+    Array.from(new Set(
+      String(value || '')
+        .split(',')
+        .map((entry) => entry.trim())
+        .filter(Boolean)
+    ));
+
+  const parseNumberList = (value) =>
+    Array.from(new Set(
+      String(value || '')
+        .split(',')
+        .map((entry) => entry.trim())
+        .filter(Boolean)
+        .map((entry) => Number(entry))
+        .filter((entry) => Number.isFinite(entry) && entry >= 0)
+    )).sort((a, b) => a - b);
 
   async function loadCommunities() {
     try {
@@ -22,83 +40,44 @@ document.addEventListener('DOMContentLoaded', () => {
 
       if (communitySelect) {
         communitySelect.innerHTML = items
-          .map((c) => `<option value="${c._id}">${htmlesc(c.name)}</option>`)
+          .map((c) => {
+            const label = c.projectNumber ? `${c.name} - ${c.projectNumber}` : c.name;
+            return `<option value="${c._id}">${label}</option>`;
+          })
           .join('');
         const hasCurrent = items.some((c) => c._id === current);
         const next = hasCurrent ? current : items[0]?._id || '';
         communitySelect.value = next || '';
       }
-
-      if (lotsContainer) await renderLotsByCommunity(items);
     } catch (err) {
       console.error(err);
     }
   }
 
-  // Render grouped "lots by community" block
-  async function renderLotsByCommunity(communities) {
-    if (!lotsContainer) return;
+  nextBtn?.addEventListener('click', () => {
+    if (!nameEl?.value.trim() || !projEl?.value.trim()) {
+      alert('Community name and project number are required.');
+      return;
+    }
+    stepOne?.classList.add('d-none');
+    stepTwo?.classList.remove('d-none');
+  });
 
-    const enriched = await Promise.all(
-      communities.map(async (c) => {
-        if (Array.isArray(c.lots)) return c;
-        try {
-          const r = await fetch(`/api/communities/${c._id}/lots`);
-          if (r.ok) {
-            const lots = await r.json();
-            return { ...c, lots };
-          }
-        } catch (_) {}
-        return { ...c, lots: [] };
-      })
-    );
+  backBtn?.addEventListener('click', () => {
+    stepTwo?.classList.add('d-none');
+    stepOne?.classList.remove('d-none');
+  });
 
-    lotsContainer.innerHTML = enriched
-      .map((c) => {
-        const rows =
-          (c.lots || [])
-            .map(
-              (l) => `
-        <tr>
-          <td>${htmlesc(l.jobNumber)}</td>
-          <td>${htmlesc(l.lot)}</td>
-          <td>${htmlesc(l.block)}</td>
-          <td>${htmlesc(l.phase)}</td>
-          <td>${htmlesc(l.address)}</td>
-          <td>${htmlesc(l.floorPlan || '')}</td>
-          <td>${htmlesc(l.elevation || '')}</td>
-        </tr>
-      `
-            )
-            .join('') || `<tr><td colspan="7" class="text-muted">No lots yet</td></tr>`;
-
-        return `
-        <div class="mb-4">
-          <h5 class="mb-2">${htmlesc(c.name)}</h5>
-          <div class="table-responsive">
-            <table class="table table-sm table-bordered">
-              <thead>
-                <tr>
-                  <th>Job #</th><th>Lot</th><th>Block</th><th>Phase</th>
-                  <th>Address</th><th>Plan</th><th>Elev</th>
-                </tr>
-              </thead>
-              <tbody>${rows}</tbody>
-            </table>
-          </div>
-        </div>
-      `;
-      })
-      .join('');
-  }
-
-  // Create new community
   form?.addEventListener('submit', async (e) => {
     e.preventDefault();
     const payload = {
       name: nameEl.value.trim(),
       projectNumber: projEl.value.trim(),
+      productTypesOffered: parseStringList(productTypesEl?.value),
+      lotWidthsOffered: parseNumberList(lotWidthsEl?.value),
+      managementMode: managementModeEl?.value || 'later'
     };
+
     try {
       const res = await fetch('/api/communities', {
         method: 'POST',
@@ -110,17 +89,22 @@ document.addEventListener('DOMContentLoaded', () => {
         throw new Error(`Create failed (${res.status}): ${msg}`);
       }
       form.reset();
+      stepTwo?.classList.add('d-none');
+      stepOne?.classList.remove('d-none');
+      if (managementModeEl) managementModeEl.value = 'later';
       await loadCommunities();
+      document.dispatchEvent(new CustomEvent('cm:communityChanged'));
     } catch (err) {
       console.error(err);
       alert(err.message);
     }
   });
 
-  // Add lot to selected community
   lotForm?.addEventListener('submit', async (e) => {
     e.preventDefault();
     const communityId = communitySelect.value;
+    const lotWidthValue = document.getElementById('lotWidth')?.value;
+    const parsedLotWidth = lotWidthValue === '' || lotWidthValue == null ? null : Number(lotWidthValue);
     const body = {
       jobNumber: document.getElementById('jobNumber').value.trim(),
       lot: document.getElementById('lot').value.trim(),
@@ -129,6 +113,7 @@ document.addEventListener('DOMContentLoaded', () => {
       address: document.getElementById('address').value.trim(),
       floorPlan: document.getElementById('floorPlan').value.trim(),
       elevation: document.getElementById('elevation').value.trim(),
+      lotWidth: Number.isFinite(parsedLotWidth) && parsedLotWidth >= 0 ? parsedLotWidth : null
     };
     try {
       const res = await fetch(`/api/communities/${communityId}/lots`, {
@@ -141,7 +126,8 @@ document.addEventListener('DOMContentLoaded', () => {
         throw new Error(`Add lot failed (${res.status}): ${msg}`);
       }
       lotForm.reset();
-      await loadCommunities(); // refresh dropdown + lots block
+      await loadCommunities();
+      document.dispatchEvent(new CustomEvent('cm:communityChanged'));
     } catch (err) {
       console.error(err);
       alert(err.message);
@@ -149,7 +135,8 @@ document.addEventListener('DOMContentLoaded', () => {
   });
 
   document.addEventListener('cm:communitiesImported', loadCommunities);
+  document.addEventListener('cm:communityChanged', loadCommunities);
+  document.addEventListener('cm:communityClassificationSaved', loadCommunities);
 
-  // Initial load
   loadCommunities();
 });

@@ -47,6 +47,74 @@ function trimValue(value) {
   return value == null ? '' : String(value).trim();
 }
 
+function normalizeStringArrayInput(value) {
+  const source = Array.isArray(value)
+    ? value
+    : trimValue(value)
+      ? String(value).split(',')
+      : [];
+
+  return Array.from(new Set(
+    source
+      .map((entry) => trimValue(entry))
+      .filter(Boolean)
+  ));
+}
+
+function normalizeNumberArrayInput(value) {
+  const source = Array.isArray(value)
+    ? value
+    : trimValue(value)
+      ? String(value).split(',')
+      : [];
+
+  return Array.from(new Set(
+    source
+      .map((entry) => {
+        if (typeof entry === 'number') return Number.isFinite(entry) && entry >= 0 ? entry : null;
+        const trimmed = trimValue(entry);
+        if (!trimmed) return null;
+        const parsed = Number(trimmed);
+        return Number.isFinite(parsed) && parsed >= 0 ? parsed : null;
+      })
+      .filter((entry) => entry != null)
+  )).sort((a, b) => a - b);
+}
+
+function normalizeManagementMode(value) {
+  const normalized = trimValue(value).toLowerCase();
+  if (['single', 'grouped', 'later'].includes(normalized)) return normalized;
+  return 'later';
+}
+
+function normalizeLotWidthValue(value) {
+  if (value === '' || value == null) return null;
+  const parsed = Number(value);
+  return Number.isFinite(parsed) && parsed >= 0 ? parsed : null;
+}
+
+function normalizeCommunityClassificationInput(input = {}) {
+  return {
+    productTypesOffered: normalizeStringArrayInput(input.productTypesOffered),
+    lotWidthsOffered: normalizeNumberArrayInput(input.lotWidthsOffered),
+    managementMode: normalizeManagementMode(input.managementMode)
+  };
+}
+
+function mergeUniqueStrings(existing = [], incoming = []) {
+  return Array.from(new Set([
+    ...normalizeStringArrayInput(existing),
+    ...normalizeStringArrayInput(incoming)
+  ]));
+}
+
+function mergeUniqueNumbers(existing = [], incoming = []) {
+  return Array.from(new Set([
+    ...normalizeNumberArrayInput(existing),
+    ...normalizeNumberArrayInput(incoming)
+  ])).sort((a, b) => a - b);
+}
+
 function normalizePlanKeys(raw) {
   const base = trimValue(raw).toLowerCase();
   if (!base) return [];
@@ -512,6 +580,9 @@ function buildCommunityCsv(community, lots) {
     'Market',
     'City',
     'State',
+    'Product Types Offered',
+    'Lot Widths Offered',
+    'Management Mode',
     'Community Created At',
     'Community Updated At',
     'Lot ID',
@@ -519,6 +590,7 @@ function buildCommunityCsv(community, lots) {
     'Lot',
     'Block',
     'Phase',
+    'Lot Width',
     'Address',
     'Elevation',
     'Building Status',
@@ -608,6 +680,9 @@ function buildCommunityCsv(community, lots) {
       trimValue(community.market),
       trimValue(community.city),
       trimValue(community.state),
+      listToString(community.productTypesOffered),
+      listToString(community.lotWidthsOffered),
+      trimValue(community.managementMode),
       formatDate(community.createdAt),
       formatDate(community.updatedAt),
       toStringId(lot._id),
@@ -615,6 +690,7 @@ function buildCommunityCsv(community, lots) {
       trimValue(lot.lot),
       trimValue(lot.block),
       trimValue(lot.phase),
+      lot.lotWidth ?? '',
       trimValue(lot.address),
       trimValue(lot.elevation),
       trimValue(lot.buildingStatus),
@@ -698,6 +774,15 @@ function normalizeImportLotTuple(lot, block, phase) {
   return [lotKey, blockKey, phaseKey].join('|');
 }
 
+function buildImportGroupKey(group) {
+  return [
+    normalizeImportText(group?.name),
+    normalizeImportText(group?.projectNumber),
+    normalizeImportText(group?.city),
+    normalizeImportText(group?.state)
+  ].join('|');
+}
+
 function getRowValue(row, keys) {
   for (const key of keys) {
     if (row[key] != null && String(row[key]).trim() !== '') return row[key];
@@ -763,6 +848,7 @@ function createImportedLotFromRow(row, planKeyMap) {
   const fpId = normalizePlanKeys(fpRaw)
     .map((key) => planKeyMap.get(key))
     .find(Boolean) || null;
+  const lotWidth = normalizeLotWidthValue(getRowValue(row, ['Lot Width', 'LotWidth', 'Width']));
 
   return {
     jobNumber: String(getRowValue(row, ['Job Number', 'Job #']) || '').padStart(4, '0'),
@@ -771,7 +857,8 @@ function createImportedLotFromRow(row, planKeyMap) {
     phase: trimValue(getRowValue(row, ['Phase'])),
     address: trimValue(getRowValue(row, ['Address', 'Street Address'])),
     floorPlan: isObjectId(fpId) ? fpId : null,
-    elevation: trimValue(getRowValue(row, ['Elevation']))
+    elevation: trimValue(getRowValue(row, ['Elevation'])),
+    lotWidth
   };
 }
 
@@ -801,6 +888,9 @@ function parseCommunityImportRows(rows, planKeyMap) {
         city,
         state,
         market,
+        productTypesOffered: [],
+        lotWidthsOffered: [],
+        managementMode: 'later',
         lots: []
       });
     }
@@ -817,7 +907,7 @@ async function findLikelyCommunityMatch(req, group) {
     ...companyScoped,
     name: { $regex: `^${String(group.name).replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}$`, $options: 'i' }
   })
-    .select('name projectNumber city state lots')
+    .select('name projectNumber city state lots productTypesOffered lotWidthsOffered managementMode')
     .lean();
 
   if (!candidates.length) return null;
@@ -842,18 +932,26 @@ async function findLikelyCommunityMatch(req, group) {
 }
 
 function summarizeImportPreview(group, match) {
+  const classification = normalizeCommunityClassificationInput(group);
   return {
+    groupKey: buildImportGroupKey(group),
     importedCommunityName: group.name,
     projectNumber: group.projectNumber || '',
     city: group.city || '',
     state: group.state || '',
     importedLotCount: group.lots.length,
+    productTypesOffered: classification.productTypesOffered,
+    lotWidthsOffered: classification.lotWidthsOffered,
+    managementMode: classification.managementMode,
     matchedCommunity: match
       ? {
           id: String(match._id),
           name: match.name || '',
           projectNumber: trimValue(match.projectNumber),
-          lotCount: Array.isArray(match.lots) ? match.lots.length : 0
+          lotCount: Array.isArray(match.lots) ? match.lots.length : 0,
+          productTypesOffered: normalizeStringArrayInput(match.productTypesOffered),
+          lotWidthsOffered: normalizeNumberArrayInput(match.lotWidthsOffered),
+          managementMode: normalizeManagementMode(match.managementMode)
         }
       : null
   };
@@ -862,6 +960,8 @@ function summarizeImportPreview(group, match) {
 async function appendLotsToExistingCommunity(req, matchId, group) {
   const community = await Community.findOne({ _id: matchId, ...companyFilter(req) });
   if (!community) throw new Error('Matched community no longer exists');
+
+  const classification = normalizeCommunityClassificationInput(group);
 
   const existingKeys = indexExistingLotDuplicateKeys(community.lots || []);
   const incomingKeys = new Set();
@@ -885,6 +985,15 @@ async function appendLotsToExistingCommunity(req, matchId, group) {
 
   if (newLots.length) {
     community.lots.push(...newLots);
+  }
+
+  community.productTypesOffered = mergeUniqueStrings(community.productTypesOffered, classification.productTypesOffered);
+  community.lotWidthsOffered = mergeUniqueNumbers(community.lotWidthsOffered, classification.lotWidthsOffered);
+  if (!trimValue(community.managementMode) || community.managementMode === 'later') {
+    community.managementMode = classification.managementMode;
+  }
+
+  if (newLots.length || classification.productTypesOffered.length || classification.lotWidthsOffered.length || classification.managementMode !== 'later') {
     await community.save();
   }
 
@@ -899,6 +1008,7 @@ async function appendLotsToExistingCommunity(req, matchId, group) {
 }
 
 async function createCommunityFromImport(req, group) {
+  const classification = normalizeCommunityClassificationInput(group);
   const doc = await Community.create({
     company: isSuper(req) ? (req.body?.company || req.user.company) : req.user.company,
     name: group.name,
@@ -906,6 +1016,9 @@ async function createCommunityFromImport(req, group) {
     city: group.city || '',
     state: group.state || '',
     market: group.market || '',
+    productTypesOffered: classification.productTypesOffered,
+    lotWidthsOffered: classification.lotWidthsOffered,
+    managementMode: classification.managementMode,
     lots: group.lots
   });
 
@@ -922,12 +1035,7 @@ async function createCommunityFromImport(req, group) {
 async function commitCommunityImport(req, groups, action, matchMap = new Map()) {
   const results = [];
   for (const group of groups) {
-    const groupKey = [
-      normalizeImportText(group.name),
-      normalizeImportText(group.projectNumber),
-      normalizeImportText(group.city),
-      normalizeImportText(group.state)
-    ].join('|');
+    const groupKey = buildImportGroupKey(group);
     const matchedCommunity = matchMap.get(groupKey) || null;
 
     if (action === 'append' && matchedCommunity?._id) {
@@ -1000,25 +1108,12 @@ router.post('/import',
 
       for (const group of groups) {
         const match = await findLikelyCommunityMatch(req, group);
-        const groupKey = [
-          normalizeImportText(group.name),
-          normalizeImportText(group.projectNumber),
-          normalizeImportText(group.city),
-          normalizeImportText(group.state)
-        ].join('|');
+        const groupKey = buildImportGroupKey(group);
         if (match) matchMap.set(groupKey, match);
         previews.push(summarizeImportPreview(group, match));
       }
 
       const matchedPreviews = previews.filter((preview) => preview.matchedCommunity);
-      if (!matchedPreviews.length) {
-        const summary = await commitCommunityImport(req, groups, 'create');
-        return res.json({
-          success: true,
-          requiresDecision: false,
-          summary
-        });
-      }
 
       const token = storePendingCommunityImport(req, {
         groups,
@@ -1069,12 +1164,27 @@ router.post('/import/confirm',
         return res.status(410).json({ error: 'Import preview expired. Please upload the file again.' });
       }
 
+      const classificationByGroup = req.body?.classificationByGroup && typeof req.body.classificationByGroup === 'object'
+        ? req.body.classificationByGroup
+        : {};
+
+      const groups = (Array.isArray(pendingImport.groups) ? pendingImport.groups : []).map((group) => {
+        const groupKey = buildImportGroupKey(group);
+        const classification = normalizeCommunityClassificationInput(classificationByGroup[groupKey] || {});
+        return {
+          ...group,
+          productTypesOffered: classification.productTypesOffered,
+          lotWidthsOffered: classification.lotWidthsOffered,
+          managementMode: classification.managementMode
+        };
+      });
+
       const matchMap = new Map(
         Object.entries(pendingImport.matchMap || {}).map(([key, value]) => [key, value])
       );
       const summary = await commitCommunityImport(
         req,
-        Array.isArray(pendingImport.groups) ? pendingImport.groups : [],
+        groups,
         action === 'append' ? 'append' : 'create',
         matchMap
       );
@@ -1097,7 +1207,9 @@ router.post('/',
   requireRole(...WRITE_ROLES),
   async (req, res) => {
     try {
-      const { name, projectNumber } = req.body;
+      const name = trimValue(req.body?.name);
+      const projectNumber = trimValue(req.body?.projectNumber);
+      const classification = normalizeCommunityClassificationInput(req.body || {});
       if (!name || !projectNumber) return res.status(400).json({ error: 'Missing required fields' });
 
       const filter = { name, projectNumber, ...companyFilter(req) };
@@ -1106,7 +1218,12 @@ router.post('/',
 
       const doc = await Community.create({
         company: isSuper(req) ? (req.body.company || req.user.company) : req.user.company,
-        name, projectNumber, lots: []
+        name: trimValue(name),
+        projectNumber: trimValue(projectNumber),
+        productTypesOffered: classification.productTypesOffered,
+        lotWidthsOffered: classification.lotWidthsOffered,
+        managementMode: classification.managementMode,
+        lots: []
       });
       res.status(201).json(doc);
     } catch (err) {
@@ -1143,7 +1260,7 @@ router.get('/',
         : {};
 
       const communities = await Community.find({ ...accessFilter, ...textFilter })
-        .select('name city state market')
+        .select('name projectNumber city state market productTypesOffered lotWidthsOffered managementMode')
         .sort({ name: 1 })
         .lean();
 
@@ -1653,12 +1770,13 @@ router.post('/:id/lots',
       if (!community) return;
 
       const {
-        jobNumber, lot, block, phase, address, floorPlan = '', elevation = ''
+        jobNumber, lot, block, phase, address, floorPlan = '', elevation = '', lotWidth = null
       } = req.body;
 
       const newLot = {
         jobNumber: String(jobNumber || '').padStart(4, '0'),
         lot: lot || '', block: block || '', phase: phase || '', address: address || '',
+        lotWidth: normalizeLotWidthValue(lotWidth),
         floorPlan: isObjectId(floorPlan) ? floorPlan : null,
         elevation: elevation || '',
         status: '',
@@ -1700,7 +1818,7 @@ router.get('/select-options',
       const wantCompanyScope = ['company', 'all'].includes(scope);
 
       const rows = await Community.find({ ...companyFilter(req) })
-        .select('name communityName builder builderName')
+        .select('name projectNumber communityName builder builderName')
         .sort({ name: 1, communityName: 1 })
         .lean();
 
@@ -1711,7 +1829,8 @@ router.get('/select-options',
       const data = filtered.map(c => {
         const name = c.name || c.communityName || '(unnamed)';
         const builder = c.builder || c.builderName || '';
-        return { id: c._id, label: builder ? `${builder} ??? ${name}` : name };
+        const label = c.projectNumber ? `${name} - ${c.projectNumber}` : name;
+        return { id: c._id, label: builder ? `${builder} - ${label}` : label };
       });
       res.json(data);
     } catch (e) { next(e); }
@@ -1916,6 +2035,59 @@ router.get('/:id/lots/:lotId',
   }
 );
 
+// PUT /api/communities/:communityId/lots/bulk-width  (USER+)
+router.put('/:communityId/lots/bulk-width',
+  requireRole(...WRITE_ROLES),
+  async (req, res) => {
+    const { communityId } = req.params;
+    const lotIds = Array.isArray(req.body?.lotIds) ? req.body.lotIds : [];
+    const normalizedIds = Array.from(new Set(
+      lotIds
+        .map((value) => trimValue(value))
+        .filter((value) => isObjectId(value))
+    ));
+
+    if (!normalizedIds.length) {
+      return res.status(400).json({ error: 'At least one lot id is required' });
+    }
+
+    if (!hasCommunityAccess(req.user, communityId)) {
+      return res.status(404).json({ error: 'Community not found' });
+    }
+
+    const lotWidth = normalizeLotWidthValue(req.body?.lotWidth);
+    const objectIds = normalizedIds.map((id) => new mongoose.Types.ObjectId(id));
+
+    try {
+      const updated = await Community.findOneAndUpdate(
+        { _id: communityId, ...companyFilter(req) },
+        { $set: { 'lots.$[lot].lotWidth': lotWidth } },
+        {
+          new: true,
+          runValidators: true,
+          arrayFilters: [{ 'lot._id': { $in: objectIds } }]
+        }
+      ).lean();
+
+      if (!updated) return res.status(404).json({ error: 'Community not found' });
+
+      const lots = Array.isArray(updated.lots)
+        ? updated.lots.filter((lot) => normalizedIds.includes(String(lot._id)))
+        : [];
+
+      return res.json({
+        ok: true,
+        lotWidth,
+        updatedCount: lots.length,
+        lots
+      });
+    } catch (err) {
+      console.error('Bulk lot width update error:', err);
+      return res.status(500).json({ error: err.message });
+    }
+  }
+);
+
 // ??????????????????????????????????????????????????????????????????????????? update lot (generic) ???????????????????????????????????????????????????????????????????????????
 // PUT /api/communities/:communityId/lots/:lotId  (USER+)
 router.put('/:communityId/lots/:lotId',
@@ -1995,8 +2167,12 @@ router.put('/:id',
 
     try {
       const update = {};
+      const classification = normalizeCommunityClassificationInput(req.body || {});
       if (typeof name === 'string') update.name = name.trim();
       if (typeof projectNumber === 'string') update.projectNumber = projectNumber.trim();
+      if (req.body?.productTypesOffered !== undefined) update.productTypesOffered = classification.productTypesOffered;
+      if (req.body?.lotWidthsOffered !== undefined) update.lotWidthsOffered = classification.lotWidthsOffered;
+      if (req.body?.managementMode !== undefined) update.managementMode = classification.managementMode;
 
       const updated = await Community.findOneAndUpdate(
         { _id: id, ...companyFilter(req) },

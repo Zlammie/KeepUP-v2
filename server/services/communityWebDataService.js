@@ -163,6 +163,36 @@ const normalizeProductTypes = (input) => {
   return results;
 };
 
+const normalizeLotSizes = (input) => {
+  if (input == null) return [];
+
+  const splitText = (value) => String(value)
+    .split(/[,\n]/)
+    .map((part) => part.trim())
+    .filter(Boolean);
+
+  const list = Array.isArray(input) ? input : splitText(input);
+  const results = [];
+  const seen = new Set();
+
+  list.forEach((entry) => {
+    if (entry == null || entry === '') return;
+    const raw = typeof entry === 'number' ? String(entry) : String(entry).trim();
+    if (!raw) return;
+
+    const normalizedText = raw.replace(/[^0-9.]+/g, '').trim();
+    const parsed = Number(normalizedText);
+    if (!Number.isFinite(parsed) || parsed < 0) return;
+
+    const value = Number(parsed.toFixed(3));
+    if (seen.has(value)) return;
+    seen.add(value);
+    results.push(value);
+  });
+
+  return results;
+};
+
 const normalizePromoString = (value) => {
   const normalized = trimString(value).replace(/\s+/g, ' ');
   return normalized || '';
@@ -372,6 +402,11 @@ const normalizeCompetitionWebData = (raw, { totalLotsFallback = null } = {}) => 
     : undefined;
   if (productTypes !== undefined) normalized.productTypes = productTypes;
 
+  const lotSizes = hasOwn(source, 'lotSizes')
+    ? normalizeLotSizes(source.lotSizes)
+    : undefined;
+  if (lotSizes !== undefined) normalized.lotSizes = lotSizes;
+
   return normalized;
 };
 
@@ -406,6 +441,7 @@ const hasMeaningfulCanonicalWebData = (raw) => {
   if (Array.isArray(normalized.amenities) && normalized.amenities.length) return true;
   if (normalized.promo && typeof normalized.promo === 'object') return true;
   if (Array.isArray(normalized.productTypes) && normalized.productTypes.length) return true;
+  if (Array.isArray(normalized.lotSizes) && normalized.lotSizes.length) return true;
 
   if (normalized.earnestMoney.amount != null) return true;
   if (normalized.earnestMoney.visibility !== 'hidden') return true;
@@ -499,9 +535,19 @@ function competitionProfileToWebData(profile, community = null) {
   if (legacyAmenities.length) {
     legacyFallback.amenities = legacyAmenities;
   }
-  const legacyProductTypes = normalizeProductTypes(profile?.lotSize);
+  const profileProductTypes = normalizeProductTypes(profile?.productTypes);
+  const legacyProductTypes = profileProductTypes.length
+    ? profileProductTypes
+    : normalizeProductTypes(profile?.lotSize);
   if (legacyProductTypes.length) {
     legacyFallback.productTypes = legacyProductTypes;
+  }
+  const profileLotSizes = normalizeLotSizes(profile?.lotSizes);
+  const legacyLotSizes = profileLotSizes.length
+    ? profileLotSizes
+    : normalizeLotSizes(profile?.lotSize);
+  if (legacyLotSizes.length) {
+    legacyFallback.lotSizes = legacyLotSizes;
   }
   const legacyPromo = normalizePromo(profile?.promotion);
   if (legacyPromo) {
@@ -519,6 +565,9 @@ function competitionProfileToWebData(profile, community = null) {
   const canonicalProductTypes = rawCanonical && hasOwn(rawCanonical, 'productTypes')
     ? normalizeProductTypes(rawCanonical.productTypes)
     : undefined;
+  const canonicalLotSizes = rawCanonical && hasOwn(rawCanonical, 'lotSizes')
+    ? normalizeLotSizes(rawCanonical.lotSizes)
+    : undefined;
   const needsLegacyStateFallback =
     !trimString(merged.state) && trimString(legacyFallback.state);
   if (
@@ -526,6 +575,7 @@ function competitionProfileToWebData(profile, community = null) {
     || (
     ((!canonicalAmenities || !canonicalAmenities.length) && legacyAmenities.length)
     || ((!canonicalProductTypes || !canonicalProductTypes.length) && legacyProductTypes.length)
+    || ((!canonicalLotSizes || !canonicalLotSizes.length) && legacyLotSizes.length)
     )
   ) {
     return normalizeCompetitionWebData({
@@ -536,6 +586,9 @@ function competitionProfileToWebData(profile, community = null) {
         : {}),
       ...((!canonicalProductTypes || !canonicalProductTypes.length) && legacyProductTypes.length
         ? { productTypes: legacyProductTypes }
+        : {}),
+      ...((!canonicalLotSizes || !canonicalLotSizes.length) && legacyLotSizes.length
+        ? { lotSizes: legacyLotSizes }
         : {})
     });
   }
@@ -616,6 +669,9 @@ function mergeCompetitionWebData(existingWebData, patch) {
   if (hasOwn(incoming, 'productTypes')) {
     merged.productTypes = incoming.productTypes;
   }
+  if (hasOwn(incoming, 'lotSizes')) {
+    merged.lotSizes = incoming.lotSizes;
+  }
   if (hasOwn(incoming, 'earnestMoney') && incoming.earnestMoney && typeof incoming.earnestMoney === 'object') {
     merged.earnestMoney = { ...merged.earnestMoney, ...incoming.earnestMoney };
   }
@@ -635,6 +691,15 @@ function competitionWebDataToProfileSet(webData) {
   if (normalized.hasMUD) feeTypes.push('MUD');
   if (normalized.hasPID) feeTypes.push('PID');
   if (!feeTypes.length) feeTypes.push('None');
+  const normalizedProductTypeLabels = Array.isArray(normalized.productTypes)
+    ? normalized.productTypes.map((item) => item?.label).filter(Boolean)
+    : [];
+  const normalizedLotSizes = Array.isArray(normalized.lotSizes)
+    ? normalized.lotSizes.filter((value) => Number.isFinite(Number(value))).map((value) => Number(value))
+    : [];
+  const legacyLotSize = normalizedProductTypeLabels.length
+    ? normalizedProductTypeLabels.join(', ')
+    : (normalizedLotSizes.length ? normalizedLotSizes.join(', ') : '');
 
   return {
     webData: {
@@ -665,8 +730,12 @@ function competitionWebDataToProfileSet(webData) {
     ...(hasOwn(normalized, 'promo')
       ? { promotion: promoToLegacyText(normalized.promo) }
       : {}),
-    ...(hasOwn(normalized, 'productTypes')
-      ? { lotSize: Array.isArray(normalized.productTypes) ? normalized.productTypes.map((item) => item?.label).filter(Boolean).join(', ') : '' }
+    ...(hasOwn(normalized, 'productTypes') || hasOwn(normalized, 'lotSizes')
+      ? {
+        lotSize: legacyLotSize,
+        productTypes: normalizedProductTypeLabels,
+        lotSizes: normalizedLotSizes
+      }
       : {}),
     earnestAmount: normalized.earnestMoney.amount,
     realtorCommission: normalized.realtorCommission.amount
@@ -707,6 +776,7 @@ module.exports = {
   normalizeCommunityAmenities,
   normalizeCompetitionWebData,
   normalizePromo,
+  normalizeLotSizes,
   normalizeProductTypes,
   normalizeState,
   normalizeTaxRateInput

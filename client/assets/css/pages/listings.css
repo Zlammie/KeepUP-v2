@@ -371,9 +371,39 @@
   display: block;
 }
 
+.listing-pin-map {
+  width: 100%;
+  min-height: 380px;
+  border: 1px solid #d9e2ec;
+  border-radius: 12px;
+  overflow: hidden;
+  background: #f8fafc;
+}
+
+.listing-pin-map--empty {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.listing-pin-map__empty {
+  padding: 20px;
+  text-align: center;
+  color: #475569;
+  font-size: 14px;
+}
+
+.listing-pin-modal__status {
+  min-height: 1.25rem;
+}
+
 @media (max-width: 576px) {
   .listing-details__header {
     padding-bottom: 12px;
+  }
+
+  .listing-pin-map {
+    min-height: 300px;
   }
 }
 

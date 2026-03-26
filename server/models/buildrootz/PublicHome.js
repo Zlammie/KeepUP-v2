@@ -71,6 +71,7 @@ const PublicHomeSchema = new Schema({
   },
 
   lotSize: { type: String, default: '' },
+  lotWidth: { type: Number, default: null },
 
   description: { type: String, default: '' },
   highlights:  { type: String, default: '' },

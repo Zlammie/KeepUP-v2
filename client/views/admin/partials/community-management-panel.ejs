@@ -1,74 +1,75 @@
-  <div class="d-flex flex-wrap justify-content-between align-items-center mb-3">
-    <h1 class="mb-0">Community Management</h1>
-    <div class="btn-group cm-tab-buttons" role="group" aria-label="Community management tabs">
-      <button type="button" class="btn btn-outline-primary active" data-tab-target="cm-create-tab">Create New Community</button>
-      <button type="button" class="btn btn-outline-primary" data-tab-target="cm-manage-tab">Manage Existing Community</button>
-    </div>
+<div class="d-flex flex-wrap justify-content-between align-items-center mb-3">
+  <h1 class="mb-0">Community Management</h1>
+  <div class="btn-group cm-tab-buttons" role="group" aria-label="Community management tabs">
+    <button type="button" class="btn btn-outline-primary active" data-tab-target="cm-create-tab">Create New Community</button>
+    <button type="button" class="btn btn-outline-primary" data-tab-target="cm-manage-tab">Manage Existing Community</button>
   </div>
+</div>
 
-  <div class="community-management-layout">
-    <section class="cm-create tab-panel" id="cm-create-tab">
-      <div class="cm-card">
-        <h2 class="h5 mb-3">Import Communities from Excel/CSV</h2>
-        <form id="importForm" enctype="multipart/form-data" method="POST" action="/api/communities/import">
-          <div id="importDropzone" class="dropzone" tabindex="0" aria-label="Upload CSV or XLSX by drag and drop">
-            <div class="dz-inner">
-              <div class="dz-icon">📄</div>
-              <div class="dz-text">
-                <strong>Drag & drop</strong> your .csv or .xlsx here<br/>
-                or <button type="button" id="browseBtn" class="btn btn-link p-0 align-baseline">browse</button>
-              </div>
+<div class="community-management-layout">
+  <section class="cm-create tab-panel" id="cm-create-tab">
+    <div class="cm-card">
+      <h2 class="h5 mb-3">Import Communities from Excel/CSV</h2>
+      <form id="importForm" enctype="multipart/form-data" method="POST" action="/api/communities/import">
+        <div id="importDropzone" class="dropzone" tabindex="0" aria-label="Upload CSV or XLSX by drag and drop">
+          <div class="dz-inner">
+            <div class="dz-icon">📄</div>
+            <div class="dz-text">
+              <strong>Drag & drop</strong> your `.csv` or `.xlsx` here<br/>
+              or <button type="button" id="browseBtn" class="btn btn-link p-0 align-baseline">browse</button>
             </div>
-            <input type="file" id="importFile" name="file" accept=".csv,.xlsx" hidden required />
           </div>
+          <input type="file" id="importFile" name="file" accept=".csv,.xlsx" hidden required />
+        </div>
 
-          <div class="dz-meta mt-2">
-            <span id="fileName" class="text-muted">No file selected</span>
-          </div>
+        <div class="dz-meta mt-2">
+          <span id="fileName" class="text-muted">No file selected</span>
+        </div>
 
-          <div class="mt-3 d-flex flex-wrap gap-2">
-            <button type="submit" class="btn btn-primary" id="uploadBtn" disabled>Upload</button>
-            <a href="/assets/samples/community-import-sample.csv" class="btn btn-outline-secondary">Download sample CSV</a>
-          </div>
+        <div class="mt-3 d-flex flex-wrap gap-2">
+          <button type="submit" class="btn btn-primary" id="uploadBtn" disabled>Upload</button>
+          <a href="/assets/samples/community-import-sample.csv" class="btn btn-outline-secondary">Download sample CSV</a>
+        </div>
 
-          <div class="progress mt-2 d-none" id="uploadProgress" aria-hidden="true">
-            <div class="progress-bar" role="progressbar" style="width: 0%"></div>
-          </div>
+        <div class="progress mt-2 d-none" id="uploadProgress" aria-hidden="true">
+          <div class="progress-bar" role="progressbar" style="width: 0%"></div>
+        </div>
 
-          <div id="importMessage" class="alert d-none mt-3" role="status"></div>
-        </form>
+        <div id="importMessage" class="alert d-none mt-3" role="status"></div>
+      </form>
 
-        <div id="importDecisionModal" class="cm-import-modal" hidden>
-          <div class="cm-import-modal__backdrop" data-import-modal-close></div>
-          <div class="cm-import-modal__dialog" role="dialog" aria-modal="true" aria-labelledby="importDecisionTitle">
-            <div class="cm-import-modal__header">
-              <div>
-                <p class="text-uppercase text-muted small fw-semibold mb-1">Import Decision</p>
-                <h3 class="h5 mb-0" id="importDecisionTitle">Existing community match detected</h3>
-              </div>
-              <button type="button" class="btn-close" aria-label="Close" data-import-modal-close></button>
+      <div id="importDecisionModal" class="cm-import-modal" hidden>
+        <div class="cm-import-modal__backdrop" data-import-modal-close></div>
+        <div class="cm-import-modal__dialog" role="dialog" aria-modal="true" aria-labelledby="importDecisionTitle">
+          <div class="cm-import-modal__header">
+            <div>
+              <p class="text-uppercase text-muted small fw-semibold mb-1">Import Setup</p>
+              <h3 class="h5 mb-0" id="importDecisionTitle">Review import classification</h3>
             </div>
-            <div class="cm-import-modal__body">
-              <p class="text-muted mb-3" id="importDecisionIntro">
-                Review the imported community details and choose how to continue.
-              </p>
-              <div id="importDecisionDetails"></div>
-            </div>
-            <div class="cm-import-modal__footer">
-              <button type="button" class="btn btn-outline-secondary" id="importCancelBtn" data-import-modal-close>Cancel</button>
-              <button type="button" class="btn btn-outline-primary" id="importCreateNewBtn">Create New Community Anyway</button>
-              <button type="button" class="btn btn-primary" id="importAppendBtn">Add Lots to Existing Community</button>
-            </div>
+            <button type="button" class="btn-close" aria-label="Close" data-import-modal-close></button>
+          </div>
+          <div class="cm-import-modal__body">
+            <p class="text-muted mb-3" id="importDecisionIntro">
+              Review the imported community details and choose how to continue.
+            </p>
+            <div id="importDecisionDetails"></div>
+          </div>
+          <div class="cm-import-modal__footer">
+            <button type="button" class="btn btn-outline-secondary" id="importCancelBtn" data-import-modal-close>Cancel</button>
+            <button type="button" class="btn btn-outline-primary" id="importCreateNewBtn">Create New Community Anyway</button>
+            <button type="button" class="btn btn-primary" id="importAppendBtn">Add Lots to Existing Community</button>
           </div>
         </div>
       </div>
+    </div>
 
-      <hr class="cm-divider" />
+    <hr class="cm-divider" />
 
-      <div class="cm-split">
-        <div class="cm-card">
-          <h2 class="h5 mb-3">Add New Community</h2>
-          <form id="community-form" class="cm-form">
+    <div class="cm-split">
+      <div class="cm-card">
+        <h2 class="h5 mb-3">Add New Community</h2>
+        <form id="community-form" class="cm-form">
+          <div id="communityCreateStep1">
             <label class="form-label">Community Name
               <input type="text" id="communityName" class="form-control" required />
             </label>
@@ -76,643 +77,926 @@
               <input type="text" id="projectNumber" class="form-control" required />
             </label>
             <div class="mt-2">
+              <button type="button" class="btn btn-outline-primary" id="communityStepNextBtn">Continue to Classification</button>
+            </div>
+          </div>
+
+          <div id="communityCreateStep2" class="d-none">
+            <p class="text-muted small mb-3">Classification is descriptive only. It does not split communities or create identity rules.</p>
+            <label class="form-label">Product Types Included
+              <input type="text" id="productTypesOffered" class="form-control" placeholder="Townhome, Single Family" />
+              <small class="text-muted">Comma-separated values.</small>
+            </label>
+            <label class="form-label">Lot Widths Represented
+              <input type="text" id="lotWidthsOffered" class="form-control" placeholder="24, 45, 55" />
+              <small class="text-muted">Comma-separated numbers.</small>
+            </label>
+            <label class="form-label">Management Mode
+              <select id="managementMode" class="form-select">
+                <option value="later">Decide Later</option>
+                <option value="single">Manage as Single Community</option>
+                <option value="grouped">Manage as Grouped Offering</option>
+              </select>
+            </label>
+            <div class="mt-2 d-flex gap-2">
+              <button type="button" class="btn btn-outline-secondary" id="communityStepBackBtn">Back</button>
               <button type="submit" class="btn btn-primary">Create Community</button>
             </div>
-          </form>
-        </div>
+          </div>
+        </form>
+      </div>
 
-        <div class="cm-card">
-          <h2 class="h5 mb-3">Add Lot to Community</h2>
-          <form id="lotForm" class="cm-form">
-            <label class="form-label">Community
-              <select id="communitySelect" class="form-select" required></select>
+      <div class="cm-card">
+        <h2 class="h5 mb-3">Add Lot to Community</h2>
+        <form id="lotForm" class="cm-form">
+          <label class="form-label">Community
+            <select id="communitySelect" class="form-select" required></select>
+          </label>
+          <div class="cm-field-pair">
+            <label class="form-label">Job Number
+              <input type="text" id="jobNumber" class="form-control" required />
             </label>
-            <div class="cm-field-pair">
-              <label class="form-label">Job Number
-                <input type="text" id="jobNumber" class="form-control" required />
-              </label>
-              <label class="form-label">Address
-                <input type="text" id="address" class="form-control" required />
-              </label>
-            </div>
-            <div class="cm-field-pair">
-              <label class="form-label">Lot
-                <input type="text" id="lot" class="form-control" required />
-              </label>
-              <label class="form-label">Block
-                <input type="text" id="block" class="form-control" required />
-              </label>
-              <label class="form-label">Phase
-                <input type="text" id="phase" class="form-control" required />
-              </label>
-            </div>
-            <div class="cm-field-pair">
-              <label class="form-label">Floor Plan
-                <input type="text" id="floorPlan" class="form-control" />
-              </label>
-              <label class="form-label">Elevation
-                <input type="text" id="elevation" class="form-control" />
-              </label>
-            </div>
-            <div class="mt-2">
-              <button type="submit" class="btn btn-primary">Add Lot</button>
-            </div>
-          </form>
-        </div>
+            <label class="form-label">Address
+              <input type="text" id="address" class="form-control" required />
+            </label>
+          </div>
+          <div class="cm-field-pair">
+            <label class="form-label">Lot
+              <input type="text" id="lot" class="form-control" required />
+            </label>
+            <label class="form-label">Block
+              <input type="text" id="block" class="form-control" required />
+            </label>
+            <label class="form-label">Phase
+              <input type="text" id="phase" class="form-control" required />
+            </label>
+          </div>
+          <div class="cm-field-pair">
+            <label class="form-label">Floor Plan
+              <input type="text" id="floorPlan" class="form-control" />
+            </label>
+            <label class="form-label">Elevation
+              <input type="text" id="elevation" class="form-control" />
+            </label>
+            <label class="form-label">Lot Width
+              <input type="number" id="lotWidth" class="form-control" min="0" step="1" />
+            </label>
+          </div>
+          <div class="mt-2">
+            <button type="submit" class="btn btn-primary">Add Lot</button>
+          </div>
+        </form>
       </div>
-    </section>
+    </div>
+  </section>
 
-    <section class="cm-card cm-table-card tab-panel" id="cm-manage-tab" style="display:none;">
-      <div class="d-flex flex-wrap justify-content-between align-items-center mb-3 gap-2">
+  <section class="cm-card cm-table-card tab-panel" id="cm-manage-tab" style="display:none;">
+    <div class="d-flex flex-wrap justify-content-between align-items-center mb-3 gap-2">
+      <div>
+        <h2 class="h5 mb-1">Lots by Community</h2>
+        <p class="text-muted small mb-0">Search, edit, or delete lots for a selected community.</p>
+      </div>
+    </div>
+
+    <div class="cm-toolbar d-flex flex-wrap align-items-center gap-2 mb-3">
+      <label class="me-2 mb-0 cm-toolbar-field">
+        <span class="me-1">Community</span>
+        <select id="cm-community-filter" class="form-select form-select-sm"></select>
+      </label>
+
+      <label class="mb-0 cm-toolbar-field cm-toolbar-field--search">
+        <span class="visually-hidden">Search address</span>
+        <input id="cm-lot-search" class="form-control form-control-sm" placeholder="Search address..." />
+      </label>
+
+      <div class="vr mx-2 d-none d-md-block"></div>
+
+      <button id="cm-edit-toggle" class="btn btn-sm btn-secondary" aria-pressed="false">Edit Mode</button>
+      <button id="cm-delete-toggle" class="btn btn-sm btn-danger" aria-pressed="false">Delete Mode</button>
+      <small class="text-muted ms-2">Tip: Edit cells then press Enter or blur to save.</small>
+
+      <div class="ms-auto d-flex flex-wrap align-items-center gap-2">
+        <button id="cm-export-csv" type="button" class="btn btn-sm btn-outline-primary">Export CSV</button>
+        <button id="deleteCommunityBtn" type="button" class="btn btn-sm btn-outline-danger">Delete Community</button>
+      </div>
+    </div>
+
+    <div class="cm-card mb-3">
+      <div class="d-flex flex-wrap justify-content-between align-items-center gap-2 mb-3">
         <div>
-          <h2 class="h5 mb-1">Lots by Community</h2>
-          <p class="text-muted small mb-0">Search, edit, or delete lots for a selected community.</p>
+          <h3 class="h6 mb-1">Community Classification</h3>
+          <p class="text-muted small mb-0">Update descriptive metadata for the selected community.</p>
         </div>
+        <button id="cm-community-classification-save" type="button" class="btn btn-sm btn-primary">Save Classification</button>
       </div>
-
-      <div class="cm-toolbar d-flex flex-wrap align-items-center gap-2 mb-3">
-        <label class="me-2 mb-0 cm-toolbar-field">
-          <span class="me-1">Community</span>
-          <select id="cm-community-filter" class="form-select form-select-sm"></select>
+      <div class="cm-field-pair">
+        <label class="form-label">Project Number
+          <input id="cm-community-project-number" type="text" class="form-control" placeholder="Project number" />
         </label>
-
-        <label class="mb-0 cm-toolbar-field cm-toolbar-field--search">
-          <span class="visually-hidden">Search address</span>
-          <input id="cm-lot-search" class="form-control form-control-sm" placeholder="Search address..." />
+        <label class="form-label">Management Mode
+          <select id="cm-community-management-mode" class="form-select">
+            <option value="later">Decide Later</option>
+            <option value="single">Manage as Single Community</option>
+            <option value="grouped">Manage as Grouped Offering</option>
+          </select>
         </label>
-
-        <div class="vr mx-2 d-none d-md-block"></div>
-
-        <button id="cm-edit-toggle" class="btn btn-sm btn-secondary" aria-pressed="false">Edit Mode</button>
-        <button id="cm-delete-toggle" class="btn btn-sm btn-danger" aria-pressed="false">Delete Mode</button>
-        <small class="text-muted ms-2">Tip: Edit cells then press Enter/blur to save.</small>
-
-        <div class="ms-auto d-flex flex-wrap align-items-center gap-2">
-          <button id="cm-export-csv" type="button" class="btn btn-sm btn-outline-primary">Export CSV</button>
-          <button id="deleteCommunityBtn" type="button" class="btn btn-sm btn-outline-danger">Delete Community</button>
-        </div>
       </div>
+      <div class="cm-field-pair">
+        <label class="form-label">Product Types Offered
+          <input id="cm-community-product-types" type="text" class="form-control" placeholder="Townhome, Single Family" />
+          <small class="text-muted">Comma-separated values.</small>
+        </label>
+        <label class="form-label">Lot Widths Offered
+          <input id="cm-community-lot-widths" type="text" class="form-control" placeholder="24, 45, 55" />
+          <small class="text-muted">Comma-separated numbers.</small>
+        </label>
+      </div>
+      <div id="cm-community-classification-message" class="small text-muted"></div>
+    </div>
 
-      <div id="lotsContainer"></div>
-    </section>
-  </div>
+    <div class="cm-toolbar d-flex flex-wrap align-items-center gap-2 mb-3">
+      <strong class="small text-uppercase text-muted">Bulk Lot Width</strong>
+      <input id="cm-bulk-lot-width" type="number" min="0" step="1" class="form-control form-control-sm" style="max-width: 140px;" placeholder="Width" />
+      <button id="cm-bulk-apply" type="button" class="btn btn-sm btn-outline-primary">Apply to Selected</button>
+      <button id="cm-bulk-clear" type="button" class="btn btn-sm btn-outline-secondary">Clear Selected</button>
+      <small id="cm-bulk-selection-count" class="text-muted">0 selected</small>
+    </div>
 
-  <script type="module" src="/assets/js/pages/admin/community-management/index.js" nonce="<%= cspNonce %>"></script>
-  <script nonce="<%= cspNonce %>">
-    
+    <div id="lotsContainer"></div>
+  </section>
+</div>
 
-    (() => {
-  const dz = document.getElementById('importDropzone');
-  const fileInput = document.getElementById('importFile');
-  const browseBtn = document.getElementById('browseBtn');
-  const fileName = document.getElementById('fileName');
-  const uploadBtn = document.getElementById('uploadBtn');
-  const importForm = document.getElementById('importForm');
-  const progressWrap = document.getElementById('uploadProgress');
-  const progressBar = progressWrap ? progressWrap.querySelector('.progress-bar') : null;
-  const importMessage = document.getElementById('importMessage');
-  const importModal = document.getElementById('importDecisionModal');
-  const importDecisionDetails = document.getElementById('importDecisionDetails');
-  const importDecisionIntro = document.getElementById('importDecisionIntro');
-  const importAppendBtn = document.getElementById('importAppendBtn');
-  const importCreateNewBtn = document.getElementById('importCreateNewBtn');
-  const modalCloseButtons = importModal ? importModal.querySelectorAll('[data-import-modal-close]') : [];
+<script type="module" src="/assets/js/pages/admin/community-management/index.js" nonce="<%= cspNonce %>"></script>
+<script nonce="<%= cspNonce %>">
+  (() => {
+    const esc = (value) => String(value ?? '').replace(/[&<>"]/g, (char) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[char]));
+    const parseStringList = (value) =>
+      Array.from(new Set(
+        String(value || '')
+          .split(',')
+          .map((entry) => entry.trim())
+          .filter(Boolean)
+      ));
+    const parseNumberList = (value) =>
+      Array.from(new Set(
+        String(value || '')
+          .split(',')
+          .map((entry) => entry.trim())
+          .filter(Boolean)
+          .map((entry) => Number(entry))
+          .filter((entry) => Number.isFinite(entry) && entry >= 0)
+      )).sort((a, b) => a - b);
+    const formatList = (value) => Array.isArray(value) ? value.join(', ') : '';
 
-  window.cmImportFile = null;
-  let pendingImportToken = '';
-  let pendingImportPreviews = [];
+    const dz = document.getElementById('importDropzone');
+    const fileInput = document.getElementById('importFile');
+    const browseBtn = document.getElementById('browseBtn');
+    const fileName = document.getElementById('fileName');
+    const uploadBtn = document.getElementById('uploadBtn');
+    const importForm = document.getElementById('importForm');
+    const progressWrap = document.getElementById('uploadProgress');
+    const progressBar = progressWrap ? progressWrap.querySelector('.progress-bar') : null;
+    const importMessage = document.getElementById('importMessage');
+    const importModal = document.getElementById('importDecisionModal');
+    const importDecisionDetails = document.getElementById('importDecisionDetails');
+    const importDecisionIntro = document.getElementById('importDecisionIntro');
+    const importAppendBtn = document.getElementById('importAppendBtn');
+    const importCreateNewBtn = document.getElementById('importCreateNewBtn');
+    const modalCloseButtons = importModal ? importModal.querySelectorAll('[data-import-modal-close]') : [];
 
-  if (!dz || !fileInput || !browseBtn || !fileName || !uploadBtn || !importForm) return;
+    const communitySel = document.getElementById('cm-community-filter');
+    const searchInput = document.getElementById('cm-lot-search');
+    const editBtn = document.getElementById('cm-edit-toggle');
+    const delBtn = document.getElementById('cm-delete-toggle');
+    const lotsWrap = document.getElementById('lotsContainer');
+    const exportBtn = document.getElementById('cm-export-csv');
+    const deleteCommunityBtn = document.getElementById('deleteCommunityBtn');
+    const classificationSaveBtn = document.getElementById('cm-community-classification-save');
+    const classificationMessage = document.getElementById('cm-community-classification-message');
+    const classificationProjectNumber = document.getElementById('cm-community-project-number');
+    const classificationProductTypes = document.getElementById('cm-community-product-types');
+    const classificationLotWidths = document.getElementById('cm-community-lot-widths');
+    const classificationManagementMode = document.getElementById('cm-community-management-mode');
+    const bulkLotWidthInput = document.getElementById('cm-bulk-lot-width');
+    const bulkApplyBtn = document.getElementById('cm-bulk-apply');
+    const bulkClearBtn = document.getElementById('cm-bulk-clear');
+    const bulkSelectionCount = document.getElementById('cm-bulk-selection-count');
+    const tabButtons = document.querySelectorAll('[data-tab-target]');
+    const tabPanels = document.querySelectorAll('.tab-panel');
 
-  // Helpers
-  const prevent = e => { e.preventDefault(); e.stopPropagation(); };
-  const esc = value => String(value ?? '').replace(/[&<>"]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
-  const showImportMessage = (message, variant = 'info') => {
-    if (!importMessage) return;
-    importMessage.className = `alert alert-${variant} mt-3`;
-    importMessage.textContent = message;
-    importMessage.classList.remove('d-none');
-  };
-  const hideImportMessage = () => {
-    if (!importMessage) return;
-    importMessage.className = 'alert d-none mt-3';
-    importMessage.textContent = '';
-  };
-  const closeImportModal = () => {
-    if (!importModal) return;
-    importModal.hidden = true;
-    pendingImportToken = '';
-    pendingImportPreviews = [];
-  };
-  const openImportModal = (payload) => {
-    if (!importModal || !importDecisionDetails) return;
-    pendingImportToken = payload?.token || '';
-    pendingImportPreviews = Array.isArray(payload?.previews) ? payload.previews : [];
+    if (!dz || !fileInput || !browseBtn || !fileName || !uploadBtn || !importForm || !communitySel || !lotsWrap) return;
 
-    const matchedPreviews = pendingImportPreviews.filter(preview => preview?.matchedCommunity);
-    const intro = matchedPreviews.length > 1
-      ? `This file contains ${matchedPreviews.length} imported community groups that appear to match existing communities.`
-      : 'A likely existing community match was found for this import.';
-    if (importDecisionIntro) importDecisionIntro.textContent = intro;
+    window.cmImportFile = null;
 
-    importDecisionDetails.innerHTML = pendingImportPreviews.map((preview) => {
-      const importedLabel = esc(preview.importedCommunityName || 'Imported Community');
-      const importedProject = preview.projectNumber ? `Project #: ${esc(preview.projectNumber)}` : 'Project #: --';
-      const importedLocation = [preview.city, preview.state].filter(Boolean).map(esc).join(', ') || '--';
-      const matched = preview.matchedCommunity;
-      const matchedMarkup = matched
-        ? `
-          <div class="cm-import-match-card is-match">
-            <div>
-              <p class="cm-import-match-card__label">Matched Existing Community</p>
-              <strong>${esc(matched.name || '--')}</strong>
+    let pendingImportToken = '';
+    let pendingImportPreviews = [];
+    const state = {
+      communities: [],
+      communityId: null,
+      search: '',
+      editMode: false,
+      deleteMode: false,
+      selectedLotIds: new Set()
+    };
+
+    const showImportMessage = (message, variant = 'info') => {
+      if (!importMessage) return;
+      importMessage.className = `alert alert-${variant} mt-3`;
+      importMessage.textContent = message;
+      importMessage.classList.remove('d-none');
+    };
+
+    const hideImportMessage = () => {
+      if (!importMessage) return;
+      importMessage.className = 'alert d-none mt-3';
+      importMessage.textContent = '';
+    };
+
+    const updateSelectionCount = () => {
+      if (!bulkSelectionCount) return;
+      bulkSelectionCount.textContent = `${state.selectedLotIds.size} selected`;
+    };
+
+    const setClassificationMessage = (message = '', variant = 'muted') => {
+      if (!classificationMessage) return;
+      classificationMessage.className = variant === 'danger'
+        ? 'small text-danger'
+        : variant === 'success'
+          ? 'small text-success'
+          : 'small text-muted';
+      classificationMessage.textContent = message;
+    };
+
+    const syncCommunityClassificationForm = () => {
+      const community = state.communities.find((entry) => entry._id === state.communityId) || null;
+      const isDisabled = !community;
+      if (classificationProjectNumber) classificationProjectNumber.value = community?.projectNumber || '';
+      if (classificationProductTypes) classificationProductTypes.value = formatList(community?.productTypesOffered);
+      if (classificationLotWidths) classificationLotWidths.value = formatList(community?.lotWidthsOffered);
+      if (classificationManagementMode) classificationManagementMode.value = community?.managementMode || 'later';
+      [classificationProjectNumber, classificationProductTypes, classificationLotWidths, classificationManagementMode, classificationSaveBtn]
+        .forEach((element) => {
+          if (element) element.disabled = isDisabled;
+        });
+      if (isDisabled) setClassificationMessage('Select a community to edit classification.');
+      else setClassificationMessage('');
+    };
+
+    const closeImportModal = () => {
+      if (!importModal) return;
+      importModal.hidden = true;
+      pendingImportToken = '';
+      pendingImportPreviews = [];
+    };
+
+    const buildImportClassificationPayload = () => {
+      const payload = {};
+      pendingImportPreviews.forEach((preview) => {
+        const groupKey = preview?.groupKey;
+        if (!groupKey) return;
+        payload[groupKey] = {
+          productTypesOffered: parseStringList(document.querySelector(`[data-import-product-types="${groupKey}"]`)?.value),
+          lotWidthsOffered: parseNumberList(document.querySelector(`[data-import-lot-widths="${groupKey}"]`)?.value),
+          managementMode: document.querySelector(`[data-import-management-mode="${groupKey}"]`)?.value || 'later'
+        };
+      });
+      return payload;
+    };
+
+    const openImportModal = (payload) => {
+      if (!importModal || !importDecisionDetails) return;
+      pendingImportToken = payload?.token || '';
+      pendingImportPreviews = Array.isArray(payload?.previews) ? payload.previews : [];
+
+      const matchedPreviews = pendingImportPreviews.filter((preview) => preview?.matchedCommunity);
+      let intro = 'Review the imported community groups and assign classification metadata before completing the import.';
+      if (matchedPreviews.length > 1) {
+        intro = `This file contains ${matchedPreviews.length} imported community groups that appear to match existing communities. Review the classification and choose whether to append or create new communities.`;
+      } else if (matchedPreviews.length === 1) {
+        intro = 'A likely existing community match was found. Review the classification and choose whether to append or create a new community.';
+      }
+      if (importDecisionIntro) importDecisionIntro.textContent = intro;
+
+      importDecisionDetails.innerHTML = pendingImportPreviews.map((preview) => {
+        const matched = preview.matchedCommunity;
+        const importedLabel = esc(preview.importedCommunityName || 'Imported Community');
+        const importedProject = preview.projectNumber ? `Project #: ${esc(preview.projectNumber)}` : 'Project #: --';
+        const importedLocation = [preview.city, preview.state].filter(Boolean).map(esc).join(', ') || '--';
+        const defaultProductTypes = formatList(preview.productTypesOffered?.length ? preview.productTypesOffered : matched?.productTypesOffered);
+        const defaultLotWidths = formatList(preview.lotWidthsOffered?.length ? preview.lotWidthsOffered : matched?.lotWidthsOffered);
+        const defaultManagementMode = preview.managementMode || matched?.managementMode || 'later';
+        const matchedMarkup = matched
+          ? `
+            <div class="cm-import-match-card is-match">
+              <div>
+                <p class="cm-import-match-card__label">Matched Existing Community</p>
+                <strong>${esc(matched.name || '--')}</strong>
+              </div>
+              <div class="cm-import-match-card__meta">
+                <span>${matched.projectNumber ? `Project #: ${esc(matched.projectNumber)}` : 'Project #: --'}</span>
+                <span>Existing lots: ${Number(matched.lotCount || 0)}</span>
+              </div>
             </div>
-            <div class="cm-import-match-card__meta">
-              <span>${matched.projectNumber ? `Project #: ${esc(matched.projectNumber)}` : 'Project #: --'}</span>
-              <span>Existing lots: ${Number(matched.lotCount || 0)}</span>
+          `
+          : `
+            <div class="cm-import-match-card">
+              <div>
+                <p class="cm-import-match-card__label">Matched Existing Community</p>
+                <strong>No likely match found</strong>
+              </div>
+              <div class="cm-import-match-card__meta">
+                <span>This group will create a new community either way.</span>
+              </div>
             </div>
-          </div>
-        `
-        : `
-          <div class="cm-import-match-card">
-            <div>
-              <p class="cm-import-match-card__label">Matched Existing Community</p>
-              <strong>No likely match found</strong>
+          `;
+
+        return `
+          <section class="cm-import-preview">
+            <div class="cm-import-match-card is-imported">
+              <div>
+                <p class="cm-import-match-card__label">Imported Community</p>
+                <strong>${importedLabel}</strong>
+              </div>
+              <div class="cm-import-match-card__meta">
+                <span>${importedProject}</span>
+                <span>Location: ${importedLocation}</span>
+                <span>Imported lots: ${Number(preview.importedLotCount || 0)}</span>
+              </div>
             </div>
-            <div class="cm-import-match-card__meta">
-              <span>This group will create a new community either way.</span>
+            ${matchedMarkup}
+            <div class="mt-3">
+              <label class="form-label">Product Types Included
+                <input type="text" class="form-control" data-import-product-types="${preview.groupKey}" value="${esc(defaultProductTypes)}" placeholder="Townhome, Single Family" />
+              </label>
+              <label class="form-label">Lot Widths Represented
+                <input type="text" class="form-control" data-import-lot-widths="${preview.groupKey}" value="${esc(defaultLotWidths)}" placeholder="24, 45, 55" />
+              </label>
+              <label class="form-label">Management Mode
+                <select class="form-select" data-import-management-mode="${preview.groupKey}">
+                  <option value="later"${defaultManagementMode === 'later' ? ' selected' : ''}>Decide Later</option>
+                  <option value="single"${defaultManagementMode === 'single' ? ' selected' : ''}>Manage as Single Community</option>
+                  <option value="grouped"${defaultManagementMode === 'grouped' ? ' selected' : ''}>Manage as Grouped Offering</option>
+                </select>
+              </label>
             </div>
-          </div>
+          </section>
         `;
+      }).join('');
 
-      return `
-        <section class="cm-import-preview">
-          <div class="cm-import-match-card is-imported">
-            <div>
-              <p class="cm-import-match-card__label">Imported Community</p>
-              <strong>${importedLabel}</strong>
-            </div>
-            <div class="cm-import-match-card__meta">
-              <span>${importedProject}</span>
-              <span>Location: ${importedLocation}</span>
-              <span>Imported lots: ${Number(preview.importedLotCount || 0)}</span>
-            </div>
-          </div>
-          ${matchedMarkup}
-        </section>
-      `;
-    }).join('');
+      importModal.hidden = false;
+    };
 
-    importModal.hidden = false;
-  };
-  const buildSummaryMessage = (summary) => {
-    if (!summary) return 'Import finished.';
-    const parts = [];
-    if (Number(summary.importedLots || 0)) parts.push(`${summary.importedLots} lots imported`);
-    if (Number(summary.duplicatesSkipped || 0)) parts.push(`${summary.duplicatesSkipped} duplicates skipped`);
-    if (Number(summary.communitiesCreated || 0)) {
-      parts.push(`${summary.communitiesCreated} ${summary.communitiesCreated === 1 ? 'community' : 'communities'} created`);
-    }
-    if (Number(summary.communitiesUpdated || 0)) {
-      parts.push(`${summary.communitiesUpdated} existing ${summary.communitiesUpdated === 1 ? 'community' : 'communities'} updated`);
-    }
-    return parts.length ? parts.join(' • ') : 'Import finished.';
-  };
-  const finalizeImportSuccess = (summary) => {
-    setFile(null);
-    closeImportModal();
-    showImportMessage(buildSummaryMessage(summary), summary?.duplicatesSkipped ? 'warning' : 'success');
-    document.dispatchEvent(new CustomEvent('cm:communitiesImported'));
-  };
-  const confirmImportAction = async (action) => {
-    if (!pendingImportToken) return;
-    importAppendBtn.disabled = true;
-    importCreateNewBtn.disabled = true;
-    try {
-      const res = await fetch('/api/communities/import/confirm', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ token: pendingImportToken, action })
-      });
-      const payload = await res.json().catch(() => null);
-      if (!res.ok) {
-        throw new Error(payload?.error || `Import confirm failed (${res.status})`);
-      }
-      finalizeImportSuccess(payload?.summary);
-    } catch (err) {
-      console.error('[community-import:confirm]', err);
-      showImportMessage(err.message || 'Import confirm failed.', 'danger');
-    } finally {
-      importAppendBtn.disabled = false;
-      importCreateNewBtn.disabled = false;
-    }
-  };
-  const setFile = f => {
-    if (!f) {
-      window.cmImportFile = null;
-      if (fileInput) fileInput.value = '';
-      fileName.textContent = 'No file selected';
-      uploadBtn.disabled = true;
-      return;
-    }
+    const buildSummaryMessage = (summary) => {
+      if (!summary) return 'Import finished.';
+      const parts = [];
+      if (Number(summary.importedLots || 0)) parts.push(`${summary.importedLots} lots imported`);
+      if (Number(summary.duplicatesSkipped || 0)) parts.push(`${summary.duplicatesSkipped} duplicates skipped`);
+      if (Number(summary.communitiesCreated || 0)) parts.push(`${summary.communitiesCreated} ${summary.communitiesCreated === 1 ? 'community' : 'communities'} created`);
+      if (Number(summary.communitiesUpdated || 0)) parts.push(`${summary.communitiesUpdated} existing ${summary.communitiesUpdated === 1 ? 'community' : 'communities'} updated`);
+      return parts.length ? parts.join(' | ') : 'Import finished.';
+    };
 
-    window.cmImportFile = f;
+    const finalizeImportSuccess = (summary) => {
+      setFile(null);
+      closeImportModal();
+      showImportMessage(buildSummaryMessage(summary), summary?.duplicatesSkipped ? 'warning' : 'success');
+      document.dispatchEvent(new CustomEvent('cm:communitiesImported'));
+    };
 
-    if ('DataTransfer' in window) {
+    const confirmImportAction = async (action) => {
+      if (!pendingImportToken) return;
+      importAppendBtn.disabled = true;
+      importCreateNewBtn.disabled = true;
       try {
-        const dt = new DataTransfer();
-        dt.items.add(f);
-        fileInput.files = dt.files;
-      } catch (err) {
-        console.warn('Unable to sync file input', err);
-      }
-    }
-
-    fileName.textContent = `${f.name} - ${(f.size / 1024).toFixed(1)} KB`;
-    uploadBtn.disabled = false;
-  };
-
-  // Drag events
-  ['dragenter','dragover','dragleave','drop'].forEach(evt => {
-    dz.addEventListener(evt, prevent, false);
-  });
-  ['dragenter','dragover'].forEach(evt => {
-    dz.addEventListener(evt, () => dz.classList.add('drag'), false);
-  });
-  ['dragleave','drop'].forEach(evt => {
-    dz.addEventListener(evt, () => dz.classList.remove('drag'), false);
-  });
-  dz.addEventListener('drop', e => {
-    const files = e.dataTransfer.files;
-    if (files && !('DataTransfer' in window)) {
-      try { fileInput.files = files; } catch (_) {}
-    }
-    setFile(files && files[0]);
-  });
-
-  // Keyboard + click browse
-  dz.addEventListener('click', () => fileInput.click());
-  dz.addEventListener('keydown', e => {
-    if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); fileInput.click(); }
-  });
-  browseBtn.addEventListener('click', () => fileInput.click());
-  fileInput.addEventListener('change', () => {
-    const f = fileInput.files && fileInput.files[0];
-    hideImportMessage();
-    setFile(f);
-  });
-
-  modalCloseButtons.forEach((button) => {
-    button.addEventListener('click', () => closeImportModal());
-  });
-  importAppendBtn?.addEventListener('click', () => confirmImportAction('append'));
-  importCreateNewBtn?.addEventListener('click', () => confirmImportAction('create_new'));
-
-  importForm.addEventListener('submit', async (event) => {
-    event.preventDefault();
-    if (!window.cmImportFile) {
-      alert('Select a CSV or XLSX file first.');
-      return;
-    }
-    hideImportMessage();
-
-    const formData = new FormData();
-    formData.append('file', window.cmImportFile);
-
-    const originalLabel = uploadBtn.textContent;
-    uploadBtn.disabled = true;
-    uploadBtn.textContent = 'Uploading...';
-    if (progressWrap) {
-      progressWrap.classList.remove('d-none');
-      progressWrap.setAttribute('aria-hidden', 'false');
-      if (progressBar) progressBar.style.width = '30%';
-    }
-
-    try {
-      const res = await fetch(importForm.action || '/api/communities/import', {
-        method: 'POST',
-        body: formData
-      });
-      if (!res.ok) {
+        const res = await fetch('/api/communities/import/confirm', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            token: pendingImportToken,
+            action,
+            classificationByGroup: buildImportClassificationPayload()
+          })
+        });
         const payload = await res.json().catch(() => null);
-        throw new Error(payload?.error || `Upload failed (${res.status})`);
+        if (!res.ok) throw new Error(payload?.error || `Import confirm failed (${res.status})`);
+        finalizeImportSuccess(payload?.summary);
+      } catch (err) {
+        console.error('[community-import:confirm]', err);
+        showImportMessage(err.message || 'Import confirm failed.', 'danger');
+      } finally {
+        importAppendBtn.disabled = false;
+        importCreateNewBtn.disabled = false;
       }
+    };
 
-      const payload = await res.json().catch(() => null);
-
-      if (progressBar) progressBar.style.width = '100%';
-
-      if (payload?.requiresDecision) {
-        openImportModal(payload);
+    const setFile = (file) => {
+      if (!file) {
+        window.cmImportFile = null;
+        fileInput.value = '';
+        fileName.textContent = 'No file selected';
+        uploadBtn.disabled = true;
         return;
       }
 
-      finalizeImportSuccess(payload?.summary);
-    } catch (err) {
-      console.error('[community-import]', err);
-      showImportMessage(err.message || 'Upload failed.', 'danger');
-    } finally {
-      uploadBtn.disabled = false;
-      uploadBtn.textContent = originalLabel;
-      if (progressWrap) {
-        progressWrap.classList.add('d-none');
-        progressWrap.setAttribute('aria-hidden', 'true');
+      window.cmImportFile = file;
+      if ('DataTransfer' in window) {
+        try {
+          const dt = new DataTransfer();
+          dt.items.add(file);
+          fileInput.files = dt.files;
+        } catch (err) {
+          console.warn('Unable to sync file input', err);
+        }
       }
-      if (progressBar) progressBar.style.width = '0%';
-    }
-  });
 
-  // OPTIONAL: show progress if you intercept the submit with XHR
-  // If your backend expects a regular form POST, you can skip this block and let
-  // your existing handler submit. Otherwise, uncomment to POST with progress.
-  
-})();
+      fileName.textContent = `${file.name} - ${(file.size / 1024).toFixed(1)} KB`;
+      uploadBtn.disabled = false;
+    };
 
-document.addEventListener('DOMContentLoaded', () => {
-  const esc = s => String(s ?? '').replace(/[&<>"]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
-  const $ = sel => document.querySelector(sel);
-  const communitySel = $('#cm-community-filter');
-  const searchInput  = $('#cm-lot-search');
-  const editBtn      = $('#cm-edit-toggle');
-  const delBtn       = $('#cm-delete-toggle');
-  const lotsWrap     = $('#lotsContainer');
-  const exportBtn    = $('#cm-export-csv');
-  const deleteCommunityBtn = $('#deleteCommunityBtn');
-  const tabButtons = document.querySelectorAll('[data-tab-target]');
-  const tabPanels = document.querySelectorAll('.tab-panel');
+    ['dragenter', 'dragover', 'dragleave', 'drop'].forEach((eventName) => {
+      dz.addEventListener(eventName, (event) => {
+        event.preventDefault();
+        event.stopPropagation();
+      }, false);
+    });
+    ['dragenter', 'dragover'].forEach((eventName) => {
+      dz.addEventListener(eventName, () => dz.classList.add('drag'), false);
+    });
+    ['dragleave', 'drop'].forEach((eventName) => {
+      dz.addEventListener(eventName, () => dz.classList.remove('drag'), false);
+    });
+    dz.addEventListener('drop', (event) => {
+      const files = event.dataTransfer.files;
+      if (files && !('DataTransfer' in window)) {
+        try { fileInput.files = files; } catch (_) {}
+      }
+      setFile(files && files[0]);
+    });
+    dz.addEventListener('click', () => fileInput.click());
+    dz.addEventListener('keydown', (event) => {
+      if (event.key === 'Enter' || event.key === ' ') {
+        event.preventDefault();
+        fileInput.click();
+      }
+    });
+    browseBtn.addEventListener('click', () => fileInput.click());
+    fileInput.addEventListener('change', () => {
+      hideImportMessage();
+      setFile(fileInput.files && fileInput.files[0]);
+    });
 
-  let state = {
-    communities: [],
-    communityId: null,
-    search: '',
-    editMode: false,
-    deleteMode: false
-  };
+    modalCloseButtons.forEach((button) => {
+      button.addEventListener('click', () => closeImportModal());
+    });
+    importAppendBtn?.addEventListener('click', () => confirmImportAction('append'));
+    importCreateNewBtn?.addEventListener('click', () => confirmImportAction('create_new'));
 
-  // --------- load communities (for dropdown) ----------
-  async function loadCommunities() {
-    if (deleteCommunityBtn) deleteCommunityBtn.disabled = true;
-    const res = await fetch('/api/communities');
-    if (!res.ok) throw new Error('Failed to load communities');
-    const items = await res.json();
-    state.communities = Array.isArray(items) ? items : [];
-    if (!communitySel) return;
+    importForm.addEventListener('submit', async (event) => {
+      event.preventDefault();
+      if (!window.cmImportFile) {
+        alert('Select a CSV or XLSX file first.');
+        return;
+      }
+      hideImportMessage();
 
-    communitySel.innerHTML = state.communities.map(c =>
-      `<option value="${c._id}">${esc(c.name)}${c.projectNumber ? ' ??? ' + esc(c.projectNumber) : ''}</option>`
-    ).join('');
+      const formData = new FormData();
+      formData.append('file', window.cmImportFile);
 
-    if (!state.communities.length) {
-      state.communityId = null;
-      communitySel.value = '';
+      const originalLabel = uploadBtn.textContent;
+      uploadBtn.disabled = true;
+      uploadBtn.textContent = 'Uploading...';
+      if (progressWrap) {
+        progressWrap.classList.remove('d-none');
+        progressWrap.setAttribute('aria-hidden', 'false');
+        if (progressBar) progressBar.style.width = '30%';
+      }
+
+      try {
+        const res = await fetch(importForm.action || '/api/communities/import', {
+          method: 'POST',
+          body: formData
+        });
+        const payload = await res.json().catch(() => null);
+        if (!res.ok) throw new Error(payload?.error || `Upload failed (${res.status})`);
+        if (progressBar) progressBar.style.width = '100%';
+
+        if (payload?.requiresDecision) {
+          openImportModal(payload);
+          return;
+        }
+
+        finalizeImportSuccess(payload?.summary);
+      } catch (err) {
+        console.error('[community-import]', err);
+        showImportMessage(err.message || 'Upload failed.', 'danger');
+      } finally {
+        uploadBtn.disabled = false;
+        uploadBtn.textContent = originalLabel;
+        if (progressWrap) {
+          progressWrap.classList.add('d-none');
+          progressWrap.setAttribute('aria-hidden', 'true');
+        }
+        if (progressBar) progressBar.style.width = '0%';
+      }
+    });
+
+    async function loadCommunities() {
       if (deleteCommunityBtn) deleteCommunityBtn.disabled = true;
-      return;
+      const res = await fetch('/api/communities');
+      if (!res.ok) throw new Error('Failed to load communities');
+      const items = await res.json();
+      state.communities = Array.isArray(items) ? items : [];
+
+      communitySel.innerHTML = state.communities.map((community) => {
+        const label = community.projectNumber ? `${esc(community.name)} - ${esc(community.projectNumber)}` : esc(community.name);
+        return `<option value="${community._id}">${label}</option>`;
+      }).join('');
+
+      if (!state.communities.length) {
+        state.communityId = null;
+        communitySel.value = '';
+        if (deleteCommunityBtn) deleteCommunityBtn.disabled = true;
+        state.selectedLotIds = new Set();
+        updateSelectionCount();
+        syncCommunityClassificationForm();
+        return;
+      }
+
+      const stillValid = state.communityId && state.communities.some((community) => community._id === state.communityId);
+      state.communityId = stillValid ? state.communityId : state.communities[0]._id;
+      communitySel.value = state.communityId;
+      if (deleteCommunityBtn) deleteCommunityBtn.disabled = !state.communityId;
+      syncCommunityClassificationForm();
     }
 
-    const stillValid = state.communityId && state.communities.some(c => c._id === state.communityId);
-    state.communityId = stillValid ? state.communityId : state.communities[0]._id;
-    communitySel.value = state.communityId;
-    if (deleteCommunityBtn) deleteCommunityBtn.disabled = !state.communityId;
-  }
-  // --------- load/render lots for selected community ----------
-  async function loadLots() {
-    if (!state.communityId) {
-      lotsWrap.innerHTML = '<div class="text-muted">Select a community</div>';
-      return;
-    }
-    const url = new URL(`/api/communities/${state.communityId}/lots`, location.origin);
-    if (state.search) url.searchParams.set('q', state.search);
-    const res = await fetch(url);
-    if (!res.ok) {
-      lotsWrap.innerHTML = `<div class="text-danger">Failed to load lots (${res.status})</div>`;
-      return;
-    }
-    const lots = await res.json();
-    renderTable(Array.isArray(lots) ? lots : []);
-  }
+    async function loadLots() {
+      if (!state.communityId) {
+        lotsWrap.innerHTML = '<div class="text-muted">Select a community</div>';
+        state.selectedLotIds = new Set();
+        updateSelectionCount();
+        return;
+      }
 
-  function renderTable(lots) {
-    const deleteCol = state.deleteMode ? '<th style="width:42px"></th>' : '';
-    const head = `
-      <thead>
-        <tr>
-          <th>Job #</th>
-          <th>Lot</th>
-          <th>Block</th>
-          <th>Phase</th>
-          <th>Address</th>
-          <th>Elevation</th>
-          ${deleteCol}
-        </tr>
-      </thead>
-    `;
-
-    const rows = lots.map(l => {
-      const delCell = state.deleteMode
-        ? `<td class="text-center"><button class="btn btn-sm btn-outline-danger js-row-del" data-id="${esc(l._id)}" title="Delete this lot">??</button></td>`
-        : '';
-      return `
-        <tr data-id="${esc(l._id)}">
-          ${td('jobNumber', l.jobNumber)}
-          ${td('lot', l.lot)}
-          ${td('block', l.block)}
-          ${td('phase', l.phase)}
-          ${td('address', l.address)}
-          ${td('elevation', l.elevation)}
-          ${delCell}
-        </tr>
-      `;
-    }).join('') || `<tr><td colspan="${state.deleteMode ? 7 : 6}" class="text-muted">No lots found</td></tr>`;
-
-    lotsWrap.innerHTML = `
-      <div class="table-responsive">
-        <table class="table table-sm table-bordered align-middle mb-0">
-          ${head}
-          <tbody>${rows}</tbody>
-        </table>
-      </div>
-    `;
-
-    // attach events: edit + delete
-    if (state.editMode) bindCellEditing(lotsWrap);
-    if (state.deleteMode) bindRowDeletion(lotsWrap);
-  }
-
-  function td(field, val) {
-    const attrs = state.editMode ? ' contenteditable="true" data-field="'+field+'"' : ' data-field="'+field+'"';
-    return `<td${attrs}>${esc(val ?? '')}</td>`;
-  }
-
-  function bindCellEditing(root) {
-    // Save on Enter or on blur if changed
-    root.querySelectorAll('td[contenteditable="true"]').forEach(td => {
-      td.addEventListener('keydown', async (e) => {
-        if (e.key === 'Enter') { e.preventDefault(); td.blur(); }
-      });
-      td.addEventListener('blur', async (e) => {
-        const tr = td.closest('tr');
-        const lotId = tr?.dataset?.id;
-        const field = td.dataset.field;
-        if (!lotId || !field) return;
-
-        const newValue = td.textContent.trim();
-
-        // build minimal payload of changed field
-        const payload = { [field]: newValue };
-        // normalize/guards for a couple of fields
-        if (field === 'jobNumber') payload.jobNumber = String(newValue).padStart(4, '0');
-
-        try {
-          const res = await fetch(`/api/communities/${state.communityId}/lots/${lotId}`, {
-            method: 'PUT',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify(payload)
-          });
-          if (!res.ok) {
-            alert(`Save failed (${res.status})`);
-            // re-load to revert bad edit
-            await loadLots();
-          }
-        } catch (err) {
-          console.error(err);
-          alert('Save failed');
-          await loadLots();
-        }
-      });
-    });
-  }
-
-  function bindRowDeletion(root) {
-    root.querySelectorAll('.js-row-del').forEach(btn => {
-      btn.addEventListener('click', async () => {
-        const lotId = btn.dataset.id;
-        if (!lotId) return;
-        if (!confirm('Delete this lot? This cannot be undone.')) return;
-
-        try {
-          const res = await fetch(`/api/communities/${state.communityId}/lots/${lotId}`, { method: 'DELETE' });
-          if (!res.ok) {
-            const t = await res.text();
-            throw new Error(t || `Delete failed (${res.status})`);
-          }
-          await loadLots();
-        } catch (err) {
-          console.error(err);
-          alert(err.message || 'Delete failed');
-        }
-      });
-    });
-  }
-
-  // --------- events ----------
-  communitySel?.addEventListener('change', () => {
-    state.communityId = communitySel.value || null;
-    if (deleteCommunityBtn) deleteCommunityBtn.disabled = !state.communityId;
-    loadLots();
-  });
-
-  // debounce search
-  let t;
-  searchInput?.addEventListener('input', () => {
-    clearTimeout(t);
-    t = setTimeout(() => {
-      state.search = searchInput.value.trim();
-      loadLots();
-    }, 250);
-  });
-
-  editBtn?.addEventListener('click', async () => {
-    state.editMode = !state.editMode;
-    editBtn.classList.toggle('btn-secondary', !state.editMode);
-    editBtn.classList.toggle('btn-success', state.editMode);
-    editBtn.setAttribute('aria-pressed', String(state.editMode));
-    await loadLots();
-  });
-
-  delBtn?.addEventListener('click', async () => {
-    state.deleteMode = !state.deleteMode;
-    delBtn.classList.toggle('btn-danger', !state.deleteMode);
-    delBtn.classList.toggle('btn-warning', state.deleteMode);
-    delBtn.setAttribute('aria-pressed', String(state.deleteMode));
-    await loadLots();
-  });
-  exportBtn?.addEventListener('click', async () => {
-    if (!state.communityId) {
-      alert('Select a community first');
-      return;
-    }
-
-    try {
       const url = new URL(`/api/communities/${state.communityId}/lots`, location.origin);
       if (state.search) url.searchParams.set('q', state.search);
-      url.searchParams.set('format', 'csv');
+      const res = await fetch(url);
+      if (!res.ok) {
+        lotsWrap.innerHTML = `<div class="text-danger">Failed to load lots (${res.status})</div>`;
+        return;
+      }
 
-      const res = await fetch(url, { headers: { Accept: 'text/csv' } });
-      const text = await res.text();
-      if (!res.ok) throw new Error(text || `Export failed (${res.status})`);
-
-      const blob = new Blob([text], { type: 'text/csv' });
-      const dlUrl = window.URL.createObjectURL(blob);
-      const link = document.createElement('a');
-      const name = (state.communities.find(c => c._id === state.communityId)?.name || 'community')
-        .replace(/[^a-z0-9]+/gi, '-')
-        .replace(/^-+|-+$/g, '') || 'community';
-      link.href = dlUrl;
-      link.download = `${name}-lots.csv`;
-      document.body.appendChild(link);
-      link.click();
-      link.remove();
-      window.URL.revokeObjectURL(dlUrl);
-    } catch (err) {
-      console.error(err);
-      alert(err.message || 'Export failed');
-    }
-  });
-  deleteCommunityBtn?.addEventListener('click', async () => {
-    if (!state.communityId) {
-      alert('Select a community first');
-      return;
+      const lots = await res.json();
+      const rows = Array.isArray(lots) ? lots : [];
+      const validIds = new Set(rows.map((lot) => String(lot._id)));
+      state.selectedLotIds = new Set([...state.selectedLotIds].filter((id) => validIds.has(id)));
+      renderTable(rows);
     }
 
-    const current = state.communities.find(c => c._id === state.communityId);
-    const label = current?.name ? current.name : 'this community';
-    if (!confirm(`Delete "${label}"? All lots under this community will be removed.`)) return;
+    async function saveCommunityClassification() {
+      if (!state.communityId) {
+        setClassificationMessage('Select a community to edit classification.', 'danger');
+        return;
+      }
 
-    try {
-      const res = await fetch(`/api/communities/${state.communityId}`, { method: 'DELETE' });
-      const text = await res.text();
-      if (!res.ok) throw new Error(text || `Delete failed (${res.status})`);
+      const payload = {
+        projectNumber: classificationProjectNumber?.value.trim() || '',
+        productTypesOffered: parseStringList(classificationProductTypes?.value),
+        lotWidthsOffered: parseNumberList(classificationLotWidths?.value),
+        managementMode: classificationManagementMode?.value || 'later'
+      };
+
+      if (classificationSaveBtn) classificationSaveBtn.disabled = true;
+      setClassificationMessage('Saving...');
+
+      try {
+        const res = await fetch(`/api/communities/${state.communityId}`, {
+          method: 'PUT',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(payload)
+        });
+        const data = await res.json().catch(() => null);
+        if (!res.ok) throw new Error(data?.error || `Save failed (${res.status})`);
+        await loadCommunities();
+        setClassificationMessage('Classification saved.', 'success');
+        document.dispatchEvent(new CustomEvent('cm:communityClassificationSaved'));
+      } catch (err) {
+        console.error(err);
+        setClassificationMessage(err.message || 'Save failed.', 'danger');
+      } finally {
+        if (classificationSaveBtn) classificationSaveBtn.disabled = false;
+      }
+    }
+
+    function td(field, value) {
+      const attrs = state.editMode
+        ? ` contenteditable="true" data-field="${field}"`
+        : ` data-field="${field}"`;
+      return `<td${attrs}>${esc(value ?? '')}</td>`;
+    }
+
+    function renderTable(lots) {
+      const deleteCol = state.deleteMode ? '<th style="width:42px"></th>' : '';
+      const rows = lots.map((lot) => {
+        const lotId = String(lot._id);
+        const checked = state.selectedLotIds.has(lotId) ? ' checked' : '';
+        const delCell = state.deleteMode
+          ? `<td class="text-center"><button class="btn btn-sm btn-outline-danger js-row-del" data-id="${esc(lotId)}" title="Delete this lot">X</button></td>`
+          : '';
+
+        return `
+          <tr data-id="${esc(lotId)}">
+            <td class="text-center"><input type="checkbox" class="form-check-input js-select-lot" data-id="${esc(lotId)}"${checked} /></td>
+            ${td('jobNumber', lot.jobNumber)}
+            ${td('lot', lot.lot)}
+            ${td('block', lot.block)}
+            ${td('phase', lot.phase)}
+            ${td('lotWidth', lot.lotWidth)}
+            ${td('address', lot.address)}
+            ${td('elevation', lot.elevation)}
+            ${delCell}
+          </tr>
+        `;
+      }).join('') || `<tr><td colspan="${state.deleteMode ? 9 : 8}" class="text-muted">No lots found</td></tr>`;
+
+      lotsWrap.innerHTML = `
+        <div class="table-responsive">
+          <table class="table table-sm table-bordered align-middle mb-0">
+            <thead>
+              <tr>
+                <th style="width:42px"><input type="checkbox" class="form-check-input" id="cm-select-all-lots" /></th>
+                <th>Job #</th>
+                <th>Lot</th>
+                <th>Block</th>
+                <th>Phase</th>
+                <th>Lot Width</th>
+                <th>Address</th>
+                <th>Elevation</th>
+                ${deleteCol}
+              </tr>
+            </thead>
+            <tbody>${rows}</tbody>
+          </table>
+        </div>
+      `;
+
+      bindSelectionEvents(lots);
+      if (state.editMode) bindCellEditing(lotsWrap);
+      if (state.deleteMode) bindRowDeletion(lotsWrap);
+      updateSelectionCount();
+    }
+
+    function bindSelectionEvents(lots) {
+      lotsWrap.querySelectorAll('.js-select-lot').forEach((checkbox) => {
+        checkbox.addEventListener('change', () => {
+          const lotId = checkbox.dataset.id;
+          if (!lotId) return;
+          if (checkbox.checked) state.selectedLotIds.add(lotId);
+          else state.selectedLotIds.delete(lotId);
+          updateSelectionCount();
+        });
+      });
+
+      const selectAll = document.getElementById('cm-select-all-lots');
+      if (!selectAll) return;
+      const lotIds = lots.map((lot) => String(lot._id));
+      selectAll.checked = !!lotIds.length && lotIds.every((id) => state.selectedLotIds.has(id));
+      selectAll.addEventListener('change', () => {
+        if (selectAll.checked) lotIds.forEach((id) => state.selectedLotIds.add(id));
+        else lotIds.forEach((id) => state.selectedLotIds.delete(id));
+        loadLots();
+      });
+    }
+
+    function bindCellEditing(root) {
+      root.querySelectorAll('td[contenteditable="true"]').forEach((cell) => {
+        cell.addEventListener('keydown', async (event) => {
+          if (event.key === 'Enter') {
+            event.preventDefault();
+            cell.blur();
+          }
+        });
+        cell.addEventListener('blur', async () => {
+          const row = cell.closest('tr');
+          const lotId = row?.dataset?.id;
+          const field = cell.dataset.field;
+          if (!lotId || !field) return;
+
+          const newValue = cell.textContent.trim();
+          const payload = { [field]: newValue };
+          if (field === 'jobNumber') payload.jobNumber = String(newValue).padStart(4, '0');
+          if (field === 'lotWidth') payload.lotWidth = newValue === '' ? null : Number(newValue);
+
+          try {
+            const res = await fetch(`/api/communities/${state.communityId}/lots/${lotId}`, {
+              method: 'PUT',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify(payload)
+            });
+            if (!res.ok) {
+              alert(`Save failed (${res.status})`);
+              await loadLots();
+            }
+          } catch (err) {
+            console.error(err);
+            alert('Save failed');
+            await loadLots();
+          }
+        });
+      });
+    }
+
+    function bindRowDeletion(root) {
+      root.querySelectorAll('.js-row-del').forEach((button) => {
+        button.addEventListener('click', async () => {
+          const lotId = button.dataset.id;
+          if (!lotId) return;
+          if (!confirm('Delete this lot? This cannot be undone.')) return;
+
+          try {
+            const res = await fetch(`/api/communities/${state.communityId}/lots/${lotId}`, { method: 'DELETE' });
+            if (!res.ok) {
+              const text = await res.text();
+              throw new Error(text || `Delete failed (${res.status})`);
+            }
+            state.selectedLotIds.delete(lotId);
+            await loadLots();
+          } catch (err) {
+            console.error(err);
+            alert(err.message || 'Delete failed');
+          }
+        });
+      });
+    }
+
+    async function applyBulkLotWidth(lotWidth) {
+      const lotIds = [...state.selectedLotIds];
+      if (!state.communityId) {
+        alert('Select a community first.');
+        return;
+      }
+      if (!lotIds.length) {
+        alert('Select at least one lot first.');
+        return;
+      }
+
+      try {
+        const res = await fetch(`/api/communities/${state.communityId}/lots/bulk-width`, {
+          method: 'PUT',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ lotIds, lotWidth })
+        });
+        const payload = await res.json().catch(() => null);
+        if (!res.ok) throw new Error(payload?.error || `Bulk update failed (${res.status})`);
+        await loadLots();
+      } catch (err) {
+        console.error(err);
+        alert(err.message || 'Bulk update failed');
+      }
+    }
+
+    communitySel.addEventListener('change', () => {
+      state.communityId = communitySel.value || null;
+      state.selectedLotIds = new Set();
+      if (deleteCommunityBtn) deleteCommunityBtn.disabled = !state.communityId;
+      syncCommunityClassificationForm();
+      loadLots();
+    });
+
+    classificationSaveBtn?.addEventListener('click', async () => {
+      await saveCommunityClassification();
+    });
+
+    let searchTimer;
+    searchInput?.addEventListener('input', () => {
+      clearTimeout(searchTimer);
+      searchTimer = setTimeout(() => {
+        state.search = searchInput.value.trim();
+        loadLots();
+      }, 250);
+    });
+
+    editBtn?.addEventListener('click', async () => {
+      state.editMode = !state.editMode;
+      editBtn.classList.toggle('btn-secondary', !state.editMode);
+      editBtn.classList.toggle('btn-success', state.editMode);
+      editBtn.setAttribute('aria-pressed', String(state.editMode));
+      await loadLots();
+    });
+
+    delBtn?.addEventListener('click', async () => {
+      state.deleteMode = !state.deleteMode;
+      delBtn.classList.toggle('btn-danger', !state.deleteMode);
+      delBtn.classList.toggle('btn-warning', state.deleteMode);
+      delBtn.setAttribute('aria-pressed', String(state.deleteMode));
+      await loadLots();
+    });
+
+    bulkApplyBtn?.addEventListener('click', async () => {
+      const raw = bulkLotWidthInput?.value;
+      if (raw === '' || raw == null) {
+        alert('Enter a lot width to apply.');
+        return;
+      }
+      const parsed = Number(raw);
+      if (!Number.isFinite(parsed) || parsed < 0) {
+        alert('Enter a valid lot width.');
+        return;
+      }
+      await applyBulkLotWidth(parsed);
+    });
+
+    bulkClearBtn?.addEventListener('click', async () => {
+      await applyBulkLotWidth(null);
+    });
+
+    exportBtn?.addEventListener('click', async () => {
+      if (!state.communityId) {
+        alert('Select a community first');
+        return;
+      }
+
+      try {
+        const url = new URL(`/api/communities/${state.communityId}/lots`, location.origin);
+        if (state.search) url.searchParams.set('q', state.search);
+        url.searchParams.set('format', 'csv');
+
+        const res = await fetch(url, { headers: { Accept: 'text/csv' } });
+        const text = await res.text();
+        if (!res.ok) throw new Error(text || `Export failed (${res.status})`);
+
+        const blob = new Blob([text], { type: 'text/csv' });
+        const dlUrl = window.URL.createObjectURL(blob);
+        const link = document.createElement('a');
+        const name = (state.communities.find((community) => community._id === state.communityId)?.name || 'community')
+          .replace(/[^a-z0-9]+/gi, '-')
+          .replace(/^-+|-+$/g, '') || 'community';
+        link.href = dlUrl;
+        link.download = `${name}-lots.csv`;
+        document.body.appendChild(link);
+        link.click();
+        link.remove();
+        window.URL.revokeObjectURL(dlUrl);
+      } catch (err) {
+        console.error(err);
+        alert(err.message || 'Export failed');
+      }
+    });
+
+    deleteCommunityBtn?.addEventListener('click', async () => {
+      if (!state.communityId) {
+        alert('Select a community first');
+        return;
+      }
+
+      const current = state.communities.find((community) => community._id === state.communityId);
+      const label = current?.name ? current.name : 'this community';
+      if (!confirm(`Delete "${label}"? All lots under this community will be removed.`)) return;
+
+      try {
+        const res = await fetch(`/api/communities/${state.communityId}`, { method: 'DELETE' });
+        const text = await res.text();
+        if (!res.ok) throw new Error(text || `Delete failed (${res.status})`);
+        state.selectedLotIds = new Set();
+        await loadCommunities();
+        await loadLots();
+        document.dispatchEvent(new CustomEvent('cm:communityChanged'));
+        alert('Community deleted.');
+      } catch (err) {
+        console.error(err);
+        alert(err.message || 'Delete failed');
+      }
+    });
+
+    const activateTab = (id) => {
+      tabPanels.forEach((panel) => {
+        panel.style.display = panel.id === id ? '' : 'none';
+      });
+      tabButtons.forEach((button) => {
+        const isActive = button.getAttribute('data-tab-target') === id;
+        button.classList.toggle('active', isActive);
+      });
+    };
+
+    tabButtons.forEach((button) => {
+      button.addEventListener('click', () => {
+        const target = button.getAttribute('data-tab-target') || 'cm-create-tab';
+        activateTab(target);
+      });
+    });
+    activateTab('cm-create-tab');
+
+    document.addEventListener('cm:communitiesImported', async () => {
       await loadCommunities();
       await loadLots();
-      alert('Community deleted.');
-    } catch (err) {
-      console.error(err);
-      alert(err.message || 'Delete failed');
-    }
-  });
+    });
+    document.addEventListener('cm:communityChanged', async () => {
+      await loadCommunities();
+      await loadLots();
+    });
 
-  // Tabs (Create vs Manage)
-  const activateTab = (id) => {
-    tabPanels.forEach((panel) => {
-      panel.style.display = panel.id === id ? '' : 'none';
-    });
-    tabButtons.forEach((btn) => {
-      const isActive = btn.getAttribute('data-tab-target') === id;
-      btn.classList.toggle('active', isActive);
-    });
-  };
-  tabButtons.forEach((btn) => {
-    btn.addEventListener('click', () => {
-      const target = btn.getAttribute('data-tab-target') || 'cm-create-tab';
-      activateTab(target);
-    });
-  });
-  activateTab('cm-create-tab');
-
-  // --------- boot ----------
-  (async () => {
-    await loadCommunities();
-    await loadLots();
+    (async () => {
+      await loadCommunities();
+      await loadLots();
+    })();
   })();
-});
-  </script>
+</script>

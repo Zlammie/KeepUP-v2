@@ -74,6 +74,10 @@ const CommunityWebDataSchema = new Schema({
     }],
     default: undefined
   },
+  lotSizes: {
+    type: [{ type: Number, min: 0 }],
+    default: undefined
+  },
   promo: {
     headline: { type: String, trim: true, default: '' },
     description: { type: String, trim: true, default: '' },
@@ -119,6 +123,8 @@ const CommunityCompetitionProfileSchema = new Schema({
 
   modelPlan: String,        // keep as-is; you can wire to FloorPlan later
   lotSize:  String,
+  productTypes: [{ type: String, trim: true }],
+  lotSizes: [{ type: Number, min: 0 }],
 
   garageType: { type: String, enum: ['Front', 'Rear'], default: undefined },
 

@@ -29,6 +29,7 @@ const LotSchema = new Schema({
   lot: String,
   block: String,
   phase: String,
+  lotWidth: { type: Number, set: toNumOrNull, default: null, min: 0 },
 
   address: String,
   address1: { type: String, default: '' },
@@ -153,12 +154,20 @@ const CommunitySchema = new Schema({
 
   // 📛 Identity
   name: { type: String, required: true, index: true },
+  projectNumber: { type: String, default: '', trim: true },
   slug: { type: String, default: '', index: true, lowercase: true, trim: true, set: slugify },
 
   // (optional but handy for filters/graphs)
   market: String,
   city:   String,
   state:  String,
+  productTypesOffered: [{ type: String, trim: true }],
+  lotWidthsOffered: [{ type: Number, min: 0 }],
+  managementMode: {
+    type: String,
+    enum: ['single', 'grouped', 'later'],
+    default: 'later'
+  },
 
   // BuildRootz canonical mapping (prevents duplicate community records)
   buildrootz: {

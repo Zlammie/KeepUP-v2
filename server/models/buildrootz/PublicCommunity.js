@@ -37,6 +37,8 @@ const PublicCommunitySchema = new Schema({
 
   promotion: { type: String, default: '' },
   description: { type: String, default: '' },
+  productTypesOffered: { type: [String], default: [] },
+  lotWidthsOffered: { type: [Number], default: [] },
   amenities: {
     type: [{
       category: { type: String, default: '' },

@@ -428,6 +428,7 @@ router.get('/communities/:communityId/builders', async (req, res) => {
           modelListing: {
             id: '$listing._id',
             address: '$listing.address',
+            lotWidth: '$listing.lotWidth',
             status: '$listing.status',
             published: '$listing.published',
             updatedAt: '$listing.updatedAt',
@@ -446,6 +447,7 @@ router.get('/communities/:communityId/builders', async (req, res) => {
         ? {
             id: row.modelListing.id ? String(row.modelListing.id) : null,
             address: row.modelListing.address || {},
+            lotWidth: Number.isFinite(Number(row.modelListing.lotWidth)) ? Number(row.modelListing.lotWidth) : null,
             status: row.modelListing.status || '',
             published: Boolean(row.modelListing.published),
             updatedAt: row.modelListing.updatedAt || null,
@@ -483,6 +485,7 @@ router.get(['/maps/:communitySlug/package', '/maps/package'], async (req, res) =
       'lots.generalStatus',
       'lots.buildingStatus',
       'lots.jobNumber',
+      'lots.lotWidth',
       'lots.floorPlan',
       'lots.floorPlanName',
       'lots.hasViewHomeLink',
@@ -562,6 +565,7 @@ router.get(['/maps/:communitySlug/package', '/maps/package'], async (req, res) =
           floorPlanName: planInfo.floorPlanName,
           floorPlanNumber: planInfo.floorPlanNumber,
           floorPlanUrl: sanitizeListingUrl(buildFloorPlanUrl(communitySlug, planInfo.websiteSlug)),
+          lotWidth: toNumber(matched?.lotWidth),
           squareFeet: planInfo.squareFeet,
           beds: planInfo.beds,
           baths: planInfo.baths,

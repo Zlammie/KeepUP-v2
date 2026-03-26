@@ -1644,13 +1644,13 @@ router.get('/listing-details', ensureAuth, requireRole('READONLY','USER','MANAGE
 
       const findCommunityById = async (id) => (
         Community.findOne({ _id: id, ...base(req) })
-          .select('name city state lots buildrootz')
+          .select('name city state lots buildrootz productTypesOffered lotWidthsOffered')
           .populate('lots.floorPlan', 'name planNumber specs.squareFeet specs.beds specs.baths specs.garage asset elevations')
           .lean()
       );
       const findCommunityByLot = async (id) => (
         Community.findOne({ ...base(req), 'lots._id': id })
-          .select('name city state lots buildrootz')
+          .select('name city state lots buildrootz productTypesOffered lotWidthsOffered')
           .populate('lots.floorPlan', 'name planNumber specs.squareFeet specs.beds specs.baths specs.garage asset elevations')
           .lean()
       );
@@ -1696,6 +1696,49 @@ router.get('/listing-details', ensureAuth, requireRole('READONLY','USER','MANAGE
         .select('hoaFee hoaFrequency tax feeTypes mudFee pidFee pidFeeFrequency communityAmenities promotion schoolISD elementarySchool middleSchool highSchool lotSize salesPerson salesPersonPhone salesPersonEmail address city state zip webData')
         .lean();
       const webData = competitionProfileToWebData(profile, community);
+      const normalizeStringList = (values) => {
+        const seen = new Set();
+        return (Array.isArray(values) ? values : [])
+          .map((value) => trimText(value))
+          .filter((value) => {
+            if (!value) return false;
+            const key = value.toLowerCase();
+            if (seen.has(key)) return false;
+            seen.add(key);
+            return true;
+          });
+      };
+      const normalizeNumberList = (values) => {
+        const seen = new Set();
+        return (Array.isArray(values) ? values : [])
+          .map((value) => Number(value))
+          .filter((value) => {
+            if (!Number.isFinite(value) || value <= 0) return false;
+            const normalized = Number(value.toFixed(3));
+            if (seen.has(normalized)) return false;
+            seen.add(normalized);
+            return true;
+          });
+      };
+      const formatLotWidthValue = (value) => (
+        `${Number(value.toFixed(3)).toLocaleString(undefined, { maximumFractionDigits: 3 })}'`
+      );
+      const structuredLotWidth = Number(lot?.lotWidth);
+      const structuredCommunityLotWidths = normalizeNumberList(community?.lotWidthsOffered);
+      const fallbackWebLotWidths = normalizeNumberList(webData?.lotSizes);
+      const effectiveCommunityLotWidths = structuredCommunityLotWidths.length
+        ? structuredCommunityLotWidths
+        : fallbackWebLotWidths;
+      const lotSizeDisplay = Number.isFinite(structuredLotWidth) && structuredLotWidth > 0
+        ? `${formatLotWidthValue(structuredLotWidth)} Lot`
+        : (effectiveCommunityLotWidths.length
+          ? `${effectiveCommunityLotWidths.map(formatLotWidthValue).join(', ')} ${effectiveCommunityLotWidths.length === 1 ? 'Lot' : 'Lots'}`
+          : trimText(profile?.lotSize));
+      const structuredProductTypes = normalizeStringList(community?.productTypesOffered);
+      const fallbackWebProductTypes = normalizeStringList(webData?.productTypes);
+      const productTypeDisplay = (structuredProductTypes.length
+        ? structuredProductTypes
+        : fallbackWebProductTypes).join(', ');
       const communityLocation = {
         city: trimText(webData?.city || profile?.city || community?.city),
         state: trimText(webData?.state || profile?.state || community?.state),
@@ -1774,7 +1817,8 @@ router.get('/listing-details', ensureAuth, requireRole('READONLY','USER','MANAGE
         floorPlanBaths: floorPlanDoc?.specs?.baths ?? null,
         floorPlanSqft: floorPlanDoc?.specs?.squareFeet ?? null,
         floorPlanGarage: floorPlanDoc?.specs?.garage ?? null,
-        lotSize: profile?.lotSize || '',
+        lotSize: lotSizeDisplay || '',
+        productType: productTypeDisplay || '',
         latitude: lot.latitude ?? null,
         longitude: lot.longitude ?? null,
         floorPlanPreviews: (() => {
@@ -1888,7 +1932,8 @@ router.get('/listing-details', ensureAuth, requireRole('READONLY','USER','MANAGE
       res.render('pages/listing-details', {
         active: 'listings',
         lot: lotView,
-        brzReadiness
+        brzReadiness,
+        googleMapsApiKey: process.env.GOOGLE_MAPS_API_KEY || ''
       });
     } catch (err) {
       next(err);

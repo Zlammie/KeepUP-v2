@@ -32,6 +32,41 @@ const slugify = (value = '') =>
     .replace(/[^a-z0-9]+/g, '-')
     .replace(/(^-|-$)+/g, '');
 
+const normalizeStringArray = (arr = []) => {
+  const seen = new Set();
+  const out = [];
+  (Array.isArray(arr) ? arr : []).forEach((value) => {
+    const trimmed = typeof value === 'string' ? value.trim() : '';
+    if (!trimmed) return;
+    const key = trimmed.toLowerCase();
+    if (seen.has(key)) return;
+    seen.add(key);
+    out.push(trimmed);
+  });
+  return out;
+};
+
+const normalizeNumberArray = (arr = []) => {
+  const seen = new Set();
+  const out = [];
+  (Array.isArray(arr) ? arr : []).forEach((value) => {
+    const parsed = Number(value);
+    if (!Number.isFinite(parsed) || parsed < 0) return;
+    const normalized = Number(parsed.toFixed(3));
+    if (seen.has(normalized)) return;
+    seen.add(normalized);
+    out.push(normalized);
+  });
+  return out;
+};
+
+const extractLabelArray = (value) => {
+  if (!Array.isArray(value)) return [];
+  return normalizeStringArray(
+    value.map((entry) => (typeof entry === 'string' ? entry : entry?.label))
+  );
+};
+
 const dedupeStrings = (arr = []) => {
   const seen = new Set();
   const out = [];
@@ -57,7 +92,7 @@ const extractIncentives = (...values) =>
 async function fetchHomeContext(homeId, companyId, { requireMapping = true } = {}) {
   const filter = { company: companyId, 'lots._id': homeId };
   const community = await Community.findOne(filter)
-    .select('name city state market company lots buildrootz')
+    .select('name city state market company lots buildrootz productTypesOffered lotWidthsOffered')
     .lean();
 
   if (!community) {
@@ -93,7 +128,7 @@ async function fetchHomeContext(homeId, companyId, { requireMapping = true } = {
           .lean()
       : null,
     CommunityCompetitionProfile.findOne({ community: community._id, company: companyId })
-      .select('hoaFee hoaFrequency tax feeTypes mudFee pidFee pidFeeFrequency communityAmenities promotion city state zip schoolISD elementarySchool middleSchool highSchool lotSize salesPerson salesPersonPhone salesPersonEmail address webData')
+      .select('hoaFee hoaFrequency tax feeTypes mudFee pidFee pidFeeFrequency communityAmenities promotion city state zip schoolISD elementarySchool middleSchool highSchool lotSize lotSizes productTypes salesPerson salesPersonPhone salesPersonEmail address webData')
       .lean(),
     Company.findById(companyId).select('name slug').lean()
   ]);
@@ -168,8 +203,17 @@ function buildPublicCommunityPayload({ community, profile, company, heroImage, b
   const hero = profile?.heroImage || heroImage;
   const resolvedCommunityId =
     mappedId && isObjectId(mappedId) ? new mongoose.Types.ObjectId(mappedId) : mappedId || community._id;
+  const communityWebData = competitionProfileToWebData(profile, community);
+  const structuredProductTypes = normalizeStringArray(community?.productTypesOffered);
+  const structuredLotWidths = normalizeNumberArray(community?.lotWidthsOffered);
+  const productTypesOffered = structuredProductTypes.length
+    ? structuredProductTypes
+    : extractLabelArray(communityWebData?.productTypes);
+  const lotWidthsOffered = structuredLotWidths.length
+    ? structuredLotWidths
+    : normalizeNumberArray(communityWebData?.lotSizes);
 
-  return {
+  const payload = {
     companyId: community.company,
     communityId: resolvedCommunityId,
     name: canonicalNameResolved,
@@ -193,6 +237,41 @@ function buildPublicCommunityPayload({ community, profile, company, heroImage, b
     heroImage: toPublicUrl(hero),
     modelAddress
   };
+  if (productTypesOffered.length) payload.productTypesOffered = productTypesOffered;
+  if (lotWidthsOffered.length) payload.lotWidthsOffered = lotWidthsOffered;
+  return payload;
+}
+
+const buildPublicCommunityUpdate = (payload = {}) => {
+  const update = {
+    $set: { ...payload }
+  };
+  const productTypesOffered = normalizeStringArray(payload.productTypesOffered);
+  const lotWidthsOffered = normalizeNumberArray(payload.lotWidthsOffered);
+
+  delete update.$set.productTypesOffered;
+  delete update.$set.lotWidthsOffered;
+
+  const addToSet = {};
+  if (productTypesOffered.length) {
+    addToSet.productTypesOffered = { $each: productTypesOffered };
+  }
+  if (lotWidthsOffered.length) {
+    addToSet.lotWidthsOffered = { $each: lotWidthsOffered };
+  }
+  if (Object.keys(addToSet).length) {
+    update.$addToSet = addToSet;
+  }
+
+  return update;
+};
+
+async function upsertPublicCommunity({ companyId, communityId, payload }) {
+  return PublicCommunity.findOneAndUpdate(
+    { companyId, communityId },
+    buildPublicCommunityUpdate(payload),
+    { upsert: true, new: true, setDefaultsOnInsert: true }
+  );
 }
 
 function buildPublicHomePayload({ community, lot, floorPlan, profile, company, buildrootzCommunityId, canonicalName, publishVersion, publicCommunityId }) {
@@ -296,6 +375,9 @@ function buildPublicHomePayload({ community, lot, floorPlan, profile, company, b
     },
     builder: { name: builderName, slug: builderSlug },
     lotSize: profile?.lotSize || '',
+    lotWidth: typeof lot?.lotWidth === 'number' && Number.isFinite(lot.lotWidth) && lot.lotWidth >= 0
+      ? Number(lot.lotWidth.toFixed(3))
+      : null,
     description: lot.listingDescription || '',
     highlights: lot.promoText || profile?.promotion || '',
     fees: {
@@ -403,11 +485,18 @@ async function publishHome(homeId, companyId, userId) {
   try {
     const freshCtx = { ...ctx, lot: { ...lot, publishedAt: now, publishVersion: nextVersion } };
 
-    const publicCommunity = await PublicCommunity.findOneAndUpdate(
-      { companyId, communityId: mappedObjectId },
-      { $set: buildPublicCommunityPayload({ community, profile: ctx.profile, company: ctx.company, heroImage: lot.heroImage, buildrootzCommunityId: mappedObjectId, canonicalName }) },
-      { upsert: true, new: true, setDefaultsOnInsert: true }
-    );
+    const publicCommunity = await upsertPublicCommunity({
+      companyId,
+      communityId: mappedObjectId,
+      payload: buildPublicCommunityPayload({
+        community,
+        profile: ctx.profile,
+        company: ctx.company,
+        heroImage: lot.heroImage,
+        buildrootzCommunityId: mappedObjectId,
+        canonicalName
+      })
+    });
 
     const publicHome = await PublicHome.findOneAndUpdate(
       { companyId, sourceHomeId: lot._id },
@@ -532,11 +621,18 @@ async function syncHome(homeId, companyId, userId) {
 
   const mappedObjectId = new mongoose.Types.ObjectId(mappedCommunityId);
 
-  const publicCommunity = await PublicCommunity.findOneAndUpdate(
-    { companyId, communityId: mappedObjectId },
-    { $set: buildPublicCommunityPayload({ community, profile: ctx.profile, company: ctx.company, heroImage: lot.heroImage, buildrootzCommunityId: mappedObjectId, canonicalName }) },
-    { upsert: true, new: true, setDefaultsOnInsert: true }
-  );
+  const publicCommunity = await upsertPublicCommunity({
+    companyId,
+    communityId: mappedObjectId,
+    payload: buildPublicCommunityPayload({
+      community,
+      profile: ctx.profile,
+      company: ctx.company,
+      heroImage: lot.heroImage,
+      buildrootzCommunityId: mappedObjectId,
+      canonicalName
+    })
+  });
 
   const publicHome = await PublicHome.findOneAndUpdate(
     { companyId, sourceHomeId: lot._id },
@@ -558,7 +654,7 @@ async function syncHome(homeId, companyId, userId) {
 
 async function publishCommunity(communityId, companyId, userId) {
   const community = await Community.findOne({ _id: communityId, company: companyId })
-    .select('name city state market company lots buildrootz')
+    .select('name city state market company lots buildrootz productTypesOffered lotWidthsOffered')
     .lean();
   if (!community) {
     const err = new Error('Community not found');
@@ -578,15 +674,22 @@ async function publishCommunity(communityId, companyId, userId) {
   const mappedObjectId = new mongoose.Types.ObjectId(mappedCommunityId);
 
   const profile = await CommunityCompetitionProfile.findOne({ community: communityId, company: companyId })
-    .select('hoaFee hoaFrequency tax feeTypes mudFee pidFee pidFeeFrequency communityAmenities promotion buildrootzDescription heroImage city state zip address')
+    .select('hoaFee hoaFrequency tax feeTypes mudFee pidFee pidFeeFrequency communityAmenities promotion buildrootzDescription heroImage city state zip address lotSize lotSizes productTypes webData')
     .lean();
   const company = await Company.findById(companyId).select('name slug').lean();
 
-  const publicCommunity = await PublicCommunity.findOneAndUpdate(
-    { companyId, communityId: mappedObjectId },
-    { $set: buildPublicCommunityPayload({ community, profile, company, heroImage: profile?.heroImage || '', buildrootzCommunityId: mappedObjectId, canonicalName }) },
-    { upsert: true, new: true, setDefaultsOnInsert: true }
-  );
+  const publicCommunity = await upsertPublicCommunity({
+    companyId,
+    communityId: mappedObjectId,
+    payload: buildPublicCommunityPayload({
+      community,
+      profile,
+      company,
+      heroImage: profile?.heroImage || '',
+      buildrootzCommunityId: mappedObjectId,
+      canonicalName
+    })
+  });
 
   console.info('[buildrootz] published community', { communityId: String(communityId), companyId: String(companyId), userId: String(userId || '') });
   return { publicCommunityId: publicCommunity?._id || null };

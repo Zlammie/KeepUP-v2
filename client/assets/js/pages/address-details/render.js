@@ -84,6 +84,16 @@ export const renderTitleAndBasics = (lot) => {
   els.jobNumberValue.textContent = lot.jobNumber ?? '';
   els.lotBlockPhaseValue.textContent = `${lot.lot ?? ''} / ${lot.block ?? ''} / ${lot.phase ?? ''}`;
 
+  const lotWidth = Number(lot?.lotWidth);
+  const hasLotWidth = Number.isFinite(lotWidth) && lotWidth > 0;
+  if (els.lotWidthValue) {
+    els.lotWidthValue.textContent = hasLotWidth ? `${lotWidth}\u2019 Lot` : '';
+    els.lotWidthValue.hidden = !hasLotWidth;
+  }
+  if (els.lotWidthDivider) {
+    els.lotWidthDivider.hidden = !hasLotWidth;
+  }
+
   if (els.addressValue) {
     els.addressValue.textContent = lot.address ?? '';
   }
