@@ -235,6 +235,10 @@
   .floor-plans-table .plan-edit-btn {
     width: 100%;
   }
+
+  .workspace-setup-card__tasks {
+    flex-direction: column;
+  }
 }
 
 @keyframes admin-panel-fade {

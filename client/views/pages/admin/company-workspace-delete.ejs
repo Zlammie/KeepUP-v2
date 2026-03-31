@@ -1,0 +1,117 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Delete Company Workspace</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet" />
+    <link rel="stylesheet" href="/assets/css/main.css" />
+  </head>
+  <body>
+    <%- include('../../partials/nav') %>
+    <main class="main-content p-4">
+      <header class="mb-4 d-flex justify-content-between align-items-start gap-3 flex-wrap">
+        <div>
+          <p class="text-uppercase text-muted small mb-1">Super Admin</p>
+          <h1 class="h4 mb-1">Delete Company Workspace</h1>
+          <p class="text-muted mb-0">Preview the workspace cleanup, then confirm the permanent hard delete.</p>
+        </div>
+        <a class="btn btn-outline-secondary" href="/admin-section?tab=impersonation">Back to Company Admin</a>
+      </header>
+
+      <% if (error) { %>
+        <div class="alert alert-danger"><%= error %></div>
+      <% } %>
+
+      <div class="row g-4">
+        <div class="col-lg-5">
+          <div class="card shadow-sm mb-4">
+            <div class="card-body">
+              <p class="text-uppercase text-muted small mb-1">Workspace</p>
+              <h2 class="h5 mb-3"><%= preview.company.name %></h2>
+              <dl class="row mb-0">
+                <dt class="col-sm-4">Company ID</dt>
+                <dd class="col-sm-8"><code><%= preview.company.id %></code></dd>
+
+                <dt class="col-sm-4">Slug</dt>
+                <dd class="col-sm-8"><%= preview.company.slug || '--' %></dd>
+
+                <dt class="col-sm-4">Created</dt>
+                <dd class="col-sm-8"><%= preview.company.createdAt ? new Date(preview.company.createdAt).toLocaleString() : '--' %></dd>
+              </dl>
+            </div>
+          </div>
+
+          <div class="card border-danger shadow-sm">
+            <div class="card-body">
+              <p class="text-uppercase text-danger small mb-1">Danger Zone</p>
+              <h2 class="h5 mb-2">Permanent hard delete</h2>
+              <p class="mb-2">This permanently deletes the workspace and all associated records.</p>
+              <p class="mb-0 fw-semibold">This action cannot be undone.</p>
+            </div>
+          </div>
+        </div>
+
+        <div class="col-lg-7">
+          <div class="card shadow-sm mb-4">
+            <div class="card-body">
+              <div class="d-flex justify-content-between align-items-start gap-3 flex-wrap mb-3">
+                <div>
+                  <p class="text-uppercase text-muted small mb-1">Delete Preview</p>
+                  <h2 class="h5 mb-1">Records that will be removed</h2>
+                  <p class="text-muted mb-0"><%= preview.previewSummaryLine %></p>
+                </div>
+                <span class="badge text-bg-danger">Hard Delete</span>
+              </div>
+
+              <div class="table-responsive">
+                <table class="table table-sm align-middle mb-0">
+                  <thead>
+                    <tr>
+                      <th>Record Type</th>
+                      <th class="text-end">Count</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    <% (preview.items || []).filter((item) => item.count > 0 || item.key === 'company' || item.key === 'lots').forEach((item) => { %>
+                      <tr>
+                        <td><%= item.label %></td>
+                        <td class="text-end"><%= item.count %></td>
+                      </tr>
+                    <% }) %>
+                  </tbody>
+                </table>
+              </div>
+              <div class="form-text mt-3">Lots are embedded under communities and are removed when the communities are deleted.</div>
+            </div>
+          </div>
+
+          <div class="card shadow-sm">
+            <div class="card-body">
+              <form method="POST" action="/admin/companies/<%= encodeURIComponent(preview.company.id) %>/delete" class="row g-3">
+                <div class="col-12">
+                  <label for="confirmationName" class="form-label">Type the company name to confirm</label>
+                  <input
+                    type="text"
+                    id="confirmationName"
+                    name="confirmationName"
+                    class="form-control"
+                    value="<%= confirmationName || '' %>"
+                    placeholder="<%= preview.company.name %>"
+                    autocomplete="off"
+                    required
+                  />
+                  <div class="form-text">Enter <strong><%= preview.company.name %></strong> exactly to enable deletion.</div>
+                </div>
+                <div class="col-12 d-flex justify-content-end gap-2">
+                  <a class="btn btn-outline-secondary" href="/admin-section?tab=impersonation">Cancel</a>
+                  <button type="submit" class="btn btn-danger">Delete Company Workspace</button>
+                </div>
+              </form>
+            </div>
+          </div>
+        </div>
+      </div>
+    </main>
+  </body>
+</html>

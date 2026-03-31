@@ -1,16 +1,13 @@
 const express = require('express');
-const mongoose = require('mongoose');
 const requireRole = require('../../middleware/requireRole');
 const Company = require('../../models/Company');
 const Community = require('../../models/Community');
 const { publishBuilderProfile } = require('../../services/buildrootzBuilderProfile');
 const BuildRootzCommunityRequest = require('../../models/BuildRootzCommunityRequest');
 const { buildrootzFetch } = require('../../services/buildrootzClient');
+const { isObjectId, resolveAdminCompanyId } = require('../../utils/adminCompanyScope');
 
 const router = express.Router();
-
-const isObjectId = (value) => mongoose.Types.ObjectId.isValid(String(value || ''));
-const isSuper = (req) => Array.isArray(req.user?.roles) && req.user.roles.includes('SUPER_ADMIN');
 const ADMIN_ROLES = ['MANAGER', 'COMPANY_ADMIN', 'SUPER_ADMIN'];
 
 const trimToNull = (value) => {
@@ -50,12 +47,6 @@ const resolvePublicCommunityIdFromPayload = (payload, fallbackCommunityId = '') 
     fallbackCommunityId
   );
 
-const resolveCompanyId = (req, incomingId) => {
-  const requestedCompanyId = incomingId;
-  if (isSuper(req) && isObjectId(requestedCompanyId)) return requestedCompanyId;
-  return req.user.company;
-};
-
 const serializeProfile = (company, builderDoc = null) => {
   const brandingLogo = company.branding?.logoUrl || '';
   const profileLogo = company.buildrootzProfile?.logoUrl || '';
@@ -82,7 +73,7 @@ router.get(
   requireRole('MANAGER', 'COMPANY_ADMIN', 'SUPER_ADMIN'),
   async (req, res, next) => {
     try {
-      const resolvedCompanyId = resolveCompanyId(req, req.query.companyId);
+      const resolvedCompanyId = resolveAdminCompanyId(req, req.query.companyId);
       if (!isObjectId(resolvedCompanyId)) {
         return res.status(400).json({ error: 'Invalid company context' });
       }
@@ -102,7 +93,7 @@ router.put(
   requireRole('COMPANY_ADMIN', 'SUPER_ADMIN'),
   async (req, res, next) => {
     try {
-      const resolvedCompanyId = resolveCompanyId(req, req.body?.companyId);
+      const resolvedCompanyId = resolveAdminCompanyId(req, req.body?.companyId);
       if (!isObjectId(resolvedCompanyId)) {
         return res.status(400).json({ error: 'Invalid company context' });
       }
@@ -137,7 +128,7 @@ router.post(
   requireRole('COMPANY_ADMIN', 'SUPER_ADMIN'),
   async (req, res, next) => {
     try {
-      const resolvedCompanyId = resolveCompanyId(req, req.body?.companyId);
+      const resolvedCompanyId = resolveAdminCompanyId(req, req.body?.companyId);
       if (!isObjectId(resolvedCompanyId)) {
         return res.status(400).json({ error: 'Invalid company context' });
       }
@@ -214,7 +205,7 @@ router.get(
   requireRole(...ADMIN_ROLES),
   async (req, res, next) => {
     try {
-      const companyId = resolveCompanyId(req, req.query.companyId);
+      const companyId = resolveAdminCompanyId(req, req.query.companyId);
       if (!isObjectId(companyId)) return res.status(400).json({ error: 'Invalid company context' });
 
       const communities = await Community.find({ company: companyId })
@@ -252,7 +243,7 @@ router.patch(
     try {
       const { communityId } = req.params;
       const brId = (req.body?.buildrootzCommunityId || '').toString().trim();
-      const companyId = resolveCompanyId(req, req.body?.companyId);
+      const companyId = resolveAdminCompanyId(req, req.body?.companyId);
 
       if (!isObjectId(companyId)) return res.status(400).json({ error: 'Invalid company context' });
       if (!isObjectId(communityId)) return res.status(400).json({ error: 'Invalid community id' });
@@ -297,7 +288,7 @@ router.delete(
   async (req, res, next) => {
     try {
       const { communityId } = req.params;
-      const companyId = resolveCompanyId(req, req.body?.companyId);
+      const companyId = resolveAdminCompanyId(req, req.body?.companyId);
       if (!isObjectId(companyId)) return res.status(400).json({ error: 'Invalid company context' });
       if (!isObjectId(communityId)) return res.status(400).json({ error: 'Invalid community id' });
 
@@ -327,7 +318,7 @@ router.get(
   async (req, res) => {
     try {
       const { communityId } = req.params;
-      const companyId = resolveCompanyId(req, req.query?.companyId);
+      const companyId = resolveAdminCompanyId(req, req.query?.companyId);
       if (!isObjectId(companyId)) return res.status(400).json({ error: 'Invalid company context' });
       if (!isObjectId(communityId)) return res.status(400).json({ error: 'Invalid community id' });
 
@@ -382,7 +373,7 @@ router.post(
   async (req, res) => {
     try {
       const { keepupCommunityId, requestedName, city, state, notes } = req.body || {};
-      const companyId = resolveCompanyId(req, req.body?.companyId);
+      const companyId = resolveAdminCompanyId(req, req.body?.companyId);
       if (!isObjectId(companyId)) return res.status(400).json({ error: 'Invalid company context' });
       if (!isObjectId(keepupCommunityId)) return res.status(400).json({ error: 'Invalid community id' });
       if (!requestedName || !city || !state) {

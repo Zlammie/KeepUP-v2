@@ -1,17 +1,17 @@
 :root {
-  --beta-bg: #0f172a;
-  --beta-card: #ffffff;
-  --beta-muted: #94a3b8;
-  --beta-primary: #2563eb;
-  --beta-success: #22c55e;
-  --beta-error: #ef4444;
+  --signup-request-bg: #0f172a;
+  --signup-request-card: #ffffff;
+  --signup-request-muted: #94a3b8;
+  --signup-request-primary: #2563eb;
+  --signup-request-success: #22c55e;
+  --signup-request-error: #ef4444;
 }
 
-body.beta {
+body.signup-request {
   margin: 0;
   min-height: 100vh;
   background: radial-gradient(circle at top, rgba(37, 99, 235, 0.25), transparent 55%),
-    var(--beta-bg);
+    var(--signup-request-bg);
   color: #0f172a;
   display: flex;
   align-items: center;
@@ -20,47 +20,59 @@ body.beta {
   font-family: 'Inter', system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
 }
 
-.beta-page {
+.signup-request-page {
   width: 100%;
   max-width: 640px;
 }
 
-.beta-card {
-  background: var(--beta-card);
+.signup-request-card {
+  background: var(--signup-request-card);
   border-radius: 24px;
   padding: 48px 56px;
   box-shadow: 0 25px 50px rgba(15, 23, 42, 0.25);
 }
 
 @media (max-width: 640px) {
-  .beta-card {
+  .signup-request-card {
     padding: 32px 24px;
   }
 }
 
-.beta-header .eyebrow {
+.signup-request-header .eyebrow {
   text-transform: uppercase;
   letter-spacing: 0.2em;
   font-size: 13px;
-  color: var(--beta-muted);
+  color: var(--signup-request-muted);
   margin: 0 0 8px 0;
 }
 
-.beta-header h1 {
+.signup-request-header h1 {
   margin: 0 0 12px 0;
   font-size: clamp(2rem, 3vw, 2.5rem);
 }
 
-.beta-header .lead {
+.signup-request-header .lead {
   margin: 0;
   color: #334155;
   line-height: 1.6;
 }
 
-.beta-form {
+.signup-request-form {
   margin-top: 36px;
   display: grid;
   gap: 20px;
+}
+
+.field-row {
+  display: grid;
+  gap: 20px;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+@media (max-width: 640px) {
+  .field-row {
+    grid-template-columns: 1fr;
+  }
 }
 
 .field {
@@ -74,7 +86,19 @@ body.beta {
   color: #0f172a;
 }
 
-.field input,
+.fieldset {
+  border: 1px solid #cbd5f5;
+  border-radius: 14px;
+  padding: 18px 18px 16px;
+}
+
+.fieldset legend {
+  padding: 0 8px;
+  font-weight: 600;
+  color: #0f172a;
+}
+
+.field input:not([type='checkbox']),
 .field textarea {
   border: 1px solid #cbd5f5;
   border-radius: 10px;
@@ -84,11 +108,36 @@ body.beta {
   transition: border 0.2s ease, box-shadow 0.2s ease;
 }
 
-.field input:focus,
+.field input:not([type='checkbox']):focus,
 .field textarea:focus {
-  border-color: var(--beta-primary);
+  border-color: var(--signup-request-primary);
   box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.2);
   outline: none;
+}
+
+.checkbox-group {
+  display: grid;
+  gap: 12px;
+}
+
+.checkbox-option {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  font-weight: 500;
+  color: #334155;
+  cursor: pointer;
+}
+
+.checkbox-option input {
+  width: 18px;
+  height: 18px;
+  margin: 0;
+  accent-color: var(--signup-request-primary);
+}
+
+.checkbox-option span {
+  line-height: 1.4;
 }
 
 .btn-primary {
@@ -101,7 +150,7 @@ body.beta {
   font-size: 16px;
   font-weight: 600;
   color: white;
-  background: var(--beta-primary);
+  background: var(--signup-request-primary);
   cursor: pointer;
   transition: transform 0.2s ease, box-shadow 0.2s ease;
 }
@@ -111,19 +160,19 @@ body.beta {
   box-shadow: 0 10px 20px rgba(37, 99, 235, 0.25);
 }
 
-.beta-alert {
+.signup-request-alert {
   border-radius: 16px;
   padding: 16px 20px;
   font-weight: 600;
   line-height: 1.4;
 }
 
-.beta-alert--success {
+.signup-request-alert--success {
   background: rgba(34, 197, 94, 0.12);
   color: #166534;
 }
 
-.beta-alert--error {
+.signup-request-alert--error {
   background: rgba(239, 68, 68, 0.12);
   color: #991b1b;
 }
@@ -135,7 +184,7 @@ body.beta {
 }
 
 .footnote a {
-  color: var(--beta-primary);
+  color: var(--signup-request-primary);
   text-decoration: none;
 }
 

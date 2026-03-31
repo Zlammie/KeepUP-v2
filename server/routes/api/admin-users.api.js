@@ -12,11 +12,13 @@ const { issuePasswordToken, sendInviteEmail } = require('../../services/password
 const { getSeatCounts } = require('../../utils/seatCounts');
 const { computeSeatBilling } = require('../../utils/billingMath');
 const { syncCompanySubscriptionQuantities } = require('../../services/stripeService');
+const {
+  isObjectId,
+  isSuperAdminRequest,
+  resolveAdminCompanyId
+} = require('../../utils/adminCompanyScope');
 
 const router = express.Router();
-
-const isObjectId = (value) => mongoose.Types.ObjectId.isValid(String(value || ''));
-const isSuper = (req) => Array.isArray(req.user?.roles) && req.user.roles.includes(User.ROLES.SUPER_ADMIN);
 const syncStripeSeatsSafe = async (companyId, contextLabel) => {
   if (!companyId) return;
   try {
@@ -36,9 +38,7 @@ router.get(
   async (req, res, next) => {
     try {
       const requestedCompanyId = req.query.companyId;
-      const scopedCompanyId = isSuper(req) && isObjectId(requestedCompanyId)
-        ? requestedCompanyId
-        : req.user.company;
+      const scopedCompanyId = resolveAdminCompanyId(req, requestedCompanyId);
 
       if (!isObjectId(scopedCompanyId)) {
         return res.status(400).json({ error: 'Invalid company context' });
@@ -255,7 +255,7 @@ router.post(
       }
 
       const requestedCompanyId = rawCompanyId && isObjectId(rawCompanyId) ? rawCompanyId : null;
-      const scopedCompanyId = isSuper(req) ? (requestedCompanyId || req.user.company) : req.user.company;
+      const scopedCompanyId = resolveAdminCompanyId(req, requestedCompanyId);
       if (!isObjectId(scopedCompanyId)) {
         return res.status(400).json({ error: 'Invalid company context.' });
       }
@@ -372,7 +372,7 @@ router.put(
         return res.status(400).json({ error: 'Invalid user id' });
       }
 
-      const filter = isSuper(req)
+      const filter = isSuperAdminRequest(req)
         ? { _id: id }
         : { _id: id, company: req.user.company };
 
@@ -412,7 +412,7 @@ router.put(
         if (!Object.values(User.ROLES).includes(normalizedRole)) {
           return res.status(400).json({ error: 'Invalid role' });
         }
-        if (!isSuper(req) && normalizedRole === User.ROLES.SUPER_ADMIN) {
+        if (!isSuperAdminRequest(req) && normalizedRole === User.ROLES.SUPER_ADMIN) {
           return res.status(403).json({ error: 'Cannot assign SUPER_ADMIN' });
         }
         user.roles = [normalizedRole];
@@ -496,7 +496,7 @@ router.delete(
         return res.status(400).json({ error: 'Invalid user id' });
       }
 
-      const filter = isSuper(req)
+      const filter = isSuperAdminRequest(req)
         ? { _id: id }
         : { _id: id, company: req.user.company };
 

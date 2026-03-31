@@ -1,0 +1,108 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Signup Requests</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet" />
+    <link rel="stylesheet" href="/assets/css/main.css" />
+  </head>
+  <body>
+    <%- include('../../partials/nav') %>
+    <main class="main-content p-4">
+      <header class="mb-3 d-flex flex-wrap justify-content-between align-items-end gap-3">
+        <div>
+          <p class="text-uppercase text-muted small mb-1">Super Admin</p>
+          <h1 class="h4 mb-1">Signup Requests</h1>
+          <p class="text-muted mb-0">Review inbound access requests and manage request status.</p>
+        </div>
+
+        <form method="GET" action="/admin/signup-requests" class="d-flex align-items-center gap-2">
+          <label for="statusFilter" class="form-label mb-0 text-muted small text-uppercase">Status</label>
+          <select id="statusFilter" name="status" class="form-select">
+            <% (statusOptions || []).forEach((statusOption) => { %>
+              <option value="<%= statusOption %>" <%= activeStatus === statusOption ? 'selected' : '' %>>
+                <%= statusOption === 'all' ? 'All' : statusOption.charAt(0).toUpperCase() + statusOption.slice(1) %>
+              </option>
+            <% }) %>
+          </select>
+          <button type="submit" class="btn btn-outline-secondary">Filter</button>
+        </form>
+      </header>
+
+      <div class="card shadow-sm">
+        <div class="card-body">
+          <div class="table-responsive">
+            <table class="table align-middle mb-0">
+              <thead>
+                <tr>
+                  <th>Submitted</th>
+                  <th>Name</th>
+                  <th>Company</th>
+                  <th>Work Email</th>
+                  <th>Phone</th>
+                  <th>Sales Team Size</th>
+                  <th>Interested Products</th>
+                  <th>Status</th>
+                  <th>Onboarding Stage</th>
+                  <th></th>
+                </tr>
+              </thead>
+              <tbody>
+                <% if ((requests || []).length === 0) { %>
+                  <tr>
+                    <td colspan="10" class="text-muted text-center py-4">No signup requests found.</td>
+                  </tr>
+                <% } %>
+                <% (requests || []).forEach((request) => { %>
+                  <tr>
+                    <td class="text-muted small">
+                      <%= new Date(request.submittedAt || request.createdAt).toLocaleString() %>
+                    </td>
+                    <td>
+                      <div class="fw-semibold"><%= [request.firstName, request.lastName].filter(Boolean).join(' ') || 'Unknown' %></div>
+                    </td>
+                    <td><%= request.companyName || '--' %></td>
+                    <td><%= request.workEmail %></td>
+                    <td><%= request.phone %></td>
+                    <td><%= request.salesTeamSize %></td>
+                    <td>
+                      <% if ((request.interestedProducts || []).length) { %>
+                        <%= request.interestedProducts.join(', ') %>
+                      <% } else { %>
+                        <span class="text-muted">--</span>
+                      <% } %>
+                    </td>
+                    <td><span class="badge text-bg-light text-uppercase"><%= request.status %></span></td>
+                    <td class="small">
+                      <% const stageTone = request.onboardingStage === 'Setup Complete'
+                        ? 'success'
+                        : request.onboardingStage === 'Setup Incomplete'
+                          ? 'primary'
+                          : request.onboardingStage === 'Activated'
+                            ? 'info'
+                            : request.onboardingStage === 'Invited'
+                              ? 'warning'
+                              : 'secondary'; %>
+                      <div class="d-flex flex-column align-items-start gap-1">
+                        <span class="badge text-bg-<%= stageTone %>"><%= request.onboardingStage || 'Not Provisioned' %></span>
+                        <% if (request.followUpLabel) { %>
+                          <span class="badge text-bg-danger"><%= request.followUpLabel %></span>
+                        <% } %>
+                      </div>
+                    </td>
+                    <td>
+                      <a class="btn btn-sm btn-outline-primary" href="/admin/signup-requests/<%= request.id %>">
+                        Review
+                      </a>
+                    </td>
+                  </tr>
+                <% }) %>
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+    </main>
+  </body>
+</html>

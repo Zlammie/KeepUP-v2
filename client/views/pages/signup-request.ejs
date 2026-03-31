@@ -1,0 +1,137 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>KeepUP Sign Up</title>
+    <link rel="stylesheet" href="/assets/css/signup-request.css" />
+  </head>
+  <body class="signup-request no-nav">
+    <% const productOptions = ['BuildRootz', 'Interactive Maps', 'Competition Tracking', 'Email Automation']; %>
+    <main class="signup-request-page">
+      <section class="signup-request-card" aria-labelledby="signup-request-title">
+        <header class="signup-request-header">
+          <p class="eyebrow">KeepUP CRM</p>
+          <h1 id="signup-request-title">Sign Up</h1>
+          <p class="lead">
+            Tell us a little about your team and we&rsquo;ll follow up to get your account set up.
+          </p>
+        </header>
+
+        <% if (status === 'success' && message) { %>
+          <div class="signup-request-alert signup-request-alert--success" role="status">
+            <span><%= message %></span>
+          </div>
+        <% } else if (error) { %>
+          <div class="signup-request-alert signup-request-alert--error" role="alert">
+            <span><%= error %></span>
+          </div>
+        <% } %>
+
+        <form class="signup-request-form" method="POST" action="/signup-request" novalidate>
+          <div class="field-row">
+            <div class="field">
+              <label for="firstName">First Name</label>
+              <input
+                type="text"
+                id="firstName"
+                name="firstName"
+                required
+                autocomplete="given-name"
+                value="<%= values.firstName %>"
+              />
+            </div>
+
+            <div class="field">
+              <label for="lastName">Last Name</label>
+              <input
+                type="text"
+                id="lastName"
+                name="lastName"
+                required
+                autocomplete="family-name"
+                value="<%= values.lastName %>"
+              />
+            </div>
+          </div>
+
+          <div class="field">
+            <label for="companyName">Company Name</label>
+            <input
+              type="text"
+              id="companyName"
+              name="companyName"
+              autocomplete="organization"
+              value="<%= values.companyName %>"
+            />
+          </div>
+
+          <div class="field">
+            <label for="workEmail">Work Email</label>
+            <input
+              type="email"
+              id="workEmail"
+              name="workEmail"
+              required
+              autocomplete="email"
+              value="<%= values.workEmail %>"
+            />
+          </div>
+
+          <div class="field">
+            <label for="phone">Phone</label>
+            <input
+              type="tel"
+              id="phone"
+              name="phone"
+              required
+              autocomplete="tel"
+              value="<%= values.phone %>"
+            />
+          </div>
+
+          <div class="field">
+            <label for="salesTeamSize">Sales Team Size</label>
+            <input
+              type="number"
+              id="salesTeamSize"
+              name="salesTeamSize"
+              required
+              min="1"
+              step="1"
+              inputmode="numeric"
+              placeholder="e.g. 12"
+              value="<%= values.salesTeamSize %>"
+            />
+          </div>
+
+          <fieldset class="field fieldset">
+            <legend>Interested in other products</legend>
+            <div class="checkbox-group">
+              <% productOptions.forEach((option) => { %>
+                <% const optionId = `interested-products-${option.toLowerCase().replace(/[^a-z0-9]+/g, '-')}`; %>
+                <label class="checkbox-option" for="<%= optionId %>">
+                  <input
+                    type="checkbox"
+                    id="<%= optionId %>"
+                    name="interestedProducts"
+                    value="<%= option %>"
+                    <%= values.interestedProducts.includes(option) ? 'checked' : '' %>
+                  />
+                  <span><%= option %></span>
+                </label>
+              <% }) %>
+            </div>
+          </fieldset>
+
+          <button type="submit" class="btn-primary">Request access</button>
+
+          <p class="footnote">
+            We&rsquo;ll only use this info to review your request and coordinate account setup.
+            Looking for product support? <a href="mailto:support@keepupcrm.com">Drop us a note</a>.
+          </p>
+        </form>
+      </section>
+    </main>
+  </body>
+</html>

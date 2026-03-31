@@ -6,6 +6,7 @@
   <title>Admin Section</title>
   <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet" />
   <link rel="stylesheet" href="/assets/css/main.css" />
+  <link rel="stylesheet" href="/assets/css/pages/onboarding.css" />
   <link rel="stylesheet" href="/assets/css/pages/admin-section.css" />
 </head>
 <body>
@@ -24,6 +25,57 @@
       <div class="card-body">
         <% const showImpersonationTab = permissions && permissions.canUseImpersonation; %>
         <% const showPlatformBillingTab = permissions && permissions.isPlatformAdmin; %>
+        <% const showSetupCard = permissions && permissions.isCompanyAdmin && setupSummary && !setupSummary.requiredComplete; %>
+        <% const incompleteRequiredTasks = showSetupCard
+          ? setupSummary.requiredTasks.filter((task) => !task.complete)
+          : []; %>
+        <% const prioritySetupTasks = incompleteRequiredTasks.slice(0, 2); %>
+        <% if (showSetupCard) { %>
+          <section class="onboarding-status-card mb-4" aria-label="Workspace setup status">
+            <div class="onboarding-status-card__main">
+              <div>
+                <p class="onboarding-status-card__eyebrow">Getting Started</p>
+                <h2 class="h5 mb-1">Workspace setup is still in progress</h2>
+                <p class="text-muted mb-0">
+                  Required: <strong><%= setupSummary.progress.requiredCompleted %>/<%= setupSummary.progress.requiredTotal %></strong>
+                  complete
+                  <span class="mx-2 text-muted">|</span>
+                  Overall: <strong><%= setupSummary.progress.completedTasks %>/<%= setupSummary.progress.totalTasks %></strong>
+                  complete
+                </p>
+              </div>
+              <div class="onboarding-status-card__actions">
+                <a class="btn btn-primary" href="/admin/getting-started">Continue Setup</a>
+              </div>
+            </div>
+
+            <div class="progress onboarding-status-card__progress mt-3" role="progressbar" aria-label="Workspace setup progress" aria-valuenow="<%= setupSummary.progress.percent %>" aria-valuemin="0" aria-valuemax="100">
+              <div class="progress-bar" style="width: <%= setupSummary.progress.percent %>%;">
+                <%= setupSummary.progress.percent %>%
+              </div>
+            </div>
+
+            <% if (incompleteRequiredTasks.length) { %>
+              <div class="onboarding-status-card__footer mt-3">
+                <div>
+                  <p class="text-uppercase text-muted small mb-2">Still Incomplete</p>
+                  <div class="onboarding-status-card__task-list">
+                    <% incompleteRequiredTasks.forEach((task) => { %>
+                      <span class="onboarding-status-pill"><%= task.title %></span>
+                    <% }) %>
+                  </div>
+                </div>
+                <% if (prioritySetupTasks.length) { %>
+                  <div class="onboarding-status-card__quick-links">
+                    <% prioritySetupTasks.forEach((task) => { %>
+                      <a class="btn btn-sm btn-outline-primary" href="<%= task.actionHref %>"><%= task.actionLabel %></a>
+                    <% }) %>
+                  </div>
+                <% } %>
+              </div>
+            <% } %>
+          </section>
+        <% } %>
         <nav class="admin-tabs mb-4" aria-label="Admin tabs">
           <ul class="nav nav-pills flex-wrap gap-2" role="tablist">
             <li class="nav-item" role="presentation">
@@ -640,6 +692,16 @@
               Not impersonating any company. Select one below to assume their context.
             <% } %>
           </div>
+
+          <% if (workspaceDeleteSummary) { %>
+            <div class="alert alert-success">
+              Deleted <strong><%= workspaceDeleteSummary.companyName %></strong>.
+              <div class="small mt-1"><%= workspaceDeleteSummary.summaryLine %></div>
+              <% if (!workspaceDeleteSummary.auditLogged) { %>
+                <div class="small mt-1">The workspace was removed, but the audit log write failed. Check server logs.</div>
+              <% } %>
+            </div>
+          <% } %>
 
           <div class="row g-3 align-items-end mb-3">
             <div class="col-md-5">
@@ -5449,11 +5511,16 @@ const trialEligible =
             return `
               <tr data-company-id="${escapeHtml(company.id)}">
                 <td>${escapeHtml(company.name || 'Unnamed Company')}</td>
-                <td></td>
+                <td>${escapeHtml(company.slug || '--')}</td>
                 <td class="text-end">
-                  <button type="button" class="btn btn-sm ${buttonVariant}" data-action="impersonate" ${disabledAttr}>
-                    ${escapeHtml(buttonLabel)}
-                  </button>
+                  <div class="d-inline-flex gap-2">
+                    <button type="button" class="btn btn-sm ${buttonVariant}" data-action="impersonate" ${disabledAttr}>
+                      ${escapeHtml(buttonLabel)}
+                    </button>
+                    <a href="/admin/companies/${encodeURIComponent(company.id)}/delete" class="btn btn-sm btn-outline-danger">
+                      Delete
+                    </a>
+                  </div>
                 </td>
               </tr>
             `;
@@ -6285,8 +6352,7 @@ const trialEligible =
         button.addEventListener('click', () => activatePanel(button.dataset.adminTarget, button));
       });
 
-      const initialParams = new URLSearchParams(window.location.search);
-      const requestedTab = (initialParams.get('tab') || '').trim();
+      const requestedTab = <%- JSON.stringify(initialAdminTab || 'company') %>;
       const initialButton = tabButtons.find((button) => button.dataset.adminTarget === requestedTab) || tabButtons[0];
       if (initialButton) {
         activatePanel(initialButton.dataset.adminTarget, initialButton);

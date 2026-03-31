@@ -1,0 +1,670 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Signup Request - <%= [request.firstName, request.lastName].filter(Boolean).join(' ') || request.workEmail %></title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet" />
+    <link rel="stylesheet" href="/assets/css/main.css" />
+  </head>
+  <body>
+    <% const isProvisioned = !!(request.companyId || request.adminUserId || request.provisionedAt); %>
+    <% const canProvision = request.status === 'approved' && !isProvisioned; %>
+    <% const provisionedByLabel = provisionedByUser
+      ? ([provisionedByUser.firstName, provisionedByUser.lastName].filter(Boolean).join(' ') || provisionedByUser.email)
+      : (request.provisionedBy ? String(request.provisionedBy) : '--'); %>
+    <% const provisionedAdminLabel = provisionedAdminUser
+      ? ([provisionedAdminUser.firstName, provisionedAdminUser.lastName].filter(Boolean).join(' ') || provisionedAdminUser.email)
+      : '--'; %>
+    <% const canResendInvite = isProvisioned && !!request.adminUserId && provisionedAdminUser && provisionedAdminUser.status === 'INVITED'; %>
+    <% const requestedProducts = Array.isArray(request.interestedProducts) ? request.interestedProducts : []; %>
+    <% const inviteSent = !!request.lastInviteSentAt; %>
+    <% const adminUserStatus = provisionedAdminUser?.status || ''; %>
+    <% const adminActivated = adminUserStatus === 'ACTIVE'; %>
+    <% const requiredIncompleteTasks = onboardingSummary
+      ? (onboardingSummary.requiredTasks || []).filter((task) => !task.complete)
+      : []; %>
+    <% const companyAdminSectionHref = request.companyId ? `/admin-section?companyId=${encodeURIComponent(String(request.companyId))}` : ''; %>
+    <% const companyAdminUsersHref = request.companyId ? `/admin-section?companyId=${encodeURIComponent(String(request.companyId))}&tab=users` : ''; %>
+    <%- include('../../partials/nav') %>
+    <main class="main-content p-4">
+      <header class="mb-3 d-flex justify-content-between align-items-center gap-3 flex-wrap">
+        <div>
+          <p class="text-uppercase text-muted small mb-1">Super Admin</p>
+          <h1 class="h4 mb-1">Signup Request</h1>
+          <p class="text-muted mb-0">Review request details, update status, and save internal notes.</p>
+        </div>
+        <a class="btn btn-outline-secondary" href="/admin/signup-requests">Back to requests</a>
+      </header>
+
+      <div id="alertBox" class="alert d-none" role="alert"></div>
+
+      <div class="row g-3">
+        <div class="col-lg-5">
+          <div class="card shadow-sm mb-3">
+            <div class="card-body">
+              <div class="d-flex justify-content-between align-items-start mb-3">
+                <div>
+                  <p class="text-uppercase small text-muted mb-0">Requester</p>
+                  <h2 class="h5 mb-0"><%= [request.firstName, request.lastName].filter(Boolean).join(' ') || 'Unknown' %></h2>
+                </div>
+                <span id="statusBadge" class="badge text-bg-light text-uppercase"><%= request.status %></span>
+              </div>
+
+              <dl class="row mb-0">
+                <dt class="col-sm-5">Company</dt>
+                <dd class="col-sm-7"><%= request.companyName || '--' %></dd>
+
+                <dt class="col-sm-5">Work Email</dt>
+                <dd class="col-sm-7"><%= request.workEmail %></dd>
+
+                <dt class="col-sm-5">Phone</dt>
+                <dd class="col-sm-7"><%= request.phone %></dd>
+
+                <dt class="col-sm-5">Sales Team Size</dt>
+                <dd class="col-sm-7"><%= request.salesTeamSize %></dd>
+
+                <dt class="col-sm-5">Products</dt>
+                <dd class="col-sm-7">
+                  <% if ((request.interestedProducts || []).length) { %>
+                    <%= request.interestedProducts.join(', ') %>
+                  <% } else { %>
+                    --
+                  <% } %>
+                </dd>
+              </dl>
+            </div>
+          </div>
+
+          <div class="card shadow-sm">
+            <div class="card-body">
+              <p class="text-uppercase small text-muted mb-1">Review History</p>
+              <dl class="row mb-0">
+                <dt class="col-sm-5">Submitted</dt>
+                <dd class="col-sm-7"><%= new Date(request.submittedAt || request.createdAt).toLocaleString() %></dd>
+
+                <dt class="col-sm-5">Reviewed</dt>
+                <dd class="col-sm-7" id="reviewedAtValue">
+                  <%= request.reviewedAt ? new Date(request.reviewedAt).toLocaleString() : 'Not reviewed yet' %>
+                </dd>
+
+                <dt class="col-sm-5">Reviewed By</dt>
+                <dd class="col-sm-7" id="reviewedByValue">
+                  <% if (reviewedByUser) { %>
+                    <%= [reviewedByUser.firstName, reviewedByUser.lastName].filter(Boolean).join(' ') || reviewedByUser.email %>
+                  <% } else { %>
+                    <%= request.reviewedBy ? String(request.reviewedBy) : '--' %>
+                  <% } %>
+                </dd>
+
+                <dt class="col-sm-5">Provisioned</dt>
+                <dd class="col-sm-7">
+                  <%= request.provisionedAt ? new Date(request.provisionedAt).toLocaleString() : 'Not provisioned yet' %>
+                </dd>
+              </dl>
+            </div>
+          </div>
+        </div>
+
+        <div class="col-lg-7">
+          <div class="card shadow-sm mb-3">
+            <div class="card-body">
+              <p class="text-uppercase small text-muted mb-1">Status Actions</p>
+              <p class="text-muted small mb-3">These actions only update the request record for now.</p>
+              <div class="d-flex flex-wrap gap-2">
+                <% (statusOptions || []).forEach((statusOption) => { %>
+                  <button
+                    type="button"
+                    class="btn <%= request.status === statusOption ? 'btn-primary' : 'btn-outline-primary' %>"
+                    data-status-action="<%= statusOption %>"
+                  >
+                    <%= statusOption === 'contacted'
+                      ? 'Mark Contacted'
+                      : statusOption === 'approved'
+                        ? 'Approve'
+                        : statusOption === 'denied'
+                          ? 'Deny'
+                          : 'Move to Pending' %>
+                  </button>
+                <% }) %>
+              </div>
+            </div>
+          </div>
+
+          <% if (isProvisioned) { %>
+            <div class="card shadow-sm mb-3">
+              <div class="card-body">
+                <div class="d-flex justify-content-between align-items-start gap-3 flex-wrap mb-3">
+                  <div>
+                    <p class="text-uppercase small text-muted mb-1">Provisioning</p>
+                    <h3 class="h6 mb-1">Provisioned</h3>
+                    <p class="text-muted small mb-0">The company workspace and initial admin account have already been created.</p>
+                  </div>
+                  <span class="badge text-bg-success text-uppercase">Provisioned</span>
+                </div>
+
+                <dl class="row mb-0">
+                  <dt class="col-sm-4">Provisioned At</dt>
+                  <dd class="col-sm-8"><%= request.provisionedAt ? new Date(request.provisionedAt).toLocaleString() : '--' %></dd>
+
+                  <dt class="col-sm-4">Provisioned By</dt>
+                  <dd class="col-sm-8"><%= provisionedByLabel %></dd>
+
+                  <dt class="col-sm-4">Company</dt>
+                  <dd class="col-sm-8">
+                    <% if (provisionedCompany) { %>
+                      <div class="fw-semibold"><%= provisionedCompany.name %></div>
+                      <div class="text-muted small">Slug: <%= provisionedCompany.slug %></div>
+                    <% } else if (request.companyId) { %>
+                      <%= String(request.companyId) %>
+                    <% } else { %>
+                      --
+                    <% } %>
+                  </dd>
+
+                  <dt class="col-sm-4">Initial Admin</dt>
+                  <dd class="col-sm-8">
+                    <% if (provisionedAdminUser) { %>
+                      <div class="fw-semibold"><%= provisionedAdminLabel %></div>
+                      <div class="text-muted small"><%= provisionedAdminUser.email %> | <%= provisionedAdminUser.status %></div>
+                    <% } else if (request.adminUserId) { %>
+                      <%= String(request.adminUserId) %>
+                    <% } else { %>
+                      --
+                    <% } %>
+                  </dd>
+
+                  <dt class="col-sm-4">Seat Count</dt>
+                  <dd class="col-sm-8"><%= provisionedCompany?.billing?.seatsPurchased ?? '--' %></dd>
+
+                  <dt class="col-sm-4">Timezone</dt>
+                  <dd class="col-sm-8"><%= provisionedCompany?.settings?.timezone || '--' %></dd>
+
+                  <dt class="col-sm-4">Last Invite</dt>
+                  <dd class="col-sm-8" id="lastInviteSentAtValue">
+                    <%= request.lastInviteSentAt ? new Date(request.lastInviteSentAt).toLocaleString() : 'No invite sent yet' %>
+                  </dd>
+                </dl>
+
+                <% if (canResendInvite) { %>
+                  <div class="d-flex justify-content-between align-items-center gap-2 flex-wrap mt-3">
+                    <div class="d-flex gap-2 flex-wrap">
+                      <% if (request.companyId) { %>
+                        <a class="btn btn-outline-secondary" href="<%= companyAdminSectionHref %>">Open Company</a>
+                      <% } %>
+                      <% if (request.adminUserId && request.companyId) { %>
+                        <a class="btn btn-outline-secondary" href="<%= companyAdminUsersHref %>">Open Admin User</a>
+                      <% } %>
+                    </div>
+                    <button type="button" class="btn btn-outline-primary" id="resendInviteButton">Resend Invite</button>
+                  </div>
+                <% } else if (isProvisioned && request.adminUserId) { %>
+                  <div class="d-flex justify-content-between align-items-center gap-2 flex-wrap mt-3">
+                    <div class="d-flex gap-2 flex-wrap">
+                      <% if (request.companyId) { %>
+                        <a class="btn btn-outline-secondary" href="<%= companyAdminSectionHref %>">Open Company</a>
+                      <% } %>
+                      <% if (request.adminUserId && request.companyId) { %>
+                        <a class="btn btn-outline-secondary" href="<%= companyAdminUsersHref %>">Open Admin User</a>
+                      <% } %>
+                    </div>
+                    <div class="small text-muted">
+                      <% if (provisionedAdminUser) { %>
+                        Invite resend is only shown while the linked admin user is still in the invited state. Current status: <%= provisionedAdminUser.status %>.
+                      <% } else { %>
+                        Invite resend is unavailable because the linked admin user could not be loaded.
+                      <% } %>
+                    </div>
+                  </div>
+                <% } %>
+              </div>
+            </div>
+
+            <div class="card shadow-sm mb-3">
+              <div class="card-body">
+                <div class="d-flex justify-content-between align-items-start gap-3 flex-wrap mb-3">
+                  <div>
+                    <p class="text-uppercase small text-muted mb-1">Onboarding Visibility</p>
+                    <h3 class="h6 mb-1">Company Admin Onboarding</h3>
+                    <p class="text-muted small mb-0">Invite, activation, and workspace setup are derived from the linked user and company records.</p>
+                  </div>
+                  <div class="d-flex flex-wrap gap-2">
+                    <span class="badge <%= inviteSent ? 'text-bg-success' : 'text-bg-secondary' %>">
+                      <%= inviteSent ? 'Invite Sent' : 'Invite Pending' %>
+                    </span>
+                    <span class="badge <%= adminActivated ? 'text-bg-success' : adminUserStatus === 'INVITED' ? 'text-bg-warning' : 'text-bg-light' %>">
+                      <%= adminActivated ? 'Admin Activated' : adminUserStatus || 'Admin Unknown' %>
+                    </span>
+                    <% if (onboardingSummary) { %>
+                      <span class="badge <%= onboardingSummary.requiredComplete ? 'text-bg-success' : 'text-bg-primary' %>">
+                        <%= onboardingSummary.requiredComplete ? 'Setup Complete' : 'Setup In Progress' %>
+                      </span>
+                    <% } %>
+                  </div>
+                </div>
+
+                <dl class="row mb-3">
+                  <dt class="col-sm-4">Invite Sent</dt>
+                  <dd class="col-sm-8"><%= inviteSent ? 'Yes' : 'No' %></dd>
+
+                  <dt class="col-sm-4">Last Invite Sent</dt>
+                  <dd class="col-sm-8"><%= request.lastInviteSentAt ? new Date(request.lastInviteSentAt).toLocaleString() : 'No invite sent yet' %></dd>
+
+                  <dt class="col-sm-4">Admin Status</dt>
+                  <dd class="col-sm-8">
+                    <%= adminActivated ? 'Activated' : adminUserStatus || 'Unknown' %>
+                    <% if (provisionedAdminUser?.lastLoginAt) { %>
+                      <span class="text-muted small">| Last login <%= new Date(provisionedAdminUser.lastLoginAt).toLocaleString() %></span>
+                    <% } %>
+                  </dd>
+
+                  <dt class="col-sm-4">Required Setup</dt>
+                  <dd class="col-sm-8">
+                    <% if (onboardingSummary) { %>
+                      <%= onboardingSummary.requiredComplete ? 'Complete' : 'Incomplete' %>
+                      (<%= onboardingSummary.progress.requiredCompleted %>/<%= onboardingSummary.progress.requiredTotal %>)
+                    <% } else { %>
+                      --
+                    <% } %>
+                  </dd>
+
+                  <dt class="col-sm-4">Overall Setup Progress</dt>
+                  <dd class="col-sm-8">
+                    <% if (onboardingSummary) { %>
+                      <%= onboardingSummary.progress.completedTasks %>/<%= onboardingSummary.progress.totalTasks %>
+                      complete (<%= onboardingSummary.progress.percent %>%)
+                    <% } else { %>
+                      --
+                    <% } %>
+                  </dd>
+                </dl>
+
+                <% if (onboardingSummary) { %>
+                  <div class="progress mb-3" role="progressbar" aria-label="Company admin setup progress" aria-valuenow="<%= onboardingSummary.progress.percent %>" aria-valuemin="0" aria-valuemax="100">
+                    <div class="progress-bar" style="width: <%= onboardingSummary.progress.percent %>%;">
+                      <%= onboardingSummary.progress.percent %>%
+                    </div>
+                  </div>
+
+                  <div class="row g-2 mb-3">
+                    <div class="col-sm-6 col-xl-3">
+                      <div class="border rounded p-3 h-100">
+                        <div class="text-uppercase text-muted small">Communities</div>
+                        <div class="fs-5 fw-semibold"><%= onboardingSummary.metrics.communities %></div>
+                      </div>
+                    </div>
+                    <div class="col-sm-6 col-xl-3">
+                      <div class="border rounded p-3 h-100">
+                        <div class="text-uppercase text-muted small">Contacts</div>
+                        <div class="fs-5 fw-semibold"><%= onboardingSummary.metrics.contacts %></div>
+                      </div>
+                    </div>
+                    <div class="col-sm-6 col-xl-3">
+                      <div class="border rounded p-3 h-100">
+                        <div class="text-uppercase text-muted small">Lots</div>
+                        <div class="fs-5 fw-semibold"><%= onboardingSummary.metrics.lots %></div>
+                      </div>
+                    </div>
+                    <div class="col-sm-6 col-xl-3">
+                      <div class="border rounded p-3 h-100">
+                        <div class="text-uppercase text-muted small">Users</div>
+                        <div class="fs-5 fw-semibold"><%= onboardingSummary.metrics.usersWithAccess %></div>
+                      </div>
+                    </div>
+                  </div>
+
+                  <% if (requiredIncompleteTasks.length) { %>
+                    <div>
+                      <p class="text-uppercase text-muted small mb-2">Still Missing</p>
+                      <div class="d-flex flex-wrap gap-2">
+                        <% requiredIncompleteTasks.forEach((task) => { %>
+                          <span class="badge text-bg-light"><%= task.title %></span>
+                        <% }) %>
+                      </div>
+                    </div>
+                  <% } %>
+                <% } else { %>
+                  <div class="small text-muted">
+                    Company onboarding progress is not available yet because the linked company summary could not be loaded.
+                  </div>
+                <% } %>
+              </div>
+            </div>
+          <% } else if (canProvision) { %>
+            <div class="card shadow-sm mb-3">
+              <div class="card-body">
+                <div class="d-flex justify-content-between align-items-start gap-3 flex-wrap mb-3">
+                  <div>
+                    <p class="text-uppercase small text-muted mb-1">Provisioning</p>
+                    <h3 class="h6 mb-1">Create Company Admin Account</h3>
+                    <p class="text-muted small mb-0">This creates the company workspace and the initial invited company admin user.</p>
+                  </div>
+                  <span class="badge text-bg-primary text-uppercase">Approved</span>
+                </div>
+
+                <form id="provisionForm" class="row g-3">
+                  <div class="col-12">
+                    <label class="form-label">Company Name</label>
+                    <input
+                      type="text"
+                      class="form-control"
+                      name="companyName"
+                      value="<%= provisionDefaults?.companyName || '' %>"
+                      required
+                    />
+                  </div>
+
+                  <div class="col-12">
+                    <label class="form-label">Company Address</label>
+                    <input
+                      type="text"
+                      class="form-control mb-2"
+                      name="street"
+                      value="<%= provisionDefaults?.address?.street || '' %>"
+                      placeholder="Street"
+                    />
+                    <div class="row g-2">
+                      <div class="col-md-5">
+                        <input
+                          type="text"
+                          class="form-control"
+                          name="city"
+                          value="<%= provisionDefaults?.address?.city || '' %>"
+                          placeholder="City"
+                        />
+                      </div>
+                      <div class="col-md-3">
+                        <input
+                          type="text"
+                          class="form-control"
+                          name="state"
+                          value="<%= provisionDefaults?.address?.state || '' %>"
+                          placeholder="State"
+                        />
+                      </div>
+                      <div class="col-md-4">
+                        <input
+                          type="text"
+                          class="form-control"
+                          name="zip"
+                          value="<%= provisionDefaults?.address?.zip || '' %>"
+                          placeholder="ZIP"
+                        />
+                      </div>
+                    </div>
+                  </div>
+
+                  <div class="col-md-4">
+                    <label class="form-label">Primary Contact Name</label>
+                    <input
+                      type="text"
+                      class="form-control"
+                      name="primaryContactName"
+                      value="<%= provisionDefaults?.primaryContactName || '' %>"
+                      required
+                    />
+                  </div>
+                  <div class="col-md-4">
+                    <label class="form-label">Primary Contact Email</label>
+                    <input
+                      type="email"
+                      class="form-control"
+                      name="primaryContactEmail"
+                      value="<%= provisionDefaults?.primaryContactEmail || '' %>"
+                      required
+                    />
+                  </div>
+                  <div class="col-md-4">
+                    <label class="form-label">Primary Contact Phone</label>
+                    <input
+                      type="text"
+                      class="form-control"
+                      name="primaryContactPhone"
+                      value="<%= provisionDefaults?.primaryContactPhone || '' %>"
+                      required
+                    />
+                  </div>
+
+                  <div class="col-md-4">
+                    <label class="form-label">Timezone</label>
+                    <input
+                      type="text"
+                      class="form-control"
+                      name="timezone"
+                      value="<%= provisionDefaults?.timezone || 'America/Chicago' %>"
+                      required
+                    />
+                  </div>
+                  <div class="col-md-4">
+                    <label class="form-label">Seat Count</label>
+                    <input
+                      type="number"
+                      class="form-control"
+                      name="seatCount"
+                      min="1"
+                      step="1"
+                      value="<%= provisionDefaults?.seatCount || 1 %>"
+                      required
+                    />
+                  </div>
+                  <div class="col-md-4">
+                    <label class="form-label">Interactive Maps Trial Days</label>
+                    <input
+                      type="number"
+                      class="form-control"
+                      name="websiteMapTrialDays"
+                      min="1"
+                      step="1"
+                      value="<%= provisionDefaults?.websiteMapTrialDays || '' %>"
+                      placeholder="Optional"
+                    />
+                    <div class="form-text">Only used when Interactive Maps is enabled.</div>
+                  </div>
+
+                  <div class="col-12">
+                    <label class="form-label d-block">Enabled Features</label>
+                    <div class="row g-2">
+                      <div class="col-md-6">
+                        <label class="form-check border rounded p-3 h-100">
+                          <input class="form-check-input" type="checkbox" name="buildrootzEnabled" <%= provisionDefaults?.buildrootzEnabled ? 'checked' : '' %> />
+                          <span class="form-check-label ms-2">BuildRootz</span>
+                        </label>
+                      </div>
+                      <div class="col-md-6">
+                        <label class="form-check border rounded p-3 h-100">
+                          <input class="form-check-input" type="checkbox" name="websiteMapEnabled" <%= provisionDefaults?.websiteMapEnabled ? 'checked' : '' %> />
+                          <span class="form-check-label ms-2">Interactive Maps</span>
+                        </label>
+                      </div>
+                      <div class="col-md-6">
+                        <label class="form-check border rounded p-3 h-100">
+                          <input class="form-check-input" type="checkbox" name="competitionTrackingEnabled" <%= provisionDefaults?.competitionTrackingEnabled ? 'checked' : '' %> />
+                          <span class="form-check-label ms-2">Competition Tracking</span>
+                        </label>
+                      </div>
+                      <div class="col-md-6">
+                        <label class="form-check border rounded p-3 h-100">
+                          <input class="form-check-input" type="checkbox" name="emailAutomationEnabled" <%= provisionDefaults?.emailAutomationEnabled ? 'checked' : '' %> />
+                          <span class="form-check-label ms-2">Email Automation</span>
+                        </label>
+                      </div>
+                    </div>
+                    <% if (requestedProducts.length) { %>
+                      <div class="form-text mt-2">Requested on intake: <%= requestedProducts.join(', ') %></div>
+                    <% } %>
+                  </div>
+
+                  <div class="col-12 d-flex justify-content-end">
+                    <button type="submit" class="btn btn-success" id="provisionSubmitButton">Create Company Admin Account</button>
+                  </div>
+                </form>
+              </div>
+            </div>
+          <% } %>
+
+          <div class="card shadow-sm">
+            <div class="card-body">
+              <form id="notesForm">
+                <div class="mb-3">
+                  <label for="requestNotes" class="form-label text-uppercase small text-muted">Internal Notes</label>
+                  <textarea
+                    id="requestNotes"
+                    name="notes"
+                    class="form-control"
+                    rows="8"
+                    placeholder="Add internal review notes here."
+                  ><%= request.notes || '' %></textarea>
+                </div>
+                <div class="d-flex justify-content-end">
+                  <button type="submit" class="btn btn-primary">Save Notes</button>
+                </div>
+              </form>
+            </div>
+          </div>
+        </div>
+      </div>
+    </main>
+
+    <script nonce="<%= cspNonce %>">
+      (() => {
+        const requestId = '<%= request.id %>';
+        const alertBox = document.getElementById('alertBox');
+        const statusBadge = document.getElementById('statusBadge');
+        const reviewedAtValue = document.getElementById('reviewedAtValue');
+        const reviewedByValue = document.getElementById('reviewedByValue');
+        const lastInviteSentAtValue = document.getElementById('lastInviteSentAtValue');
+        const notesForm = document.getElementById('notesForm');
+        const provisionForm = document.getElementById('provisionForm');
+        const provisionSubmitButton = document.getElementById('provisionSubmitButton');
+        const resendInviteButton = document.getElementById('resendInviteButton');
+        const statusButtons = Array.from(document.querySelectorAll('[data-status-action]'));
+
+        const showAlert = (message, tone = 'info') => {
+          if (!alertBox) return;
+          alertBox.textContent = message;
+          alertBox.className = `alert alert-${tone}`;
+          alertBox.classList.remove('d-none');
+        };
+
+        const applyRequestState = (request) => {
+          if (!request) return;
+          if (statusBadge && request.status) statusBadge.textContent = request.status;
+          if (reviewedAtValue) reviewedAtValue.textContent = request.reviewedAtLabel || 'Not reviewed yet';
+          if (reviewedByValue) reviewedByValue.textContent = request.reviewedByLabel || '--';
+          if (lastInviteSentAtValue) lastInviteSentAtValue.textContent = request.lastInviteSentAtLabel || 'No invite sent yet';
+
+          statusButtons.forEach((button) => {
+            const isActive = button.dataset.statusAction === request.status;
+            button.className = `btn ${isActive ? 'btn-primary' : 'btn-outline-primary'}`;
+          });
+        };
+
+        const sendJson = async (url, payload, method = 'PATCH') => {
+          const response = await fetch(url, {
+            method,
+            headers: {
+              'Content-Type': 'application/json',
+              Accept: 'application/json'
+            },
+            credentials: 'same-origin',
+            body: JSON.stringify(payload)
+          });
+          const data = await response.json().catch(() => ({}));
+          if (!response.ok) {
+            throw new Error(data?.error || `Request failed (${response.status})`);
+          }
+          return data;
+        };
+
+        statusButtons.forEach((button) => {
+          button.addEventListener('click', async () => {
+            const status = button.dataset.statusAction || '';
+            if (!status) return;
+            try {
+              const data = await sendJson(`/api/superadmin/signup-requests/${requestId}/status`, { status });
+              applyRequestState(data.request);
+              showAlert('Status updated.', 'success');
+              window.setTimeout(() => {
+                window.location.reload();
+              }, 350);
+            } catch (err) {
+              showAlert(err.message || 'Failed to update status.', 'danger');
+            }
+          });
+        });
+
+        if (notesForm) {
+          notesForm.addEventListener('submit', async (event) => {
+            event.preventDefault();
+            const notes = notesForm.notes?.value?.toString() || '';
+            try {
+              const data = await sendJson(`/api/superadmin/signup-requests/${requestId}/notes`, { notes });
+              if (notesForm.notes) notesForm.notes.value = data.request?.notes || '';
+              showAlert('Notes saved.', 'success');
+            } catch (err) {
+              showAlert(err.message || 'Failed to save notes.', 'danger');
+            }
+          });
+        }
+
+        if (provisionForm) {
+          provisionForm.addEventListener('submit', async (event) => {
+            event.preventDefault();
+            if (provisionSubmitButton) provisionSubmitButton.disabled = true;
+
+            const formData = new FormData(provisionForm);
+            const payload = {
+              companyName: formData.get('companyName')?.toString().trim() || '',
+              address: {
+                street: formData.get('street')?.toString().trim() || '',
+                city: formData.get('city')?.toString().trim() || '',
+                state: formData.get('state')?.toString().trim() || '',
+                zip: formData.get('zip')?.toString().trim() || ''
+              },
+              primaryContactName: formData.get('primaryContactName')?.toString().trim() || '',
+              primaryContactEmail: formData.get('primaryContactEmail')?.toString().trim() || '',
+              primaryContactPhone: formData.get('primaryContactPhone')?.toString().trim() || '',
+              timezone: formData.get('timezone')?.toString().trim() || '',
+              seatCount: formData.get('seatCount')?.toString().trim() || '',
+              websiteMapTrialDays: formData.get('websiteMapTrialDays')?.toString().trim() || '',
+              buildrootzEnabled: formData.has('buildrootzEnabled'),
+              websiteMapEnabled: formData.has('websiteMapEnabled'),
+              competitionTrackingEnabled: formData.has('competitionTrackingEnabled'),
+              emailAutomationEnabled: formData.has('emailAutomationEnabled')
+            };
+
+            try {
+              const data = await sendJson(`/api/superadmin/signup-requests/${requestId}/provision`, payload, 'POST');
+              const message = data.warning
+                ? `${data.warning} The request is now linked to the created company and admin account.`
+                : 'Company workspace and invited admin account created.';
+              showAlert(message, data.warning ? 'warning' : 'success');
+              window.setTimeout(() => {
+                window.location.reload();
+              }, 900);
+            } catch (err) {
+              showAlert(err.message || 'Failed to provision signup request.', 'danger');
+            } finally {
+              if (provisionSubmitButton) provisionSubmitButton.disabled = false;
+            }
+          });
+        }
+
+        if (resendInviteButton) {
+          resendInviteButton.addEventListener('click', async () => {
+            resendInviteButton.disabled = true;
+            try {
+              const data = await sendJson(`/api/superadmin/signup-requests/${requestId}/resend-invite`, {}, 'POST');
+              applyRequestState(data.request);
+              showAlert('Invite email sent.', 'success');
+            } catch (err) {
+              showAlert(err.message || 'Failed to resend invite.', 'danger');
+            } finally {
+              resendInviteButton.disabled = false;
+            }
+          });
+        }
+      })();
+    </script>
+  </body>
+</html>

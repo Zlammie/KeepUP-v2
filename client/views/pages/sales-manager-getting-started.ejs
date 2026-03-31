@@ -1,0 +1,184 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Getting Started</title>
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet" />
+  <link rel="stylesheet" href="/assets/css/main.css" />
+  <link rel="stylesheet" href="/assets/css/pages/onboarding.css" />
+  <link rel="stylesheet" href="/assets/css/pages/company-admin-getting-started.css" />
+</head>
+<body>
+  <%- include('../partials/nav') %>
+  <%- include('../partials/top-nav-blank') %>
+
+  <main class="main-content getting-started-main py-5">
+    <header class="getting-started-hero mb-4">
+      <div>
+        <p class="text-uppercase text-muted small mb-1">Sales Manager</p>
+        <h1 class="h3 mb-1">Getting Started</h1>
+        <p class="text-muted mb-0">
+          Get the team's daily workflow ready by reviewing communities, contacts, and inventory workflow.
+        </p>
+      </div>
+      <div class="getting-started-hero__actions">
+        <% if (allowSkipForNow && !setupSummary.primaryComplete) { %>
+          <a class="btn btn-outline-secondary" href="/manager/getting-started?skip=1">Skip for now</a>
+        <% } %>
+        <a class="btn btn-outline-secondary" href="/">Open Dashboard</a>
+      </div>
+    </header>
+
+    <section class="row g-4 mb-4">
+      <div class="col-xl-8">
+        <div class="card shadow-sm h-100">
+          <div class="card-body">
+            <div class="d-flex flex-column flex-lg-row justify-content-between gap-3 mb-3">
+              <div>
+                <p class="text-uppercase text-muted small mb-1">Progress Overview</p>
+                <h2 class="h4 mb-1"><%= setupSummary.progress.percent %>% complete</h2>
+                <p class="text-muted mb-0">
+                  <%= setupSummary.progress.completedTasks %> of <%= setupSummary.progress.totalTasks %> checklist items complete.
+                </p>
+              </div>
+              <div class="getting-started-stat">
+                <span class="getting-started-stat__value">
+                  <%= setupSummary.progress.primaryCompleted %>/<%= setupSummary.progress.primaryTotal %>
+                </span>
+                <span class="getting-started-stat__label">Primary tasks complete</span>
+              </div>
+            </div>
+
+            <div class="progress getting-started-progress mb-3" role="progressbar" aria-label="Sales setup progress" aria-valuenow="<%= setupSummary.progress.percent %>" aria-valuemin="0" aria-valuemax="100">
+              <div class="progress-bar" style="width: <%= setupSummary.progress.percent %>%;">
+                <%= setupSummary.progress.percent %>%
+              </div>
+            </div>
+
+            <div class="row g-3 getting-started-metrics">
+              <div class="col-sm-6 col-xl-3">
+                <div class="getting-started-metric">
+                  <div class="getting-started-metric__label">Communities</div>
+                  <div class="getting-started-metric__value"><%= setupSummary.metrics.communities %></div>
+                </div>
+              </div>
+              <div class="col-sm-6 col-xl-3">
+                <div class="getting-started-metric">
+                  <div class="getting-started-metric__label">Contacts</div>
+                  <div class="getting-started-metric__value"><%= setupSummary.metrics.contacts %></div>
+                </div>
+              </div>
+              <div class="col-sm-6 col-xl-3">
+                <div class="getting-started-metric">
+                  <div class="getting-started-metric__label">Lots</div>
+                  <div class="getting-started-metric__value"><%= setupSummary.metrics.lots %></div>
+                </div>
+              </div>
+              <div class="col-sm-6 col-xl-3">
+                <div class="getting-started-metric">
+                  <div class="getting-started-metric__label">Buyer Statuses</div>
+                  <div class="getting-started-metric__value"><%= setupSummary.metrics.buyerStatuses %></div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="col-xl-4">
+        <div class="card shadow-sm h-100">
+          <div class="card-body">
+            <p class="text-uppercase text-muted small mb-1">Focus Next</p>
+            <h2 class="h5 mb-2">
+              <%= setupSummary.primaryComplete ? 'Core manager setup is complete' : 'Finish the operational essentials' %>
+            </h2>
+            <p class="text-muted mb-3">
+              These tasks keep managers focused on operational readiness, not company setup or billing.
+            </p>
+            <div class="d-grid gap-2">
+              <a class="btn btn-primary" href="/view-communities">Review Communities</a>
+              <a class="btn btn-outline-primary" href="/contacts">Open Contacts</a>
+              <a class="btn btn-outline-primary" href="/view-lots">Review Lots</a>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <section class="mb-4">
+      <div class="d-flex justify-content-between align-items-end gap-3 flex-wrap mb-3">
+        <div>
+          <p class="text-uppercase text-muted small mb-1">Primary Tasks</p>
+          <h2 class="h4 mb-0">Finish these first</h2>
+        </div>
+        <div class="text-muted small">
+          <%= setupSummary.progress.primaryCompleted %> of <%= setupSummary.progress.primaryTotal %> complete
+        </div>
+      </div>
+
+      <div class="row g-3">
+        <% setupSummary.primaryTasks.forEach((task) => { %>
+          <div class="col-12">
+            <div class="task-card card shadow-sm <%= task.complete ? 'task-card--complete' : 'task-card--incomplete' %>">
+              <div class="card-body d-flex flex-column flex-lg-row justify-content-between gap-3">
+                <div>
+                  <div class="d-flex align-items-center gap-2 flex-wrap mb-2">
+                    <h3 class="h5 mb-0"><%= task.title %></h3>
+                    <span class="task-status-badge <%= task.complete ? 'task-status-badge--complete' : 'task-status-badge--attention' %>">
+                      <%= task.complete ? 'Complete' : 'Needs attention' %>
+                    </span>
+                  </div>
+                  <p class="text-muted mb-2"><%= task.description %></p>
+                  <p class="mb-0 small"><%= task.detail %></p>
+                </div>
+                <div class="task-card__actions">
+                  <a class="btn <%= task.complete ? 'btn-outline-secondary' : 'btn-primary' %>" href="<%= task.actionHref %>">
+                    <%= task.actionLabel %>
+                  </a>
+                </div>
+              </div>
+            </div>
+          </div>
+        <% }) %>
+      </div>
+    </section>
+
+    <section>
+      <div class="d-flex justify-content-between align-items-end gap-3 flex-wrap mb-3">
+        <div>
+          <p class="text-uppercase text-muted small mb-1">Recommended Tasks</p>
+          <h2 class="h4 mb-0">Keep improving the workflow</h2>
+        </div>
+        <div class="text-muted small">
+          <%= setupSummary.progress.recommendedCompleted %> of <%= setupSummary.progress.recommendedTotal %> complete
+        </div>
+      </div>
+
+      <div class="row g-3">
+        <% setupSummary.recommendedTasks.forEach((task) => { %>
+          <div class="col-xl-6">
+            <div class="task-card card shadow-sm h-100 <%= task.complete ? 'task-card--complete' : 'task-card--recommended' %>">
+              <div class="card-body d-flex flex-column justify-content-between gap-3">
+                <div>
+                  <div class="d-flex align-items-center gap-2 flex-wrap mb-2">
+                    <h3 class="h5 mb-0"><%= task.title %></h3>
+                    <span class="task-status-badge <%= task.complete ? 'task-status-badge--complete' : 'task-status-badge--recommended' %>">
+                      <%= task.complete ? 'Complete' : 'Recommended' %>
+                    </span>
+                  </div>
+                  <p class="text-muted mb-2"><%= task.description %></p>
+                  <p class="mb-0 small"><%= task.detail %></p>
+                </div>
+                <div>
+                  <a class="btn btn-outline-primary" href="<%= task.actionHref %>"><%= task.actionLabel %></a>
+                </div>
+              </div>
+            </div>
+          </div>
+        <% }) %>
+      </div>
+    </section>
+  </main>
+</body>
+</html>

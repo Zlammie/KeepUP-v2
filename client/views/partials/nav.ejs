@@ -97,6 +97,35 @@
               <span>BRZ Approvals</span>
             </a>
           </li>
+          <li>
+            <a href="/admin/signup-requests" class="nav-link">
+              <img src="/assets/icons/account-icon.svg" alt="Signup Requests">
+              <span>
+                Signup Requests
+                <% if ((navCounts?.pendingSignupRequests || 0) > 0) { %>
+                  <span
+                    class="badge rounded-pill"
+                    style="margin-left:8px;background:#b91c1c;color:#fff;font-size:0.72rem;vertical-align:middle;"
+                  ><%= navCounts.pendingSignupRequests %></span>
+                <% } %>
+              </span>
+            </a>
+          </li>
+        <% } %>
+        <% if (permissions && permissions.isCompanyAdmin) { %>
+          <li>
+            <a href="/admin/getting-started" class="nav-link">
+              <img src="/assets/icons/account-icon.svg" alt="Getting Started">
+              <span>Getting Started</span>
+            </a>
+          </li>
+        <% } else if (permissions && permissions.isManager) { %>
+          <li>
+            <a href="/manager/getting-started" class="nav-link">
+              <img src="/assets/icons/account-icon.svg" alt="Getting Started">
+              <span>Getting Started</span>
+            </a>
+          </li>
         <% } %>
         <% if (canAccessAdmin) { %>
           <li class="admin-item">

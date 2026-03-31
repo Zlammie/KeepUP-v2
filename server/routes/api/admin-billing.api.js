@@ -12,18 +12,10 @@ const {
   deriveStripeBillability,
   isSelfServeBillingBlocked
 } = require('../../utils/stripeBillingPolicy');
+const { resolveAdminCompanyId } = require('../../utils/adminCompanyScope');
 
 const router = express.Router();
-
 const isObjectId = (value) => mongoose.Types.ObjectId.isValid(String(value || ''));
-const isSuper = (req) => Array.isArray(req.user?.roles) && req.user.roles.includes('SUPER_ADMIN');
-
-const resolveCompanyId = (req, rawCompanyId) => {
-  const scopedCompanyId = isSuper(req) && isObjectId(rawCompanyId)
-    ? rawCompanyId
-    : req.user.company;
-  return isObjectId(scopedCompanyId) ? scopedCompanyId : null;
-};
 
 const normalizeFeature = (value) => String(value || '').trim();
 const normalizeStripeStatus = (status) => String(status || '').trim().toLowerCase();
@@ -70,7 +62,7 @@ router.get(
   requireRole('MANAGER', 'COMPANY_ADMIN', 'SUPER_ADMIN'),
   async (req, res, next) => {
     try {
-      const companyId = resolveCompanyId(req, req.query.companyId);
+      const companyId = resolveAdminCompanyId(req, req.query.companyId);
       if (!companyId) {
         return res.status(400).json({ error: 'Invalid company context' });
       }
@@ -341,7 +333,7 @@ router.post(
         return res.status(400).json({ error: 'Invalid action.' });
       }
 
-      const companyId = resolveCompanyId(req, rawCompanyId);
+      const companyId = resolveAdminCompanyId(req, rawCompanyId);
       if (!companyId) {
         return res.status(400).json({ error: 'Invalid company context' });
       }
@@ -411,7 +403,7 @@ router.post(
   async (req, res, next) => {
     try {
       const { communityId, companyId: rawCompanyId } = req.body || {};
-      const companyId = resolveCompanyId(req, rawCompanyId);
+      const companyId = resolveAdminCompanyId(req, rawCompanyId);
       if (!companyId) {
         return res.status(400).json({ error: 'Invalid company context' });
       }

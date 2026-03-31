@@ -2,7 +2,7 @@ const fs = require('fs/promises');
 const express = require('express');
 const mongoose = require('mongoose');
 const upload = require('../../middleware/upload');
-const requireCompanyAdmin = require('../../middleware/requireCompanyAdmin');
+const requireRole = require('../../middleware/requireRole');
 const {
   bootstrapPublishingData,
   updateBuilderProfileDraft,
@@ -41,7 +41,7 @@ const resolveCompanyId = (req) =>
   || req.user?.companyId
   || null;
 
-router.use(requireCompanyAdmin);
+router.use(requireRole('COMPANY_ADMIN', 'SUPER_ADMIN'));
 
 router.get('/bootstrap', async (req, res, next) => {
   try {

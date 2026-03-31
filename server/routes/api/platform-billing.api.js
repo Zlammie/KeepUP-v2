@@ -165,13 +165,6 @@ const applyCompanyStripeSyncMetadata = ({
 
 router.use(requireRole('SUPER_ADMIN', 'KEEPUP_ADMIN'));
 
-const isSuperAdmin = (req) => Array.isArray(req.user?.roles) && req.user.roles.includes('SUPER_ADMIN');
-const requireSuperAdminOnly = (req, res) => {
-  if (isSuperAdmin(req)) return true;
-  res.status(403).json({ error: 'Super Admin access required.' });
-  return false;
-};
-
 const syncStripeForCompanySafe = async (companyId, contextLabel) => {
   if (!companyId) return;
   try {
@@ -396,10 +389,8 @@ router.get('/company/:companyId', async (req, res, next) => {
   }
 });
 
-router.get('/company/:companyId/stripe-debug', async (req, res, next) => {
+router.get('/company/:companyId/stripe-debug', requireRole('SUPER_ADMIN'), async (req, res, next) => {
   try {
-    if (!requireSuperAdminOnly(req, res)) return;
-
     const { companyId } = req.params;
     if (!isObjectId(companyId)) {
       return res.status(400).json({ error: 'Invalid company id.' });
@@ -487,10 +478,8 @@ router.get('/company/:companyId/stripe-debug', async (req, res, next) => {
   }
 });
 
-router.post('/company/:companyId/stripe-link-latest', async (req, res, next) => {
+router.post('/company/:companyId/stripe-link-latest', requireRole('SUPER_ADMIN'), async (req, res, next) => {
   try {
-    if (!requireSuperAdminOnly(req, res)) return;
-
     const { companyId } = req.params;
     if (!isObjectId(companyId)) {
       return res.status(400).json({ error: 'Invalid company id.' });

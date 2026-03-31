@@ -1,6 +1,7 @@
 // server/middleware/currentUserLocals.js
 const User = require('../models/User');
 const Company = require('../models/Company');
+const SignupRequest = require('../models/SignupRequest');
 const normalizeRole = require('../utils/normalizeRole');
 
 module.exports = async function currentUserLocals(req, res, next) {
@@ -15,6 +16,7 @@ module.exports = async function currentUserLocals(req, res, next) {
 
     if (!authUserId) {
       res.locals.currentUser = null;
+      res.locals.navCounts = { pendingSignupRequests: 0 };
       return next();
     }
 
@@ -25,6 +27,7 @@ module.exports = async function currentUserLocals(req, res, next) {
 
     if (!user) {
       res.locals.currentUser = null;
+      res.locals.navCounts = { pendingSignupRequests: 0 };
       return next();
     }
 
@@ -89,6 +92,9 @@ module.exports = async function currentUserLocals(req, res, next) {
       }
     }
     const effectiveCompanyName = impersonationName || companyName;
+    const pendingSignupRequests = isSuperAdmin
+      ? await SignupRequest.countDocuments({ status: SignupRequest.STATUS.PENDING })
+      : 0;
 
     const currentUser = {
       id: String(authUserId),
@@ -100,6 +106,9 @@ module.exports = async function currentUserLocals(req, res, next) {
     };
 
     res.locals.currentUser = currentUser;
+    res.locals.navCounts = {
+      pendingSignupRequests
+    };
     res.locals.authRoles = uniqueRoles;
     res.locals.hasRole = (role) => !!role && roleSet.has(normalizeRole(role));
     res.locals.permissions = {

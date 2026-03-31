@@ -7,13 +7,67 @@
   <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet"/>
   <!-- single entry-point for all your app's CSS -->
   <link rel="stylesheet" href="/assets/css/main.css">
+  <link rel="stylesheet" href="/assets/css/pages/onboarding.css">
 </head>
 <body>
   <!-- include navbar HTML at the top of every page -->
   <%- include('../partials/nav') %>
   <%- include('../partials/top-nav-blank') %>
+  <% const showSalesManagerSetupCard = permissions && permissions.isManager && !permissions.isCompanyAdmin && salesManagerSetupSummary && !salesManagerSetupSummary.primaryComplete; %>
+  <% const managerIncompletePrimaryTasks = showSalesManagerSetupCard
+    ? salesManagerSetupSummary.primaryTasks.filter((task) => !task.complete)
+    : []; %>
+  <% const managerPriorityTasks = managerIncompletePrimaryTasks.slice(0, 2); %>
 
   <main class="container py-4" id="dashboard-home">
+    <% if (showSalesManagerSetupCard) { %>
+      <section class="onboarding-status-card mb-4" aria-label="Sales setup status">
+        <div class="onboarding-status-card__main">
+            <div>
+              <p class="onboarding-status-card__eyebrow">Getting Started</p>
+              <h2 class="h5 mb-1">Sales setup is still in progress</h2>
+              <p class="text-muted mb-0">
+                Primary: <strong><%= salesManagerSetupSummary.progress.primaryCompleted %>/<%= salesManagerSetupSummary.progress.primaryTotal %></strong>
+                complete
+                <span class="mx-2 text-muted">|</span>
+                Overall: <strong><%= salesManagerSetupSummary.progress.completedTasks %>/<%= salesManagerSetupSummary.progress.totalTasks %></strong>
+                complete
+              </p>
+            </div>
+            <div class="onboarding-status-card__actions">
+              <a class="btn btn-primary" href="/manager/getting-started">Continue Setup</a>
+              <% managerPriorityTasks.forEach((task) => { %>
+                <a class="btn btn-outline-primary" href="<%= task.actionHref %>"><%= task.actionLabel %></a>
+              <% }) %>
+            </div>
+          </div>
+          <div class="progress onboarding-status-card__progress mt-3" role="progressbar" aria-label="Sales manager setup progress" aria-valuenow="<%= salesManagerSetupSummary.progress.percent %>" aria-valuemin="0" aria-valuemax="100">
+            <div class="progress-bar" style="width: <%= salesManagerSetupSummary.progress.percent %>%;">
+              <%= salesManagerSetupSummary.progress.percent %>%
+            </div>
+          </div>
+          <% if (managerIncompletePrimaryTasks.length) { %>
+            <div class="onboarding-status-card__footer mt-3">
+              <div>
+                <p class="text-uppercase text-muted small mb-2">Still Incomplete</p>
+                <div class="onboarding-status-card__task-list">
+                  <% managerIncompletePrimaryTasks.forEach((task) => { %>
+                    <span class="onboarding-status-pill"><%= task.title %></span>
+                  <% }) %>
+                </div>
+              </div>
+              <% if (managerPriorityTasks.length) { %>
+                <div class="onboarding-status-card__quick-links">
+                  <% managerPriorityTasks.forEach((task) => { %>
+                    <a class="btn btn-sm btn-outline-primary" href="<%= task.actionHref %>"><%= task.actionLabel %></a>
+                  <% }) %>
+                </div>
+              <% } %>
+            </div>
+          <% } %>
+      </section>
+    <% } %>
+
     <div class="row g-4 mb-4 align-items-stretch">
       <div class="col-lg-8">
         <div class="card shadow-sm h-100">

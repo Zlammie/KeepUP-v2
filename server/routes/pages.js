@@ -7,7 +7,6 @@ const router = express.Router();
 
 const ensureAuth  = require('../middleware/ensureAuth');
 const requireRole = require('../middleware/requireRole');
-const requireCompanyAdmin = require('../middleware/requireCompanyAdmin');
 
 
 const Contact     = require('../models/Contact');
@@ -21,6 +20,7 @@ const CommunityCompetitionProfile = require('../models/communityCompetitionProfi
 const BuildRootzCommunityRequest = require('../models/BuildRootzCommunityRequest');
 const BrzPublishAudit = require('../models/BrzPublishAudit');
 const Company = require('../models/Company');
+const SignupRequest = require('../models/SignupRequest');
 const Task = require('../models/Task');
 const User = require('../models/User');
 const AutoFollowUpSchedule = require('../models/AutoFollowUpSchedule');
@@ -30,6 +30,12 @@ const {
   bootstrapPublishingData
 } = require('../services/brzPublishingService');
 const { buildrootzFetch } = require('../services/buildrootzClient');
+const { buildCompanyAdminSetupSummary } = require('../services/companyAdminSetup');
+const {
+  buildCompanyWorkspaceDeletePreview,
+  deleteCompanyWorkspace
+} = require('../services/companyWorkspaceDeletion');
+const { buildSalesManagerSetupSummary } = require('../services/salesManagerSetup');
 const {
   competitionProfileToWebData,
   normalizePromo
@@ -55,6 +61,8 @@ const {
 const isId = v => mongoose.Types.ObjectId.isValid(String(v));
 const isSuper = req => (req.user?.roles || []).includes('SUPER_ADMIN');
 const isCompanyAdmin = req => (req.user?.roles || []).includes('COMPANY_ADMIN');
+const isManager = req => (req.user?.roles || []).includes('MANAGER');
+const isPlatformAdmin = req => (req.user?.roles || []).some((role) => ['SUPER_ADMIN', 'KEEPUP_ADMIN'].includes(role));
 const base = req => (isSuper(req) ? {} : { company: req.user.company });
 const uploadsDir = process.env.UPLOADS_DIR
   ? path.resolve(process.env.UPLOADS_DIR)
@@ -71,9 +79,50 @@ const normalizeGarageType = (value) => {
   if (norm === 'rear') return 'Rear';
   return null;
 };
+const COMPANY_ADMIN_SETUP_SESSION_KEY = 'companyAdminSetupRedirectSuppressedFor';
+const SALES_MANAGER_SETUP_SESSION_KEY = 'salesManagerSetupRedirectSuppressedFor';
+const DAY_IN_MS = 24 * 60 * 60 * 1000;
+const STALE_INVITE_THRESHOLD_DAYS = 3;
+const SETUP_STALLED_THRESHOLD_DAYS = 7;
+const ADMIN_SECTION_BASE_TABS = new Set(['company', 'users', 'billing', 'settings']);
+const saveSession = (req) =>
+  new Promise((resolve, reject) => {
+    if (!req.session) return resolve();
+    req.session.save((err) => (err ? reject(err) : resolve()));
+  });
+const isSetupRedirectSuppressed = (req, companyId) =>
+  String(req.session?.[COMPANY_ADMIN_SETUP_SESSION_KEY] || '') === String(companyId || '');
+const suppressSetupRedirect = (req, companyId) => {
+  if (!req.session) return;
+  req.session[COMPANY_ADMIN_SETUP_SESSION_KEY] = String(companyId || '');
+};
+const clearSetupRedirectSuppression = (req) => {
+  if (!req.session) return;
+  delete req.session[COMPANY_ADMIN_SETUP_SESSION_KEY];
+};
+const isSalesManagerSetupRedirectSuppressed = (req, companyId) =>
+  String(req.session?.[SALES_MANAGER_SETUP_SESSION_KEY] || '') === String(companyId || '');
+const suppressSalesManagerSetupRedirect = (req, companyId) => {
+  if (!req.session) return;
+  req.session[SALES_MANAGER_SETUP_SESSION_KEY] = String(companyId || '');
+};
+const clearSalesManagerSetupRedirectSuppression = (req) => {
+  if (!req.session) return;
+  delete req.session[SALES_MANAGER_SETUP_SESSION_KEY];
+};
 const requireBrzAdminJson = (req, res, next) => {
   if (isSuper(req) || isCompanyAdmin(req)) return next();
   return res.status(403).json({ ok: false, message: 'Forbidden' });
+};
+const getAllowedAdminSectionTabs = (req) => {
+  const tabs = new Set(ADMIN_SECTION_BASE_TABS);
+  if (isSuper(req)) {
+    tabs.add('impersonation');
+  }
+  if (isPlatformAdmin(req)) {
+    tabs.add('platform-billing');
+  }
+  return tabs;
 };
 
 const tenMileBaseDir = path.join(__dirname, '../..', 'public', 'maps', 'ten-mile-creek');
@@ -119,6 +168,43 @@ const parseLatLng = (val) => {
 };
 
 const trimText = (value) => (value == null ? '' : String(value).trim());
+const DEFAULT_SIGNUP_REQUEST_TIMEZONE = 'America/Chicago';
+const normalizeInterestedProductName = (value) => trimText(value).toLowerCase();
+const deriveSeatCountDefault = (value) => {
+  const raw = trimText(value);
+  if (!raw) return 1;
+  const exact = Number(raw);
+  if (Number.isFinite(exact) && exact > 0) return Math.max(1, Math.round(exact));
+  const match = raw.match(/\d+/);
+  if (!match) return 1;
+  const parsed = Number(match[0]);
+  return Number.isFinite(parsed) && parsed > 0 ? Math.max(1, Math.round(parsed)) : 1;
+};
+const buildSignupProvisionDefaults = (requestDoc) => {
+  const interestedProducts = Array.isArray(requestDoc?.interestedProducts) ? requestDoc.interestedProducts : [];
+  const normalizedProducts = new Set(interestedProducts.map(normalizeInterestedProductName));
+  const contactName = [requestDoc?.firstName, requestDoc?.lastName].filter(Boolean).join(' ').trim();
+
+  return {
+    companyName: trimText(requestDoc?.companyName),
+    address: {
+      street: '',
+      city: '',
+      state: '',
+      zip: ''
+    },
+    primaryContactName: contactName,
+    primaryContactEmail: trimText(requestDoc?.workEmail),
+    primaryContactPhone: trimText(requestDoc?.phone),
+    timezone: DEFAULT_SIGNUP_REQUEST_TIMEZONE,
+    seatCount: deriveSeatCountDefault(requestDoc?.salesTeamSize),
+    buildrootzEnabled: normalizedProducts.has('buildrootz'),
+    websiteMapEnabled: normalizedProducts.has('interactive maps'),
+    competitionTrackingEnabled: normalizedProducts.has('competition tracking'),
+    emailAutomationEnabled: normalizedProducts.has('email automation'),
+    websiteMapTrialDays: ''
+  };
+};
 
 const buildPublishAuditContext = (req) => ({
   userId: req.user?._id || req.session?.user?._id || null,
@@ -651,7 +737,36 @@ async function buildMarketingAutomationSettingsViewData(req) {
 
 // ????????????????????????? core pages ?????????????????????????
 router.get(['/', '/index'], ensureAuth, requireRole('READONLY','USER','MANAGER','COMPANY_ADMIN','SUPER_ADMIN'),
-  (req, res) => res.render('pages/index', { active: 'home' })
+  async (req, res, next) => {
+    try {
+      let salesManagerSetupSummary = null;
+
+      if (isCompanyAdmin(req) && !isPlatformAdmin(req) && isId(req.user?.company)) {
+        const setupSummary = await buildCompanyAdminSetupSummary(req.user.company);
+        if (setupSummary.requiredComplete) {
+          clearSetupRedirectSuppression(req);
+        } else if (!isSetupRedirectSuppressed(req, req.user.company)) {
+          suppressSetupRedirect(req, req.user.company);
+          return res.redirect('/admin/getting-started');
+        }
+      } else if (isManager(req) && !isPlatformAdmin(req) && !isCompanyAdmin(req) && isId(req.user?.company)) {
+        salesManagerSetupSummary = await buildSalesManagerSetupSummary(req.user);
+        if (salesManagerSetupSummary.primaryComplete) {
+          clearSalesManagerSetupRedirectSuppression(req);
+        } else if (!isSalesManagerSetupRedirectSuppressed(req, req.user.company)) {
+          suppressSalesManagerSetupRedirect(req, req.user.company);
+          return res.redirect('/manager/getting-started');
+        }
+      }
+
+      return res.render('pages/index', {
+        active: 'home',
+        salesManagerSetupSummary
+      });
+    } catch (err) {
+      return next(err);
+    }
+  }
 );
 
 router.get('/add-lead', ensureAuth, requireRole('READONLY','USER','MANAGER','COMPANY_ADMIN','SUPER_ADMIN'),
@@ -1200,7 +1315,7 @@ router.get('/admin/buildrootz/communities', ensureAuth, requireRole('MANAGER','C
 router.get(
   '/admin/buildrootz/publishing',
   ensureAuth,
-  requireCompanyAdmin,
+  requireRole('COMPANY_ADMIN', 'SUPER_ADMIN'),
   async (req, res, next) => {
     try {
       const companyId = isId(req.user?.company) ? String(req.user.company) : null;
@@ -1478,7 +1593,7 @@ router.post(
 router.get(
   '/admin/brz/publish-audit',
   ensureAuth,
-  requireCompanyAdmin,
+  requireRole('COMPANY_ADMIN', 'SUPER_ADMIN'),
   async (req, res, next) => {
     try {
       const requestedCompanyId = isSuper(req) && isId(req.query.companyId)
@@ -1603,6 +1718,184 @@ router.get(
       });
     } catch (err) {
       next(err);
+    }
+  }
+);
+
+router.get(
+  '/admin/signup-requests',
+  ensureAuth,
+  requireRole('SUPER_ADMIN'),
+  async (req, res, next) => {
+    try {
+      const requestedStatus = String(req.query?.status || 'all').trim().toLowerCase();
+      const allowedStatuses = ['all', ...Object.values(SignupRequest.STATUS)];
+      const activeStatus = allowedStatuses.includes(requestedStatus) ? requestedStatus : 'all';
+      const filter = {};
+      if (activeStatus !== 'all') filter.status = activeStatus;
+
+      const requests = await SignupRequest.find(filter)
+        .sort({ submittedAt: -1, createdAt: -1 })
+        .limit(200)
+        .lean();
+
+      const adminUserIds = requests
+        .map((requestDoc) => (requestDoc.adminUserId && isId(requestDoc.adminUserId) ? String(requestDoc.adminUserId) : null))
+        .filter(Boolean);
+      const companyIds = [...new Set(
+        requests
+          .map((requestDoc) => (requestDoc.companyId && isId(requestDoc.companyId) ? String(requestDoc.companyId) : null))
+          .filter(Boolean)
+      )];
+      const adminUsers = adminUserIds.length
+        ? await User.find({ _id: { $in: adminUserIds } }).select('status').lean()
+        : [];
+      const companySetupEntries = await Promise.all(
+        companyIds.map(async (companyId) => {
+          try {
+            const summary = await buildCompanyAdminSetupSummary(companyId);
+            return [companyId, summary];
+          } catch (err) {
+            console.warn('[signup-requests] failed to load onboarding summary', {
+              companyId,
+              error: err?.message || err
+            });
+            return [companyId, null];
+          }
+        })
+      );
+      const adminUsersById = new Map(adminUsers.map((user) => [String(user._id), user]));
+      const companySetupById = new Map(companySetupEntries);
+      const nowMs = Date.now();
+
+      return res.render('pages/admin/signup-requests', {
+        requests: requests.map((requestDoc) => ({
+          ...requestDoc,
+          id: String(requestDoc._id),
+          adminUserStatus: requestDoc.adminUserId
+            ? adminUsersById.get(String(requestDoc.adminUserId))?.status || null
+            : null,
+          onboardingStage: (() => {
+            const isProvisioned = !!(requestDoc.companyId || requestDoc.adminUserId || requestDoc.provisionedAt);
+            if (!isProvisioned) return 'Not Provisioned';
+
+            const adminStatus = requestDoc.adminUserId
+              ? adminUsersById.get(String(requestDoc.adminUserId))?.status || null
+              : null;
+            const setupSummary = requestDoc.companyId
+              ? companySetupById.get(String(requestDoc.companyId)) || null
+              : null;
+
+            if (setupSummary?.requiredComplete) return 'Setup Complete';
+            if (setupSummary && adminStatus === User.STATUS.ACTIVE) return 'Setup Incomplete';
+            if (adminStatus === User.STATUS.ACTIVE) return 'Activated';
+            if (adminStatus === User.STATUS.INVITED || requestDoc.lastInviteSentAt) return 'Invited';
+            return 'Activated';
+          })(),
+          followUpLabel: (() => {
+            const adminStatus = requestDoc.adminUserId
+              ? adminUsersById.get(String(requestDoc.adminUserId))?.status || null
+              : null;
+            const setupSummary = requestDoc.companyId
+              ? companySetupById.get(String(requestDoc.companyId)) || null
+              : null;
+            const inviteAnchorMs = requestDoc.lastInviteSentAt
+              ? new Date(requestDoc.lastInviteSentAt).getTime()
+              : requestDoc.provisionedAt
+                ? new Date(requestDoc.provisionedAt).getTime()
+                : null;
+            const provisionedAtMs = requestDoc.provisionedAt
+              ? new Date(requestDoc.provisionedAt).getTime()
+              : null;
+
+            if (
+              adminStatus === User.STATUS.INVITED
+              && Number.isFinite(inviteAnchorMs)
+              && nowMs - inviteAnchorMs >= STALE_INVITE_THRESHOLD_DAYS * DAY_IN_MS
+            ) {
+              return 'Stale Invite';
+            }
+
+            if (
+              adminStatus === User.STATUS.ACTIVE
+              && setupSummary
+              && !setupSummary.requiredComplete
+              && Number.isFinite(provisionedAtMs)
+              && nowMs - provisionedAtMs >= SETUP_STALLED_THRESHOLD_DAYS * DAY_IN_MS
+            ) {
+              return 'Setup Stalled';
+            }
+
+            return '';
+          })()
+        })),
+        activeStatus,
+        statusOptions: allowedStatuses,
+        active: 'admin'
+      });
+    } catch (err) {
+      return next(err);
+    }
+  }
+);
+
+router.get(
+  '/admin/signup-requests/:id',
+  ensureAuth,
+  requireRole('SUPER_ADMIN'),
+  async (req, res, next) => {
+    try {
+      const { id } = req.params;
+      if (!isId(id)) return res.status(400).send('Invalid signup request id');
+
+      const requestDoc = await SignupRequest.findById(id).lean();
+      if (!requestDoc) return res.status(404).send('Signup request not found');
+
+      const [reviewedByUser, provisionedByUser, provisionedCompany, provisionedAdminUser, onboardingSummary] = await Promise.all([
+        requestDoc.reviewedBy && isId(requestDoc.reviewedBy)
+          ? User.findById(requestDoc.reviewedBy).select('firstName lastName email').lean()
+          : null,
+        requestDoc.provisionedBy && isId(requestDoc.provisionedBy)
+          ? User.findById(requestDoc.provisionedBy).select('firstName lastName email').lean()
+          : null,
+        requestDoc.companyId && isId(requestDoc.companyId)
+          ? Company.findById(requestDoc.companyId)
+            .select('name slug primaryContact settings.timezone billing.seatsPurchased features entitlements')
+            .lean()
+          : null,
+        requestDoc.adminUserId && isId(requestDoc.adminUserId)
+          ? User.findById(requestDoc.adminUserId)
+            .select('firstName lastName email phone status roles lastLoginAt')
+            .lean()
+          : null,
+        requestDoc.companyId && isId(requestDoc.companyId)
+          ? buildCompanyAdminSetupSummary(requestDoc.companyId).catch((err) => {
+            console.warn('[signup-request-detail] failed to load onboarding summary', {
+              requestId: String(requestDoc._id),
+              companyId: String(requestDoc.companyId),
+              error: err?.message || err
+            });
+            return null;
+          })
+          : null
+      ]);
+
+      return res.render('pages/admin/signup-request-detail', {
+        request: {
+          ...requestDoc,
+          id: String(requestDoc._id)
+        },
+        reviewedByUser,
+        provisionedByUser,
+        provisionedCompany,
+        provisionedAdminUser,
+        onboardingSummary,
+        provisionDefaults: buildSignupProvisionDefaults(requestDoc),
+        statusOptions: Object.values(SignupRequest.STATUS),
+        active: 'admin'
+      });
+    } catch (err) {
+      return next(err);
     }
   }
 );
@@ -2622,15 +2915,114 @@ router.get('/toolbar/help', ensureAuth, requireRole('READONLY','USER','MANAGER',
 router.get('/admin-section',
   ensureAuth,
   requireRole('MANAGER','COMPANY_ADMIN','SUPER_ADMIN','KEEPUP_ADMIN'),
-  (req, res) => {
-    const requestedTab = String(req.query?.tab || '').trim().toLowerCase();
-    if (requestedTab === 'buildrootz') {
-      const params = new URLSearchParams(req.query || {});
-      params.delete('tab');
-      const query = params.toString();
-      return res.redirect(query ? `/admin/buildrootz/publishing?${query}` : '/admin/buildrootz/publishing');
+  async (req, res, next) => {
+    try {
+      const requestedTab = String(req.query?.tab || '').trim().toLowerCase();
+      if (requestedTab === 'buildrootz') {
+        const params = new URLSearchParams(req.query || {});
+        params.delete('tab');
+        const query = params.toString();
+        return res.redirect(query ? `/admin/buildrootz/publishing?${query}` : '/admin/buildrootz/publishing');
+      }
+      const allowedTabs = getAllowedAdminSectionTabs(req);
+      if (requestedTab && !allowedTabs.has(requestedTab)) {
+        const params = new URLSearchParams(req.query || {});
+        params.delete('tab');
+        const query = params.toString();
+        return res.redirect(query ? `/admin-section?${query}` : '/admin-section');
+      }
+      const initialAdminTab = requestedTab && allowedTabs.has(requestedTab)
+        ? requestedTab
+        : 'company';
+      const setupSummary = isCompanyAdmin(req) && !isPlatformAdmin(req) && isId(req.user?.company)
+        ? await buildCompanyAdminSetupSummary(req.user.company)
+        : null;
+      let workspaceDeleteSummary = null;
+      if (isSuper(req) && req.session?.workspaceDeleteSummary) {
+        workspaceDeleteSummary = req.session.workspaceDeleteSummary;
+        delete req.session.workspaceDeleteSummary;
+        await saveSession(req);
+      }
+
+      return res.render('pages/admin-section', {
+        active: 'admin-section',
+        setupSummary,
+        workspaceDeleteSummary,
+        initialAdminTab
+      });
+    } catch (err) {
+      return next(err);
     }
-    return res.render('pages/admin-section', { active: 'admin-section' });
+  }
+);
+
+router.get(
+  '/admin/getting-started',
+  ensureAuth,
+  requireRole('COMPANY_ADMIN', 'SUPER_ADMIN', 'KEEPUP_ADMIN'),
+  async (req, res, next) => {
+    try {
+      const requestedCompanyId = req.query?.companyId;
+      const resolvedCompanyId = isPlatformAdmin(req) && isId(requestedCompanyId)
+        ? requestedCompanyId
+        : req.user.company;
+
+      if (!isId(resolvedCompanyId)) {
+        return res.status(400).send('Invalid company context');
+      }
+
+      const setupSummary = await buildCompanyAdminSetupSummary(resolvedCompanyId);
+      const allowSkipForNow = isCompanyAdmin(req) && !isPlatformAdmin(req) && String(resolvedCompanyId) === String(req.user.company);
+
+      if (allowSkipForNow && String(req.query?.skip || '').trim() === '1' && !setupSummary.requiredComplete) {
+        suppressSetupRedirect(req, resolvedCompanyId);
+        return res.redirect('/');
+      }
+
+      if (setupSummary.requiredComplete) {
+        clearSetupRedirectSuppression(req);
+      }
+
+      return res.render('pages/company-admin-getting-started', {
+        setupSummary,
+        allowSkipForNow,
+        active: 'admin-section'
+      });
+    } catch (err) {
+      return next(err);
+    }
+  }
+);
+
+router.get(
+  '/manager/getting-started',
+  ensureAuth,
+  requireRole('MANAGER'),
+  async (req, res, next) => {
+    try {
+      if (isPlatformAdmin(req) || isCompanyAdmin(req) || !isId(req.user?.company)) {
+        return res.redirect('/');
+      }
+
+      const setupSummary = await buildSalesManagerSetupSummary(req.user);
+
+      if (String(req.query?.skip || '').trim() === '1' && !setupSummary.primaryComplete) {
+        suppressSalesManagerSetupRedirect(req, req.user.company);
+        return res.redirect('/');
+      }
+
+      if (setupSummary.primaryComplete) {
+        clearSalesManagerSetupRedirectSuppression(req);
+      }
+
+      return res.render('pages/sales-manager-getting-started', {
+        setupSummary,
+        allowSkipForNow: true,
+        active: 'home'
+      });
+    } catch (err) {
+      return next(err);
+    }
   }
 );
 
@@ -2663,6 +3055,81 @@ router.get('/admin/companies',
         active: 'admin'
       });
     } catch (err) { next(err); }
+  }
+);
+
+router.get(
+  '/admin/companies/:companyId/delete',
+  ensureAuth,
+  requireRole('SUPER_ADMIN'),
+  async (req, res, next) => {
+    try {
+      const { companyId } = req.params;
+      const preview = await buildCompanyWorkspaceDeletePreview(companyId);
+      return res.render('pages/admin/company-workspace-delete', {
+        preview,
+        confirmationName: '',
+        error: null,
+        active: 'admin-section'
+      });
+    } catch (err) {
+      if (err?.statusCode === 400 || err?.statusCode === 404) {
+        return res.status(err.statusCode).send(err.message);
+      }
+      return next(err);
+    }
+  }
+);
+
+router.post(
+  '/admin/companies/:companyId/delete',
+  ensureAuth,
+  requireRole('SUPER_ADMIN'),
+  async (req, res, next) => {
+    const { companyId } = req.params;
+    const confirmationName = String(req.body?.confirmationName || '').trim();
+
+    try {
+      const result = await deleteCompanyWorkspace(companyId, {
+        actorUserId: req.user?._id,
+        confirmationName
+      });
+
+      if (req.session?.impersonation && String(req.session.impersonation.companyId || '') === String(companyId)) {
+        delete req.session.impersonation;
+      }
+
+      if (req.session) {
+        req.session.workspaceDeleteSummary = {
+          companyId: result.company.id,
+          companyName: result.company.name,
+          summaryLine: result.summaryLine,
+          auditLogged: result.auditLogged
+        };
+        await saveSession(req);
+      }
+
+      return res.redirect('/admin-section?tab=impersonation');
+    } catch (err) {
+      if (err?.statusCode === 400 || err?.statusCode === 404) {
+        try {
+          const preview = await buildCompanyWorkspaceDeletePreview(companyId);
+          return res.status(err.statusCode).render('pages/admin/company-workspace-delete', {
+            preview,
+            confirmationName,
+            error: err.message,
+            active: 'admin-section'
+          });
+        } catch (previewErr) {
+          if (previewErr?.statusCode === 400 || previewErr?.statusCode === 404) {
+            return res.status(previewErr.statusCode).send(previewErr.message);
+          }
+          return next(previewErr);
+        }
+      }
+
+      return next(err);
+    }
   }
 );
 

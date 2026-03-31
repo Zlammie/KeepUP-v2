@@ -1,6 +1,5 @@
 const express = require('express');
 const fs = require('fs/promises');
-const mongoose = require('mongoose');
 const path = require('path');
 const requireRole = require('../../middleware/requireRole');
 const upload = require('../../middleware/upload');
@@ -26,14 +25,15 @@ const { getEmailReadiness } = require('../../services/email/emailReadiness');
 const { getEmailSystemCheck } = require('../../services/email/emailSystemCheck');
 const { buildUnsubscribeUrl } = require('../../services/email/unsubscribeToken');
 const { appendUnsubscribeFooter } = require('../../services/email/unsubscribeFooter');
+const {
+  isObjectId,
+  resolveAdminCompanyId
+} = require('../../utils/adminCompanyScope');
 
 const router = express.Router();
 const uploadsDir = process.env.UPLOADS_DIR
   ? path.resolve(process.env.UPLOADS_DIR)
   : path.resolve(process.cwd(), 'uploads');
-
-const isObjectId = (value) => mongoose.Types.ObjectId.isValid(String(value || ''));
-const isSuper = (req) => Array.isArray(req.user?.roles) && req.user.roles.includes('SUPER_ADMIN');
 
 const trimToNull = (value) => {
   if (value == null) return null;
@@ -46,12 +46,6 @@ const normalizeHexColor = (value) => {
   if (!trimmed) return null;
   const hex = trimmed.startsWith('#') ? trimmed : `#${trimmed}`;
   return /^#([0-9a-f]{3}|[0-9a-f]{6})$/i.test(hex) ? hex.toUpperCase() : null;
-};
-
-const resolveCompanyId = (req, companyIdParam) => {
-  if (isSuper(req) && isObjectId(companyIdParam)) return new mongoose.Types.ObjectId(companyIdParam);
-  if (isObjectId(req.user?.company)) return new mongoose.Types.ObjectId(req.user.company);
-  return null;
 };
 
 const toUploadsPublicPath = (absPath) => {
@@ -156,8 +150,7 @@ router.get(
   async (req, res, next) => {
     try {
       const requestedCompanyId = req.query.companyId;
-      const resolvedCompanyId =
-        isSuper(req) && isObjectId(requestedCompanyId) ? requestedCompanyId : req.user.company;
+      const resolvedCompanyId = resolveAdminCompanyId(req, requestedCompanyId);
 
       if (!isObjectId(resolvedCompanyId)) {
         return res.status(400).json({ error: 'Invalid company context' });
@@ -192,8 +185,7 @@ router.post(
       }
 
       const requestedCompanyId = req.body?.companyId;
-      const companyId =
-        isSuper(req) && isObjectId(requestedCompanyId) ? requestedCompanyId : req.user.company;
+      const companyId = resolveAdminCompanyId(req, requestedCompanyId);
       if (!isObjectId(companyId)) {
         await safeUnlink(req.file.path);
         return res.status(400).json({ error: 'Invalid company context' });
@@ -226,7 +218,7 @@ router.get(
   requireRole('COMPANY_ADMIN', 'SUPER_ADMIN'),
   async (req, res, next) => {
     try {
-      const companyId = resolveCompanyId(req, req.params.companyId);
+      const companyId = resolveAdminCompanyId(req, req.params.companyId);
       if (!companyId) {
         return res.status(400).json({ error: 'Invalid company context' });
       }
@@ -244,7 +236,7 @@ router.get(
   requireRole('MANAGER', 'COMPANY_ADMIN', 'SUPER_ADMIN'),
   async (req, res, next) => {
     try {
-      const companyId = resolveCompanyId(req, req.params.companyId);
+      const companyId = resolveAdminCompanyId(req, req.params.companyId);
       if (!companyId) {
         return res.status(400).json({ error: 'Invalid company context' });
       }
@@ -369,7 +361,7 @@ router.get(
   requireRole('MANAGER', 'COMPANY_ADMIN', 'SUPER_ADMIN'),
   async (req, res, next) => {
     try {
-      const companyId = resolveCompanyId(req, req.params.companyId);
+      const companyId = resolveAdminCompanyId(req, req.params.companyId);
       if (!companyId) {
         return res.status(400).json({ error: 'Invalid company context' });
       }
@@ -393,7 +385,7 @@ router.get(
   requireRole('MANAGER', 'COMPANY_ADMIN', 'SUPER_ADMIN'),
   async (req, res, next) => {
     try {
-      const companyId = resolveCompanyId(req, req.params.companyId);
+      const companyId = resolveAdminCompanyId(req, req.params.companyId);
       if (!companyId) {
         return res.status(400).json({ error: 'Invalid company context' });
       }
@@ -421,7 +413,7 @@ router.get(
   requireRole('COMPANY_ADMIN', 'SUPER_ADMIN'),
   async (req, res, next) => {
     try {
-      const companyId = resolveCompanyId(req, req.params.companyId);
+      const companyId = resolveAdminCompanyId(req, req.params.companyId);
       if (!companyId) {
         return res.status(400).json({ error: 'Invalid company context' });
       }
@@ -456,7 +448,7 @@ router.get(
   requireRole('COMPANY_ADMIN', 'SUPER_ADMIN'),
   async (req, res, next) => {
     try {
-      const companyId = resolveCompanyId(req, req.params.companyId);
+      const companyId = resolveAdminCompanyId(req, req.params.companyId);
       if (!companyId) {
         return res.status(400).json({ error: 'Invalid company context' });
       }
@@ -479,7 +471,7 @@ router.post(
   requireRole('COMPANY_ADMIN', 'SUPER_ADMIN'),
   async (req, res, next) => {
     try {
-      const companyId = resolveCompanyId(req, req.params.companyId);
+      const companyId = resolveAdminCompanyId(req, req.params.companyId);
       if (!companyId) {
         return res.status(400).json({ error: 'Invalid company context' });
       }
@@ -549,7 +541,7 @@ router.post(
   requireRole('COMPANY_ADMIN', 'SUPER_ADMIN'),
   async (req, res, next) => {
     try {
-      const companyId = resolveCompanyId(req, req.params.companyId);
+      const companyId = resolveAdminCompanyId(req, req.params.companyId);
       if (!companyId) {
         return res.status(400).json({ error: 'Invalid company context' });
       }
@@ -618,7 +610,7 @@ router.delete(
   requireRole('COMPANY_ADMIN', 'SUPER_ADMIN'),
   async (req, res, next) => {
     try {
-      const companyId = resolveCompanyId(req, req.params.companyId);
+      const companyId = resolveAdminCompanyId(req, req.params.companyId);
       if (!companyId) {
         return res.status(400).json({ error: 'Invalid company context' });
       }
@@ -649,7 +641,7 @@ router.post(
   requireRole('COMPANY_ADMIN', 'SUPER_ADMIN'),
   async (req, res, next) => {
     try {
-      const companyId = resolveCompanyId(req, req.params.companyId);
+      const companyId = resolveAdminCompanyId(req, req.params.companyId);
       if (!companyId) {
         return res.status(400).json({ error: 'Invalid company context' });
       }
@@ -689,7 +681,7 @@ router.post(
   requireRole('COMPANY_ADMIN', 'SUPER_ADMIN'),
   async (req, res, next) => {
     try {
-      const companyId = resolveCompanyId(req, req.params.companyId);
+      const companyId = resolveAdminCompanyId(req, req.params.companyId);
       if (!companyId) {
         return res.status(400).json({ error: 'Invalid company context' });
       }
@@ -823,8 +815,7 @@ router.put(
   async (req, res, next) => {
     try {
       const requestedCompanyId = req.body?.companyId;
-      const resolvedCompanyId =
-        isSuper(req) && isObjectId(requestedCompanyId) ? requestedCompanyId : req.user.company;
+      const resolvedCompanyId = resolveAdminCompanyId(req, requestedCompanyId);
 
       if (!isObjectId(resolvedCompanyId)) {
         return res.status(400).json({ error: 'Invalid company context' });

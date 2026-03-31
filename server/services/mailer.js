@@ -60,6 +60,7 @@ const getDefaultFromAddress = () => {
   const fallback = 'noreply@keepupcrm.com';
   const from =
     trim(process.env.SMTP_FROM) ||
+    trim(process.env.SIGNUP_REQUEST_FROM) ||
     trim(process.env.BETA_SIGNUP_FROM) ||
     trim(process.env.BETA_SMTP_USER) ||
     trim(process.env.ZOHO_SMTP_USER) ||
