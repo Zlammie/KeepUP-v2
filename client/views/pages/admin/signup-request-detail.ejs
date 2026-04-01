@@ -26,6 +26,8 @@
       : []; %>
     <% const companyAdminSectionHref = request.companyId ? `/admin-section?companyId=${encodeURIComponent(String(request.companyId))}` : ''; %>
     <% const companyAdminUsersHref = request.companyId ? `/admin-section?companyId=${encodeURIComponent(String(request.companyId))}&tab=users` : ''; %>
+    <% const legalAccepted = !!request.termsAccepted; %>
+    <% const legalRecorded = legalAccepted || !!request.termsAcceptedAt || !!request.termsVersion || !!request.privacyVersion; %>
     <%- include('../../partials/nav') %>
     <main class="main-content p-4">
       <header class="mb-3 d-flex justify-content-between align-items-center gap-3 flex-wrap">
@@ -101,6 +103,36 @@
                 <dd class="col-sm-7">
                   <%= request.provisionedAt ? new Date(request.provisionedAt).toLocaleString() : 'Not provisioned yet' %>
                 </dd>
+              </dl>
+            </div>
+          </div>
+
+          <div class="card shadow-sm mt-3">
+            <div class="card-body">
+              <div class="d-flex justify-content-between align-items-start gap-3 flex-wrap mb-3">
+                <div>
+                  <p class="text-uppercase small text-muted mb-0">Legal Acceptance</p>
+                  <h3 class="h6 mb-0">Terms and Privacy</h3>
+                </div>
+                <span class="badge <%= legalAccepted ? 'text-bg-success' : legalRecorded ? 'text-bg-secondary' : 'text-bg-light' %> text-uppercase">
+                  <%= legalAccepted ? 'Accepted' : legalRecorded ? 'Not Accepted' : 'Not Recorded' %>
+                </span>
+              </div>
+
+              <dl class="row mb-0">
+                <dt class="col-sm-5">Accepted</dt>
+                <dd class="col-sm-7"><%= legalAccepted ? 'Yes' : legalRecorded ? 'No' : 'Not recorded' %></dd>
+
+                <dt class="col-sm-5">Accepted At</dt>
+                <dd class="col-sm-7">
+                  <%= request.termsAcceptedAt ? new Date(request.termsAcceptedAt).toLocaleString() : 'Not recorded' %>
+                </dd>
+
+                <dt class="col-sm-5">Terms Version</dt>
+                <dd class="col-sm-7"><%= request.termsVersion || 'Not recorded' %></dd>
+
+                <dt class="col-sm-5">Privacy Version</dt>
+                <dd class="col-sm-7"><%= request.privacyVersion || 'Not recorded' %></dd>
               </dl>
             </div>
           </div>

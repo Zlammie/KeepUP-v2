@@ -38,12 +38,17 @@ test('blast footer injection adds unsubscribe footer and List-Unsubscribe header
   const footer = appendUnsubscribeFooter({
     html: '<p>Hello</p>',
     text: 'Hello',
-    unsubscribeUrl
+    unsubscribeUrl,
+    companyName: company.name,
+    blastName: 'Spring Update'
   });
 
   assert.ok(footer.html.includes('data-keepup-unsubscribe'), 'Footer HTML should include unsubscribe marker');
   assert.ok(footer.html.includes(unsubscribeUrl), 'Footer HTML should include unsubscribe URL');
   assert.ok(footer.text.includes(unsubscribeUrl), 'Footer text should include unsubscribe URL');
+  assert.ok(footer.html.includes(company.name), 'Footer HTML should include company context');
+  assert.ok(footer.html.includes('Spring Update'), 'Footer HTML should include blast context');
+  assert.ok(footer.text.includes(company.name), 'Footer text should include company context');
 
   const job = await createJob({
     companyId: company._id,
@@ -72,6 +77,8 @@ test('blast footer injection adds unsubscribe footer and List-Unsubscribe header
     String(captured.headers['List-Unsubscribe']).includes('/email/unsubscribe?token='),
     'List-Unsubscribe header should include unsubscribe URL'
   );
+  assert.ok(String(captured.html || '').includes(company.name), 'Blast HTML should include company context');
+  assert.ok(String(captured.text || '').includes(company.name), 'Blast text should include company context');
 
   const updated = await EmailJob.findById(job._id).lean();
   assert.strictEqual(updated.status, EmailJob.STATUS.SENT, 'Blast job should be sent in test');

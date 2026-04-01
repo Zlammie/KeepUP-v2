@@ -18,6 +18,10 @@ const SignupRequestSchema = new Schema(
     phone: { type: String, required: true, trim: true },
     salesTeamSize: { type: String, required: true, trim: true },
     interestedProducts: { type: [String], default: [] },
+    termsAccepted: { type: Boolean, default: false },
+    termsAcceptedAt: { type: Date, default: null },
+    termsVersion: { type: String, default: '', trim: true },
+    privacyVersion: { type: String, default: '', trim: true },
     status: {
       type: String,
       enum: Object.values(SIGNUP_REQUEST_STATUSES),

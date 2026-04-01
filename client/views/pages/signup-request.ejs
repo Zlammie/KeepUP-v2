@@ -124,6 +124,23 @@
             </div>
           </fieldset>
 
+          <div class="field">
+            <div class="checkbox-option checkbox-option--legal">
+              <input
+                type="checkbox"
+                id="termsAccepted"
+                name="termsAccepted"
+                value="true"
+                required
+                <%= values.termsAccepted ? 'checked' : '' %>
+              />
+              <label for="termsAccepted">
+                I agree to the <a href="/terms">Terms of Service</a> and
+                <a href="/privacy">Privacy Policy</a>.
+              </label>
+            </div>
+          </div>
+
           <button type="submit" class="btn-primary">Request access</button>
 
           <p class="footnote">
@@ -133,5 +150,26 @@
         </form>
       </section>
     </main>
+    <script>
+      (() => {
+        const form = document.querySelector('.signup-request-form');
+        const termsCheckbox = document.getElementById('termsAccepted');
+        if (!form || !termsCheckbox) return;
+
+        const validationMessage = 'Please agree to the Terms of Service and Privacy Policy.';
+        const syncValidity = () => {
+          termsCheckbox.setCustomValidity(termsCheckbox.checked ? '' : validationMessage);
+        };
+
+        syncValidity();
+        termsCheckbox.addEventListener('change', syncValidity);
+        form.addEventListener('submit', (event) => {
+          syncValidity();
+          if (!termsCheckbox.reportValidity()) {
+            event.preventDefault();
+          }
+        });
+      })();
+    </script>
   </body>
 </html>

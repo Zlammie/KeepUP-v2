@@ -418,6 +418,11 @@ router.get(
         return res.status(400).json({ error: 'Invalid company context' });
       }
 
+      const company = await Company.findById(companyId).select('name').lean();
+      if (!company) {
+        return res.status(404).json({ error: 'Company not found' });
+      }
+
       const email = trimToNull(req.query?.email) || 'test@example.com';
       const unsubscribeUrl = buildUnsubscribeUrl({ companyId, email });
       if (!unsubscribeUrl) {
@@ -429,7 +434,9 @@ router.get(
       const preview = appendUnsubscribeFooter({
         html: baseHtml,
         text: baseText,
-        unsubscribeUrl
+        unsubscribeUrl,
+        companyName: company.name || '',
+        blastName: 'Preview Blast'
       });
 
       return res.json({

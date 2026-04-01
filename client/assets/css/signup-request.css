@@ -129,6 +129,11 @@ body.signup-request {
   cursor: pointer;
 }
 
+.checkbox-option label {
+  line-height: 1.4;
+  cursor: pointer;
+}
+
 .checkbox-option input {
   width: 18px;
   height: 18px;
@@ -138,6 +143,28 @@ body.signup-request {
 
 .checkbox-option span {
   line-height: 1.4;
+}
+
+.checkbox-option a {
+  color: var(--signup-request-primary);
+  text-decoration: none;
+}
+
+.checkbox-option a:hover {
+  text-decoration: underline;
+}
+
+.checkbox-option--legal {
+  align-items: flex-start;
+}
+
+.checkbox-option--legal input {
+  margin-top: 2px;
+}
+
+.checkbox-option--legal label {
+  font-weight: 500;
+  color: #334155;
 }
 
 .btn-primary {

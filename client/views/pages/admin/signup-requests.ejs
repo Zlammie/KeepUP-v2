@@ -55,6 +55,8 @@
                   </tr>
                 <% } %>
                 <% (requests || []).forEach((request) => { %>
+                  <% const legalAccepted = !!request.termsAccepted; %>
+                  <% const legalRecorded = legalAccepted || !!request.termsAcceptedAt || !!request.termsVersion || !!request.privacyVersion; %>
                   <tr>
                     <td class="text-muted small">
                       <%= new Date(request.submittedAt || request.createdAt).toLocaleString() %>
@@ -73,7 +75,14 @@
                         <span class="text-muted">--</span>
                       <% } %>
                     </td>
-                    <td><span class="badge text-bg-light text-uppercase"><%= request.status %></span></td>
+                    <td>
+                      <div class="d-flex flex-column align-items-start gap-1">
+                        <span class="badge text-bg-light text-uppercase"><%= request.status %></span>
+                        <span class="badge <%= legalAccepted ? 'text-bg-success' : legalRecorded ? 'text-bg-secondary' : 'text-bg-light' %>">
+                          <%= legalAccepted ? 'Legal Accepted' : legalRecorded ? 'Legal Not Accepted' : 'Legal Not Recorded' %>
+                        </span>
+                      </div>
+                    </td>
                     <td class="small">
                       <% const stageTone = request.onboardingStage === 'Setup Complete'
                         ? 'success'

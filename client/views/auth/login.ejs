@@ -3,14 +3,13 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>Sign in · KeepUP</title>
+  <title>Sign in &middot; KeepUP</title>
   <link rel="preconnect" href="/" />
   <link rel="stylesheet" href="/assets/css/auth.css" />
 </head>
 <body class="auth no-nav">
   <main class="auth__wrap">
     <section class="auth__card" role="form" aria-labelledby="login-title">
-      
       <header class="auth__header">
         <!-- If you have a logo: <img src="/assets/logo.svg" alt="KeepUP" class="auth__logo" /> -->
         <h1 id="login-title" class="auth__title">Welcome back</h1>
@@ -32,7 +31,7 @@
 
         <div class="field">
           <label for="password" class="label">Password</label>
-          <input id="password" name="password" type="password" required autocomplete="current-password" class="input" placeholder="••••••••" />
+          <input id="password" name="password" type="password" required autocomplete="current-password" class="input" placeholder="Enter your password" />
         </div>
 
         <div class="row row--between">
@@ -47,7 +46,10 @@
       </form>
 
       <footer class="auth__footer">
-        <p class="muted">By signing in you agree to the Terms & Privacy.</p>
+        <p class="muted auth__footer-copy">
+          By signing in you agree to the <a href="/terms" class="link">Terms of Service</a> and
+          <a href="/privacy" class="link">Privacy Policy</a>.
+        </p>
       </footer>
     </section>
   </main>

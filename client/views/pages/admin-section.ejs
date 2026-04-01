@@ -855,8 +855,12 @@
             <button type="button" class="btn btn-sm btn-outline-secondary" id="billingStripeConfirmNoticeDismiss">Dismiss</button>
           </div>
         </div>
-        <p class="text-muted mb-4">
+        <p class="text-muted mb-1">
           Company Admins can confirm addresses, monitor seat usage, and request upgrades. Platform-level billing stays locked down.
+        </p>
+        <p class="small text-muted mb-4">
+          Subscription, renewal, cancellation, and payment details are described in the
+          <a href="/billing-terms" class="link-secondary">Billing Terms</a>.
         </p>
 
           <form id="billing-settings-form" class="row g-4">
@@ -962,7 +966,11 @@
                   </div>
                   <div class="d-flex align-items-center justify-content-between flex-wrap gap-2">
                     <span class="fw-semibold">Estimated Monthly Total: <span id="billing-summary-total">--</span></span>
-                    <span class="small text-muted" id="billingStripeSummaryNote">Billing is managed by the KeepUp team.</span>
+                    <span class="small text-muted">
+                      <span id="billingStripeSummaryNote">Billing is managed by the KeepUp team.</span>
+                      <span aria-hidden="true">&middot;</span>
+                      <a href="/billing-terms" class="link-secondary">Billing Terms</a>
+                    </span>
                   </div>
                 </div>
               </div>

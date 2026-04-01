@@ -2,6 +2,7 @@ const express = require('express');
 const mongoose = require('mongoose');
 const router = express.Router();
 
+const { KEEPUP_LEGAL_VERSIONS, buildSignupLegalAcceptance } = require('../constants/legalVersions');
 const SignupRequest = require('../models/SignupRequest');
 const { sendSignupRequestEmail } = require('../services/signupRequestMailer');
 
@@ -27,6 +28,7 @@ const INTERESTED_PRODUCT_OPTIONS = [
   'Competition Tracking',
   'Email Automation'
 ];
+const ACCEPTED_CHECKBOX_VALUES = new Set(['1', 'true', 'on', 'yes']);
 
 const emptyValues = () => ({
   firstName: '',
@@ -35,8 +37,14 @@ const emptyValues = () => ({
   workEmail: '',
   phone: '',
   salesTeamSize: '',
-  interestedProducts: []
+  interestedProducts: [],
+  termsAccepted: false
 });
+
+const hasAcceptedCheckbox = (value) => {
+  if (typeof value === 'boolean') return value;
+  return ACCEPTED_CHECKBOX_VALUES.has(sanitize(value).toLowerCase());
+};
 
 const isId = (value) => mongoose.Types.ObjectId.isValid(String(value || ''));
 
@@ -58,6 +66,24 @@ const renderSignupRequestView = (res, overrides = {}) => {
   return res.render('pages/signup-request', viewModel);
 };
 
+const renderTermsView = (res) =>
+  res.render('pages/terms', {
+    lastUpdated: KEEPUP_LEGAL_VERSIONS.termsLastUpdated,
+    supportEmail: 'support@keepupcrm.com'
+  });
+
+const renderPrivacyView = (res) =>
+  res.render('pages/privacy', {
+    lastUpdated: KEEPUP_LEGAL_VERSIONS.privacyLastUpdated,
+    supportEmail: 'support@keepupcrm.com'
+  });
+
+const renderBillingTermsView = (res) =>
+  res.render('pages/billing-terms', {
+    lastUpdated: KEEPUP_LEGAL_VERSIONS.billingTermsLastUpdated,
+    supportEmail: 'support@keepupcrm.com'
+  });
+
 const handleSignupRequest = async (req, res) => {
   const values = {
     firstName: sanitize(req.body.firstName),
@@ -68,7 +94,8 @@ const handleSignupRequest = async (req, res) => {
     salesTeamSize: sanitize(req.body.salesTeamSize),
     interestedProducts: sanitizeArray(req.body.interestedProducts).filter((product) =>
       INTERESTED_PRODUCT_OPTIONS.includes(product)
-    )
+    ),
+    termsAccepted: hasAcceptedCheckbox(req.body.termsAccepted)
   };
   const phoneDigits = values.phone.replace(/\D/g, '');
 
@@ -86,6 +113,9 @@ const handleSignupRequest = async (req, res) => {
   if (!values.salesTeamSize) errors.push('Sales team size is required.');
   else if (!/^\d+$/.test(values.salesTeamSize) || Number(values.salesTeamSize) < 1) {
     errors.push('Enter a valid sales team size.');
+  }
+  if (!values.termsAccepted) {
+    errors.push('You must agree to the Terms of Service and Privacy Policy.');
   }
 
   if (errors.length) {
@@ -113,6 +143,7 @@ const handleSignupRequest = async (req, res) => {
       existingOpenRequest.phone = values.phone;
       existingOpenRequest.salesTeamSize = values.salesTeamSize;
       existingOpenRequest.interestedProducts = values.interestedProducts;
+      Object.assign(existingOpenRequest, buildSignupLegalAcceptance());
       existingOpenRequest.submittedAt = new Date();
       await existingOpenRequest.save();
 
@@ -125,6 +156,7 @@ const handleSignupRequest = async (req, res) => {
 
     const signupRequest = await SignupRequest.create({
       ...values,
+      ...buildSignupLegalAcceptance(),
       status: SignupRequest.STATUS.PENDING
     });
 
@@ -162,6 +194,9 @@ const handleSignupRequest = async (req, res) => {
 };
 
 router.get('/signup-request', (req, res) => renderSignupRequestView(res));
+router.get('/terms', (req, res) => renderTermsView(res));
+router.get('/privacy', (req, res) => renderPrivacyView(res));
+router.get('/billing-terms', (req, res) => renderBillingTermsView(res));
 router.get('/beta-signup', (req, res) => res.redirect(302, '/signup-request'));
 
 router.get('/public/communities/:communityId', (req, res) => {

@@ -177,4 +177,11 @@ body.auth{
   margin-top: 14px;
   text-align: center;
 }
+.auth__footer-copy{
+  margin: 10px 0 0;
+}
+.auth__footer-copy .link{
+  font-size: inherit;
+  font-weight: 600;
+}
 .muted{ color: rgb(var(--muted)); font-size: .85rem; }

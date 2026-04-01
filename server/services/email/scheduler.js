@@ -591,7 +591,7 @@ async function processDueEmailJobs({
     let company = companyCache.get(companyKey);
     if (!companyCache.has(companyKey)) {
       company = await Company.findById(job.companyId)
-        .select('settings.timezone emailDailyCap emailDailyCapEnabled emailSendingPaused emailWarmup emailDomainVerifiedAt')
+        .select('name settings.timezone emailDailyCap emailDailyCapEnabled emailSendingPaused emailWarmup emailDomainVerifiedAt')
         .lean();
       companyCache.set(companyKey, company || null);
     }
@@ -745,7 +745,9 @@ async function processDueEmailJobs({
       const withFooter = appendUnsubscribeFooter({
         html: renderedHtml,
         text: renderedText,
-        unsubscribeUrl
+        unsubscribeUrl,
+        companyName: company?.name || '',
+        blastName: job.meta?.blastName || ''
       });
       renderedHtml = withFooter.html;
       renderedText = withFooter.text;
